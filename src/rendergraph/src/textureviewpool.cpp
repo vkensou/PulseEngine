@@ -1,0 +1,35 @@
+#include "textureviewpool.h"
+
+namespace HGEGraphics
+{
+	TextureViewPool::TextureViewPool(TextureViewPool* upstream, std::pmr::memory_resource* const memory_resource)
+		: ResourcePool(11, upstream, memory_resource), allocator(memory_resource)
+	{
+	}
+	TextureView* TextureViewPool::getResource_impl(const CGPUTextureViewDescriptor& descriptor)
+	{
+		auto handle = cgpu_device_create_texture_view(descriptor.texture->device, &descriptor);
+		auto texture_view = allocator.new_object<TextureView>();
+		texture_view->_descriptor = descriptor;
+		texture_view->handle = handle;
+		return texture_view;
+	}
+	void TextureViewPool::destroyResource_impl(TextureView* resource)
+	{
+		cgpu_device_free_texture_view(resource->handle->device, resource->handle);
+		allocator.delete_object(resource);
+	}
+
+	void TextureViewPool::destroyRelativeTexture(CGPUTextureId texture)
+	{
+		std::erase_if(m_resources, [this, texture](auto& kv) -> bool
+			{
+				bool relative = kv.first.texture == texture;
+				if (relative)
+				{
+					destroyResource_impl(kv.second.first);
+				}
+				return relative;
+			});
+	}
+}

@@ -1,0 +1,1 @@
+del examples\assets\shaderbin\*.spv
