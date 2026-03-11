@@ -1,4 +1,4 @@
-#include "framework.h"
+﻿#include "framework.h"
 
 #include <SDL3/SDL.h>
 #include "cgpu/api.h"
@@ -528,22 +528,17 @@ bool on_resize(oval_cgpu_device_t* D, oval_window_impl_t* window)
 		.format = swapchainFormat,
 	};
 
-	if (window->swapchain == nullptr)
-	{
-		window->swapchain = SwapChain::create(D->device, descriptor);
-	}
-	else
+	if (window->swapchain != nullptr)
 	{
 		release_swapchain_related_resources(D, window->swapchain->handle);
-		auto new_swapchain = SwapChain::resize(std::move(window->swapchain), descriptor);
-		if (!new_swapchain)
-		{
-			// 处理resize失败的情况
-			return false;
-		}
-		window->swapchain = std::move(new_swapchain);
 	}
 
+	auto new_swapchain = SwapChain::resize(std::move(window->swapchain), D->device, descriptor);
+	if (!new_swapchain)
+	{
+		return false;
+	}
+	window->swapchain = std::move(new_swapchain);
 	return true;
 }
 

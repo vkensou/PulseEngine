@@ -112,7 +112,7 @@ struct SwapChain
 	std::vector<CGPUSemaphoreId> render_finished_semaphores;
 
 	static std::unique_ptr<SwapChain> create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor);
-	static std::unique_ptr<SwapChain> resize(std::unique_ptr<SwapChain> old_swap_chain, const CGPUSwapChainDescriptor& swap_chain_descriptor);
+	static std::unique_ptr<SwapChain> resize(std::unique_ptr<SwapChain> old_swap_chain, CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor);
 
 	~SwapChain();
 

@@ -1,4 +1,4 @@
-#include "cgpu_device.h"
+﻿#include "cgpu_device.h"
 #include <algorithm>
 
 oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor)
@@ -54,8 +54,6 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 		.format = swapchainFormat,
 	};
 
-	oval_window->swapchain = SwapChain::create(D->device, swap_chain_descriptor);
-
 	D->windows.push_back(oval_window);
 	return oval_window;
 }
@@ -81,33 +79,7 @@ void oval_free_window(oval_device_t* device, oval_window_t* window)
 
 std::unique_ptr<SwapChain> SwapChain::create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)
 {
-	auto ptr = new SwapChain();
-	auto swapchain = std::unique_ptr<SwapChain>(ptr);
-
-	auto handle = cgpu_device_create_swap_chain(device, &swap_chain_descriptor);
-	if (handle == CGPU_NULLPTR)
-		return nullptr;
-	swapchain->handle = handle;
-
-	swapchain->backbuffer.resize(handle->back_buffer_count);
-	swapchain->swapchain_prepared_semaphores.reserve(handle->back_buffer_count);
-	swapchain->render_finished_semaphores.reserve(handle->back_buffer_count);
-
-	for (uint32_t i = 0; i < handle->back_buffer_count; i++)
-	{
-		HGEGraphics::init_backbuffer(&swapchain->backbuffer[i], handle, i);
-		auto prepared_semaphore = cgpu_device_create_semaphore(device);
-		if (prepared_semaphore == CGPU_NULLPTR)
-			return nullptr;
-		swapchain->swapchain_prepared_semaphores.push_back(prepared_semaphore);
-
-		auto render_finished_semaphore = cgpu_device_create_semaphore(device);
-		if (render_finished_semaphore == CGPU_NULLPTR)
-			return nullptr;
-		swapchain->render_finished_semaphores.push_back(render_finished_semaphore);
-	}
-
-	return swapchain;
+	return resize(nullptr, device, swap_chain_descriptor);
 }
 
 SwapChain::~SwapChain()
@@ -130,21 +102,43 @@ SwapChain::~SwapChain()
 		cgpu_device_free_swap_chain(handle->device, handle);
 }
 
-std::unique_ptr<SwapChain> SwapChain::resize(std::unique_ptr<SwapChain> old_swap_chain, const CGPUSwapChainDescriptor& swap_chain_descriptor)
+std::unique_ptr<SwapChain> SwapChain::resize(std::unique_ptr<SwapChain> old_swap_chain, CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)
 {
-	auto device = old_swap_chain->handle->device;
+	auto swapchain = std::move(old_swap_chain);
+	if (!swapchain)
+	{
+		swapchain = std::unique_ptr<SwapChain>(new SwapChain());
+	}
+	else
+	{
+		for (auto semaphore : swapchain->swapchain_prepared_semaphores)
+		{
+			cgpu_device_free_semaphore(semaphore->device, semaphore);
+		}
+		swapchain->swapchain_prepared_semaphores.clear();
 
-	auto ptr = new SwapChain();
-	auto swapchain = std::unique_ptr<SwapChain>(ptr);
+		for (auto semaphore : swapchain->render_finished_semaphores)
+		{
+			cgpu_device_free_semaphore(semaphore->device, semaphore);
+		}
+		swapchain->render_finished_semaphores.clear();
+
+		swapchain->backbuffer.clear();
+
+		if (swapchain->handle != CGPU_NULLPTR)
+		{
+			cgpu_device_free_swap_chain(swapchain->handle->device, swapchain->handle);
+			swapchain->handle = CGPU_NULLPTR;
+		}
+	}
 
 	CGPUSwapChainDescriptor descriptor = swap_chain_descriptor;
-	descriptor.old_swap_chain = old_swap_chain != nullptr ? old_swap_chain->handle : CGPU_NULLPTR;
-
 	auto handle = cgpu_device_create_swap_chain(device, &descriptor);
 	if (handle == CGPU_NULLPTR)
 		return nullptr;
 	swapchain->handle = handle;
 
+	// 初始化backbuffer和semaphores
 	swapchain->backbuffer.resize(handle->back_buffer_count);
 	swapchain->swapchain_prepared_semaphores.reserve(handle->back_buffer_count);
 	swapchain->render_finished_semaphores.reserve(handle->back_buffer_count);
