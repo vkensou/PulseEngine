@@ -106,16 +106,23 @@ struct TexturedVertex
 
 struct SwapChain
 {
-	CGPUSurfaceId surface;
-	CGPUSwapChainId handle;
+	CGPUSwapChainId handle{ CGPU_NULLPTR };
 	std::vector<HGEGraphics::Backbuffer> backbuffer;
 	std::vector<CGPUSemaphoreId> swapchain_prepared_semaphores;
 	std::vector<CGPUSemaphoreId> render_finished_semaphores;
 
 	static std::unique_ptr<SwapChain> create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor);
+	static std::unique_ptr<SwapChain> resize(std::unique_ptr<SwapChain> old_swap_chain, const CGPUSwapChainDescriptor& swap_chain_descriptor);
 
 	~SwapChain();
-	void resize(uint32_t w, uint32_t h);
+
+private:
+	SwapChain(const SwapChain&) = delete;
+	SwapChain& operator=(const SwapChain&) = delete;
+	SwapChain(const SwapChain&&) = delete;
+	SwapChain& operator=(const SwapChain&&) = delete;
+
+	SwapChain() {}
 };
 
 struct oval_window_impl_t : oval_window_t {
