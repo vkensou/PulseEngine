@@ -52,7 +52,10 @@ uint64_t load_texture_ktx(oval_cgpu_device_t* device, oval_graphics_transfer_que
 	auto buffer = readfile(filepath);
 	result = ktxTexture_CreateFromMemory(buffer.data(), buffer.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
 	if (result != KTX_SUCCESS)
+	{
+		assert("load texture filed");
 		return 0;
+	}
 
 	auto [format, component] = detectKtxTextureFormat(ktxTexture);
 	// TODO: support compressed ktxTexture
@@ -143,7 +146,7 @@ uint64_t load_texture_raw(oval_cgpu_device_t* device, oval_graphics_transfer_que
 	auto texture_loader = stbi_load_from_memory((const stbi_uc *)buffer.data(), buffer.size(), &width, &height, &components, 4);
 	if (!texture_loader)
 	{
-		assert(texture_loader && "load texture filed");
+		assert("load texture filed");
 		return 0;
 	}
 

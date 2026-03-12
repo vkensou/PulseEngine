@@ -237,7 +237,7 @@ std::vector<uint8_t> readfile(const char* filename)
 	SDL_IOStream*rw = SDL_IOFromFile((const char*)filename, "rb");
 	if (!rw)
 	{
-		throw std::runtime_error("failed to open file!");
+		return {};
 	}
 
     auto size = SDL_GetIOSize(rw);
