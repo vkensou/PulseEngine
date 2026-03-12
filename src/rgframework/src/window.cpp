@@ -1,4 +1,4 @@
-#include "cgpu_device.h"
+﻿#include "cgpu_device.h"
 #include <algorithm>
 
 oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor)
@@ -53,16 +53,6 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 		.enable_vsync = true,
 		.format = swapchainFormat,
 	};
-	oval_window->swapchain = cgpu_device_create_swap_chain(D->device, &swap_chain_descriptor);
-	oval_window->backbuffer.resize(oval_window->swapchain->back_buffer_count);
-	oval_window->swapchain_prepared_semaphores.resize(oval_window->swapchain->back_buffer_count);
-	oval_window->render_finished_semaphores.resize(oval_window->swapchain->back_buffer_count);
-	for (uint32_t i = 0; i < oval_window->swapchain->back_buffer_count; i++)
-	{
-		HGEGraphics::init_backbuffer(&oval_window->backbuffer[i], oval_window->swapchain, i);
-		oval_window->swapchain_prepared_semaphores[i] = cgpu_device_create_semaphore(D->device);
-		oval_window->render_finished_semaphores[i] = cgpu_device_create_semaphore(D->device);
-	}
 
 	D->windows.push_back(oval_window);
 	return oval_window;
@@ -75,30 +65,103 @@ void oval_free_window(oval_device_t* device, oval_window_t* window)
 	auto iter = std::find(D->windows.begin(), D->windows.end(), oval_window);
 	if (iter != D->windows.end())
 	{
-		for (uint32_t i = 0; i < oval_window->swapchain_prepared_semaphores.size(); ++i)
-		{
-			cgpu_device_free_semaphore(D->device, oval_window->swapchain_prepared_semaphores[i]);
-			oval_window->swapchain_prepared_semaphores[i] = CGPU_NULLPTR;
-		}
-		oval_window->swapchain_prepared_semaphores.clear();
-
-		for (uint32_t i = 0; i < oval_window->render_finished_semaphores.size(); ++i)
-		{
-			cgpu_device_free_semaphore(D->device, oval_window->render_finished_semaphores[i]);
-			oval_window->render_finished_semaphores[i] = CGPU_NULLPTR;
-		}
-		oval_window->render_finished_semaphores.clear();
-
-		oval_window->backbuffer.clear();
-
-		cgpu_device_free_swap_chain(D->device, oval_window->swapchain);
 		oval_window->swapchain = CGPU_NULLPTR;
 		cgpu_instance_free_surface(D->instance, oval_window->surface);
 		oval_window->surface = CGPU_NULLPTR;
+		oval_window->swapchain.reset();
 
 		SDL_DestroyWindow(oval_window->window);
 
 		delete oval_window;
 		D->windows.erase(iter);
 	}
+}
+
+std::unique_ptr<SwapChain> SwapChain::create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)
+{
+	return resize(nullptr, device, swap_chain_descriptor);
+}
+
+SwapChain::~SwapChain()
+{
+	for (auto semaphore : swapchain_prepared_semaphores)
+	{
+		cgpu_device_free_semaphore(semaphore->device, semaphore);
+	}
+	swapchain_prepared_semaphores.clear();
+
+	for (auto semaphore : render_finished_semaphores)
+	{
+		cgpu_device_free_semaphore(semaphore->device, semaphore);
+	}
+	render_finished_semaphores.clear();
+
+	backbuffer.clear();
+
+	if (handle != CGPU_NULLPTR)
+		cgpu_device_free_swap_chain(handle->device, handle);
+}
+
+std::unique_ptr<SwapChain> SwapChain::resize(std::unique_ptr<SwapChain> old_swap_chain, CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)
+{
+	auto swapchain = std::move(old_swap_chain);
+	CGPUSwapChainId old_handle = CGPU_NULLPTR;
+	if (!swapchain)
+	{
+		swapchain = std::unique_ptr<SwapChain>(new SwapChain());
+	}
+	else
+	{
+		old_handle = swapchain->handle;
+		swapchain->handle = CGPU_NULLPTR;
+		swapchain->backbuffer.clear();
+	}
+
+	CGPUSwapChainDescriptor descriptor = swap_chain_descriptor;
+	descriptor.old_swap_chain = old_handle != CGPU_NULLPTR ? old_handle : CGPU_NULLPTR;
+	auto handle = cgpu_device_create_swap_chain(device, &descriptor);
+
+	if (old_handle != CGPU_NULLPTR)
+	{
+		cgpu_device_free_swap_chain(old_handle->device, old_handle);
+	}
+
+	if (handle == CGPU_NULLPTR)
+		return nullptr;
+	swapchain->handle = handle;
+
+	swapchain->backbuffer.resize(handle->back_buffer_count);
+	for (uint32_t i = 0; i < handle->back_buffer_count; i++)
+	{
+		HGEGraphics::init_backbuffer(&swapchain->backbuffer[i], handle, i);
+	}
+
+	for (uint32_t i = handle->back_buffer_count; i < swapchain->swapchain_prepared_semaphores.size(); ++i)
+	{
+		cgpu_device_free_semaphore(device, swapchain->swapchain_prepared_semaphores.back());
+		swapchain->swapchain_prepared_semaphores.pop_back();
+	}
+	for (uint32_t i = swapchain->swapchain_prepared_semaphores.size(); i < handle->back_buffer_count; ++i)
+	{
+		auto semaphore = cgpu_device_create_semaphore(device);
+		if (semaphore == CGPU_NULLPTR)
+			return nullptr;
+		swapchain->swapchain_prepared_semaphores.push_back(semaphore);
+	}
+	assert(swapchain->swapchain_prepared_semaphores.size() == handle->back_buffer_count);
+	for (uint32_t i = handle->back_buffer_count; i < swapchain->render_finished_semaphores.size(); ++i)
+	{
+		cgpu_device_free_semaphore(device, swapchain->render_finished_semaphores.back());
+		swapchain->render_finished_semaphores.pop_back();
+	}
+	for (uint32_t i = swapchain->render_finished_semaphores.size(); i < handle->back_buffer_count; ++i)
+	{
+		auto semaphore = cgpu_device_create_semaphore(device);
+		if (semaphore == CGPU_NULLPTR)
+			return nullptr;
+		swapchain->render_finished_semaphores.push_back(semaphore);
+	}
+	assert(swapchain->render_finished_semaphores.size() == handle->back_buffer_count);
+
+	return swapchain;
 }

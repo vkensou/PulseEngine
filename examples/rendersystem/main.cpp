@@ -418,8 +418,6 @@ struct Application
 	oval_window_t* window{ nullptr };
 	entt::registry registry;
 	std::vector<HGEGraphics::Mesh*> meshes;
-	CGPUSamplerId texture_sampler = CGPU_NULLPTR;
-	HGEGraphics::Texture* color_map{ nullptr };
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
@@ -964,28 +962,12 @@ void _init_resource(Application& app)
 	};
 	auto shader = oval_create_shader(app.device, "shaderbin/obj2.vert.spv", "shaderbin/obj2.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
-	CGPUSamplerDescriptor texture_sampler_desc = {
-		.min_filter = CGPU_FILTER_TYPE_LINEAR,
-		.mag_filter = CGPU_FILTER_TYPE_LINEAR,
-		.mipmap_mode = CGPU_MIP_MAP_MODE_LINEAR,
-		.address_u = CGPU_ADDRESS_MODE_REPEAT,
-		.address_v = CGPU_ADDRESS_MODE_REPEAT,
-		.address_w = CGPU_ADDRESS_MODE_REPEAT,
-		.mip_lod_bias = 0,
-		.max_anisotropy = 1,
-	};
-	app.texture_sampler = oval_create_sampler(app.device, &texture_sampler_desc);
-
-	app.color_map = oval_load_texture(app.device, "media/textures/tex.jpg", true);
-
 	load_scene(app, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
 }
 
 void _free_resource(Application& app)
 {
 	app.materials.clear();
-	app.color_map = nullptr;
-	app.texture_sampler = nullptr;
 }
 
 void _init_world(Application& app)
