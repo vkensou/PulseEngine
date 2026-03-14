@@ -180,6 +180,8 @@ typedef struct oval_cgpu_device_t {
 	std::pmr::vector<CGPUSamplerId> samplers;
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Texture>> textures;
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Material>> materials;
+	
+	entt::registry registry;
 } oval_cgpu_device_t;
 
 void oval_process_load_queue(oval_cgpu_device_t* device);
@@ -188,3 +190,4 @@ void oval_graphics_transfer_queue_release_all(oval_cgpu_device_t* device);
 uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Mesh* mesh, const char* filepath);
 uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Texture* texture, const char* filepath, bool mipmap);
 std::vector<uint8_t> readfile(const char* filename);
+entt::registry* oval_get_registry(oval_cgpu_device_t* device);

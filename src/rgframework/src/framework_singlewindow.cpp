@@ -866,3 +866,9 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 		*durations = nullptr;
 	}
 }
+
+entt::registry* oval_get_registry(oval_device_t* device)
+{
+	auto D = (oval_cgpu_device_t*)device;
+	return &D->registry;
+}

@@ -5,6 +5,7 @@
 #include "drawer.h"
 #include "HandmadeMath.h"
 #include <taskflow/taskflow.hpp>
+#include <entt/entt.hpp>
 
 typedef struct oval_update_context
 {
@@ -133,3 +134,5 @@ uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_slice(oval_graphi
 uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size);
 uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size);
 uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::Texture* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
+
+entt::registry* oval_get_registry(oval_device_t* device);

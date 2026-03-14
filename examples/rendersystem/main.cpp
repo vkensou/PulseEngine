@@ -416,7 +416,6 @@ struct Application
 {
 	oval_device_t* device{ nullptr };
 	oval_window_t* window{ nullptr };
-	entt::registry registry;
 	std::vector<HGEGraphics::Mesh*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
@@ -735,7 +734,7 @@ bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
 	return true;
 }
 
-void load_scene(Application& app, const char* filepath, HGEGraphics::Shader* shader)
+void load_scene(Application& app, entt::registry& registry, const char* filepath, HGEGraphics::Shader* shader)
 {
 	using namespace tinygltf;
 	Model model;
@@ -853,8 +852,6 @@ void load_scene(Application& app, const char* filepath, HGEGraphics::Shader* sha
 		}
 	}
 
-	auto& registry = app.registry;
-
 	std::vector<entt::entity> entities;
 	for (size_t i = 0; i < model.nodes.size(); ++i)
 	{
@@ -932,7 +929,7 @@ void load_scene(Application& app, const char* filepath, HGEGraphics::Shader* sha
 	registry.emplace<Rotate>(entities[0], HMM_V3_Up, 1.0f, HMM_Q_Identity);
 }
 
-void _init_resource(Application& app)
+void _init_resource(Application& app, entt::registry& registry)
 {
 	CGPUBlendAttachmentState blend_attachments = {
 		.enable = false,
@@ -962,7 +959,7 @@ void _init_resource(Application& app)
 	};
 	auto shader = oval_create_shader(app.device, "shaderbin/obj2.vert.spv", "shaderbin/obj2.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
-	load_scene(app, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
+	load_scene(app, registry, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
 }
 
 void _free_resource(Application& app)
@@ -970,10 +967,8 @@ void _free_resource(Application& app)
 	app.materials.clear();
 }
 
-void _init_world(Application& app)
+void _init_world(Application& app, entt::registry& registry)
 {
-	auto& registry = app.registry;
-
 	auto cam = registry.create();
 	auto cameraParentMat = HMM_QToM4(HMM_QFromEuler_YXZ(HMM_AngleDeg(33.4), HMM_AngleDeg(45), 0));
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0, 0, -10));
@@ -1048,9 +1043,8 @@ void updateSystem(const SystemContext& context, entt::registry& registry, Func&&
 	}
 }
 
-tf::Task simulate(Application& app, const oval_update_context& update_context, tf::Taskflow& flow)
+tf::Task simulate(Application& app, entt::registry& registry, const oval_update_context& update_context, tf::Taskflow& flow)
 {
-	auto& registry = app.registry;
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
 	auto simpleHarmonicMoveSystem = createForeachTask<const SimpleHarmonic, Position>(context, registry, flow, doSimpleHarmonicMove).name("简谐运动");
 	auto rotationSystem = createForeachTask<const Rotate, Rotation>(context, registry, flow, doRotation).name("旋转运动");
@@ -1077,9 +1071,8 @@ tf::Task simulate(Application& app, const oval_update_context& update_context, t
 	return endOfSimulate;
 }
 
-std::pmr::vector<entt::entity> vis(Application& app, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
+std::pmr::vector<entt::entity> vis(Application& app, entt::registry& registry, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
 {
-	auto& registry = app.registry;
 	auto view = registry.view<const ShowMatrix, const Rendable>();
 	std::pmr::vector<entt::entity> visibles(memory_resource);
 	visibles.reserve(view.size_hint());
@@ -1094,11 +1087,10 @@ std::pmr::vector<entt::entity> vis(Application& app, const Camera& camera, std::
 	return visibles;
 }
 
-std::pmr::vector<RenderObject> extract(Application& app, std::pmr::vector<entt::entity> visibles, std::pmr::synchronized_pool_resource* memory_resource)
+std::pmr::vector<RenderObject> extract(Application& app, entt::registry& registry, std::pmr::vector<entt::entity> visibles, std::pmr::synchronized_pool_resource* memory_resource)
 {
 	std::pmr::vector<RenderObject> renderObjects(memory_resource);
 	renderObjects.reserve(visibles.size());
-	auto& registry = app.registry;
 	for (auto entity : visibles)
 	{
 		auto matrix = registry.get<ShowMatrix>(entity);
@@ -1113,9 +1105,8 @@ std::pmr::vector<RenderObject> extract(Application& app, std::pmr::vector<entt::
 	return renderObjects;
 }
 
-void interpolate(Application& app, const oval_render_context& render_context)
+void interpolate(Application& app, entt::registry& registry, const oval_render_context& render_context)
 {
-	auto& registry = app.registry;
 	SystemContext context = SystemContext{ render_context.delta_time, render_context.time_since_startup, render_context.delta_time_double, render_context.time_since_startup_double, render_context.render_interpolation_time, render_context.render_interpolation_time_double };
 	updateSystem<const SimpleHarmonic, MoveInterpolation>(context, registry, updateMoveInterpolation);
 	updateSystem<const Rotate, RotateInterpolation>(context, registry, updateRotateInterpolation);
@@ -1125,10 +1116,8 @@ void interpolate(Application& app, const oval_render_context& render_context)
 	updateSystem<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>(context, registry, updateShowMatrixMoveAndRotate);
 }
 
-void enumViews(Application& app, FrameRenderPacket& currentFramePack)
+void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& currentFramePack)
 {
-	auto& registry = app.registry;
-
 	auto lightDir = HMM_Norm(HMM_V3(0, -1, 0));
 
 	auto light_view = registry.view<Light, const WorldTransform>();
@@ -1162,7 +1151,7 @@ void enumViews(Application& app, FrameRenderPacket& currentFramePack)
 				.lightDir = lightDir,
 				.viewPos = HMM_V4V(eye, 0),
 			},
-			.renderObjects = std::move(extract(app, std::move(vis(app, camera, currentFramePack.memory_resource)), currentFramePack.memory_resource)),
+			.renderObjects = std::move(extract(app, registry, std::move(vis(app, registry, camera, currentFramePack.memory_resource)), currentFramePack.memory_resource)),
 			});
 	}
 }
@@ -1240,9 +1229,10 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 tf::Taskflow on_update(oval_device_t* device, oval_update_context update_context)
 {
 	Application& app = *(Application*)device->descriptor.userdata;
+	auto& registry = *oval_get_registry(app.device);
 
 	tf::Taskflow flow;
-	auto simulateTask = simulate(app, update_context, flow);
+	auto simulateTask = simulate(app, registry, update_context, flow);
 
 	return flow;
 }
@@ -1250,9 +1240,10 @@ tf::Taskflow on_update(oval_device_t* device, oval_update_context update_context
 void on_render(oval_device_t* device, oval_render_context render_context)
 {
 	Application* app = (Application*)device->descriptor.userdata;
+	auto& registry = *oval_get_registry(device);
 	auto& cuurentFrameRenderPacket = app->frameRenderPackets[render_context.currentRenderPacketFrame];
-	interpolate(*app, render_context);
-	enumViews(*app, cuurentFrameRenderPacket);
+	interpolate(*app, registry, render_context);
+	enumViews(*app, registry, cuurentFrameRenderPacket);
 	prepare(*app, cuurentFrameRenderPacket);
 }
 
@@ -1281,7 +1272,7 @@ void on_imgui(oval_device_t* device, oval_render_context render_context)
 	}
 
 	Application* app = (Application*)device->descriptor.userdata;
-	app->enttEditor.renderSimpleCombo(app->registry, app->editorCurEntity);
+	app->enttEditor.renderSimpleCombo(*oval_get_registry(app->device), app->editorCurEntity);
 }
 
 void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg, HGEGraphics::texture_handle_t rg_back_buffer)
@@ -1327,9 +1318,10 @@ int SDL_main(int argc, char *argv[])
 	//	.on_imgui = on_imgui,
 	//};
 	//app.window = oval_create_window(app.device, &window_descriptor);
+	auto& registry = *oval_get_registry(app.device);
 
-	_init_resource(app);
-	_init_world(app);
+	_init_resource(app, registry);
+	_init_world(app, registry);
 		
 	oval_runloop(app.device);
 	_free_resource(app);
