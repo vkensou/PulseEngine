@@ -67,11 +67,13 @@ struct FrameData
 
 struct FrameInfo
 {
-	uint16_t current_swapchain_index;
+	uint32_t current_frame_index{ 0 };
+	size_t currentPacketFrame{ 0 };
 
 	void reset()
 	{
-		current_swapchain_index = -1;
+		current_frame_index = -1;
+		currentPacketFrame = -1;
 	}
 };
 
@@ -127,8 +129,58 @@ private:
 
 struct oval_window_impl_t : oval_window_t {
 	SDL_Window* window;
+	SDL_WindowID windowId;
 	CGPUSurfaceId surface;
 	std::unique_ptr<SwapChain> swapchain;
+	uint32_t current_swapchain_index;
+	HGEGraphics::Backbuffer* current_back_buffer;
+	CGPUSemaphoreId current_prepared_semaphore;
+	CGPUSemaphoreId current_finish_semaphore;
+	bool needResize;
+
+	void RequestResize()
+	{
+		needResize = true;
+	}
+
+	bool AcquireNextImage(uint32_t frame_index)
+	{
+		current_back_buffer = nullptr;
+		current_prepared_semaphore = CGPU_NULLPTR;
+		current_finish_semaphore = CGPU_NULLPTR;
+
+		if (!swapchain)
+			return false;
+
+		current_prepared_semaphore = swapchain->swapchain_prepared_semaphores[frame_index];
+
+		CGPUAcquireNextDescriptor acquire_desc = {
+			.signal_semaphore = current_prepared_semaphore,
+		};
+
+		auto res = cgpu_swap_chain_acquire_next_image(swapchain->handle, &acquire_desc, &current_swapchain_index);
+		if (current_swapchain_index < swapchain->handle->back_buffer_count)
+		{
+			current_finish_semaphore = swapchain->render_finished_semaphores[current_swapchain_index];
+			current_back_buffer = &swapchain->backbuffer[current_swapchain_index];
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	void Present(CGPUQueueId present_queue)
+	{
+		CGPUQueuePresentDescriptor present_desc = {
+			.swapchain = swapchain->handle,
+			.wait_semaphore_count = 1,
+			.p_wait_semaphores = &current_finish_semaphore,
+			.index = (uint8_t)current_swapchain_index,
+		};
+		cgpu_queue_present(present_queue, &present_desc);
+	}
 };
 
 typedef struct oval_cgpu_device_t {
@@ -148,7 +200,6 @@ typedef struct oval_cgpu_device_t {
 	CGPUQueueId present_queue;
 
 	std::vector<FrameData> frameDatas;
-	uint32_t current_frame_index;
 	FrameInfo info;
 
 	HGEGraphics::Shader* blit_shader = nullptr;
@@ -161,7 +212,6 @@ typedef struct oval_cgpu_device_t {
 
 	ImDrawDataSnapshot snapshot;
 	ImDrawData* imgui_draw_data = nullptr;
-	size_t currentPacketFrame{ 0 };
 
 	bool rdc_capture = false;
 	RENDERDOC_API_1_0_0* rdc = nullptr;

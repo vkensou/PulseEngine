@@ -24,13 +24,18 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 
 	auto oval_window = new oval_window_impl_t();
 	oval_window->window = window;
+	oval_window->windowId = SDL_GetWindowID(window);
 	oval_window->width = w;
 	oval_window->height = h;
 	oval_window->on_imgui = window_descriptor->on_imgui;
+	oval_window->needResize = false;
+	oval_window->current_swapchain_index = 0;
+	oval_window->current_finish_semaphore = CGPU_NULLPTR;
 
 	auto D = (oval_cgpu_device_t*)device;
 
 	auto window_props = SDL_GetWindowProperties(window);
+	SDL_SetPointerProperty(window_props, "sdl.window.userdata", oval_window);
 	void* native_view = nullptr;
 #ifdef _WIN32
 	auto hwnd = SDL_GetPointerProperty(window_props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
@@ -41,18 +46,6 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 #endif
 
 	oval_window->surface = cgpu_instance_create_surface_from_native_view(D->instance, native_view);
-
-	ECGPUTextureFormat swapchainFormat = CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB;
-	CGPUSwapChainDescriptor swap_chain_descriptor = {
-		.present_queue_count = 1,
-		.p_present_queues = &D->present_queue,
-		.surface = oval_window->surface,
-		.image_count = 3,
-		.width = (uint32_t)w,
-		.height = (uint32_t)h,
-		.enable_vsync = true,
-		.format = swapchainFormat,
-	};
 
 	D->windows.push_back(oval_window);
 	return oval_window;
