@@ -86,6 +86,8 @@ typedef struct oval_window_descriptor
     uint16_t width;
     uint16_t height;
     bool resizable;
+    bool use_imgui;
+    bool own_imgui;
     oval_on_imgui on_imgui;
 } oval_window_descriptor;
 

@@ -137,6 +137,8 @@ struct oval_window_impl_t : oval_window_t {
 	CGPUSemaphoreId current_prepared_semaphore;
 	CGPUSemaphoreId current_finish_semaphore;
 	bool needResize;
+	ImGuiContext* imgui_context;
+	bool imgui_owned_context;
 	ImGuiViewport* imgui_viewport;
 	ImDrawDataSnapshot snapshot;
 	ImDrawData* imgui_draw_data = nullptr;
@@ -188,7 +190,7 @@ struct oval_window_impl_t : oval_window_t {
 
 	void FetchImguiDrawData()
 	{
-		ImDrawData* drawData = imgui_viewport->DrawData;
+		ImDrawData* drawData = imgui_viewport ? imgui_viewport->DrawData : nullptr;
 		if (drawData)
 			snapshot.SnapUsingSwap(drawData, ImGui::GetTime());
 	}
@@ -216,6 +218,7 @@ typedef struct oval_cgpu_device_t {
 	HGEGraphics::Shader* blit_shader = nullptr;
 	CGPUSamplerId blit_linear_sampler = CGPU_NULLPTR;
 
+	ImFontAtlas* imgui_font = nullptr;;
 	HGEGraphics::Texture* imgui_font_texture = nullptr;
 	HGEGraphics::Shader* imgui_shader = nullptr;
 	CGPUSamplerId imgui_font_sampler = CGPU_NULLPTR;

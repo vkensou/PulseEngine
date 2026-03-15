@@ -177,17 +177,15 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	}
 
 	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-	ImGui::StyleColorsLight();
+	device_cgpu->imgui_font = IM_NEW(ImFontAtlas)();
 
 	oval_window_descriptor window_descriptor = {
 		.width = device_descriptor->width,
 		.height = device_descriptor->height,
 		.resizable = true,
+		.use_imgui = true,
+		.own_imgui = true,
 		.on_imgui = device_descriptor->on_imgui,
 	};
 	device_cgpu->super.mainwindow_entity = oval_create_window_entity(&device_cgpu->super, &window_descriptor);
@@ -195,14 +193,6 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 		auto& registry = device_cgpu->registry;
 		auto& window = registry.get<WindowComponent>(device_cgpu->super.mainwindow_entity);
 		device_cgpu->mainwindow = window.handle;
-	}
-
-	ImGui_ImplSDL3_InitForOther(((oval_window_impl_t*)device_cgpu->mainwindow)->window);
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		unsigned char* fontPixels;
-		int fontTexWidth, fontTexHeight;
-		io.Fonts->GetTexDataAsRGBA32(&fontPixels, &fontTexWidth, &fontTexHeight);
 	}
 
 	CGPUBlendAttachmentState blit_blend_attachments = {
@@ -276,7 +266,7 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	{
 		unsigned char* fontPixels;
 		int fontTexWidth, fontTexHeight;
-		io.Fonts->GetTexDataAsRGBA32(&fontPixels, &fontTexWidth, &fontTexHeight);
+		device_cgpu->imgui_font->GetTexDataAsRGBA32(&fontPixels, &fontTexWidth, &fontTexHeight);
 
 		uint64_t width = fontTexWidth;
 		uint64_t height = fontTexHeight;
@@ -604,24 +594,28 @@ void oval_runloop(oval_device_t* device)
 	{
 		while (SDL_PollEvent(&e))
 		{
-			ImGui_ImplSDL3_ProcessEvent(&e);
 			if (e.type == SDL_EVENT_QUIT)
 				quit = true;
-			else if ((e.type & 0x200) != 0)
+			else
 			{
 				auto props = SDL_GetWindowProperties(SDL_GetWindowFromEvent(&e));
 				auto window = (oval_window_impl_t*)SDL_GetPointerProperty(props, "sdl.window.userdata", nullptr);
 				if (window)
 				{
-					if (e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+					ImGui::SetCurrentContext(window->imgui_context);
+					ImGui_ImplSDL3_ProcessEvent(&e);
+					if ((e.type & 0x200) != 0)
 					{
-						auto mainwindow = (oval_window_impl_t*)D->mainwindow;
-						if (window == mainwindow)
-							quit = true;
-					}
-					else if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
-					{
-						window->RequestResize();
+						if (e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+						{
+							auto mainwindow = (oval_window_impl_t*)D->mainwindow;
+							if (window == mainwindow)
+								quit = true;
+						}
+						else if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
+						{
+							window->RequestResize();
+						}
 					}
 				}
 			}
@@ -673,8 +667,16 @@ void oval_runloop(oval_device_t* device)
 			window->FetchImguiDrawData();
 		}
 
-		ImGui_ImplSDL3_NewFrame();
-		ImGui::NewFrame();
+		for (auto window : D->windows)
+		{
+			auto oval_window = (oval_window_impl_t*)window;
+			if (oval_window->imgui_owned_context)
+			{
+				ImGui::SetCurrentContext(oval_window->imgui_context);
+				ImGui_ImplSDL3_NewFrame();
+				ImGui::NewFrame();
+			}
+		}
 
 		bool rdc_capturing = false;
 		if (D->rdc && D->rdc_capture)
@@ -733,8 +735,17 @@ void oval_runloop(oval_device_t* device)
 			{
 				if (D->super.descriptor.on_imgui)
 					D->super.descriptor.on_imgui(&D->super, render_context);
-				ImGui::EndFrame();
-				ImGui::Render();
+
+				for (auto window : D->windows)
+				{
+					auto oval_window = (oval_window_impl_t*)window;
+					if (oval_window->imgui_owned_context)
+					{
+						ImGui::SetCurrentContext(oval_window->imgui_context);
+						ImGui::EndFrame();
+						ImGui::Render();
+					}
+				}
 			}).name("imgui");
 
 		oval_submit_context submit_context
@@ -826,9 +837,6 @@ void oval_free_device(oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
-	ImGui_ImplSDL3_Shutdown();
-	ImGui::DestroyContext();
-
 	D->default_texture = nullptr;
 	D->imgui_shader = nullptr;
 	D->imgui_font_texture = nullptr;
@@ -844,6 +852,9 @@ void oval_free_device(oval_device_t* device)
 	D->windows.clear();
 	D->mainwindow = CGPU_NULLPTR;
 	D->super.mainwindow_entity = entt::entity{};
+
+	IM_DELETE(D->imgui_font);
+	D->imgui_font = nullptr;
 
 	D->info.reset();
 
