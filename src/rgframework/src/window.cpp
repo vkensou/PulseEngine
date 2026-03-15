@@ -58,23 +58,65 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 	return oval_window;
 }
 
-void oval_free_window(oval_device_t* device, oval_window_t* window)
+void oval_free_window(oval_cgpu_device_t* D, oval_window_impl_t* oval_window)
 {
-	auto oval_window = (oval_window_impl_t*)window;
-	auto D = (oval_cgpu_device_t*)device;
 	auto iter = std::find(D->windows.begin(), D->windows.end(), oval_window);
 	if (iter != D->windows.end())
 	{
-		oval_window->swapchain = CGPU_NULLPTR;
+		oval_window->swapchain.reset();
 		cgpu_instance_free_surface(D->instance, oval_window->surface);
 		oval_window->surface = CGPU_NULLPTR;
-		oval_window->swapchain.reset();
 
 		SDL_DestroyWindow(oval_window->window);
 
 		delete oval_window;
 		D->windows.erase(iter);
 	}
+}
+
+void oval_free_window(oval_device_t* device, oval_window_t* window)
+{
+	auto oval_window = (oval_window_impl_t*)window;
+	auto D = (oval_cgpu_device_t*)device;
+	oval_free_window(D, oval_window);
+}
+
+entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor)
+{
+	auto D = (oval_cgpu_device_t*)device;
+	auto& registry = D->registry;
+
+	auto window_handle = oval_create_window(device, window_descriptor);
+
+	auto window_entity = registry.create();
+	registry.emplace<WindowComponent>(window_entity, window_handle);
+
+	return window_entity;
+}
+
+void oval_free_window_entity(oval_device_t* device, entt::entity window_entity)
+{
+	auto D = (oval_cgpu_device_t*)device;
+	auto& registry = D->registry;
+
+	auto window = registry.try_get<WindowComponent>(window_entity);
+	if (window != nullptr)
+	{
+		auto oval_window = (oval_window_impl_t*)window->handle;
+
+		oval_free_window(D, oval_window);
+
+		registry.destroy(window_entity);
+	}
+}
+
+void oval_get_window_size(oval_window_t* window, int* width, int* height)
+{
+	auto oval_window = (oval_window_impl_t*)window;
+	int w, h;
+	SDL_GetWindowSize(oval_window->window, &w, &h);
+	*width = w;
+	*height = h;
 }
 
 std::unique_ptr<SwapChain> SwapChain::create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)

@@ -237,6 +237,7 @@ struct Light
 
 struct Camera
 {
+	entt::entity window_entity;
 	float fov;
 	float nearPlane;
 	float farPlane;
@@ -277,6 +278,7 @@ struct ObjectData
 
 struct ViewRenderPacket
 {
+	oval_window_t* window;
 	PassData passData;
 	std::pmr::vector<RenderObject> renderObjects;
 	std::pmr::vector<ObjectData> renderData;
@@ -967,14 +969,14 @@ void _free_resource(Application& app)
 	app.materials.clear();
 }
 
-void _init_world(Application& app, entt::registry& registry)
+void _init_world(Application& app, entt::registry& registry, entt::entity window_entity)
 {
 	auto cam = registry.create();
 	auto cameraParentMat = HMM_QToM4(HMM_QFromEuler_YXZ(HMM_AngleDeg(33.4), HMM_AngleDeg(45), 0));
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0, 0, -10));
 	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
 	registry.emplace<WorldTransform>(cam, cameraWMat);
-	registry.emplace<Camera>(cam, 45.0f, 0.1f, 20.f, app.device->width, app.device->height);
+	registry.emplace<Camera>(cam, window_entity, 45.0f, 0.1f, 20.f, app.device->width, app.device->height);
 
 	auto light = registry.create();
 	auto lightDir = HMM_Norm(HMM_V3(0.25f, -0.7f, 1.25f));
@@ -1139,6 +1141,15 @@ void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& cu
 		auto right = HMM_M4GetRight(cameraMat);
 		auto viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
 
+		auto window = registry.try_get<WindowComponent>(camera.window_entity);
+		oval_window_t* window_handle = nullptr;
+		if (window != nullptr && window->handle != nullptr)
+			window_handle = window->handle;
+		else
+			continue;
+
+		oval_get_window_size(window_handle, &camera.width, &camera.height);
+
 		float aspect = (float)camera.width / camera.height;
 		float near = camera.nearPlane;
 		float far = camera.farPlane;
@@ -1146,6 +1157,7 @@ void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& cu
 		auto vpMat = proj * viewMat;
 
 		currentFramePack.viewDatas.emplace_back(ViewRenderPacket{
+			.window = window_handle,
 			.passData = {
 				.vpMatrix = vpMat,
 				.lightDir = lightDir,
@@ -1176,23 +1188,27 @@ void prepare(Application& app, FrameRenderPacket& lastFrameRenderPacket)
 	}
 }
 
-void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_device_t* device, HGEGraphics::rendergraph_t& rg, HGEGraphics::texture_handle_t rg_back_buffer)
+void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_device_t* device, HGEGraphics::rendergraph_t& rg)
 {
 	using namespace HGEGraphics;
+	auto& registry = *oval_get_registry(device);
 
-	auto depth_handle = rendergraph_declare_texture(&rg);
-	rg_texture_set_extent(&rg, depth_handle, rg_texture_get_width(&rg, rg_back_buffer), rg_texture_get_height(&rg, rg_back_buffer));
-	rg_texture_set_depth_format(&rg, depth_handle, DepthBits::D24, true);
-
-	bool firstView = true;
 	for (auto& view : lastFrameRenderPacket.viewDatas)
 	{
+		auto current_back_buffer = oval_get_backbuffer_for_window(device, view.window, rg);
+		if (!rendergraph_texture_handle_valid(current_back_buffer))
+			continue;
+
+		auto depth_handle = rendergraph_declare_texture(&rg);
+		rg_texture_set_extent(&rg, depth_handle, rg_texture_get_width(&rg, current_back_buffer), rg_texture_get_height(&rg, current_back_buffer));
+		rg_texture_set_depth_format(&rg, depth_handle, DepthBits::D24, true);
+
 		auto pass_ubo_handle = rendergraph_declare_uniform_buffer_quick(&rg, sizeof(PassData), &view.passData);
 		auto object_ubo_handle = rendergraph_declare_uniform_buffer_quick(&rg, view.renderData.size() * sizeof(ObjectData), view.renderData.data());
 
 		auto passBuilder = rendergraph_add_renderpass(&rg, "Main Pass");
 		uint32_t color = 0xff000000;
-		renderpass_add_color_attachment(&passBuilder, rg_back_buffer, firstView ? ECGPULoadAction::CGPU_LOAD_ACTION_CLEAR : ECGPULoadAction::CGPU_LOAD_ACTION_LOAD, color, ECGPUStoreAction::CGPU_STORE_ACTION_STORE);
+		renderpass_add_color_attachment(&passBuilder, current_back_buffer, ECGPULoadAction::CGPU_LOAD_ACTION_CLEAR, color, ECGPUStoreAction::CGPU_STORE_ACTION_STORE);
 		renderpass_add_depth_attachment(&passBuilder, depth_handle, CGPU_LOAD_ACTION_CLEAR, 0, CGPU_STORE_ACTION_DISCARD, CGPU_LOAD_ACTION_CLEAR, 0, CGPU_STORE_ACTION_DISCARD);
 		renderpass_use_buffer(&passBuilder, pass_ubo_handle);
 		renderpass_use_buffer(&passBuilder, object_ubo_handle);
@@ -1221,8 +1237,6 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 		passdata->view = &view;
 		passdata->pass_ubo_handle = pass_ubo_handle;
 		passdata->object_ubo_handle = object_ubo_handle;
-
-		firstView = false;
 	}
 }
 
@@ -1275,11 +1289,11 @@ void on_imgui(oval_device_t* device, oval_render_context render_context)
 	app->enttEditor.renderSimpleCombo(*oval_get_registry(app->device), app->editorCurEntity);
 }
 
-void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg, HGEGraphics::texture_handle_t rg_back_buffer)
+void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg)
 {
 	Application* app = (Application*)device->descriptor.userdata;
 	auto& lastFrameRenderPacket = app->frameRenderPackets[submit_context.submitRenderPacketFrame];
-	submit(*app, lastFrameRenderPacket, device, rg, rg_back_buffer);
+	submit(*app, lastFrameRenderPacket, device, rg);
 }
 
 extern "C"
@@ -1321,7 +1335,7 @@ int SDL_main(int argc, char *argv[])
 	auto& registry = *oval_get_registry(app.device);
 
 	_init_resource(app, registry);
-	_init_world(app, registry);
+	_init_world(app, registry, app.device->mainwindow_entity);
 		
 	oval_runloop(app.device);
 	_free_resource(app);

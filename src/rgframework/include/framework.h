@@ -33,7 +33,9 @@ typedef struct oval_submit_context
     size_t submitRenderPacketFrame;
 } oval_submit_context;
 
-typedef void (*oval_on_submit)(struct oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg, HGEGraphics::texture_handle_t rg_back_buffer);
+typedef struct oval_window_t oval_window_t;
+
+typedef void (*oval_on_submit)(struct oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg);
 typedef tf::Taskflow(*oval_on_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_imgui)(struct oval_device_t* device, oval_render_context render_context);
 typedef void (*oval_on_render)(struct oval_device_t* device, oval_render_context render_context);
@@ -73,6 +75,7 @@ typedef struct oval_device_descriptor
 
 typedef struct oval_device_t {
     const oval_device_descriptor descriptor;
+    entt::entity mainwindow_entity;
     uint16_t width;
     uint16_t height;
 } oval_device_t;
@@ -93,6 +96,11 @@ typedef struct oval_window_t {
     oval_on_imgui on_imgui;
 } oval_window_t;
 
+struct WindowComponent
+{
+    oval_window_t* handle;
+};
+
 typedef struct oval_graphics_transfer_queue* oval_graphics_transfer_queue_t;
 
 oval_device_t* oval_create_device(const oval_device_descriptor* device_descriptor);
@@ -103,6 +111,10 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 
 oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window(oval_device_t* device, oval_window_t* window);
+entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
+void oval_free_window_entity(oval_device_t* device, entt::entity window_entity);
+void oval_get_window_size(oval_window_t* window, int* width, int* height);
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, oval_window_t* window, HGEGraphics::rendergraph_t& rg);
 
 HGEGraphics::Texture* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
 HGEGraphics::Texture* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size);

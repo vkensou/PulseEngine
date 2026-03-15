@@ -155,7 +155,12 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 		.resizable = true,
 		.on_imgui = device_descriptor->on_imgui,
 	};
-	device_cgpu->mainwindow = oval_create_window(&device_cgpu->super, &window_descriptor);
+	device_cgpu->super.mainwindow_entity = oval_create_window_entity(&device_cgpu->super, &window_descriptor);
+	{
+		auto& registry = device_cgpu->registry;
+		auto& window = registry.get<WindowComponent>(device_cgpu->super.mainwindow_entity);
+		device_cgpu->mainwindow = window.handle;
+	}
 
 	{
 		const uint64_t width = 4;
@@ -381,7 +386,7 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGE
 
 	if (device->imgui_draw_data)
 	{
-		auto passBuilder = rendergraph_add_renderpass(&rg, "Main Pass");
+		auto passBuilder = rendergraph_add_renderpass(&rg, "Imgui Pass");
 		uint32_t color = 0xffffffff;
 		renderpass_add_color_attachment(&passBuilder, rg_back_buffer, ECGPULoadAction::CGPU_LOAD_ACTION_LOAD, color, ECGPUStoreAction::CGPU_STORE_ACTION_STORE);
 		renderpass_use_buffer(&passBuilder, device->imgui_mesh->vertex_buffer->dynamic_handle);
@@ -459,6 +464,22 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGE
 	}
 }
 
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, oval_window_t* window, HGEGraphics::rendergraph_t& rg)
+{
+	using namespace HGEGraphics;
+	auto D = (oval_cgpu_device_t*)device;
+	auto& registry = D->registry;
+
+	auto window_impl = (oval_window_impl_t*)window;
+	if (window_impl->swapchain == nullptr)
+	{
+		return {};
+	}
+
+	auto back_buffer = &window_impl->swapchain->backbuffer[D->info.current_swapchain_index];
+	return rendergraph_import_backbuffer(&rg, back_buffer);
+}
+
 void render(oval_cgpu_device_t* device, const oval_submit_context& submit_context, HGEGraphics::Backbuffer* backbuffer)
 {
 	using namespace HGEGraphics;
@@ -468,15 +489,15 @@ void render(oval_cgpu_device_t* device, const oval_submit_context& submit_contex
 
 	oval_graphics_transfer_queue_execute_all(device, rg);
 
-	auto rg_back_buffer = rendergraph_import_backbuffer(&rg, backbuffer);
+	auto main_rg_back_buffer = rendergraph_import_backbuffer(&rg, backbuffer);
 
 	auto imgui_mesh = setupImGuiResources(device, rg);
 
 	if (device->super.descriptor.on_submit)
-		device->super.descriptor.on_submit(&device->super, submit_context, rg, rg_back_buffer);
-	renderImgui(device, rg, rg_back_buffer);
+		device->super.descriptor.on_submit(&device->super, submit_context, rg);
+	renderImgui(device, rg, main_rg_back_buffer);
 
-	rendergraph_present(&rg, rg_back_buffer);
+	rendergraph_present(&rg, main_rg_back_buffer);
 
 	auto compiled = Compiler::Compile(rg, &rg_pool);
 	Executor::Execute(compiled, device->frameDatas[device->current_frame_index].execContext);
@@ -809,6 +830,7 @@ void oval_free_device(oval_device_t* device)
 	}
 	D->windows.clear();
 	D->mainwindow = CGPU_NULLPTR;
+	D->super.mainwindow_entity = entt::entity{};
 
 	D->info.reset();
 	D->current_frame_index = -1;
