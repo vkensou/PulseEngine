@@ -586,13 +586,13 @@ void oval_runloop(oval_device_t* device)
 			}
 		}
 
-		if (requestResize)
+		if (mainwindow->window == nullptr || requestResize)
 		{
 			cgpu_queue_wait_idle(D->gfx_queue);
 			requestResize = !on_resize(D, mainwindow);
 		}
 
-		if (requestResize)
+		if (mainwindow->window == nullptr || requestResize)
 			continue;
 
 		auto& cur_frame_data = D->frameDatas[D->current_frame_index];
