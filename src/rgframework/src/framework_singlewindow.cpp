@@ -149,19 +149,6 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	device_cgpu->present_queue = device_cgpu->gfx_queue;
 	free(adapters);
 
-	oval_window_descriptor window_descriptor = {
-		.width = device_descriptor->width,
-		.height = device_descriptor->height,
-		.resizable = true,
-		.on_imgui = device_descriptor->on_imgui,
-	};
-	device_cgpu->super.mainwindow_entity = oval_create_window_entity(&device_cgpu->super, &window_descriptor);
-	{
-		auto& registry = device_cgpu->registry;
-		auto& window = registry.get<WindowComponent>(device_cgpu->super.mainwindow_entity);
-		device_cgpu->mainwindow = window.handle;
-	}
-
 	{
 		const uint64_t width = 4;
 		const uint64_t height = 4;
@@ -196,6 +183,19 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
 	ImGui::StyleColorsLight();
+
+	oval_window_descriptor window_descriptor = {
+		.width = device_descriptor->width,
+		.height = device_descriptor->height,
+		.resizable = true,
+		.on_imgui = device_descriptor->on_imgui,
+	};
+	device_cgpu->super.mainwindow_entity = oval_create_window_entity(&device_cgpu->super, &window_descriptor);
+	{
+		auto& registry = device_cgpu->registry;
+		auto& window = registry.get<WindowComponent>(device_cgpu->super.mainwindow_entity);
+		device_cgpu->mainwindow = window.handle;
+	}
 
 	ImGui_ImplSDL3_InitForOther(((oval_window_impl_t*)device_cgpu->mainwindow)->window);
 	{
@@ -273,18 +273,6 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	};
 	device_cgpu->imgui_shader = oval_create_shader(&device_cgpu->super, imgui_vert_spv, sizeof(imgui_vert_spv), imgui_frag_spv, sizeof(imgui_frag_spv), imgui_blend_desc, depth_desc, rasterizer_state);
 
-	CGPUVertexAttribute imgui_vertex_attributes[3] = {
-			{ "POSITION", 1, CGPU_VERTEX_FORMAT_FLOAT32X2, 0, 0, sizeof(float) * 2, CGPU_VERTEX_INPUT_RATE_VERTEX },
-			{ "TEXCOORD", 1, CGPU_VERTEX_FORMAT_FLOAT32X2, 0, sizeof(float) * 2, sizeof(float) * 2, CGPU_VERTEX_INPUT_RATE_VERTEX },
-			{ "COLOR", 1, CGPU_VERTEX_FORMAT_UNORM8X4, 0, sizeof(float) * 4, sizeof(uint32_t), CGPU_VERTEX_INPUT_RATE_VERTEX },
-	};
-	CGPUVertexLayout imgui_vertex_layout =
-	{
-		.attribute_count = 3,
-		.p_attributes = imgui_vertex_attributes,
-	};
-	device_cgpu->imgui_mesh = oval_create_dynamic_mesh(&device_cgpu->super, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, imgui_vertex_layout, sizeof(ImDrawIdx));
-
 	{
 		unsigned char* fontPixels;
 		int fontTexWidth, fontTexHeight;
@@ -323,7 +311,7 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	return (oval_device_t*)device_cgpu;
 }
 
-HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, ImDrawData* drawData)
+HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, ImDrawData* drawData, HGEGraphics::Mesh* imgui_mesh)
 {
 	using namespace HGEGraphics;
 
@@ -337,7 +325,7 @@ HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphi
 			ImDrawData* drawData;
 		};
 		PassData* update_vertex_passdata;
-		auto imgui_vertex_buffer = declare_dynamic_vertex_buffer(device->imgui_mesh, &rg, drawData->TotalVtxCount);
+		auto imgui_vertex_buffer = declare_dynamic_vertex_buffer(imgui_mesh, &rg, drawData->TotalVtxCount);
 		rendergraph_add_uploadbufferpass(&rg, "upload imgui vertex data", imgui_vertex_buffer, [](UploadEncoder* encoder, void* passdata)
 			{
 				PassData* resolved_passdata = (PassData*)passdata;
@@ -354,7 +342,7 @@ HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphi
 		update_vertex_passdata->drawData = drawData;
 
 		PassData* update_index_passdata;
-		auto imgui_index_buffer = declare_dynamic_index_buffer(device->imgui_mesh, &rg, drawData->TotalIdxCount);
+		auto imgui_index_buffer = declare_dynamic_index_buffer(imgui_mesh, &rg, drawData->TotalIdxCount);
 		rendergraph_add_uploadbufferpass(&rg, "upload imgui index data", imgui_index_buffer, [](UploadEncoder* encoder, void* passdata)
 			{
 				PassData* resolved_passdata = (PassData*)passdata;
@@ -370,34 +358,43 @@ HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphi
 			}, sizeof(PassData), (void**)&update_index_passdata);
 		update_index_passdata->drawData = drawData;
 	}
-	return device->imgui_mesh;
-}
-
-HGEGraphics::Mesh* setupImGuiResources(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg)
-{
-	device->imgui_draw_data = device->snapshot.DrawData.TotalVtxCount > 0 ? &device->snapshot.DrawData : nullptr;
-	auto imgui_mesh = setupImGuiResourcesMesh(device, rg, device->imgui_draw_data);
 	return imgui_mesh;
 }
 
-void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGEGraphics::texture_handle_t rg_back_buffer)
+void setupImGuiResources(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, const std::pmr::vector<oval_window_impl_t*>& prepared_windows)
+{
+	for (auto window : prepared_windows)
+	{
+		window->imgui_draw_data = window->snapshot.DrawData.TotalVtxCount > 0 ? &window->snapshot.DrawData : nullptr;
+		auto imgui_mesh = setupImGuiResourcesMesh(device, rg, window->imgui_draw_data, window->imgui_mesh);
+	}
+}
+
+void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGEGraphics::texture_handle_t rg_back_buffer, oval_window_impl_t* window)
 {
 	using namespace HGEGraphics;
 
-	if (device->imgui_draw_data)
+	if (rendergraph_texture_handle_valid(rg_back_buffer) && window->imgui_draw_data)
 	{
 		auto passBuilder = rendergraph_add_renderpass(&rg, "Imgui Pass");
 		uint32_t color = 0xffffffff;
 		renderpass_add_color_attachment(&passBuilder, rg_back_buffer, ECGPULoadAction::CGPU_LOAD_ACTION_LOAD, color, ECGPUStoreAction::CGPU_STORE_ACTION_STORE);
-		renderpass_use_buffer(&passBuilder, device->imgui_mesh->vertex_buffer->dynamic_handle);
-		renderpass_use_buffer(&passBuilder, device->imgui_mesh->index_buffer->dynamic_handle);
+		renderpass_use_buffer(&passBuilder, window->imgui_mesh->vertex_buffer->dynamic_handle);
+		renderpass_use_buffer(&passBuilder, window->imgui_mesh->index_buffer->dynamic_handle);
 
-		void* passdata = nullptr;
+		struct ImguiPassPassData
+		{
+			oval_cgpu_device_t* device;
+			oval_window_impl_t* window;
+		};
+		ImguiPassPassData* passdata = nullptr;
 		renderpass_set_executable(&passBuilder, [](RenderPassEncoder* encoder, void* passdata)
 			{
-				oval_cgpu_device_t* device = *(oval_cgpu_device_t**)passdata;
+				ImguiPassPassData* resolved_passdata = (ImguiPassPassData*)passdata;
+				oval_cgpu_device_t* device = resolved_passdata->device;
+				oval_window_impl_t* window = resolved_passdata->window;
 
-				auto drawData = device->imgui_draw_data;
+				auto drawData = window->imgui_draw_data;
 				int fb_width = (int)(drawData->DisplaySize.x * drawData->FramebufferScale.x);
 				int fb_height = (int)(drawData->DisplaySize.y * drawData->FramebufferScale.y);
 				if (fb_width <= 0 || fb_height <= 0)
@@ -454,13 +451,23 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGE
 						// Apply scissor/clipping rectangle
 						set_scissor(encoder, (clip_min.x), (clip_min.y), (clip_max.x - clip_min.x), (clip_max.y - clip_min.y));
 
-						draw_submesh(encoder, device->imgui_shader, device->imgui_mesh, cmdBuffer->ElemCount, cmdBuffer->IdxOffset + global_idx_offset, 0, cmdBuffer->VtxOffset + global_vtx_offset);
+						draw_submesh(encoder, device->imgui_shader, window->imgui_mesh, cmdBuffer->ElemCount, cmdBuffer->IdxOffset + global_idx_offset, 0, cmdBuffer->VtxOffset + global_vtx_offset);
 					}
 					global_idx_offset += cmdList->IdxBuffer.Size;
 					global_vtx_offset += cmdList->VtxBuffer.Size;
 				}
-			}, sizeof(int*), &passdata);
-		*(oval_cgpu_device_t**)passdata = device;
+			}, sizeof(int*), (void**)&passdata);
+		passdata->device = device;
+		passdata->window = window;
+	}
+}
+
+void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, const std::pmr::vector<oval_window_impl_t*>& prepared_windows)
+{
+	for (auto window : prepared_windows)
+	{
+		auto back_buffer = oval_get_backbuffer_for_window(&device->super, window, rg);
+		renderImgui(device, rg, back_buffer, window);
 	}
 }
 
@@ -491,13 +498,11 @@ void render(oval_cgpu_device_t* device, const oval_submit_context& submit_contex
 
 	oval_graphics_transfer_queue_execute_all(device, rg);
 
-	//auto main_rg_back_buffer = rendergraph_import_backbuffer(&rg, backbuffer);
-
-	auto imgui_mesh = setupImGuiResources(device, rg);
+	setupImGuiResources(device, rg, prepared_windows);
 
 	if (device->super.descriptor.on_submit)
 		device->super.descriptor.on_submit(&device->super, submit_context, rg);
-	//renderImgui(device, rg, main_rg_back_buffer);
+	renderImgui(device, rg, prepared_windows);
 
 	for (auto window : prepared_windows)
 	{
@@ -665,11 +670,8 @@ void oval_runloop(oval_device_t* device)
 		{
 			wait_semaphores.push_back(window->current_prepared_semaphore);
 			finish_semaphores.push_back(window->current_finish_semaphore);
+			window->FetchImguiDrawData();
 		}
-
-		ImDrawData* drawData = ImGui::GetDrawData();
-		if (drawData)
-			D->snapshot.SnapUsingSwap(drawData, ImGui::GetTime());
 
 		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
@@ -824,13 +826,11 @@ void oval_free_device(oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
-	D->snapshot.Clear();
 	ImGui_ImplSDL3_Shutdown();
 	ImGui::DestroyContext();
 
 	D->default_texture = nullptr;
 	D->imgui_shader = nullptr;
-	D->imgui_mesh = nullptr;
 	D->imgui_font_texture = nullptr;
 	D->imgui_font_sampler = CGPU_NULLPTR;
 	D->blit_shader = nullptr;

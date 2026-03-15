@@ -47,6 +47,20 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 
 	oval_window->surface = cgpu_instance_create_surface_from_native_view(D->instance, native_view);
 
+	oval_window->imgui_viewport = ImGui::GetMainViewport();
+
+	CGPUVertexAttribute imgui_vertex_attributes[3] = {
+			{ "POSITION", 1, CGPU_VERTEX_FORMAT_FLOAT32X2, 0, 0, sizeof(float) * 2, CGPU_VERTEX_INPUT_RATE_VERTEX },
+			{ "TEXCOORD", 1, CGPU_VERTEX_FORMAT_FLOAT32X2, 0, sizeof(float) * 2, sizeof(float) * 2, CGPU_VERTEX_INPUT_RATE_VERTEX },
+			{ "COLOR", 1, CGPU_VERTEX_FORMAT_UNORM8X4, 0, sizeof(float) * 4, sizeof(uint32_t), CGPU_VERTEX_INPUT_RATE_VERTEX },
+	};
+	CGPUVertexLayout imgui_vertex_layout =
+	{
+		.attribute_count = 3,
+		.p_attributes = imgui_vertex_attributes,
+	};
+	oval_window->imgui_mesh = oval_create_dynamic_mesh(device, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, imgui_vertex_layout, sizeof(ImDrawIdx));
+
 	D->windows.push_back(oval_window);
 	return oval_window;
 }
@@ -59,6 +73,8 @@ void oval_free_window(oval_cgpu_device_t* D, oval_window_impl_t* oval_window)
 		oval_window->swapchain.reset();
 		cgpu_instance_free_surface(D->instance, oval_window->surface);
 		oval_window->surface = CGPU_NULLPTR;
+		oval_window->snapshot.Clear();
+		oval_window->imgui_mesh = nullptr;
 
 		SDL_DestroyWindow(oval_window->window);
 
