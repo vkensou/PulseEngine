@@ -667,6 +667,7 @@ void oval_runloop(oval_device_t* device)
 			window->FetchImguiDrawData();
 		}
 
+		ImFontAtlasUpdateNewFrame(D->imgui_font, ImGui::GetFrameCount(), false);
 		for (auto window : D->windows)
 		{
 			auto oval_window = (oval_window_impl_t*)window;
