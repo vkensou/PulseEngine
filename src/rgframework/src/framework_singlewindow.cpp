@@ -186,7 +186,6 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 		.resizable = true,
 		.use_imgui = true,
 		.own_imgui = true,
-		.on_imgui = device_descriptor->on_imgui,
 	};
 	device_cgpu->super.mainwindow_entity = oval_create_window_entity(&device_cgpu->super, &window_descriptor);
 	{
@@ -584,6 +583,7 @@ void oval_runloop(oval_device_t* device)
 	int countFrame = 0;
 	int lastFPS = 0;
 	std::vector<tf::Taskflow> update_flows;
+	std::pmr::vector<oval_window_impl_t*> wait_to_closes(D->memory_resource);
 	std::pmr::vector<oval_window_impl_t*> need_resize_windows(D->memory_resource);
 	std::pmr::vector<oval_window_impl_t*> prepared_windows(D->memory_resource);
 	std::pmr::vector<CGPUSemaphoreId> finish_semaphores(D->memory_resource);
@@ -614,6 +614,13 @@ void oval_runloop(oval_device_t* device)
 							auto mainwindow = (oval_window_impl_t*)D->mainwindow;
 							if (window == mainwindow)
 								quit = true;
+
+							if (window->on_close)
+							{
+								window->on_close(window->entity, &D->super);
+							}
+
+							window->RequestClose();
 						}
 						else if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
 						{
@@ -624,12 +631,24 @@ void oval_runloop(oval_device_t* device)
 			}
 		}
 
+		wait_to_closes.clear();
 		need_resize_windows.clear();
 		for (auto window : D->windows)
 		{
 			auto win_impl = (oval_window_impl_t*)window;
-			if (win_impl->needResize || win_impl->swapchain == nullptr)
+			if (win_impl->needClose)
+				wait_to_closes.push_back(win_impl);
+			else if (win_impl->needResize || win_impl->swapchain == nullptr)
 				need_resize_windows.push_back(win_impl);
+		}
+
+		if (!wait_to_closes.empty())
+		{
+			cgpu_queue_wait_idle(D->gfx_queue);
+			for (auto window : wait_to_closes)
+			{
+				oval_free_window_entity(&D->super, window->entity);
+			}
 		}
 
 		if (!need_resize_windows.empty())
@@ -745,7 +764,7 @@ void oval_runloop(oval_device_t* device)
 						ImGui::SetCurrentContext(oval_window->imgui_context);
 
 						if (oval_window->on_imgui)
-							oval_window->on_imgui(&D->super, render_context);
+							oval_window->on_imgui(oval_window->entity, &D->super, render_context);
 
 						ImGui::EndFrame();
 						ImGui::Render();
@@ -854,6 +873,11 @@ void oval_free_device(oval_device_t* device)
 	{
 		auto window_impl = (oval_window_impl_t*)window;
 		oval_free_window(device, window);
+	}
+	for (auto window : D->closed_windows)
+	{
+		auto window_impl = (oval_window_impl_t*)window;
+		delete window_impl;
 	}
 	D->windows.clear();
 	D->mainwindow = CGPU_NULLPTR;

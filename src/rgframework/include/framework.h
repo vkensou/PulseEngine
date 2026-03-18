@@ -38,6 +38,8 @@ typedef struct oval_window_t oval_window_t;
 typedef void (*oval_on_submit)(struct oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg);
 typedef tf::Taskflow(*oval_on_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_imgui)(struct oval_device_t* device, oval_render_context render_context);
+typedef void (*oval_entity_on_imgui)(entt::entity entity, struct oval_device_t* device, oval_render_context render_context);
+typedef void (*oval_entity_on_window_close)(entt::entity entity, struct oval_device_t* device);
 typedef void (*oval_on_render)(struct oval_device_t* device, oval_render_context render_context);
 
 typedef enum update_frequency_mode_e
@@ -88,14 +90,16 @@ typedef struct oval_window_descriptor
     bool resizable;
     bool use_imgui;
     bool own_imgui;
-    oval_on_imgui on_imgui;
+    oval_entity_on_imgui on_imgui;
+    oval_entity_on_window_close on_close;
 } oval_window_descriptor;
 
 typedef struct oval_window_t {
     void* userdata;
     uint16_t width;
     uint16_t height;
-    oval_on_imgui on_imgui;
+    oval_entity_on_imgui on_imgui;
+    oval_entity_on_window_close on_close;
 } oval_window_t;
 
 struct WindowComponent
@@ -111,8 +115,6 @@ void oval_free_device(oval_device_t* device);
 void oval_render_debug_capture(oval_device_t* device);
 void oval_query_render_profile(oval_device_t* device, uint32_t* length, const char*** names, const float** durations);
 
-oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);
-void oval_free_window(oval_device_t* device, oval_window_t* window);
 entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window_entity(oval_device_t* device, entt::entity window_entity);
 void oval_get_window_size(oval_window_t* window, int* width, int* height);

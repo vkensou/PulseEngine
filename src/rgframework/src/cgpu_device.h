@@ -137,16 +137,23 @@ struct oval_window_impl_t : oval_window_t {
 	CGPUSemaphoreId current_prepared_semaphore;
 	CGPUSemaphoreId current_finish_semaphore;
 	bool needResize;
+	bool needClose;
 	ImGuiContext* imgui_context;
 	bool imgui_owned_context;
 	ImGuiViewport* imgui_viewport;
 	ImDrawDataSnapshot snapshot;
 	ImDrawData* imgui_draw_data = nullptr;
 	HGEGraphics::Mesh* imgui_mesh = nullptr;
+	entt::entity entity;
 
 	void RequestResize()
 	{
 		needResize = true;
+	}
+
+	void RequestClose()
+	{
+		needClose = true;
 	}
 
 	bool AcquireNextImage(uint32_t frame_index)
@@ -206,6 +213,7 @@ typedef struct oval_cgpu_device_t {
 	oval_device_t super;
 	oval_window_t* mainwindow;
 	std::pmr::vector<oval_window_t*> windows;
+	std::pmr::vector<oval_window_t*> closed_windows;
 	std::pmr::memory_resource* memory_resource;
 	std::pmr::polymorphic_allocator<std::byte> allocator;
 	CGPUInstanceId instance;
@@ -251,3 +259,5 @@ void oval_graphics_transfer_queue_release_all(oval_cgpu_device_t* device);
 uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Mesh* mesh, const char* filepath);
 uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Texture* texture, const char* filepath, bool mipmap);
 std::vector<uint8_t> readfile(const char* filename);
+oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);
+void oval_free_window(oval_device_t* device, oval_window_t* window);

@@ -29,6 +29,7 @@ oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descr
 	oval_window->width = w;
 	oval_window->height = h;
 	oval_window->on_imgui = window_descriptor->on_imgui;
+	oval_window->on_close = window_descriptor->on_close;
 	oval_window->needResize = false;
 	oval_window->current_swapchain_index = 0;
 	oval_window->current_finish_semaphore = CGPU_NULLPTR;
@@ -103,8 +104,9 @@ void oval_free_window(oval_cgpu_device_t* D, oval_window_impl_t* oval_window)
 		}
 
 		SDL_DestroyWindow(oval_window->window);
+		oval_window->window = NULL;
 
-		delete oval_window;
+		D->closed_windows.push_back(oval_window);
 		D->windows.erase(iter);
 	}
 }
@@ -125,6 +127,8 @@ entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_
 
 	auto window_entity = registry.create();
 	registry.emplace<WindowComponent>(window_entity, window_handle);
+	auto oval_window = (oval_window_impl_t*)window_handle;
+	oval_window->entity = window_entity;
 
 	return window_entity;
 }
