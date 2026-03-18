@@ -100,6 +100,11 @@ typedef struct oval_window_t {
 
 struct WindowComponent
 {
+    int width;
+    int height;
+};
+struct RawWindowHandleComponent
+{
     oval_window_t* handle;
 };
 struct PrimaryWindowTag{};
@@ -114,8 +119,7 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 
 entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window_entity(oval_device_t* device, entt::entity window_entity);
-void oval_get_window_size(oval_window_t* window, int* width, int* height);
-HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, oval_window_t* window, HGEGraphics::rendergraph_t& rg);
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, entt::entity window_entity, HGEGraphics::rendergraph_t& rg);
 
 HGEGraphics::Texture* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
 HGEGraphics::Texture* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size);

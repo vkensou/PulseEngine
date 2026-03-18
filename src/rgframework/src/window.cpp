@@ -126,7 +126,8 @@ entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_
 	auto window_handle = oval_create_window(device, window_descriptor);
 
 	auto window_entity = registry.create();
-	registry.emplace<WindowComponent>(window_entity, window_handle);
+	registry.emplace<WindowComponent>(window_entity, window_descriptor->width, window_descriptor->height);
+	registry.emplace<RawWindowHandleComponent>(window_entity, window_handle);
 	auto oval_window = (oval_window_impl_t*)window_handle;
 	oval_window->entity = window_entity;
 	if (window_descriptor->primary)
@@ -140,7 +141,7 @@ void oval_free_window_entity(oval_device_t* device, entt::entity window_entity)
 	auto D = (oval_cgpu_device_t*)device;
 	auto& registry = D->registry;
 
-	auto window = registry.try_get<WindowComponent>(window_entity);
+	auto window = registry.try_get<RawWindowHandleComponent>(window_entity);
 	if (window != nullptr)
 	{
 		auto oval_window = (oval_window_impl_t*)window->handle;

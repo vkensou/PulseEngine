@@ -435,6 +435,23 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGE
 	}
 }
 
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, oval_window_impl_t* window_impl, HGEGraphics::rendergraph_t& rg)
+{
+	using namespace HGEGraphics;
+	auto D = (oval_cgpu_device_t*)device;
+	auto& registry = D->registry;
+
+	if (!window_impl || window_impl->swapchain == nullptr)
+	{
+		return {};
+	}
+
+	auto back_buffer = window_impl->current_back_buffer;
+	if (back_buffer == nullptr)
+		return {};
+	return rendergraph_import_backbuffer(&rg, back_buffer);
+}
+
 void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, const std::pmr::vector<oval_window_impl_t*>& prepared_windows)
 {
 	for (auto window : prepared_windows)
@@ -444,22 +461,20 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, con
 	}
 }
 
-HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, oval_window_t* window, HGEGraphics::rendergraph_t& rg)
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, entt::entity window_entity, HGEGraphics::rendergraph_t& rg)
 {
 	using namespace HGEGraphics;
 	auto D = (oval_cgpu_device_t*)device;
 	auto& registry = D->registry;
 
-	auto window_impl = (oval_window_impl_t*)window;
-	if (window_impl->swapchain == nullptr)
-	{
+	auto rawwindow = registry.try_get<RawWindowHandleComponent>(window_entity);
+	oval_window_t* window_handle = nullptr;
+	if (rawwindow != nullptr && rawwindow->handle != nullptr)
+		window_handle = rawwindow->handle;
+	else
 		return {};
-	}
 
-	auto back_buffer = window_impl->current_back_buffer;
-	if (back_buffer == nullptr)
-		return {};
-	return rendergraph_import_backbuffer(&rg, back_buffer);
+	return oval_get_backbuffer_for_window(device, (oval_window_impl_t*)window_handle, rg);
 }
 
 void render(oval_cgpu_device_t* device, const oval_submit_context& submit_context, const std::pmr::vector<oval_window_impl_t*>& prepared_windows)

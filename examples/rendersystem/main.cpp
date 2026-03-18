@@ -278,7 +278,7 @@ struct ObjectData
 
 struct ViewRenderPacket
 {
-	oval_window_t* window;
+	entt::entity window_entity;
 	PassData passData;
 	std::pmr::vector<RenderObject> renderObjects;
 	std::pmr::vector<ObjectData> renderData;
@@ -1144,14 +1144,13 @@ void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& cu
 
 		if (!registry.valid(camera.window_entity))
 			continue;
+
 		auto window = registry.try_get<WindowComponent>(camera.window_entity);
-		oval_window_t* window_handle = nullptr;
-		if (window != nullptr && window->handle != nullptr)
-			window_handle = window->handle;
-		else
+		if (!window)
 			continue;
 
-		oval_get_window_size(window_handle, &camera.width, &camera.height);
+		camera.width = window->width;
+		camera.height = window->height;
 
 		float aspect = (float)camera.width / camera.height;
 		float near = camera.nearPlane;
@@ -1160,7 +1159,7 @@ void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& cu
 		auto vpMat = proj * viewMat;
 
 		currentFramePack.viewDatas.emplace_back(ViewRenderPacket{
-			.window = window_handle,
+			.window_entity = camera.window_entity,
 			.passData = {
 				.vpMatrix = vpMat,
 				.lightDir = lightDir,
@@ -1198,7 +1197,7 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 
 	for (auto& view : lastFrameRenderPacket.viewDatas)
 	{
-		auto current_back_buffer = oval_get_backbuffer_for_window(device, view.window, rg);
+		auto current_back_buffer = oval_get_backbuffer_for_window(device, view.window_entity, rg);
 		if (!rendergraph_texture_handle_valid(current_back_buffer))
 			continue;
 
