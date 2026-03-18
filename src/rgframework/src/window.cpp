@@ -129,6 +129,8 @@ entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_
 	registry.emplace<WindowComponent>(window_entity, window_handle);
 	auto oval_window = (oval_window_impl_t*)window_handle;
 	oval_window->entity = window_entity;
+	if (window_descriptor->primary)
+		registry.emplace<PrimaryWindowTag>(window_entity);
 
 	return window_entity;
 }

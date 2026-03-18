@@ -1347,6 +1347,7 @@ int SDL_main(int argc, char *argv[])
 	oval_window_descriptor window_descriptor = {
 		.width = width,
 		.height = height,
+		.primary = true,
 		.resizable = true,
 		.use_imgui = true,
 		.own_imgui = true,

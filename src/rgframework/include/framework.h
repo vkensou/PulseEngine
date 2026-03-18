@@ -77,7 +77,6 @@ typedef struct oval_device_descriptor
 
 typedef struct oval_device_t {
     const oval_device_descriptor descriptor;
-    entt::entity mainwindow_entity;
     uint16_t width;
     uint16_t height;
 } oval_device_t;
@@ -87,6 +86,7 @@ typedef struct oval_window_descriptor
     const char* title;
     uint16_t width;
     uint16_t height;
+    bool primary;
     bool resizable;
     bool use_imgui;
     bool own_imgui;
@@ -106,6 +106,7 @@ struct WindowComponent
 {
     oval_window_t* handle;
 };
+struct PrimaryWindowTag{};
 
 typedef struct oval_graphics_transfer_queue* oval_graphics_transfer_queue_t;
 

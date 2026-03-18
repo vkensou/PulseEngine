@@ -211,7 +211,6 @@ typedef struct oval_cgpu_device_t {
 	}
 
 	oval_device_t super;
-	oval_window_t* mainwindow;
 	std::pmr::vector<oval_window_t*> windows;
 	std::pmr::vector<oval_window_t*> closed_windows;
 	std::pmr::memory_resource* memory_resource;

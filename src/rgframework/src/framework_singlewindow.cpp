@@ -180,20 +180,6 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 
 	device_cgpu->imgui_font = IM_NEW(ImFontAtlas)();
 
-	oval_window_descriptor window_descriptor = {
-		.width = device_descriptor->width,
-		.height = device_descriptor->height,
-		.resizable = true,
-		.use_imgui = true,
-		.own_imgui = true,
-	};
-	device_cgpu->super.mainwindow_entity = oval_create_window_entity(&device_cgpu->super, &window_descriptor);
-	{
-		auto& registry = device_cgpu->registry;
-		auto& window = registry.get<WindowComponent>(device_cgpu->super.mainwindow_entity);
-		device_cgpu->mainwindow = window.handle;
-	}
-
 	CGPUBlendAttachmentState blit_blend_attachments = {
 		.enable = false,
 		.src_factor = CGPU_BLEND_FACTOR_ONE,
@@ -611,8 +597,7 @@ void oval_runloop(oval_device_t* device)
 					{
 						if (e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
 						{
-							auto mainwindow = (oval_window_impl_t*)D->mainwindow;
-							if (window == mainwindow)
+							if (D->registry.all_of<PrimaryWindowTag>(window->entity))
 								quit = true;
 
 							if (window->on_close)
@@ -880,8 +865,6 @@ void oval_free_device(oval_device_t* device)
 		delete window_impl;
 	}
 	D->windows.clear();
-	D->mainwindow = CGPU_NULLPTR;
-	D->super.mainwindow_entity = entt::entity{};
 
 	IM_DELETE(D->imgui_font);
 	D->imgui_font = nullptr;
