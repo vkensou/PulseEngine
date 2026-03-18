@@ -417,7 +417,8 @@ struct FrameRenderPacket
 struct Application
 {
 	oval_device_t* device{ nullptr };
-	oval_window_t* window{ nullptr };
+	entt::entity mainwindow{};
+	entt::entity window2{};
 	std::vector<HGEGraphics::Mesh*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
@@ -1261,7 +1262,7 @@ void on_render(oval_device_t* device, oval_render_context render_context)
 	prepare(*app, cuurentFrameRenderPacket);
 }
 
-void on_imgui(oval_device_t* device, oval_render_context render_context)
+void on_imgui1(oval_device_t* device, oval_render_context render_context)
 {
 	ImGui::Text("Hello, ImGui!");
 	ImGui::Text("%d", render_context.fps);
@@ -1289,6 +1290,11 @@ void on_imgui(oval_device_t* device, oval_render_context render_context)
 	app->enttEditor.renderSimpleCombo(*oval_get_registry(app->device), app->editorCurEntity);
 }
 
+void on_imgui2(oval_device_t* device, oval_render_context render_context)
+{
+	ImGui::Text("Hello, Window2!");
+}
+
 void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg)
 {
 	Application* app = (Application*)device->descriptor.userdata;
@@ -1307,7 +1313,6 @@ int SDL_main(int argc, char *argv[])
 		.userdata = &app,
 		.on_update = on_update,
 		.on_render = on_render,
-		.on_imgui = on_imgui,
 		.on_submit = on_submit,
 		.width = width,
 		.height = height,
@@ -1325,21 +1330,34 @@ int SDL_main(int argc, char *argv[])
 	if (!app.device)
 		return -1;
 
-	//oval_window_descriptor window_descriptor = {
-	//	.width = width,
-	//	.height = height,
-	//	.resizable = true,
-	//	.on_imgui = on_imgui,
-	//};
-	//app.window = oval_create_window(app.device, &window_descriptor);
+	oval_window_descriptor window_descriptor = {
+		.width = width,
+		.height = height,
+		.resizable = true,
+		.use_imgui = true,
+		.own_imgui = true,
+		.on_imgui = on_imgui1,
+	};
+	app.mainwindow = oval_create_window_entity(app.device, &window_descriptor);
+
+	oval_window_descriptor window_descriptor2 = {
+		.width = width,
+		.height = height,
+		.resizable = true,
+		.use_imgui = true,
+		.own_imgui = true,
+		.on_imgui = on_imgui2,
+	};
+	app.window2 = oval_create_window_entity(app.device, &window_descriptor2);
 	auto& registry = *oval_get_registry(app.device);
 
 	_init_resource(app, registry);
-	_init_world(app, registry, app.device->mainwindow_entity);
+	_init_world(app, registry, app.mainwindow);
 		
 	oval_runloop(app.device);
 	_free_resource(app);
-	//oval_free_window(app.device, app.window);
+	oval_free_window_entity(app.device, app.window2);
+	oval_free_window_entity(app.device, app.mainwindow);
 	oval_free_device(app.device);
 
 	return 0;

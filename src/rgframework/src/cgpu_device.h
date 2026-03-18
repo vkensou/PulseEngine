@@ -190,6 +190,7 @@ struct oval_window_impl_t : oval_window_t {
 
 	void FetchImguiDrawData()
 	{
+		ImGui::SetCurrentContext(imgui_context);
 		ImDrawData* drawData = imgui_viewport ? imgui_viewport->DrawData : nullptr;
 		if (drawData)
 			snapshot.SnapUsingSwap(drawData, ImGui::GetTime());

@@ -580,6 +580,7 @@ void oval_runloop(oval_device_t* device)
 		lag = 1.0 / D->super.descriptor.target_fps;
 	else
 		lag = 1.0 / 60;
+	uint64_t frameCount = 0;
 	int countFrame = 0;
 	int lastFPS = 0;
 	std::vector<tf::Taskflow> update_flows;
@@ -603,6 +604,8 @@ void oval_runloop(oval_device_t* device)
 				if (window)
 				{
 					ImGui::SetCurrentContext(window->imgui_context);
+					if (window->imgui_context == nullptr)
+						continue;
 					ImGui_ImplSDL3_ProcessEvent(&e);
 					if ((e.type & 0x200) != 0)
 					{
@@ -667,7 +670,7 @@ void oval_runloop(oval_device_t* device)
 			window->FetchImguiDrawData();
 		}
 
-		ImFontAtlasUpdateNewFrame(D->imgui_font, ImGui::GetFrameCount(), false);
+		ImFontAtlasUpdateNewFrame(D->imgui_font, frameCount, false);
 		for (auto window : D->windows)
 		{
 			auto oval_window = (oval_window_impl_t*)window;
@@ -734,15 +737,16 @@ void oval_runloop(oval_device_t* device)
 
 		auto imguiTask = flow.emplace([D, render_context]
 			{
-				if (D->super.descriptor.on_imgui)
-					D->super.descriptor.on_imgui(&D->super, render_context);
-
 				for (auto window : D->windows)
 				{
 					auto oval_window = (oval_window_impl_t*)window;
 					if (oval_window->imgui_owned_context)
 					{
 						ImGui::SetCurrentContext(oval_window->imgui_context);
+
+						if (oval_window->on_imgui)
+							oval_window->on_imgui(&D->super, render_context);
+
 						ImGui::EndFrame();
 						ImGui::Render();
 					}
@@ -824,6 +828,7 @@ void oval_runloop(oval_device_t* device)
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::duration<double>>(end_of_time - lastFrameSampleTime).count();
 		lag += elapsedTime;
 		lastFrameSampleTime = end_of_time;
+		frameCount++;
 	}
 
 	cgpu_queue_wait_idle(D->gfx_queue);
