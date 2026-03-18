@@ -89,8 +89,6 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 		descriptor.fixed_update_time_step = 1.0 / 30.0;
 
 	oval_device_t super = { .descriptor = descriptor };
-	super.width = device_descriptor->width;
-	super.height = device_descriptor->height;
 
 	auto memory_resource = new std::pmr::unsynchronized_pool_resource();
 	auto device_cgpu = new oval_cgpu_device_t(super, memory_resource);

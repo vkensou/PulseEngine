@@ -977,7 +977,7 @@ void _init_world(Application& app, entt::registry& registry, entt::entity window
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0, 0, -10));
 	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
 	registry.emplace<WorldTransform>(cam, cameraWMat);
-	registry.emplace<Camera>(cam, window_entity, 45.0f, 0.1f, 20.f, app.device->width, app.device->height);
+	registry.emplace<Camera>(cam, window_entity, 45.0f, 0.1f, 20.f, 800, 600);
 
 	auto light = registry.create();
 	auto lightDir = HMM_Norm(HMM_V3(0.25f, -0.7f, 1.25f));
@@ -1328,8 +1328,6 @@ int SDL_main(int argc, char *argv[])
 		.on_update = on_update,
 		.on_render = on_render,
 		.on_submit = on_submit,
-		.width = width,
-		.height = height,
 		.update_frequecy_mode = UPDATE_FREQUENCY_MODE_VARIABLE,
 		.fixed_update_time_step = 1.0 / 1,
 		.render_frequecy_mode = RENDER_FREQUENCY_MODE_LIMITED,

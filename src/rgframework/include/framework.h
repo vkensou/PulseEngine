@@ -62,8 +62,6 @@ typedef struct oval_device_descriptor
     oval_on_render on_render;
     oval_on_imgui on_imgui;
     oval_on_submit on_submit;
-    uint16_t width;
-    uint16_t height;
     update_frequency_mode_e update_frequecy_mode;
     double fixed_update_time_step;
     double max_update_time_step;
@@ -77,8 +75,6 @@ typedef struct oval_device_descriptor
 
 typedef struct oval_device_t {
     const oval_device_descriptor descriptor;
-    uint16_t width;
-    uint16_t height;
 } oval_device_t;
 
 typedef struct oval_window_descriptor
