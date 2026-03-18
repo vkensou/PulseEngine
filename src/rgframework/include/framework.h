@@ -37,6 +37,7 @@ typedef struct oval_window_t oval_window_t;
 
 typedef void (*oval_on_submit)(struct oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg);
 typedef tf::Taskflow(*oval_on_update)(struct oval_device_t* device, oval_update_context update_context);
+typedef void (*oval_on_post_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_imgui)(struct oval_device_t* device, oval_render_context render_context);
 typedef void (*oval_entity_on_imgui)(entt::entity entity, struct oval_device_t* device, oval_render_context render_context);
 typedef void (*oval_entity_on_window_close)(entt::entity entity, struct oval_device_t* device);
@@ -62,6 +63,7 @@ typedef struct oval_device_descriptor
     oval_on_render on_render;
     oval_on_imgui on_imgui;
     oval_on_submit on_submit;
+    oval_on_post_update on_post_update;
     update_frequency_mode_e update_frequecy_mode;
     double fixed_update_time_step;
     double max_update_time_step;
@@ -120,6 +122,7 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window_entity(oval_device_t* device, entt::entity window_entity);
 HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, entt::entity window_entity, HGEGraphics::rendergraph_t& rg);
+void oval_sync_window_component_and_raw_handle(struct oval_device_t* device);
 
 HGEGraphics::Texture* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
 HGEGraphics::Texture* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size);

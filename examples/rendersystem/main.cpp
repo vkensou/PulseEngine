@@ -1315,6 +1315,11 @@ void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGra
 	submit(*app, lastFrameRenderPacket, device, rg);
 }
 
+void on_post_update(oval_device_t* device, oval_update_context update_context)
+{
+	oval_sync_window_component_and_raw_handle(device);
+}
+
 extern "C"
 int SDL_main(int argc, char *argv[])
 {
@@ -1327,6 +1332,7 @@ int SDL_main(int argc, char *argv[])
 		.on_update = on_update,
 		.on_render = on_render,
 		.on_submit = on_submit,
+		.on_post_update = on_post_update,
 		.update_frequecy_mode = UPDATE_FREQUENCY_MODE_VARIABLE,
 		.fixed_update_time_step = 1.0 / 1,
 		.render_frequecy_mode = RENDER_FREQUENCY_MODE_LIMITED,

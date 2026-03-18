@@ -152,13 +152,22 @@ void oval_free_window_entity(oval_device_t* device, entt::entity window_entity)
 	}
 }
 
-void oval_get_window_size(oval_window_t* window, int* width, int* height)
+void oval_sync_window_component_and_raw_handle(struct oval_device_t* device)
 {
-	auto oval_window = (oval_window_impl_t*)window;
-	int w, h;
-	SDL_GetWindowSize(oval_window->window, &w, &h);
-	*width = w;
-	*height = h;
+	auto D = (oval_cgpu_device_t*)device;
+	auto& registry = D->registry;
+
+	auto view = registry.view<WindowComponent, RawWindowHandleComponent>();
+	for (auto [entity, window, rawwindow] : view.each())
+	{
+		auto oval_window = (oval_window_impl_t*)rawwindow.handle;
+
+		int w, h;
+		SDL_GetWindowSize(oval_window->window, &w, &h);
+
+		if (window.width != w || window.height != h)
+			SDL_SetWindowSize(oval_window->window, window.width, window.height);
+	}
 }
 
 std::unique_ptr<SwapChain> SwapChain::create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)

@@ -623,6 +623,13 @@ void oval_runloop(oval_device_t* device)
 						else if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
 						{
 							window->RequestResize();
+
+							auto window_comp = D->registry.try_get<WindowComponent>(window->entity);
+							if (window_comp)
+							{
+								window_comp->width = e.window.data1;
+								window_comp->height = e.window.data2;
+							}
 						}
 					}
 				}
@@ -803,6 +810,18 @@ void oval_runloop(oval_device_t* device)
 		imguiTask.succeed(renderTask);
 		D->taskExecutor.run(flow).wait();
 		update_flows.clear();
+
+		oval_update_context post_update_context
+		{
+			.delta_time = (float)fixed_update_time_step,
+			.time_since_startup = (float)time_since_startup,
+			.delta_time_double = fixed_update_time_step,
+			.time_since_startup_double = time_since_startup,
+			.fps = lastFPS,
+		};
+
+		if (D->super.descriptor.on_post_update)
+			D->super.descriptor.on_post_update(&D->super, post_update_context);
 
 		if (rdc_capturing)
 		{
