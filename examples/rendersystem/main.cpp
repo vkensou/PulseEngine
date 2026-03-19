@@ -11,12 +11,9 @@
 #define TINYGLTF_NO_FS
 #include "tiny_gltf.h"
 #include <cassert>
-//#include "imgui_flecs_entity_editor.hpp"
 #include <SDL3/SDL.h>
 
 constexpr ecs_entity_t kNullEntity = 0;
-
-template<typename...E> struct exclude_t {};
 
 struct Tree
 {
@@ -304,32 +301,34 @@ struct SystemContext
 	double interpolation_time_double;
 };
 
-void doSimpleHarmonicMove(const SystemContext& context, const SimpleHarmonic& simpleHarmonic, Position& position)
+void doSimpleHarmonicMove(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, Position& position)
 {
+	const SystemContext& context = *it.param<SystemContext>();
 	position.value = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
 }
 
-void doRotation(const SystemContext& context, const Rotate& rotate, Rotation& rotation)
+void doRotation(flecs::iter& it, size_t i, const Rotate& rotate, Rotation& rotation)
 {
+	const SystemContext& context = *it.param<SystemContext>();
 	rotation.value = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
 }
 
-void updateMatrixPositionOnly(const SystemContext& context, const Position& position, LocalTransform& matrix)
+void updateMatrixPositionOnly(const Position& position, LocalTransform& matrix)
 {
 	matrix.model = HMM_Translate(position.value);
 }
 
-void updateMatrixRotationOnly(const SystemContext& context, const Rotation& rotation, LocalTransform& matrix)
+void updateMatrixRotationOnly(const Rotation& rotation, LocalTransform& matrix)
 {
 	matrix.model = HMM_QToM4(rotation.value);
 }
 
-void updateMatrixPositionAndRotation(const SystemContext& context, const Position& position, const Rotation& rotation, LocalTransform& matrix)
+void updateMatrixPositionAndRotation(const Position& position, const Rotation& rotation, LocalTransform& matrix)
 {
 	matrix.model = HMM_TRS(position.value, rotation.value, HMM_V3_One);
 }
 
-void updateTreeTransform(flecs::world& world, flecs::entity& entity, const Tree& entityTree, HMM_Mat4 parentTransform)
+void updateTreeTransform(flecs::world world, flecs::entity entity, const Tree& entityTree, HMM_Mat4 parentTransform)
 {
 	auto local = entity.try_get<LocalTransform>();
 	auto worldTr = entity.try_get_mut<WorldTransform>();
@@ -357,20 +356,20 @@ void updateTreeTransform(flecs::world& world, flecs::entity& entity, const Tree&
 	}
 }
 
-void updateHierarchyTransform(const SystemContext& context, flecs::world& world, flecs::entity& entity, const Tree& entityTree)
+void updateHierarchyTransform(flecs::iter& it, size_t i, const Tree& entityTree)
 {
 	if (entityTree.parent != kNullEntity) return;
-	updateTreeTransform(world, entity, entityTree, HMM_M4_Identity);
+	updateTreeTransform(it.world(), it.entity(i), entityTree, HMM_M4_Identity);
 }
 
-void updateNonHierarchyTrasform(const SystemContext& context, const LocalTransform& local, WorldTransform& world)
+void updateNonHierarchyTrasform(const LocalTransform& local, WorldTransform& world)
 {
 	world.value = local.model;
 }
 
 void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
 {
-	const SystemContext& context = *it.ctx<SystemContext>();
+	const SystemContext& context = *it.param<SystemContext>();
 	auto pos1 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
 	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.interpolation_time)) + simpleHarmonic.base;
 	moveInterp.value = pos2 - pos1;
@@ -378,7 +377,7 @@ void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& si
 
 void updateRotateInterpolation(flecs::iter& it, size_t i, const Rotate& rotate, RotateInterpolation& rotateInterp)
 {
-	const SystemContext& context = *it.ctx<SystemContext>();
+	const SystemContext& context = *it.param<SystemContext>();
 	auto rot1 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
 	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.interpolation_time) * rotate.speed);
 	rotateInterp.value = HMM_MulQ(HMM_InvQ(rot2), rot1);
@@ -436,8 +435,14 @@ struct Application
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
-	//MM::FlecsEntityEditor flecsEditor;
-	ecs_entity_t editorCurEntity{};
+
+	flecs::system systemDoSimpleHarmonicMove;
+	flecs::system systemDoRotation;
+	flecs::system systemUpdateMatrixPositionOnly;
+	flecs::system systemUpdateMatrixRotationOnly;
+	flecs::system systemUpdateMatrixPositionAndRotation;
+	flecs::system systemUpdateHierarchyTransform;
+	flecs::system systemUpdateNonHierarchyTrasform;
 
 	flecs::system systemUpdateMoveInterpolation;
 	flecs::system systemUpdateRotateInterpolation;
@@ -454,52 +459,8 @@ struct Application
 		frameRenderPackets[0].memory_resource->deallocate(buffer, 1024 * 1024, 8);
 		buffer = frameRenderPackets[1].memory_resource->allocate(1024 * 1024, 8);
 		frameRenderPackets[1].memory_resource->deallocate(buffer, 1024 * 1024, 8);
-
-		//flecsEditor.registerComponent<Tree>("Tree");
-		//flecsEditor.registerComponent<WorldTransform>("World Transform");
 	}
 };
-
-//namespace MM {
-//	template <>
-//	void ComponentEditorWidget<Tree>(flecs::world& world, ecs_entity_t e)
-//	{
-//		auto* t = world.try_get<Tree>(e);
-//		if (!t) return;
-//		ImGui::Text("parent: %llu", (unsigned long long)t->parent);
-//		ImGui::Text("first child: %llu", (unsigned long long)t->firstChild);
-//		ImGui::Text("last child: %llu", (unsigned long long)t->lastChild);
-//		ImGui::Text("previous sibling: %llu", (unsigned long long)t->previousSibling);
-//		ImGui::Text("next sibling: %llu", (unsigned long long)t->nextSibling);
-//	}
-//
-//	template <>
-//	void ComponentEditorWidget<WorldTransform>(flecs::world& world, ecs_entity_t e)
-//	{
-//		auto* v = world.try_get_mut<WorldTransform>(e);
-//		if (!v) return;
-//		
-//		ImGui::DragFloat("00", &v->value.Elements[0][0], 0.1f);
-//		ImGui::DragFloat("01", &v->value.Elements[0][1], 0.1f);
-//		ImGui::DragFloat("02", &v->value.Elements[0][2], 0.1f);
-//		ImGui::DragFloat("03", &v->value.Elements[0][3], 0.1f);
-//
-//		ImGui::DragFloat("10", &v->value.Elements[1][0], 0.1f);
-//		ImGui::DragFloat("11", &v->value.Elements[1][1], 0.1f);
-//		ImGui::DragFloat("12", &v->value.Elements[1][2], 0.1f);
-//		ImGui::DragFloat("13", &v->value.Elements[1][3], 0.1f);
-//
-//		ImGui::DragFloat("20", &v->value.Elements[2][0], 0.1f);
-//		ImGui::DragFloat("21", &v->value.Elements[2][1], 0.1f);
-//		ImGui::DragFloat("22", &v->value.Elements[2][2], 0.1f);
-//		ImGui::DragFloat("23", &v->value.Elements[2][3], 0.1f);
-//
-//		ImGui::DragFloat("30", &v->value.Elements[3][0], 0.1f);
-//		ImGui::DragFloat("31", &v->value.Elements[3][1], 0.1f);
-//		ImGui::DragFloat("32", &v->value.Elements[3][2], 0.1f);
-//		ImGui::DragFloat("33", &v->value.Elements[3][3], 0.1f);
-//	}
-//}
 
 inline ECGPUFilterType find_min_filter(int min_filter)
 {
@@ -1017,6 +978,30 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	light.set<WorldTransform>({ .value = lightMat })
 		.set<Light>({ .color = HMM_V4(1.0f, 1.0f, 1.0f, 1.0f) });
 
+	app.systemDoSimpleHarmonicMove = world.system<const SimpleHarmonic, Position>("DoSimpleHarmonicMove")
+		.each(doSimpleHarmonicMove);
+
+	app.systemDoRotation = world.system<const Rotate, Rotation>("DoRotation")
+		.each(doRotation);
+
+	app.systemUpdateMatrixPositionOnly = world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
+		.without<Rotation>()
+		.each(updateMatrixPositionOnly);
+
+	app.systemUpdateMatrixRotationOnly = world.system<const Rotation, LocalTransform>("UpdateMatrixRotationOnly")
+		.without<Position>()
+		.each(updateMatrixRotationOnly);
+
+	app.systemUpdateMatrixPositionAndRotation = world.system<const Position, const Rotation, LocalTransform>("UpdateMatrixPositionAndRotation")
+		.each(updateMatrixPositionAndRotation);
+
+	app.systemUpdateHierarchyTransform = world.system<const Tree>("UpdateHierarchyTransform")
+		.each(updateHierarchyTransform);
+
+	app.systemUpdateNonHierarchyTrasform = world.system<const LocalTransform, WorldTransform>("UpdateNonHierarchyTrasform")
+		.without<Tree>()
+		.each(updateNonHierarchyTrasform);
+
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
 
@@ -1039,78 +1024,18 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.each(updateShowMatrixMoveAndRotate);
 }
 
-//template<typename...T, typename Func>
-//tf::Task createForeachTask(const SystemContext& context, flecs::world& world, tf::Taskflow& taskFlow, Func&& func)
-//{
-//	return taskFlow.emplace([&world, context, func = std::forward<Func>(func)]() {
-//		world.each<T...>([&](flecs::entity e, T&... comps) {
-//			func(context, comps...);
-//		});
-//	});
-//}
-//
-//template<typename...T, typename...Exclude, typename Func>
-//tf::Task createForeachTask(const SystemContext& context, flecs::world& world, tf::Taskflow& taskFlow, Func&& func, exclude_t<Exclude...>)
-//{
-//	return taskFlow.emplace([&world, context, func = std::forward<Func>(func)]() {
-//		world.filter_builder().with<T...>().without<Exclude...>().build().each([&](flecs::entity e, T&... comps) {
-//			func(context, comps...);
-//		});
-//	});
-//}
-//
-//template<typename...T, typename Func>
-//tf::Task createForeachTask2(const SystemContext& context, flecs::world& world, tf::Taskflow& taskFlow, Func&& func)
-//{
-//	return taskFlow.emplace([&world, context, func = std::forward<Func>(func)]() {
-//		world.each<T...>([&](flecs::entity e, T&... comps) {
-//			func(context, world, e.id(), comps...);
-//		});
-//	});
-//}
-
-template<typename...T, typename Func>
-void updateSystem(const SystemContext& context, flecs::world& world, Func&& func)
-{
-	//world.each<T...>([&](flecs::entity e, T&... comps) {
-	//	func(context, comps...);
-	//});
-}
-
-template<typename...T, typename...Exclude, typename Func>
-void updateSystem(const SystemContext& context, flecs::world& world, Func&& func, exclude_t<Exclude...>)
-{
-	//world.filter_builder().with<T...>().without<Exclude...>().build().each([&](flecs::entity e, T&... comps) {
-	//	func(context, comps...);
-	//});
-}
-
 tf::Task simulate(Application& app, flecs::world& world, const oval_update_context& update_context, tf::Taskflow& flow)
 {
-	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
-	//auto simpleHarmonicMoveSystem = createForeachTask<const SimpleHarmonic, Position>(context, world, flow, doSimpleHarmonicMove).name("简谐运动");
-	//auto rotationSystem = createForeachTask<const Rotate, Rotation>(context, world, flow, doRotation).name("旋转运动");
-
-	//auto beforeUpdateMatrix = flow.placeholder();
-	//beforeUpdateMatrix
-	//	.succeed(simpleHarmonicMoveSystem, rotationSystem);;
-
-	//auto updateMatrixPositionOnlySystem = createForeachTask<const Position, LocalTransform>(context, world, flow, updateMatrixPositionOnly, exclude_t<Rotation>()).name("更新矩阵PositionOnly");
-	//auto updateMatrixRotationOnlySystem = createForeachTask<const Rotation, LocalTransform>(context, world, flow, updateMatrixRotationOnly, exclude_t<Position>()).name("更新矩阵RotationOnly");
-	//auto updateMatrixPositionAndRotationSystem = createForeachTask<const Position, const Rotation, LocalTransform>(context, world, flow, updateMatrixPositionAndRotation).name("更新矩阵PositionAndRotation");
-	//auto beforeUpdateLocalTransformSystemGroup = flow.placeholder().precede(updateMatrixPositionOnlySystem, updateMatrixRotationOnlySystem, updateMatrixPositionAndRotationSystem);
-	//auto afterUpdateLocalTransformSystemGroup = flow.placeholder().succeed(updateMatrixPositionOnlySystem, updateMatrixRotationOnlySystem, updateMatrixPositionAndRotationSystem);
-	//beforeUpdateLocalTransformSystemGroup.succeed(beforeUpdateMatrix);
-
-	//auto updateHierarchyTransformSystem = createForeachTask2<const Tree>(context, world, flow, updateHierarchyTransform);
-	//auto updateNonHierarchyTransformSystem = createForeachTask<const LocalTransform, WorldTransform>(context, world, flow, updateNonHierarchyTrasform, exclude_t<Tree>()).name("更新非层级WorldTransform");
-	//auto beforeUpdateHierarchyTransformSystemGroup = flow.placeholder().precede(updateHierarchyTransformSystem, updateNonHierarchyTransformSystem).succeed(afterUpdateLocalTransformSystemGroup);
-	//auto afterUpdateHierarchyTransformSystemGroup = flow.placeholder().succeed(updateHierarchyTransformSystem, updateNonHierarchyTransformSystem);
-
-	auto endOfSimulate = flow.placeholder();
-	//endOfSimulate.succeed(afterUpdateHierarchyTransformSystemGroup);
-
-	return endOfSimulate;
+	return flow.emplace([&app, update_context]() {
+		SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
+		app.systemDoSimpleHarmonicMove.run(0, &context);
+		app.systemDoRotation.run(0, &context);
+		app.systemUpdateMatrixPositionOnly.run(0, &context);
+		app.systemUpdateMatrixRotationOnly.run(0, &context);
+		app.systemUpdateMatrixPositionAndRotation.run(0, &context);
+		app.systemUpdateHierarchyTransform.run(0, &context);
+		app.systemUpdateNonHierarchyTrasform.run(0, &context);
+		});
 }
 
 std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
@@ -1322,9 +1247,6 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		}
 		ImGui::Text("Total Time: %7.2f us", total_duration);
 	}
-
-	Application* app = (Application*)device->descriptor.userdata;
-	//app->flecsEditor.renderSimpleCombo(*oval_get_world(app->device), app->editorCurEntity);
 }
 
 void on_imgui2(ecs_entity_t entity, oval_device_t* device, oval_render_context render_context)
