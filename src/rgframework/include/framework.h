@@ -155,4 +155,4 @@ uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::
 uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size);
 uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::Texture* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
 
-flecs::world* oval_get_world(oval_device_t* device);
+ecs_world_t* oval_get_world(oval_device_t* device);

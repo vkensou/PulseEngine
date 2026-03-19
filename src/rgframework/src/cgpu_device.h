@@ -250,6 +250,7 @@ typedef struct oval_cgpu_device_t {
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Material>> materials;
 	
 	flecs::world world;
+	flecs::system system_sync_window_component_and_raw_handle;
 } oval_cgpu_device_t;
 
 void oval_process_load_queue(oval_cgpu_device_t* device);
@@ -260,3 +261,4 @@ uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t
 std::vector<uint8_t> readfile(const char* filename);
 oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window(oval_device_t* device, oval_window_t* window);
+void sync_window_component_and_raw_handle(const WindowComponent& window, const RawWindowHandleComponent& rawwindow);

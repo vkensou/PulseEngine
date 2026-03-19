@@ -169,12 +169,21 @@ void resize_window(ecs_iter_t* it)
 	}
 }
 
+void sync_window_component_and_raw_handle(const WindowComponent& window, const RawWindowHandleComponent& rawwindow)
+{
+	auto oval_window = (oval_window_impl_t*)rawwindow.handle;
+
+	int w, h;
+	SDL_GetWindowSize(oval_window->window, &w, &h);
+
+	if (window.width != w || window.height != h)
+		SDL_SetWindowSize(oval_window->window, window.width, window.height);
+}
+
 void oval_sync_window_component_and_raw_handle(struct oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	auto& world = D->world;
-
-	// TODO
+	D->system_sync_window_component_and_raw_handle.run();
 }
 
 std::unique_ptr<SwapChain> SwapChain::create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)

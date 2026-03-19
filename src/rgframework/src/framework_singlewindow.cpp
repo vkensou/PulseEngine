@@ -281,6 +281,9 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	};
 	device_cgpu->imgui_font_sampler = oval_create_sampler(&device_cgpu->super, &imgui_font_sampler_desc);
 
+	device_cgpu->system_sync_window_component_and_raw_handle = device_cgpu->world.system<const WindowComponent, const RawWindowHandleComponent>("sync_window_component_and_raw_handle")
+		.each(sync_window_component_and_raw_handle);
+
 	return (oval_device_t*)device_cgpu;
 }
 
@@ -954,8 +957,8 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 	}
 }
 
-flecs::world* oval_get_world(oval_device_t* device)
+ecs_world_t* oval_get_world(oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	return &D->world;
+	return D->world;
 }
