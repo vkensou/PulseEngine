@@ -368,31 +368,33 @@ void updateNonHierarchyTrasform(const SystemContext& context, const LocalTransfo
 	world.value = local.model;
 }
 
-void updateMoveInterpolation(const SystemContext& context, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
+void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
 {
-	auto pos1 = simpleHarmonic.amplitude* sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
+	const SystemContext& context = *it.ctx<SystemContext>();
+	auto pos1 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
 	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.interpolation_time)) + simpleHarmonic.base;
 	moveInterp.value = pos2 - pos1;
 }
 
-void updateRotateInterpolation(const SystemContext& context, const Rotate& rotate, RotateInterpolation& rotateInterp)
+void updateRotateInterpolation(flecs::iter& it, size_t i, const Rotate& rotate, RotateInterpolation& rotateInterp)
 {
+	const SystemContext& context = *it.ctx<SystemContext>();
 	auto rot1 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
 	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.interpolation_time) * rotate.speed);
 	rotateInterp.value = HMM_MulQ(HMM_InvQ(rot2), rot1);
 }
 
-void updateShowMatrixStatic(const SystemContext& context, const WorldTransform& matrix, ShowMatrix& showMatrix)
+void updateShowMatrixStatic(const WorldTransform& matrix, ShowMatrix& showMatrix)
 {
 	showMatrix.model = matrix.value;
 }
 
-void updateShowMatrixMoveOnly(const SystemContext& context, const WorldTransform& matrix, const MoveInterpolation& moveInterp, ShowMatrix& showMatrix)
+void updateShowMatrixMoveOnly(const WorldTransform& matrix, const MoveInterpolation& moveInterp, ShowMatrix& showMatrix)
 {
 	showMatrix.model = HMM_MulM4(matrix.value, HMM_Translate(moveInterp.value));
 }
 
-void updateShowMatrixRotateOnly(const SystemContext& context, const WorldTransform& matrix, const RotateInterpolation& rotateInterp, ShowMatrix& showMatrix)
+void updateShowMatrixRotateOnly(const WorldTransform& matrix, const RotateInterpolation& rotateInterp, ShowMatrix& showMatrix)
 {
 	auto oriPosition = HMM_M4GetTranslate(matrix.value);
 	auto oriRotation = HMM_M4ToQ_LH(matrix.value);
@@ -400,7 +402,7 @@ void updateShowMatrixRotateOnly(const SystemContext& context, const WorldTransfo
 	showMatrix.model = HMM_TRS(oriPosition, newRotation, HMM_V3_One);
 }
 
-void updateShowMatrixMoveAndRotate(const SystemContext& context, const WorldTransform& matrix, const MoveInterpolation& moveInterp, const RotateInterpolation& rotateInterp, ShowMatrix& showMatrix)
+void updateShowMatrixMoveAndRotate(const WorldTransform& matrix, const MoveInterpolation& moveInterp, const RotateInterpolation& rotateInterp, ShowMatrix& showMatrix)
 {
 	auto oriPosition = HMM_M4GetTranslate(matrix.value);
 	auto oriRotation = HMM_M4ToQ_LH(matrix.value);
@@ -436,6 +438,13 @@ struct Application
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
 	//MM::FlecsEntityEditor flecsEditor;
 	ecs_entity_t editorCurEntity{};
+
+	flecs::system systemUpdateMoveInterpolation;
+	flecs::system systemUpdateRotateInterpolation;
+	flecs::system systemShowMatrixStatic;
+	flecs::system systemShowMatrixMoveOnly;
+	flecs::system systemShowMatrixRotateOnly;
+	flecs::system systemShowMatrixMoveAndRotate;
 
 	Application()
 		: frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
@@ -1007,6 +1016,27 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.add<Light>();
 	light.set<WorldTransform>({ .value = lightMat })
 		.set<Light>({ .color = HMM_V4(1.0f, 1.0f, 1.0f, 1.0f) });
+
+	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
+		.each(updateMoveInterpolation);
+
+	app.systemUpdateRotateInterpolation = world.system<const Rotate, RotateInterpolation>("UpdateRotateInterpolation")
+		.each(updateRotateInterpolation);
+
+	app.systemShowMatrixStatic = world.system<const WorldTransform, ShowMatrix>("ShowMatrixStatic")
+		.without<MoveInterpolation, RotateInterpolation>()
+		.each(updateShowMatrixStatic);
+
+	app.systemShowMatrixMoveOnly = world.system<const WorldTransform, const MoveInterpolation, ShowMatrix>("ShowMatrixMoveOnly")
+		.without<RotateInterpolation>()
+		.each(updateShowMatrixMoveOnly);
+
+	app.systemShowMatrixRotateOnly = world.system<const WorldTransform, const RotateInterpolation, ShowMatrix>("ShowMatrixRotateOnly")
+		.without<MoveInterpolation>()
+		.each(updateShowMatrixRotateOnly);
+
+	app.systemShowMatrixMoveAndRotate = world.system<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>("ShowMatrixMoveAndRotate")
+		.each(updateShowMatrixMoveAndRotate);
 }
 
 //template<typename...T, typename Func>
@@ -1118,12 +1148,12 @@ std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, st
 void interpolate(Application& app, flecs::world& world, const oval_render_context& render_context)
 {
 	SystemContext context = SystemContext{ render_context.delta_time, render_context.time_since_startup, render_context.delta_time_double, render_context.time_since_startup_double, render_context.render_interpolation_time, render_context.render_interpolation_time_double };
-	updateSystem<const SimpleHarmonic, MoveInterpolation>(context, world, updateMoveInterpolation);
-	updateSystem<const Rotate, RotateInterpolation>(context, world, updateRotateInterpolation);
-	updateSystem<const WorldTransform, ShowMatrix>(context, world, updateShowMatrixStatic, exclude_t<MoveInterpolation, RotateInterpolation>());
-	updateSystem<const WorldTransform, const MoveInterpolation, ShowMatrix>(context, world, updateShowMatrixMoveOnly, exclude_t<RotateInterpolation>());
-	updateSystem<const WorldTransform, const RotateInterpolation, ShowMatrix>(context, world, updateShowMatrixRotateOnly, exclude_t<MoveInterpolation>());
-	updateSystem<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>(context, world, updateShowMatrixMoveAndRotate);
+	app.systemUpdateMoveInterpolation.run(0, &context);
+	app.systemUpdateRotateInterpolation.run(0, &context);
+	app.systemShowMatrixStatic.run(0, &context);
+	app.systemShowMatrixMoveOnly.run(0, &context);
+	app.systemShowMatrixRotateOnly.run(0, &context);
+	app.systemShowMatrixMoveAndRotate.run(0, &context);
 }
 
 void enumViews(Application& app, flecs::world& world, FrameRenderPacket& currentFramePack)
