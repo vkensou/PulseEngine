@@ -138,12 +138,16 @@ ecs_entity_t oval_create_window_entity(oval_device_t* device, const oval_window_
 	return window_entity;
 }
 
-void oval_free_window_entity(oval_device_t* device, ecs_entity_t window_entity)
+void oval_free_window_entity(oval_device_t* device, ecs_entity_t window_entity_id)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto& world = D->world;
 
-	auto window = world.try_get<RawWindowHandleComponent>(window_entity);
+	auto window_entity = flecs::entity(world, window_entity_id);
+	if (!window_entity.is_alive())
+		return;
+
+	auto window = window_entity.try_get<RawWindowHandleComponent>();
 	if (window != nullptr)
 	{
 		auto oval_window = (oval_window_impl_t*)window->handle;

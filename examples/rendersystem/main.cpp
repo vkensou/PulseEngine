@@ -2,7 +2,7 @@
 #include "imgui.h"
 #include <taskflow/taskflow.hpp>
 #include "taskflow/algorithm/for_each.hpp"
-#include "entt/entt.hpp"
+#include <flecs.h>
 #include <bit>
 #include <filesystem>
 #define TINYGLTF_NO_STB_IMAGE
@@ -11,62 +11,72 @@
 #define TINYGLTF_NO_FS
 #include "tiny_gltf.h"
 #include <cassert>
-#include "imgui_entt_entity_editor.hpp"
+//#include "imgui_flecs_entity_editor.hpp"
 #include <SDL3/SDL.h>
+
+constexpr ecs_entity_t kNullEntity = 0;
+
+template<typename...E> struct exclude_t {};
 
 struct Tree
 {
-	entt::entity parent{ entt::null };
-	entt::entity firstChild{ entt::null };
-	entt::entity lastChild{ entt::null };
-	entt::entity previousSibling{ entt::null };
-	entt::entity nextSibling{ entt::null };
+	ecs_entity_t parent{ kNullEntity };
+	ecs_entity_t firstChild{ kNullEntity };
+	ecs_entity_t lastChild{ kNullEntity };
+	ecs_entity_t previousSibling{ kNullEntity };
+	ecs_entity_t nextSibling{ kNullEntity };
 };
 
-inline Tree& safeGetTree(entt::registry& registry, entt::entity self)
+inline Tree& safeGetTree(flecs::world& world, flecs::entity& self)
 {
-	return registry.get_or_emplace<Tree>(self);
+	auto tree = self.try_get_mut<Tree>();
+	if (!tree)
+	{
+		self.add<Tree>();
+		tree = self.try_get_mut<Tree>();
+	}
+	return *tree;
 }
 
-void removeFromParent(entt::registry& registry, entt::entity self, Tree& selfTree);
+void removeFromParent(flecs::world& world, flecs::entity& self, Tree& selfTree);
 
-void insertBefore(entt::registry& registry, entt::entity self, Tree& selfTree, entt::entity newNode, entt::entity referenceNode)
+void insertBefore(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& newNode, flecs::entity& referenceNode)
 {
-	assert(newNode != entt::null && "newNode is null");
+	assert(newNode != kNullEntity && "newNode is null");
 
-	auto& newTree = registry.get<Tree>(newNode);
-	removeFromParent(registry, newNode, newTree);
+	auto& newTree = newNode.get_mut<Tree>();
+	removeFromParent(world, newNode, newTree);
 
-	if (referenceNode != entt::null)
+	if (referenceNode != kNullEntity)
 	{
-		auto& referenceTree = registry.get<Tree>(referenceNode);
+		auto& referenceTree = referenceNode.get<Tree>();
 		assert(referenceTree.parent == self);
 
 		newTree.previousSibling = referenceTree.previousSibling;
 		newTree.nextSibling = referenceNode;
 
-		if (newTree.previousSibling == entt::null)
+		if (newTree.previousSibling == kNullEntity)
 			selfTree.firstChild = newNode;
 		else 
 		{
-			auto& previousTree = registry.get<Tree>(newTree.previousSibling);
+			auto& previousTree = flecs::entity(world, newTree.previousSibling).get_mut<Tree>();
 			previousTree.nextSibling = newNode;
 		}
 	}
 	else
 	{
-		if (selfTree.lastChild != entt::null)
+		if (selfTree.lastChild != kNullEntity)
 		{
-			auto& lastTree = registry.get<Tree>(selfTree.lastChild);
-			assert(lastTree.nextSibling == entt::null);
+			auto& lastTree = flecs::entity(world, selfTree.lastChild).get_mut<Tree>();
+			assert(lastTree.nextSibling == kNullEntity);
 			lastTree.nextSibling = newNode;
 			newTree.previousSibling = selfTree.lastChild;
 			selfTree.lastChild = newNode;
 		}
 		else
 		{
-			assert(selfTree.firstChild == entt::null);
-			assert(selfTree.lastChild == entt::null);
+			assert(selfTree.firstChild == kNullEntity);
+			assert(selfTree.lastChild == kNullEntity);
 			selfTree.firstChild = newNode;
 			selfTree.lastChild = newNode;
 		}
@@ -74,84 +84,84 @@ void insertBefore(entt::registry& registry, entt::entity self, Tree& selfTree, e
 	newTree.parent = self;
 }
 
-void appendChild(entt::registry& registry, entt::entity self, Tree& selfTree, entt::entity child)
+void appendChild(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& child)
 {
-	assert(child != entt::null && "child is null");
+	assert(child != kNullEntity && "child is null");
 	assert(child != self && "child is self");
 
-	auto& childTree = registry.get<Tree>(child);
-	removeFromParent(registry, child, childTree);
+	auto& childTree = child.get_mut<Tree>();
+	removeFromParent(world, child, childTree);
 	childTree.parent = self;
-	if (selfTree.lastChild != entt::null)
+	if (selfTree.lastChild != kNullEntity)
 	{
-		auto& lastChildTree = registry.get<Tree>(selfTree.lastChild);
-		assert(lastChildTree.nextSibling == entt::null);
+		auto& lastChildTree = flecs::entity(world, selfTree.lastChild).get_mut<Tree>();
+		assert(lastChildTree.nextSibling == kNullEntity);
 		childTree.previousSibling = selfTree.lastChild;
 		lastChildTree.nextSibling = child;
 	}
 	else
 	{
-		assert(selfTree.firstChild == entt::null);
+		assert(selfTree.firstChild == kNullEntity);
 		selfTree.firstChild = child;
 	}
 
 	selfTree.lastChild = child;
 }
 
-void replaceChild(entt::registry& registry, entt::entity self, Tree& selfTree, entt::entity newChild, entt::entity oldChild)
+void replaceChild(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& newChild, flecs::entity& oldChild)
 {
-	assert(newChild != entt::null && "newChild is null");
-	assert(oldChild != entt::null && "oldChild is null");
+	assert(newChild != kNullEntity && "newChild is null");
+	assert(oldChild != kNullEntity && "oldChild is null");
 	assert(newChild != self);
-	auto& oldChildTree = registry.get<Tree>(oldChild);
+	auto& oldChildTree = oldChild.get_mut<Tree>();
 	assert(oldChildTree.parent == self);
-	const auto oldChildNext = oldChildTree.nextSibling;
-	removeFromParent(registry, oldChild, oldChildTree);
-	insertBefore(registry, self, selfTree, newChild, oldChildNext);
+	auto oldChildNext = flecs::entity(world, oldChildTree.nextSibling);
+	removeFromParent(world, oldChild, oldChildTree);
+	insertBefore(world, self, selfTree, newChild, oldChildNext);
 }
 
-void removeChild(entt::registry& registry, entt::entity self, Tree& selfTree, entt::entity child)
+void removeChild(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& child)
 {
-	assert(child != entt::null && "child is null");
-	auto& childTree = registry.get<Tree>(child);
+	assert(child != kNullEntity && "child is null");
+	auto& childTree = child.get_mut<Tree>();
 	assert(childTree.parent == self);
-	removeFromParent(registry, child, childTree);
+	removeFromParent(world, child, childTree);
 }
 
-void removeFromParent(entt::registry& registry, entt::entity self, Tree& selfTree)
+void removeFromParent(flecs::world& world, flecs::entity& self, Tree& selfTree)
 {
-	if (selfTree.parent == entt::null) return;
+	if (selfTree.parent == kNullEntity) return;
 
-	auto& parentTree = registry.get<Tree>(selfTree.parent);
+	auto& parentTree = flecs::entity(world, selfTree.parent).get_mut<Tree>();
 
 	if (parentTree.firstChild == self)
 		parentTree.firstChild = selfTree.nextSibling;
 	if (parentTree.lastChild == self)
 		parentTree.lastChild = selfTree.previousSibling;
 
-	if (selfTree.previousSibling != entt::null)
+	if (selfTree.previousSibling != kNullEntity)
 	{
-		auto& previousTree = registry.get<Tree>(selfTree.previousSibling);
+		auto& previousTree = flecs::entity(world, selfTree.previousSibling).get_mut<Tree>();
 		previousTree.nextSibling = selfTree.nextSibling;
 	}
 
-	if (selfTree.nextSibling != entt::null)
+	if (selfTree.nextSibling != kNullEntity)
 	{
-		auto& nextTree = registry.get<Tree>(selfTree.nextSibling);
+		auto& nextTree = flecs::entity(world, selfTree.nextSibling).get_mut<Tree>();
 		nextTree.previousSibling = selfTree.previousSibling;
 	}
 
-	selfTree.parent = entt::null;
-	selfTree.previousSibling = entt::null;
-	selfTree.nextSibling = entt::null;
+	selfTree.parent = kNullEntity;
+	selfTree.previousSibling = kNullEntity;
+	selfTree.nextSibling = kNullEntity;
 }
 
-void setParent(entt::registry& registry, entt::entity self, entt::entity newParent)
+void setParent(flecs::world& world, flecs::entity self, flecs::entity newParent)
 {
-	auto& selfTree = safeGetTree(registry, self);
-	removeFromParent(registry, self, selfTree);
-	auto& parentTree = safeGetTree(registry, newParent);
-	appendChild(registry, newParent, parentTree, self);
+	auto& selfTree = safeGetTree(world, self);
+	removeFromParent(world, self, selfTree);
+	auto& parentTree = safeGetTree(world, newParent);
+	appendChild(world, newParent, parentTree, self);
 }
 
 struct BindBuffer
@@ -237,7 +247,7 @@ struct Light
 
 struct Camera
 {
-	entt::entity window_entity;
+	ecs_entity_t window_entity;
 	float fov;
 	float nearPlane;
 	float farPlane;
@@ -278,7 +288,7 @@ struct ObjectData
 
 struct ViewRenderPacket
 {
-	entt::entity window_entity;
+	ecs_entity_t window_entity;
 	PassData passData;
 	std::pmr::vector<RenderObject> renderObjects;
 	std::pmr::vector<ObjectData> renderData;
@@ -319,37 +329,38 @@ void updateMatrixPositionAndRotation(const SystemContext& context, const Positio
 	matrix.model = HMM_TRS(position.value, rotation.value, HMM_V3_One);
 }
 
-void updateTreeTransform(entt::registry& registry, entt::entity entity, const Tree& entityTree, HMM_Mat4 parentTransform)
+void updateTreeTransform(flecs::world& world, flecs::entity& entity, const Tree& entityTree, HMM_Mat4 parentTransform)
 {
-	auto local = registry.try_get<LocalTransform>(entity);
-	auto world = registry.try_get<WorldTransform>(entity);
+	auto local = entity.try_get<LocalTransform>();
+	auto worldTr = entity.try_get_mut<WorldTransform>();
 	HMM_Mat4 selfWorldTransform;
-	if (world && local)
+	if (worldTr && local)
 	{
-		selfWorldTransform = world->value = parentTransform * local->model;
+		selfWorldTransform = worldTr->value = parentTransform * local->model;
 	}
-	else if (world)
+	else if (worldTr)
 	{
-		selfWorldTransform = world->value = parentTransform;
+		selfWorldTransform = worldTr->value = parentTransform;
 	}
 	else
 	{
 		selfWorldTransform = parentTransform;
 	}
 
-	entt::entity child = entityTree.firstChild;
-	while (child != entt::null)
+	ecs_entity_t child = entityTree.firstChild;
+	while (child != kNullEntity)
 	{
-		auto& childTree = registry.get<Tree>(child);
-		updateTreeTransform(registry, child, childTree, selfWorldTransform);
+		auto childEnt = flecs::entity(world, child);
+		auto& childTree = childEnt.get<Tree>();
+		updateTreeTransform(world, childEnt, childTree, selfWorldTransform);
 		child = childTree.nextSibling;
 	}
 }
 
-void updateHierarchyTransform(const SystemContext& context, entt::registry& registry, entt::entity entity, const Tree& entityTree)
+void updateHierarchyTransform(const SystemContext& context, flecs::world& world, flecs::entity& entity, const Tree& entityTree)
 {
-	if (entityTree.parent != entt::null) return;
-	updateTreeTransform(registry, entity, entityTree, HMM_M4_Identity);
+	if (entityTree.parent != kNullEntity) return;
+	updateTreeTransform(world, entity, entityTree, HMM_M4_Identity);
 }
 
 void updateNonHierarchyTrasform(const SystemContext& context, const LocalTransform& local, WorldTransform& world)
@@ -417,14 +428,14 @@ struct FrameRenderPacket
 struct Application
 {
 	oval_device_t* device{ nullptr };
-	entt::entity window1{};
-	entt::entity window2{};
+	ecs_entity_t window1{};
+	ecs_entity_t window2{};
 	std::vector<HGEGraphics::Mesh*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
-	MM::EntityEditor<entt::entity> enttEditor;
-	entt::entity editorCurEntity;
+	//MM::FlecsEntityEditor flecsEditor;
+	ecs_entity_t editorCurEntity{};
 
 	Application()
 		: frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
@@ -435,49 +446,51 @@ struct Application
 		buffer = frameRenderPackets[1].memory_resource->allocate(1024 * 1024, 8);
 		frameRenderPackets[1].memory_resource->deallocate(buffer, 1024 * 1024, 8);
 
-		enttEditor.registerComponent<Tree>("Tree");
-		enttEditor.registerComponent<WorldTransform>("World Transform");
+		//flecsEditor.registerComponent<Tree>("Tree");
+		//flecsEditor.registerComponent<WorldTransform>("World Transform");
 	}
 };
 
-namespace MM {
-	template <>
-	void ComponentEditorWidget<Tree>(entt::registry& reg, entt::registry::entity_type e)
-	{
-		auto& t = reg.get<Tree>(e);
-		ImGui::Text("parent: %d", t.parent);
-		ImGui::Text("first child: %d", t.firstChild);
-		ImGui::Text("last child: %d", t.lastChild);
-		ImGui::Text("previous sibling: %d", t.previousSibling);
-		ImGui::Text("next sibling: %d", t.nextSibling);
-	}
-
-	template <>
-	void ComponentEditorWidget<WorldTransform>(entt::registry& reg, entt::registry::entity_type e)
-	{
-		auto& v = reg.get<WorldTransform>(e);
-		
-		ImGui::DragFloat("00", &v.value.Elements[0][0], 0.1f);
-		ImGui::DragFloat("01", &v.value.Elements[0][1], 0.1f);
-		ImGui::DragFloat("02", &v.value.Elements[0][2], 0.1f);
-		ImGui::DragFloat("03", &v.value.Elements[0][3], 0.1f);
-
-		ImGui::DragFloat("10", &v.value.Elements[1][0], 0.1f);
-		ImGui::DragFloat("11", &v.value.Elements[1][1], 0.1f);
-		ImGui::DragFloat("12", &v.value.Elements[1][2], 0.1f);
-		ImGui::DragFloat("13", &v.value.Elements[1][3], 0.1f);
-
-		ImGui::DragFloat("20", &v.value.Elements[2][0], 0.1f);
-		ImGui::DragFloat("21", &v.value.Elements[2][1], 0.1f);
-		ImGui::DragFloat("22", &v.value.Elements[2][2], 0.1f);
-		ImGui::DragFloat("23", &v.value.Elements[2][3], 0.1f);
-
-		ImGui::DragFloat("30", &v.value.Elements[3][0], 0.1f);
-		ImGui::DragFloat("31", &v.value.Elements[3][1], 0.1f);
-		ImGui::DragFloat("32", &v.value.Elements[3][2], 0.1f);
-		ImGui::DragFloat("33", &v.value.Elements[3][3], 0.1f);
-	}
-}
+//namespace MM {
+//	template <>
+//	void ComponentEditorWidget<Tree>(flecs::world& world, ecs_entity_t e)
+//	{
+//		auto* t = world.try_get<Tree>(e);
+//		if (!t) return;
+//		ImGui::Text("parent: %llu", (unsigned long long)t->parent);
+//		ImGui::Text("first child: %llu", (unsigned long long)t->firstChild);
+//		ImGui::Text("last child: %llu", (unsigned long long)t->lastChild);
+//		ImGui::Text("previous sibling: %llu", (unsigned long long)t->previousSibling);
+//		ImGui::Text("next sibling: %llu", (unsigned long long)t->nextSibling);
+//	}
+//
+//	template <>
+//	void ComponentEditorWidget<WorldTransform>(flecs::world& world, ecs_entity_t e)
+//	{
+//		auto* v = world.try_get_mut<WorldTransform>(e);
+//		if (!v) return;
+//		
+//		ImGui::DragFloat("00", &v->value.Elements[0][0], 0.1f);
+//		ImGui::DragFloat("01", &v->value.Elements[0][1], 0.1f);
+//		ImGui::DragFloat("02", &v->value.Elements[0][2], 0.1f);
+//		ImGui::DragFloat("03", &v->value.Elements[0][3], 0.1f);
+//
+//		ImGui::DragFloat("10", &v->value.Elements[1][0], 0.1f);
+//		ImGui::DragFloat("11", &v->value.Elements[1][1], 0.1f);
+//		ImGui::DragFloat("12", &v->value.Elements[1][2], 0.1f);
+//		ImGui::DragFloat("13", &v->value.Elements[1][3], 0.1f);
+//
+//		ImGui::DragFloat("20", &v->value.Elements[2][0], 0.1f);
+//		ImGui::DragFloat("21", &v->value.Elements[2][1], 0.1f);
+//		ImGui::DragFloat("22", &v->value.Elements[2][2], 0.1f);
+//		ImGui::DragFloat("23", &v->value.Elements[2][3], 0.1f);
+//
+//		ImGui::DragFloat("30", &v->value.Elements[3][0], 0.1f);
+//		ImGui::DragFloat("31", &v->value.Elements[3][1], 0.1f);
+//		ImGui::DragFloat("32", &v->value.Elements[3][2], 0.1f);
+//		ImGui::DragFloat("33", &v->value.Elements[3][3], 0.1f);
+//	}
+//}
 
 inline ECGPUFilterType find_min_filter(int min_filter)
 {
@@ -737,7 +750,7 @@ bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
 	return true;
 }
 
-void load_scene(Application& app, entt::registry& registry, const char* filepath, HGEGraphics::Shader* shader)
+void load_scene(Application& app, flecs::world& world, const char* filepath, HGEGraphics::Shader* shader)
 {
 	using namespace tinygltf;
 	Model model;
@@ -855,7 +868,7 @@ void load_scene(Application& app, entt::registry& registry, const char* filepath
 		}
 	}
 
-	std::vector<entt::entity> entities;
+	std::vector<flecs::entity> entities;
 	for (size_t i = 0; i < model.nodes.size(); ++i)
 	{
 		auto& node = model.nodes[i];
@@ -897,19 +910,23 @@ void load_scene(Application& app, entt::registry& registry, const char* filepath
 			matrix = HMM_TRS(translate, rot, scale);
 		}
 
-		auto ent = registry.create();
-		registry.emplace<LocalTransform>(ent, matrix);
-		registry.emplace<WorldTransform>(ent);
+		auto ent = world.entity();
+		ent.add<LocalTransform>()
+			.add<WorldTransform>();
+		ent.set<LocalTransform>({.model = matrix});
 		if (node.mesh != -1)
 		{
 			const auto& mesh = model.meshes[node.mesh];
 			for (size_t j = 0; j < mesh.primitives.size(); ++j)
 			{
-				auto sub = registry.create();
-				registry.emplace<WorldTransform>(sub, HMM_M4_Identity);
-				registry.emplace<Rendable>(sub, mesh.primitives[j].material, meshes[std::tuple<int, int>(node.mesh, (int)j)]);
-				registry.emplace<ShowMatrix>(sub, HMM_M4_Identity);
-				setParent(registry, sub, ent);
+				auto sub = world.entity();
+				sub.add<WorldTransform>()
+					.add<Rendable>()
+					.add<ShowMatrix>();
+				sub.set<WorldTransform>({ .value = HMM_M4_Identity })
+					.set<Rendable>({.material = mesh.primitives[j].material, .mesh = meshes[std::tuple<int, int>(node.mesh, (int)j)]})
+					.set<ShowMatrix>({.model = HMM_M4_Identity});
+				setParent(world, sub, ent);
 			}
 		}
 		entities.push_back(ent);
@@ -924,15 +941,17 @@ void load_scene(Application& app, entt::registry& registry, const char* filepath
 		for (size_t j = 0; j < node.children.size(); ++j)
 		{
 			auto& child = model.nodes[node.children[j]];
-			setParent(registry, entities[node.children[j]], entities[i]);
+			setParent(world, entities[node.children[j]], entities[i]);
 		}
 	}
 
-	registry.emplace<Rotation>(entities[0], HMM_Q_Identity);
-	registry.emplace<Rotate>(entities[0], HMM_V3_Up, 1.0f, HMM_Q_Identity);
+	entities[0].add<Rotation>()
+		.add<Rotate>();
+	entities[0].set<Rotation>({ .value = HMM_Q_Identity })
+		.set<Rotate>({ .axis = HMM_V3_Up, .speed = 1.0f, .base = HMM_Q_Identity });
 }
 
-void _init_resource(Application& app, entt::registry& registry)
+void _init_resource(Application& app, flecs::world& world)
 {
 	CGPUBlendAttachmentState blend_attachments = {
 		.enable = false,
@@ -962,7 +981,7 @@ void _init_resource(Application& app, entt::registry& registry)
 	};
 	auto shader = oval_create_shader(app.device, "shaderbin/obj2.vert.spv", "shaderbin/obj2.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
-	load_scene(app, registry, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
+	load_scene(app, world, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
 }
 
 void _free_resource(Application& app)
@@ -970,184 +989,171 @@ void _free_resource(Application& app)
 	app.materials.clear();
 }
 
-void _init_world(Application& app, entt::registry& registry, entt::entity window_entity)
+void _init_world(Application& app, flecs::world& world, ecs_entity_t window_entity)
 {
-	auto cam = registry.create();
+	auto cam = world.entity();
 	auto cameraParentMat = HMM_QToM4(HMM_QFromEuler_YXZ(HMM_AngleDeg(33.4), HMM_AngleDeg(45), 0));
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0, 0, -10));
 	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
-	registry.emplace<WorldTransform>(cam, cameraWMat);
-	registry.emplace<Camera>(cam, window_entity, 45.0f, 0.1f, 20.f, 800, 600);
+	cam.add<WorldTransform>()
+		.add<Camera>();
+	cam.set<WorldTransform>({ .value = cameraWMat })
+		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 20.f, .width = 800, .height = 600 });
 
-	auto light = registry.create();
+	auto light = world.entity();
 	auto lightDir = HMM_Norm(HMM_V3(0.25f, -0.7f, 1.25f));
 	auto lightMat = HMM_PoseAt_LH(HMM_V3_Zero, lightDir, HMM_V3_Up);
-	registry.emplace<WorldTransform>(light, lightMat);
-	registry.emplace<Light>(light, HMM_V4(1.0f, 1.0f, 1.0f, 1.0f));
+	light.add<WorldTransform>()
+		.add<Light>();
+	light.set<WorldTransform>({ .value = lightMat })
+		.set<Light>({ .color = HMM_V4(1.0f, 1.0f, 1.0f, 1.0f) });
 }
 
+//template<typename...T, typename Func>
+//tf::Task createForeachTask(const SystemContext& context, flecs::world& world, tf::Taskflow& taskFlow, Func&& func)
+//{
+//	return taskFlow.emplace([&world, context, func = std::forward<Func>(func)]() {
+//		world.each<T...>([&](flecs::entity e, T&... comps) {
+//			func(context, comps...);
+//		});
+//	});
+//}
+//
+//template<typename...T, typename...Exclude, typename Func>
+//tf::Task createForeachTask(const SystemContext& context, flecs::world& world, tf::Taskflow& taskFlow, Func&& func, exclude_t<Exclude...>)
+//{
+//	return taskFlow.emplace([&world, context, func = std::forward<Func>(func)]() {
+//		world.filter_builder().with<T...>().without<Exclude...>().build().each([&](flecs::entity e, T&... comps) {
+//			func(context, comps...);
+//		});
+//	});
+//}
+//
+//template<typename...T, typename Func>
+//tf::Task createForeachTask2(const SystemContext& context, flecs::world& world, tf::Taskflow& taskFlow, Func&& func)
+//{
+//	return taskFlow.emplace([&world, context, func = std::forward<Func>(func)]() {
+//		world.each<T...>([&](flecs::entity e, T&... comps) {
+//			func(context, world, e.id(), comps...);
+//		});
+//	});
+//}
+
 template<typename...T, typename Func>
-tf::Task createForeachTask(const SystemContext& context, entt::registry& registry, tf::Taskflow& taskFlow, Func&& func)
+void updateSystem(const SystemContext& context, flecs::world& world, Func&& func)
 {
-	auto view = registry.view<T...>();
-	return taskFlow.emplace([view, context, func = std::forward<Func>(func)](tf::Subflow& subflow) {
-		subflow.for_each(view.begin(), view.end(), [view, context, func](auto entity)
-			{
-				auto args = std::tuple_cat(std::forward_as_tuple(context), view.get(entity));
-				std::apply(func, std::move(args));
-			});
-		});
+	//world.each<T...>([&](flecs::entity e, T&... comps) {
+	//	func(context, comps...);
+	//});
 }
 
 template<typename...T, typename...Exclude, typename Func>
-tf::Task createForeachTask(const SystemContext& context, entt::registry& registry, tf::Taskflow& taskFlow, Func&& func, entt::exclude_t<Exclude...> exclude)
+void updateSystem(const SystemContext& context, flecs::world& world, Func&& func, exclude_t<Exclude...>)
 {
-	auto view = registry.view<T...>(exclude);
-	return taskFlow.emplace([view, context, func = std::forward<Func>(func)](tf::Subflow& subflow) {
-		subflow.for_each(view.begin(), view.end(), [view, context, func](auto entity)
-			{
-				auto args = std::tuple_cat(std::forward_as_tuple(context), view.get(entity));
-				std::apply(func, std::move(args));
-			});
-		});
+	//world.filter_builder().with<T...>().without<Exclude...>().build().each([&](flecs::entity e, T&... comps) {
+	//	func(context, comps...);
+	//});
 }
 
-template<typename...T, typename Func>
-tf::Task createForeachTask2(const SystemContext& context, entt::registry& registry, tf::Taskflow& taskFlow, Func&& func)
-{
-	return taskFlow.emplace([&registry, context, func = std::forward<Func>(func)](tf::Subflow& subflow) {
-		auto view = registry.view<T...>();
-		for (auto entity : view)
-		{
-			auto args = std::tuple_cat(std::forward_as_tuple(context), std::forward_as_tuple(registry), std::forward_as_tuple(entity), view.get(entity));
-			std::apply(func, std::move(args));
-		}});
-}
-
-template<typename...T, typename Func>
-void updateSystem(const SystemContext& context, entt::registry& registry, Func&& func)
-{
-	auto view = registry.view<T...>();
-	for (auto entity : view)
-	{
-		auto args = std::tuple_cat(std::forward_as_tuple(context), view.get(entity));
-		std::apply(std::forward<Func>(func), std::move(args));
-	}
-}
-
-template<typename...T, typename...Exclude, typename Func>
-void updateSystem(const SystemContext& context, entt::registry& registry, Func&& func, entt::exclude_t<Exclude...> exclude)
-{
-	auto view = registry.view<T...>(exclude);
-	for (auto entity : view)
-	{
-		auto args = std::tuple_cat(std::forward_as_tuple(context), view.get(entity));
-		std::apply(std::forward<Func>(func), std::move(args));
-	}
-}
-
-tf::Task simulate(Application& app, entt::registry& registry, const oval_update_context& update_context, tf::Taskflow& flow)
+tf::Task simulate(Application& app, flecs::world& world, const oval_update_context& update_context, tf::Taskflow& flow)
 {
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
-	auto simpleHarmonicMoveSystem = createForeachTask<const SimpleHarmonic, Position>(context, registry, flow, doSimpleHarmonicMove).name("简谐运动");
-	auto rotationSystem = createForeachTask<const Rotate, Rotation>(context, registry, flow, doRotation).name("旋转运动");
+	//auto simpleHarmonicMoveSystem = createForeachTask<const SimpleHarmonic, Position>(context, world, flow, doSimpleHarmonicMove).name("简谐运动");
+	//auto rotationSystem = createForeachTask<const Rotate, Rotation>(context, world, flow, doRotation).name("旋转运动");
 
-	auto beforeUpdateMatrix = flow.placeholder();
-	beforeUpdateMatrix
-		.succeed(simpleHarmonicMoveSystem, rotationSystem);;
+	//auto beforeUpdateMatrix = flow.placeholder();
+	//beforeUpdateMatrix
+	//	.succeed(simpleHarmonicMoveSystem, rotationSystem);;
 
-	auto updateMatrixPositionOnlySystem = createForeachTask<const Position, LocalTransform>(context, registry, flow, updateMatrixPositionOnly, entt::exclude<Rotation>).name("更新矩阵PositionOnly");
-	auto updateMatrixRotationOnlySystem = createForeachTask<const Rotation, LocalTransform>(context, registry, flow, updateMatrixRotationOnly, entt::exclude<Position>).name("更新矩阵RotationOnly");
-	auto updateMatrixPositionAndRotationSystem = createForeachTask<const Position, const Rotation, LocalTransform>(context, registry, flow, updateMatrixPositionAndRotation).name("更新矩阵PositionAndRotation");
-	auto beforeUpdateLocalTransformSystemGroup = flow.placeholder().precede(updateMatrixPositionOnlySystem, updateMatrixRotationOnlySystem, updateMatrixPositionAndRotationSystem);
-	auto afterUpdateLocalTransformSystemGroup = flow.placeholder().succeed(updateMatrixPositionOnlySystem, updateMatrixRotationOnlySystem, updateMatrixPositionAndRotationSystem);
-	beforeUpdateLocalTransformSystemGroup.succeed(beforeUpdateMatrix);
+	//auto updateMatrixPositionOnlySystem = createForeachTask<const Position, LocalTransform>(context, world, flow, updateMatrixPositionOnly, exclude_t<Rotation>()).name("更新矩阵PositionOnly");
+	//auto updateMatrixRotationOnlySystem = createForeachTask<const Rotation, LocalTransform>(context, world, flow, updateMatrixRotationOnly, exclude_t<Position>()).name("更新矩阵RotationOnly");
+	//auto updateMatrixPositionAndRotationSystem = createForeachTask<const Position, const Rotation, LocalTransform>(context, world, flow, updateMatrixPositionAndRotation).name("更新矩阵PositionAndRotation");
+	//auto beforeUpdateLocalTransformSystemGroup = flow.placeholder().precede(updateMatrixPositionOnlySystem, updateMatrixRotationOnlySystem, updateMatrixPositionAndRotationSystem);
+	//auto afterUpdateLocalTransformSystemGroup = flow.placeholder().succeed(updateMatrixPositionOnlySystem, updateMatrixRotationOnlySystem, updateMatrixPositionAndRotationSystem);
+	//beforeUpdateLocalTransformSystemGroup.succeed(beforeUpdateMatrix);
 
-	auto updateHierarchyTransformSystem = createForeachTask2<const Tree>(context, registry, flow, updateHierarchyTransform);
-	auto updateNonHierarchyTransformSystem = createForeachTask<const LocalTransform, WorldTransform>(context, registry, flow, updateNonHierarchyTrasform, entt::exclude<Tree>).name("更新非层级WorldTransform");
-	auto beforeUpdateHierarchyTransformSystemGroup = flow.placeholder().precede(updateHierarchyTransformSystem, updateNonHierarchyTransformSystem).succeed(afterUpdateLocalTransformSystemGroup);
-	auto afterUpdateHierarchyTransformSystemGroup = flow.placeholder().succeed(updateHierarchyTransformSystem, updateNonHierarchyTransformSystem);
+	//auto updateHierarchyTransformSystem = createForeachTask2<const Tree>(context, world, flow, updateHierarchyTransform);
+	//auto updateNonHierarchyTransformSystem = createForeachTask<const LocalTransform, WorldTransform>(context, world, flow, updateNonHierarchyTrasform, exclude_t<Tree>()).name("更新非层级WorldTransform");
+	//auto beforeUpdateHierarchyTransformSystemGroup = flow.placeholder().precede(updateHierarchyTransformSystem, updateNonHierarchyTransformSystem).succeed(afterUpdateLocalTransformSystemGroup);
+	//auto afterUpdateHierarchyTransformSystemGroup = flow.placeholder().succeed(updateHierarchyTransformSystem, updateNonHierarchyTransformSystem);
 
 	auto endOfSimulate = flow.placeholder();
-	endOfSimulate.succeed(afterUpdateHierarchyTransformSystemGroup);
+	//endOfSimulate.succeed(afterUpdateHierarchyTransformSystemGroup);
 
 	return endOfSimulate;
 }
 
-std::pmr::vector<entt::entity> vis(Application& app, entt::registry& registry, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
+std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
 {
-	auto view = registry.view<const ShowMatrix, const Rendable>();
-	std::pmr::vector<entt::entity> visibles(memory_resource);
-	visibles.reserve(view.size_hint());
-	for (auto [entity, matrix, rendable] : view.each())
-	{
+	std::pmr::vector<ecs_entity_t> visibles(memory_resource);
+	world.each([&](flecs::entity e, const ShowMatrix& matrix, const Rendable& rendable) {
+		(void)matrix; (void)rendable;
 		bool visible = true;
 		if (visible)
-		{
-			visibles.push_back(entity);
-		}
-	}
+			visibles.push_back(e.id());
+	});
 	return visibles;
 }
 
-std::pmr::vector<RenderObject> extract(Application& app, entt::registry& registry, std::pmr::vector<entt::entity> visibles, std::pmr::synchronized_pool_resource* memory_resource)
+std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, std::pmr::vector<ecs_entity_t> visibles, std::pmr::synchronized_pool_resource* memory_resource)
 {
 	std::pmr::vector<RenderObject> renderObjects(memory_resource);
 	renderObjects.reserve(visibles.size());
-	for (auto entity : visibles)
+	for (auto entity_id : visibles)
 	{
-		auto matrix = registry.get<ShowMatrix>(entity);
-		auto rendable = registry.get<Rendable>(entity);
+		auto entity = flecs::entity(world, entity_id);
+		auto matrix = entity.try_get<ShowMatrix>();
+		auto rendable = entity.try_get<Rendable>();
+		if (!matrix || !rendable) continue;
 		RenderObject robj = {
-			.material = rendable.material,
-			.mesh = rendable.mesh,
-			.wMatrix = matrix.model,
+			.material = rendable->material,
+			.mesh = rendable->mesh,
+			.wMatrix = matrix->model,
 		};
 		renderObjects.push_back(robj);
 	}
 	return renderObjects;
 }
 
-void interpolate(Application& app, entt::registry& registry, const oval_render_context& render_context)
+void interpolate(Application& app, flecs::world& world, const oval_render_context& render_context)
 {
 	SystemContext context = SystemContext{ render_context.delta_time, render_context.time_since_startup, render_context.delta_time_double, render_context.time_since_startup_double, render_context.render_interpolation_time, render_context.render_interpolation_time_double };
-	updateSystem<const SimpleHarmonic, MoveInterpolation>(context, registry, updateMoveInterpolation);
-	updateSystem<const Rotate, RotateInterpolation>(context, registry, updateRotateInterpolation);
-	updateSystem<const WorldTransform, ShowMatrix>(context, registry, updateShowMatrixStatic, entt::exclude<MoveInterpolation, RotateInterpolation>);
-	updateSystem<const WorldTransform, const MoveInterpolation, ShowMatrix>(context, registry, updateShowMatrixMoveOnly, entt::exclude<RotateInterpolation>);
-	updateSystem<const WorldTransform, const RotateInterpolation, ShowMatrix>(context, registry, updateShowMatrixRotateOnly, entt::exclude<MoveInterpolation>);
-	updateSystem<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>(context, registry, updateShowMatrixMoveAndRotate);
+	updateSystem<const SimpleHarmonic, MoveInterpolation>(context, world, updateMoveInterpolation);
+	updateSystem<const Rotate, RotateInterpolation>(context, world, updateRotateInterpolation);
+	updateSystem<const WorldTransform, ShowMatrix>(context, world, updateShowMatrixStatic, exclude_t<MoveInterpolation, RotateInterpolation>());
+	updateSystem<const WorldTransform, const MoveInterpolation, ShowMatrix>(context, world, updateShowMatrixMoveOnly, exclude_t<RotateInterpolation>());
+	updateSystem<const WorldTransform, const RotateInterpolation, ShowMatrix>(context, world, updateShowMatrixRotateOnly, exclude_t<MoveInterpolation>());
+	updateSystem<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>(context, world, updateShowMatrixMoveAndRotate);
 }
 
-void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& currentFramePack)
+void enumViews(Application& app, flecs::world& world, FrameRenderPacket& currentFramePack)
 {
 	auto lightDir = HMM_Norm(HMM_V3(0, -1, 0));
-
-	auto light_view = registry.view<Light, const WorldTransform>();
-	for (auto [entity, light, transform] : light_view.each())
-	{
-		auto forward = HMM_M4GetForward(transform.value);
-		lightDir = forward;
-		break;
-	}
+	bool firstLight = true;
+	world.each([&](flecs::entity e, Light& light, const WorldTransform& transform) {
+		(void)e; (void)light;
+		if (firstLight) {
+			lightDir = HMM_M4GetForward(transform.value);
+			firstLight = false;
+		}
+	});
 
 	currentFramePack.clear();
-	auto camera_view = registry.view<Camera, const WorldTransform>();
-	for (auto [entity, camera, transform] : camera_view.each())
-	{
+	world.each([&](flecs::entity e, Camera& camera, const WorldTransform& transform) {
+		(void)e;
 		auto cameraMat = transform.value;
 
 		auto eye = HMM_M4GetTranslate(cameraMat);
 		auto forward = HMM_M4GetForward(cameraMat);
-		auto right = HMM_M4GetRight(cameraMat);
+		(void)forward;
 		auto viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
 
-		if (!registry.valid(camera.window_entity))
-			continue;
+		if (!world.is_alive(camera.window_entity))
+			return;
 
-		auto window = registry.try_get<WindowComponent>(camera.window_entity);
+		auto window = flecs::entity(world, camera.window_entity).try_get<WindowComponent>();
 		if (!window)
-			continue;
+			return;
 
 		camera.width = window->width;
 		camera.height = window->height;
@@ -1158,6 +1164,7 @@ void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& cu
 		auto proj = HMM_Perspective_LH_RO(camera.fov * HMM_DegToRad, aspect, near, far);
 		auto vpMat = proj * viewMat;
 
+		auto visibles = vis(app, world, camera, currentFramePack.memory_resource);
 		currentFramePack.viewDatas.emplace_back(ViewRenderPacket{
 			.window_entity = camera.window_entity,
 			.passData = {
@@ -1165,9 +1172,9 @@ void enumViews(Application& app, entt::registry& registry, FrameRenderPacket& cu
 				.lightDir = lightDir,
 				.viewPos = HMM_V4V(eye, 0),
 			},
-			.renderObjects = std::move(extract(app, registry, std::move(vis(app, registry, camera, currentFramePack.memory_resource)), currentFramePack.memory_resource)),
+			.renderObjects = extract(app, world, std::move(visibles), currentFramePack.memory_resource),
 			});
-	}
+	});
 }
 
 void prepare(Application& app, FrameRenderPacket& lastFrameRenderPacket)
@@ -1193,7 +1200,6 @@ void prepare(Application& app, FrameRenderPacket& lastFrameRenderPacket)
 void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_device_t* device, HGEGraphics::rendergraph_t& rg)
 {
 	using namespace HGEGraphics;
-	auto& registry = *oval_get_registry(device);
 
 	for (auto& view : lastFrameRenderPacket.viewDatas)
 	{
@@ -1245,25 +1251,25 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 tf::Taskflow on_update(oval_device_t* device, oval_update_context update_context)
 {
 	Application& app = *(Application*)device->descriptor.userdata;
-	auto& registry = *oval_get_registry(app.device);
+	flecs::world world = flecs::world(oval_get_world(app.device));
 
 	tf::Taskflow flow;
-	auto simulateTask = simulate(app, registry, update_context, flow);
+	auto simulateTask = simulate(app, world, update_context, flow);
 
 	return flow;
 }
 
 void on_render(oval_device_t* device, oval_render_context render_context)
 {
-	Application* app = (Application*)device->descriptor.userdata;
-	auto& registry = *oval_get_registry(device);
-	auto& cuurentFrameRenderPacket = app->frameRenderPackets[render_context.currentRenderPacketFrame];
-	interpolate(*app, registry, render_context);
-	enumViews(*app, registry, cuurentFrameRenderPacket);
-	prepare(*app, cuurentFrameRenderPacket);
+	Application& app = *(Application*)device->descriptor.userdata;
+	flecs::world world = flecs::world(oval_get_world(app.device));
+	auto& cuurentFrameRenderPacket = app.frameRenderPackets[render_context.currentRenderPacketFrame];
+	interpolate(app, world, render_context);
+	enumViews(app, world, cuurentFrameRenderPacket);
+	prepare(app, cuurentFrameRenderPacket);
 }
 
-void on_imgui1(entt::entity entity, oval_device_t* device, oval_render_context render_context)
+void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context render_context)
 {
 	ImGui::Text("Hello, ImGui!");
 	ImGui::Text("%d", render_context.fps);
@@ -1288,24 +1294,24 @@ void on_imgui1(entt::entity entity, oval_device_t* device, oval_render_context r
 	}
 
 	Application* app = (Application*)device->descriptor.userdata;
-	app->enttEditor.renderSimpleCombo(*oval_get_registry(app->device), app->editorCurEntity);
+	//app->flecsEditor.renderSimpleCombo(*oval_get_world(app->device), app->editorCurEntity);
 }
 
-void on_imgui2(entt::entity entity, oval_device_t* device, oval_render_context render_context)
+void on_imgui2(ecs_entity_t entity, oval_device_t* device, oval_render_context render_context)
 {
 	ImGui::Text("Hello, Window2!");
 }
 
-void on_window_close1(entt::entity entity, oval_device_t* device)
+void on_window_close1(ecs_entity_t entity, oval_device_t* device)
 {
 	Application* app = (Application*)device->descriptor.userdata;
-	app->window1 = entt::null;
+	app->window1 = kNullEntity;
 }
 
-void on_window_close2(entt::entity entity, oval_device_t* device)
+void on_window_close2(ecs_entity_t entity, oval_device_t* device)
 {
 	Application* app = (Application*)device->descriptor.userdata;
-	app->window2 = entt::null;
+	app->window2 = kNullEntity;
 }
 
 void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg)
@@ -1369,10 +1375,10 @@ int SDL_main(int argc, char *argv[])
 		.on_close = on_window_close2,
 	};
 	app.window2 = oval_create_window_entity(app.device, &window_descriptor2);
-	auto& registry = *oval_get_registry(app.device);
+	flecs::world world = flecs::world(oval_get_world(app.device));
 
-	_init_resource(app, registry);
-	_init_world(app, registry, app.window1);
+	_init_resource(app, world);
+	_init_world(app, world, app.window1);
 		
 	oval_runloop(app.device);
 	_free_resource(app);

@@ -461,13 +461,16 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, con
 	}
 }
 
-HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, ecs_entity_t window_entity, HGEGraphics::rendergraph_t& rg)
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, ecs_entity_t window_entity_id, HGEGraphics::rendergraph_t& rg)
 {
 	using namespace HGEGraphics;
 	auto D = (oval_cgpu_device_t*)device;
 	auto& world = D->world;
 
-	auto rawwindow = world.try_get<RawWindowHandleComponent>(window_entity);
+	auto entity = flecs::entity(world, window_entity_id);
+	if (entity.is_alive() == false)
+		return {};
+	auto rawwindow = entity.try_get<RawWindowHandleComponent>();
 	oval_window_t* window_handle = nullptr;
 	if (rawwindow != nullptr && rawwindow->handle != nullptr)
 		window_handle = rawwindow->handle;
@@ -608,9 +611,10 @@ void oval_runloop(oval_device_t* device)
 					ImGui_ImplSDL3_ProcessEvent(&e);
 					if ((e.type & 0x200) != 0)
 					{
+						flecs::entity entity(D->world, window->entity);
 						if (e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
 						{
-							if (D->world.has<PrimaryWindowTag>(window->entity))
+							if (entity.has<PrimaryWindowTag>())
 								quit = true;
 
 							if (window->on_close)
@@ -624,7 +628,7 @@ void oval_runloop(oval_device_t* device)
 						{
 							window->RequestResize();
 
-							auto window_comp = D->world.try_get_mut<WindowComponent>(window->entity);
+							auto window_comp = entity.try_get_mut<WindowComponent>();
 							if (window_comp)
 							{
 								window_comp->width = e.window.data1;
