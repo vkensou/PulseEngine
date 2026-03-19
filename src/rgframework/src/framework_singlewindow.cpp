@@ -1,4 +1,4 @@
-﻿#include "framework.h"
+#include "framework.h"
 
 #include <SDL3/SDL.h>
 #include "cgpu/api.h"
@@ -438,9 +438,6 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, HGE
 HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, oval_window_impl_t* window_impl, HGEGraphics::rendergraph_t& rg)
 {
 	using namespace HGEGraphics;
-	auto D = (oval_cgpu_device_t*)device;
-	auto& registry = D->registry;
-
 	if (!window_impl || window_impl->swapchain == nullptr)
 	{
 		return {};
@@ -461,13 +458,13 @@ void renderImgui(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, con
 	}
 }
 
-HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, entt::entity window_entity, HGEGraphics::rendergraph_t& rg)
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, ecs_entity_t window_entity, HGEGraphics::rendergraph_t& rg)
 {
 	using namespace HGEGraphics;
 	auto D = (oval_cgpu_device_t*)device;
-	auto& registry = D->registry;
+	auto& world = D->world;
 
-	auto rawwindow = registry.try_get<RawWindowHandleComponent>(window_entity);
+	auto rawwindow = world.try_get<RawWindowHandleComponent>(window_entity);
 	oval_window_t* window_handle = nullptr;
 	if (rawwindow != nullptr && rawwindow->handle != nullptr)
 		window_handle = rawwindow->handle;
@@ -610,7 +607,7 @@ void oval_runloop(oval_device_t* device)
 					{
 						if (e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
 						{
-							if (D->registry.all_of<PrimaryWindowTag>(window->entity))
+							if (D->world.has<PrimaryWindowTag>(window->entity))
 								quit = true;
 
 							if (window->on_close)
@@ -624,7 +621,7 @@ void oval_runloop(oval_device_t* device)
 						{
 							window->RequestResize();
 
-							auto window_comp = D->registry.try_get<WindowComponent>(window->entity);
+							auto window_comp = D->world.try_get_mut<WindowComponent>(window->entity);
 							if (window_comp)
 							{
 								window_comp->width = e.window.data1;
@@ -957,8 +954,8 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 	}
 }
 
-entt::registry* oval_get_registry(oval_device_t* device)
+flecs::world* oval_get_world(oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	return &D->registry;
+	return &D->world;
 }
