@@ -5,7 +5,7 @@
 #include "drawer.h"
 #include "HandmadeMath.h"
 #include <taskflow/taskflow.hpp>
-#include <entt/entt.hpp>
+#include <flecs.h>
 
 typedef struct oval_update_context
 {
@@ -39,8 +39,8 @@ typedef void (*oval_on_submit)(struct oval_device_t* device, oval_submit_context
 typedef tf::Taskflow(*oval_on_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_post_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_imgui)(struct oval_device_t* device, oval_render_context render_context);
-typedef void (*oval_entity_on_imgui)(entt::entity entity, struct oval_device_t* device, oval_render_context render_context);
-typedef void (*oval_entity_on_window_close)(entt::entity entity, struct oval_device_t* device);
+typedef void (*oval_entity_on_imgui)(ecs_entity_t entity, struct oval_device_t* device, oval_render_context render_context);
+typedef void (*oval_entity_on_window_close)(ecs_entity_t entity, struct oval_device_t* device);
 typedef void (*oval_on_render)(struct oval_device_t* device, oval_render_context render_context);
 
 typedef enum update_frequency_mode_e
@@ -119,9 +119,9 @@ void oval_free_device(oval_device_t* device);
 void oval_render_debug_capture(oval_device_t* device);
 void oval_query_render_profile(oval_device_t* device, uint32_t* length, const char*** names, const float** durations);
 
-entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
-void oval_free_window_entity(oval_device_t* device, entt::entity window_entity);
-HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, entt::entity window_entity, HGEGraphics::rendergraph_t& rg);
+ecs_entity_t oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
+void oval_free_window_entity(oval_device_t* device, ecs_entity_t window_entity);
+HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, ecs_entity_t window_entity, HGEGraphics::rendergraph_t& rg);
 void oval_sync_window_component_and_raw_handle(struct oval_device_t* device);
 
 HGEGraphics::Texture* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
@@ -155,4 +155,4 @@ uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::
 uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size);
 uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::Texture* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
 
-entt::registry* oval_get_registry(oval_device_t* device);
+ecs_world_t* oval_get_world(oval_device_t* device);

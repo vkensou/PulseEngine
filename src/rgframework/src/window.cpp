@@ -1,4 +1,4 @@
-﻿#include "cgpu_device.h"
+#include "cgpu_device.h"
 #include <algorithm>
 #include "imgui_impl_sdl3.h"
 
@@ -118,56 +118,76 @@ void oval_free_window(oval_device_t* device, oval_window_t* window)
 	oval_free_window(D, oval_window);
 }
 
-entt::entity oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor)
+ecs_entity_t oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	auto& registry = D->registry;
+	auto& world = D->world;
 
 	auto window_handle = oval_create_window(device, window_descriptor);
 
-	auto window_entity = registry.create();
-	registry.emplace<WindowComponent>(window_entity, window_descriptor->width, window_descriptor->height);
-	registry.emplace<RawWindowHandleComponent>(window_entity, window_handle);
+	auto window_entity = world.entity();
+	window_entity.add<WindowComponent>();
+	window_entity.set<WindowComponent>({ window_descriptor->width, window_descriptor->height });
+	window_entity.add<RawWindowHandleComponent>();
+	window_entity.set<RawWindowHandleComponent>({ window_handle });
 	auto oval_window = (oval_window_impl_t*)window_handle;
 	oval_window->entity = window_entity;
 	if (window_descriptor->primary)
-		registry.emplace<PrimaryWindowTag>(window_entity);
+		window_entity.add<PrimaryWindowTag>();
 
 	return window_entity;
 }
 
-void oval_free_window_entity(oval_device_t* device, entt::entity window_entity)
+void oval_free_window_entity(oval_device_t* device, ecs_entity_t window_entity_id)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	auto& registry = D->registry;
+	auto& world = D->world;
 
-	auto window = registry.try_get<RawWindowHandleComponent>(window_entity);
+	auto window_entity = flecs::entity(world, window_entity_id);
+	if (!window_entity.is_alive())
+		return;
+
+	auto window = window_entity.try_get<RawWindowHandleComponent>();
 	if (window != nullptr)
 	{
 		auto oval_window = (oval_window_impl_t*)window->handle;
 
 		oval_free_window(D, oval_window);
 
-		registry.destroy(window_entity);
+		ecs_delete(world, window_entity);
 	}
+}
+
+void resize_window(ecs_iter_t* it)
+{
+	WindowComponent* window = ecs_field(it, WindowComponent, 0);
+	RawWindowHandleComponent* rawwindow = ecs_field(it, RawWindowHandleComponent, 1);
+	for (int i = 0; i < it->count; i++) {
+		auto oval_window = (oval_window_impl_t*)rawwindow->handle;
+
+		int w, h;
+		SDL_GetWindowSize(oval_window->window, &w, &h);
+
+		if (window->width != w || window->height != h)
+			SDL_SetWindowSize(oval_window->window, window->width, window->height);
+	}
+}
+
+void sync_window_component_and_raw_handle(const WindowComponent& window, const RawWindowHandleComponent& rawwindow)
+{
+	auto oval_window = (oval_window_impl_t*)rawwindow.handle;
+
+	int w, h;
+	SDL_GetWindowSize(oval_window->window, &w, &h);
+
+	if (window.width != w || window.height != h)
+		SDL_SetWindowSize(oval_window->window, window.width, window.height);
 }
 
 void oval_sync_window_component_and_raw_handle(struct oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	auto& registry = D->registry;
-
-	auto view = registry.view<WindowComponent, RawWindowHandleComponent>();
-	for (auto [entity, window, rawwindow] : view.each())
-	{
-		auto oval_window = (oval_window_impl_t*)rawwindow.handle;
-
-		int w, h;
-		SDL_GetWindowSize(oval_window->window, &w, &h);
-
-		if (window.width != w || window.height != h)
-			SDL_SetWindowSize(oval_window->window, window.width, window.height);
-	}
+	D->system_sync_window_component_and_raw_handle.run();
 }
 
 std::unique_ptr<SwapChain> SwapChain::create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor)

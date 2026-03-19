@@ -20,7 +20,7 @@ end
 add_requires("libsdl3", {configs = {sdlmain = false, shared = is_plat("android")}})
 add_requires("imgui v1.92.1-docking")
 add_requires("mimalloc")
-add_requires("entt")
+add_requires("flecs")
 add_requires("taskflow")
 
 if is_plat("windows", "linux", "android") then
@@ -51,7 +51,7 @@ target("rgframework")
     add_packages("imgui", {public = true})
     add_packages("mimalloc", {public = true})
     add_packages("taskflow", {public = true})
-    add_packages("entt", {public = true})
+    add_packages("flecs", {public = true})
     add_rules("utils.hlsl2spv", {bin2c = true})
     set_pcheader("src/rgframework/src/pcheader.h")
     add_includedirs("src/rgframework/include", {public = true})
