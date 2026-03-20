@@ -611,7 +611,7 @@ struct RenderTask : enki::ITaskSet
 	}
 };
 
-struct ImGuiUpdateTask : enki::ITaskSet
+struct ImGuiUpdateTask : enki::IPinnedTask
 {
 	enki::Dependency m_Dependency;
 
@@ -623,7 +623,7 @@ struct ImGuiUpdateTask : enki::ITaskSet
 	{
 	}
 
-	virtual void ExecuteRange(enki::TaskSetPartition range, uint32_t threadnum) override
+	virtual void Execute() override
 	{
 		for (auto window : D->windows)
 		{
