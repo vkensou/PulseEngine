@@ -882,8 +882,11 @@ void oval_runloop(oval_device_t* device)
 		};
 
 		RenderTask renderTask(D->super.descriptor.on_render, &D->super, render_context);
-		renderTask.SetDependency(renderTask.m_Dependency, last_completable);
-		last_completable = &renderTask;
+		if (D->super.descriptor.on_render)
+		{
+			renderTask.SetDependency(renderTask.m_Dependency, last_completable);
+			last_completable = &renderTask;
+		}
 
 		ImGuiUpdateTask imguiUpdateTask(D, render_context);
 		imguiUpdateTask.SetDependency(imguiUpdateTask.m_Dependency, last_completable);
