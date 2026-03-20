@@ -4,7 +4,6 @@
 #include "rendergraph.h"
 #include "drawer.h"
 #include "HandmadeMath.h"
-#include <taskflow/taskflow.hpp>
 #include <flecs.h>
 
 typedef struct oval_update_context
@@ -36,7 +35,7 @@ typedef struct oval_submit_context
 typedef struct oval_window_t oval_window_t;
 
 typedef void (*oval_on_submit)(struct oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg);
-typedef tf::Taskflow(*oval_on_update)(struct oval_device_t* device, oval_update_context update_context);
+typedef void (*oval_on_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_post_update)(struct oval_device_t* device, oval_update_context update_context);
 typedef void (*oval_on_imgui)(struct oval_device_t* device, oval_render_context render_context);
 typedef void (*oval_entity_on_imgui)(ecs_entity_t entity, struct oval_device_t* device, oval_render_context render_context);

@@ -1,7 +1,5 @@
 ﻿#include "framework.h"
 #include "imgui.h"
-#include <taskflow/taskflow.hpp>
-#include "taskflow/algorithm/for_each.hpp"
 #include <flecs.h>
 #include <bit>
 #include <filesystem>
@@ -1024,18 +1022,16 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.each(updateShowMatrixMoveAndRotate);
 }
 
-tf::Task simulate(Application& app, flecs::world& world, const oval_update_context& update_context, tf::Taskflow& flow)
+static void simulate(Application& app, const oval_update_context& update_context)
 {
-	return flow.emplace([&app, update_context]() {
-		SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
-		app.systemDoSimpleHarmonicMove.run(0, &context);
-		app.systemDoRotation.run(0, &context);
-		app.systemUpdateMatrixPositionOnly.run(0, &context);
-		app.systemUpdateMatrixRotationOnly.run(0, &context);
-		app.systemUpdateMatrixPositionAndRotation.run(0, &context);
-		app.systemUpdateHierarchyTransform.run(0, &context);
-		app.systemUpdateNonHierarchyTrasform.run(0, &context);
-		});
+	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
+	app.systemDoSimpleHarmonicMove.run(0, &context);
+	app.systemDoRotation.run(0, &context);
+	app.systemUpdateMatrixPositionOnly.run(0, &context);
+	app.systemUpdateMatrixRotationOnly.run(0, &context);
+	app.systemUpdateMatrixPositionAndRotation.run(0, &context);
+	app.systemUpdateHierarchyTransform.run(0, &context);
+	app.systemUpdateNonHierarchyTrasform.run(0, &context);
 }
 
 std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
@@ -1203,15 +1199,10 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 	}
 }
 
-tf::Taskflow on_update(oval_device_t* device, oval_update_context update_context)
+void on_update(oval_device_t* device, oval_update_context update_context)
 {
 	Application& app = *(Application*)device->descriptor.userdata;
-	flecs::world world = flecs::world(oval_get_world(app.device));
-
-	tf::Taskflow flow;
-	auto simulateTask = simulate(app, world, update_context, flow);
-
-	return flow;
+	simulate(app, update_context);
 }
 
 void on_render(oval_device_t* device, oval_render_context render_context)
