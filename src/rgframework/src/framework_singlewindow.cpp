@@ -11,6 +11,7 @@
 #include "mimalloc.h"
 #include <thread>
 #include <chrono>
+#include <deque>
 #ifdef __ANDROID__
 #include "jni.h"
 #endif
@@ -283,6 +284,12 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 
 	device_cgpu->system_sync_window_component_and_raw_handle = device_cgpu->world.system<const WindowComponent, const RawWindowHandleComponent>("sync_window_component_and_raw_handle")
 		.each(sync_window_component_and_raw_handle);
+
+	{
+		enki::TaskSchedulerConfig cfg;
+		cfg.numTaskThreadsToCreate = (uint32_t)std::max((int)std::thread::hardware_concurrency() - 2, 1);
+		device_cgpu->taskScheduler.Initialize(cfg);
+	}
 
 	return (oval_device_t*)device_cgpu;
 }
@@ -566,6 +573,123 @@ bool on_resize(oval_cgpu_device_t* D, oval_window_impl_t* window)
 	return true;
 }
 
+struct UpdateTask : enki::ITaskSet
+{
+	enki::Dependency m_Dependency;
+
+	oval_on_update on_update;
+	oval_device_t* device;
+	oval_update_context update_context;
+
+	UpdateTask(oval_on_update on_update, oval_device_t* device, oval_update_context update_context)
+		: on_update(on_update), device(device), update_context(update_context)
+	{
+	}
+
+	virtual void ExecuteRange(enki::TaskSetPartition range, uint32_t threadnum) override
+	{
+		on_update(device, update_context);
+	}
+};
+
+struct RenderTask : enki::ITaskSet
+{
+	enki::Dependency m_Dependency;
+
+	oval_on_render on_render;
+	oval_device_t* device;
+	oval_render_context render_context;
+
+	RenderTask(const oval_on_render& on_render, oval_device_t* device, const oval_render_context& render_context)
+		: on_render(on_render), device(device), render_context(render_context)
+	{
+	}
+
+	virtual void ExecuteRange(enki::TaskSetPartition range, uint32_t threadnum) override
+	{
+		on_render(device, render_context);
+	}
+};
+
+struct ImGuiUpdateTask : enki::IPinnedTask
+{
+	enki::Dependency m_Dependency;
+
+	oval_cgpu_device_t* D;
+	oval_render_context render_context;
+
+	ImGuiUpdateTask(oval_cgpu_device_t* device, const oval_render_context& render_context)
+		: D(device), render_context(render_context)
+	{
+	}
+
+	virtual void Execute() override
+	{
+		for (auto window : D->windows)
+		{
+			auto oval_window = (oval_window_impl_t*)window;
+			if (oval_window->imgui_owned_context)
+			{
+				ImGui::SetCurrentContext(oval_window->imgui_context);
+
+				if (oval_window->on_imgui)
+					oval_window->on_imgui(oval_window->entity, &D->super, render_context);
+
+				ImGui::EndFrame();
+				ImGui::Render();
+			}
+		}
+	}
+};
+
+struct SubmitTask : enki::ITaskSet
+{
+	enki::Dependency m_Dependency;
+
+	oval_cgpu_device_t* D;
+	oval_submit_context submit_context;
+	const std::pmr::vector<oval_window_impl_t*>& prepared_windows;
+	const FrameData& cur_frame_data;
+	const std::pmr::vector<CGPUSemaphoreId>& wait_semaphores;
+	const std::pmr::vector<CGPUSemaphoreId>& finish_semaphores;
+
+	SubmitTask(oval_cgpu_device_t* D, const oval_submit_context& submit_context, const std::pmr::vector<oval_window_impl_t*>& prepared_windows, const FrameData& cur_frame_data, const std::pmr::vector<CGPUSemaphoreId>& wait_semaphores, const std::pmr::vector<CGPUSemaphoreId>& finish_semaphores)
+		: D(D), submit_context(submit_context), prepared_windows(prepared_windows), cur_frame_data(cur_frame_data), wait_semaphores(wait_semaphores), finish_semaphores(finish_semaphores)
+	{
+	}
+
+	virtual void ExecuteRange(enki::TaskSetPartition range, uint32_t threadnum) override
+	{
+		if (D->cur_transfer_queue)
+			oval_graphics_transfer_queue_submit(&D->super, D->cur_transfer_queue);
+		D->cur_transfer_queue = nullptr;
+		oval_process_load_queue(D);
+
+		render(D, submit_context, prepared_windows);
+
+		CGPUQueueSubmitDescriptor submit_desc = {
+			.cmd_count = (uint32_t)cur_frame_data.execContext.allocated_cmds.size(),
+			.p_cmds = cur_frame_data.execContext.allocated_cmds.data(),
+			.signal_fence = cur_frame_data.inflightFence,
+			.wait_semaphore_count = (uint32_t)wait_semaphores.size(),
+			.p_wait_semaphores = wait_semaphores.data(),
+			.signal_semaphore_count = (uint32_t)finish_semaphores.size(),
+			.p_signal_semaphores = finish_semaphores.data(),
+		};
+
+		cgpu_queue_submit(D->gfx_queue, &submit_desc);
+
+		for (auto window : prepared_windows)
+			window->Present(D->present_queue);
+	}
+};
+
+struct TasksFinished : enki::ICompletable
+{
+	std::array<enki::Dependency, 2>  m_Dependencies;
+	enki::Dependency               m_DepencyOnLauncher; // could also store this in array above
+};
+
 void oval_runloop(oval_device_t* device)
 {
 	auto D = (oval_cgpu_device_t*)device;
@@ -584,7 +708,7 @@ void oval_runloop(oval_device_t* device)
 	uint64_t frameCount = 0;
 	int countFrame = 0;
 	int lastFPS = 0;
-	std::vector<tf::Taskflow> update_flows;
+	std::pmr::deque<UpdateTask> update_tasks(D->memory_resource);
 	std::pmr::vector<oval_window_impl_t*> wait_to_closes(D->memory_resource);
 	std::pmr::vector<oval_window_impl_t*> need_resize_windows(D->memory_resource);
 	std::pmr::vector<oval_window_impl_t*> prepared_windows(D->memory_resource);
@@ -717,8 +841,9 @@ void oval_runloop(oval_device_t* device)
 			rdc_capturing = true;
 		}
 
-		tf::Taskflow flow;
-		tf::Task last_update_flow = flow.placeholder();
+		update_tasks.clear();
+		enki::TaskSet rootTask([](enki::TaskSetPartition range, uint32_t threadnum) {});
+		enki::ICompletable* last_completable = &rootTask;
 
 		double fixed_update_time_step = D->super.descriptor.update_frequecy_mode == UPDATE_FREQUENCY_MODE_FIXED ? D->super.descriptor.fixed_update_time_step : lag;
 		while (lag > 0 && lag >= fixed_update_time_step)
@@ -735,10 +860,9 @@ void oval_runloop(oval_device_t* device)
 
 			if (D->super.descriptor.on_update)
 			{
-				update_flows.push_back(D->super.descriptor.on_update(&D->super, update_context));
-				auto update_task = flow.composed_of(update_flows.back()).name("update");
-				update_task.succeed(last_update_flow);
-				last_update_flow = update_task;
+				UpdateTask& update_task = update_tasks.emplace_back(D->super.descriptor.on_update, &D->super, update_context);
+				update_task.SetDependency(update_task.m_Dependency, last_completable);
+				last_completable = &update_task;
 			}
 			lag -= fixed_update_time_step;
 		}
@@ -757,63 +881,31 @@ void oval_runloop(oval_device_t* device)
 			.fps = lastFPS,
 		};
 
-		auto renderTask = flow.emplace([D, render_context]()
-			{
-				if (D->super.descriptor.on_render)
-					D->super.descriptor.on_render(&D->super, render_context);
-			}).name("render");
+		RenderTask renderTask(D->super.descriptor.on_render, &D->super, render_context);
+		if (D->super.descriptor.on_render)
+		{
+			renderTask.SetDependency(renderTask.m_Dependency, last_completable);
+			last_completable = &renderTask;
+		}
 
-		auto imguiTask = flow.emplace([D, render_context]
-			{
-				for (auto window : D->windows)
-				{
-					auto oval_window = (oval_window_impl_t*)window;
-					if (oval_window->imgui_owned_context)
-					{
-						ImGui::SetCurrentContext(oval_window->imgui_context);
-
-						if (oval_window->on_imgui)
-							oval_window->on_imgui(oval_window->entity, &D->super, render_context);
-
-						ImGui::EndFrame();
-						ImGui::Render();
-					}
-				}
-			}).name("imgui");
+		ImGuiUpdateTask imguiUpdateTask(D, render_context);
+		imguiUpdateTask.SetDependency(imguiUpdateTask.m_Dependency, last_completable);
+		last_completable = &imguiUpdateTask;
 
 		oval_submit_context submit_context
 		{
 			.submitRenderPacketFrame = (D->info.currentPacketFrame + 1) % 2,
 		};
-		auto submitTask = flow.emplace([D, &cur_frame_data, submit_context, &prepared_windows, &finish_semaphores, &wait_semaphores]
-			{
-				if (D->cur_transfer_queue)
-					oval_graphics_transfer_queue_submit(&D->super, D->cur_transfer_queue);
-				D->cur_transfer_queue = nullptr;
-				oval_process_load_queue(D);
 
-				render(D, submit_context, prepared_windows);
+		SubmitTask submitTask(D, submit_context, prepared_windows, cur_frame_data, wait_semaphores, finish_semaphores);
 
-				CGPUQueueSubmitDescriptor submit_desc = {
-					.cmd_count = (uint32_t)cur_frame_data.execContext.allocated_cmds.size(),
-					.p_cmds = cur_frame_data.execContext.allocated_cmds.data(),
-					.signal_fence = cur_frame_data.inflightFence,
-					.wait_semaphore_count = (uint32_t)wait_semaphores.size(),
-					.p_wait_semaphores = wait_semaphores.data(),
-					.signal_semaphore_count = (uint32_t)finish_semaphores.size(),
-					.p_signal_semaphores = finish_semaphores.data(),
-				};
-
-				cgpu_queue_submit(D->gfx_queue, &submit_desc);
-
-				for (auto window : prepared_windows)
-					window->Present(D->present_queue);
-			}).name("submit");
-
-		renderTask.succeed(last_update_flow);
-		imguiTask.succeed(renderTask);
-		D->taskExecutor.run(flow).wait();
-		update_flows.clear();
+		TasksFinished tasksFinished;
+		tasksFinished.SetDependency(tasksFinished.m_Dependencies[0], &imguiUpdateTask);
+		tasksFinished.SetDependency(tasksFinished.m_Dependencies[1], &submitTask);
+		
+		D->taskScheduler.AddTaskSetToPipe(&rootTask);
+		D->taskScheduler.AddTaskSetToPipe(&submitTask);
+		D->taskScheduler.WaitforTask(&tasksFinished);
 
 		oval_update_context post_update_context
 		{
@@ -871,6 +963,7 @@ void oval_runloop(oval_device_t* device)
 		frameCount++;
 	}
 
+	D->taskScheduler.WaitforAllAndShutdown();
 	cgpu_queue_wait_idle(D->gfx_queue);
 
 	for (int i = 0; i < 3; ++i)

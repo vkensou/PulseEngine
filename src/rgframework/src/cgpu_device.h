@@ -6,7 +6,7 @@
 #include "renderdoc_helper.h"
 #include <queue>
 #include "renderer.h"
-#include <taskflow/taskflow.hpp>
+#include <enkiTS/TaskScheduler.h>
 #include "imgui_threaded_rendering.h"
 
 struct oval_transfer_data_to_texture
@@ -240,7 +240,7 @@ typedef struct oval_cgpu_device_t {
 
 	HGEGraphics::Texture* default_texture;
 
-	tf::Executor taskExecutor{ (size_t)std::max((int)std::thread::hardware_concurrency() - 2, 1) };
+	enki::TaskScheduler taskScheduler;
 
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Mesh>> meshes;
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Shader>> shaders;
