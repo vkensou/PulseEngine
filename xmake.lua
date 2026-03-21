@@ -85,3 +85,10 @@ target("rendersystem")
         add_rules("androidcpp", {android_sdk_version = "34", android_manifest = "examples/AndroidManifest.xml", android_res = "examples/res", android_assets = "examples/assets", attachedjar = path.join("androidsdl", "libsdl3-3.2.16.jar"), apk_output_path = ".", package_name = "com.xmake.androidcpp", activity_name = "org.libsdl.app.SDLActivity"})
     end
     add_files("examples/rendersystem/*.cpp")
+
+target("snake")
+    add_rules("example_base")
+    if is_plat("android") then
+        add_rules("androidcpp", {android_sdk_version = "34", android_manifest = "examples/AndroidManifest.xml", android_res = "examples/res", android_assets = "examples/assets", attachedjar = path.join("androidsdl", "libsdl3-3.2.16.jar"), apk_output_path = ".", package_name = "com.xmake.androidcpp", activity_name = "org.libsdl.app.SDLActivity"})
+    end
+    add_files("examples/snake/*.cpp")
