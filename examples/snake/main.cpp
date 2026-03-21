@@ -425,7 +425,6 @@ struct Application
 {
 	oval_device_t* device{ nullptr };
 	ecs_entity_t window1{};
-	ecs_entity_t window2{};
 	std::vector<HGEGraphics::Mesh*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
@@ -913,10 +912,6 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		.add<Rotate>();
 	entities[0].set<Rotation>({ .value = HMM_Q_Identity })
 		.set<Rotate>({ .axis = HMM_V3_Up, .speed = 1.0f, .base = HMM_Q_Identity });
-
-	auto quad = oval_load_mesh(app.device, "media/models/Quad.obj");
-	app.meshes.push_back(quad);
-
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -949,7 +944,31 @@ void _init_resource(Application& app, flecs::world& world)
 	};
 	auto shader = oval_create_shader(app.device, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
-	load_scene(app, world, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
+	auto quad = oval_load_mesh(app.device, "media/models/Quad.obj");
+	app.meshes.push_back(quad);
+
+	auto material = oval_create_material(app.device, shader);
+	auto materialData = MaterialData{
+		.albedo = HMM_V4(1, 0, 0, 0),
+	};
+	material->bindBuffer<MaterialData>(1, 0, materialData);
+	app.materials.push_back(material);
+
+	auto ent = world.entity();
+	ent.add<LocalTransform>()
+		.add<WorldTransform>()
+		.add<Position>()
+		.add<Rendable>()
+		.add<ShowMatrix>();
+	;
+
+	ent.set<Position>({ .value = HMM_V3(0, 0, 0) })
+		.set<LocalTransform>({ .model = HMM_M4_Identity })
+		.set<WorldTransform>({ .value = HMM_M4_Identity })
+		.set<Rendable>({ .material = 0, .mesh = 0 })
+		.set<ShowMatrix>({ .model = HMM_M4_Identity });
+
+	//load_scene(app, world, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
 }
 
 void _free_resource(Application& app)
@@ -960,21 +979,13 @@ void _free_resource(Application& app)
 void _init_world(Application& app, flecs::world& world, ecs_entity_t window_entity)
 {
 	auto cam = world.entity();
-	auto cameraParentMat = HMM_QToM4(HMM_QFromEuler_YXZ(HMM_AngleDeg(33.4), HMM_AngleDeg(45), 0));
+	auto cameraParentMat = HMM_M4_Identity;
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0, 0, -10));
 	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
 	cam.add<WorldTransform>()
 		.add<Camera>();
 	cam.set<WorldTransform>({ .value = cameraWMat })
 		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 20.f, .width = 800, .height = 600 });
-
-	auto light = world.entity();
-	auto lightDir = HMM_Norm(HMM_V3(0.25f, -0.7f, 1.25f));
-	auto lightMat = HMM_PoseAt_LH(HMM_V3_Zero, lightDir, HMM_V3_Up);
-	light.add<WorldTransform>()
-		.add<Light>();
-	light.set<WorldTransform>({ .value = lightMat })
-		.set<Light>({ .color = HMM_V4(1.0f, 1.0f, 1.0f, 1.0f) });
 
 	app.systemDoSimpleHarmonicMove = world.system<const SimpleHarmonic, Position>("DoSimpleHarmonicMove")
 		.each(doSimpleHarmonicMove);
@@ -1238,21 +1249,10 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 	}
 }
 
-void on_imgui2(ecs_entity_t entity, oval_device_t* device, oval_render_context render_context)
-{
-	ImGui::Text("Hello, Window2!");
-}
-
 void on_window_close1(ecs_entity_t entity, oval_device_t* device)
 {
 	Application* app = (Application*)device->descriptor.userdata;
 	app->window1 = kNullEntity;
-}
-
-void on_window_close2(ecs_entity_t entity, oval_device_t* device)
-{
-	Application* app = (Application*)device->descriptor.userdata;
-	app->window2 = kNullEntity;
 }
 
 void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg)
@@ -1306,16 +1306,6 @@ int SDL_main(int argc, char *argv[])
 	};
 	app.window1 = oval_create_window_entity(app.device, &window_descriptor);
 
-	oval_window_descriptor window_descriptor2 = {
-		.width = width,
-		.height = height,
-		.resizable = true,
-		.use_imgui = true,
-		.own_imgui = true,
-		.on_imgui = on_imgui2,
-		.on_close = on_window_close2,
-	};
-	app.window2 = oval_create_window_entity(app.device, &window_descriptor2);
 	flecs::world world = flecs::world(oval_get_world(app.device));
 
 	_init_resource(app, world);
@@ -1323,7 +1313,6 @@ int SDL_main(int argc, char *argv[])
 		
 	oval_runloop(app.device);
 	_free_resource(app);
-	oval_free_window_entity(app.device, app.window2);
 	oval_free_window_entity(app.device, app.window1);
 	oval_free_device(app.device);
 
