@@ -429,6 +429,9 @@ struct Application
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
+	int quad;
+	int appleMat, snakeHeadMat, snakeBodyMat;
+	int boardMat;
 
 	flecs::system systemDoSimpleHarmonicMove;
 	flecs::system systemDoRotation;
@@ -456,462 +459,32 @@ struct Application
 	}
 };
 
-inline ECGPUFilterType find_min_filter(int min_filter)
+void createEntity(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
 {
-	switch (min_filter)
-	{
-	case TINYGLTF_TEXTURE_FILTER_NEAREST:
-	case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
-	case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
-		return CGPU_FILTER_TYPE_NEAREST;
-	case TINYGLTF_TEXTURE_FILTER_LINEAR:
-	case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
-	case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
-		return CGPU_FILTER_TYPE_LINEAR;
-	default:
-		return CGPU_FILTER_TYPE_LINEAR;
-	}
-};
+	auto ent = world.entity();
+	ent.add<LocalTransform>()
+		.add<WorldTransform>()
+		.add<Position>()
+		.add<Rendable>()
+		.add<ShowMatrix>();
 
-inline ECGPUMipMapMode find_mipmap_mode(int min_filter)
-{
-	switch (min_filter)
-	{
-	case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
-	case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
-		return CGPU_MIP_MAP_MODE_NEAREST;
-	case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
-	case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
-		return CGPU_MIP_MAP_MODE_LINEAR;
-	default:
-		return CGPU_MIP_MAP_MODE_LINEAR;
-	}
-};
-
-inline ECGPUFilterType find_mag_filter(int mag_filter)
-{
-	switch (mag_filter)
-	{
-	case TINYGLTF_TEXTURE_FILTER_NEAREST:
-		return CGPU_FILTER_TYPE_NEAREST;
-	case TINYGLTF_TEXTURE_FILTER_LINEAR:
-		return CGPU_FILTER_TYPE_LINEAR;
-	default:
-		return CGPU_FILTER_TYPE_LINEAR;
-	}
-};
-
-inline ECGPUAddressMode find_wrap_mode(int wrap)
-{
-	switch (wrap)
-	{
-	case TINYGLTF_TEXTURE_WRAP_REPEAT:
-		return CGPU_ADDRESS_MODE_REPEAT;
-	case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
-		return CGPU_ADDRESS_MODE_CLAMP_TO_EDGE;
-	case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
-		return CGPU_ADDRESS_MODE_MIRROR;
-	default:
-		return CGPU_ADDRESS_MODE_REPEAT;
-	}
-};
-
-struct TexturedVertex
-{
-	HMM_Vec3 position;
-	HMM_Vec3 normal;
-	HMM_Vec2 texCoord;
-};
-
-HGEGraphics::Texture* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
-{
-	return oval_load_texture(app.device, (path + gltf_image.uri).c_str(), true);
-
-	mipmap = false;
-	auto mipLevels = mipmap ? static_cast<uint32_t>(std::floor(std::log2(std::max(gltf_image.width, gltf_image.height)))) + 1 : 1;
-	CGPUTextureDescriptor texture_desc =
-	{
-		.name = nullptr,
-		.width = (uint64_t)gltf_image.width,
-		.height = (uint64_t)gltf_image.height,
-		.depth = 1,
-		.array_size = 1,
-		.format = CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB,
-		.mip_levels = mipLevels,
-		.descriptors = ECGPUResourceTypeFlags(mipmap ? CGPU_RESOURCE_TYPE_TEXTURE | CGPU_RESOURCE_TYPE_RENDER_TARGET : CGPU_RESOURCE_TYPE_TEXTURE),
-	};
-
-	auto texture = oval_create_texture_from_buffer(app.device, texture_desc, gltf_image.image.data(), gltf_image.image.size());
-	return texture;
+	ent.set<Position>({ .value = position })
+		.set<LocalTransform>({ .model = HMM_M4_Identity })
+		.set<WorldTransform>({ .value = HMM_M4_Identity })
+		.set<Rendable>({ .material = mat, .mesh = mesh })
+		.set<ShowMatrix>({ .model = HMM_M4_Identity });
 }
 
-HGEGraphics::Mesh* load_primitive(Application& app, const tinygltf::Primitive& gltf_primitive, const tinygltf::Model& model, bool right_hand)
+void createBoard(flecs::world& world, HMM_Mat4 matrix, int mat, int mesh)
 {
-	int rh = right_hand ? -1 : 1;
+	auto ent = world.entity();
+	ent.add<WorldTransform>()
+		.add<Rendable>()
+		.add<ShowMatrix>();
 
-	std::vector<HMM_Vec3> positions;
-	std::vector<HMM_Vec3> normals;
-	std::vector<HMM_Vec2> texcoords;
-	for (auto& attribute : gltf_primitive.attributes)
-	{
-		auto& accessor = model.accessors[attribute.second];
-		auto& bufferView = model.bufferViews[accessor.bufferView];
-		auto& buffer = model.buffers[bufferView.buffer];
-		auto stride = accessor.ByteStride(bufferView);
-		auto startByte = accessor.byteOffset + bufferView.byteOffset;
-		auto endByte = startByte + accessor.count * stride;
-	
-		if (attribute.first == "NORMAL")
-		{
-			normals.resize(accessor.count);
-			memcpy(normals.data(), (buffer.data.data() + startByte), accessor.count * stride);
-		}
-		else if (attribute.first == "POSITION")
-		{
-			positions.resize(accessor.count);
-			memcpy(positions.data(), (buffer.data.data() + startByte), accessor.count * stride);
-		}
-		else if (attribute.first == "TEXCOORD_0")
-		{
-			texcoords.resize(accessor.count);
-			memcpy(texcoords.data(), (buffer.data.data() + startByte), accessor.count * stride);
-		}
-	}
-	
-	std::vector<TexturedVertex> vertices{ positions.size() };
-	for (size_t i = 0; i < vertices.size(); ++i)
-	{
-		HMM_Vec3 position = i < positions.size() ? positions[i] : HMM_V3_Zero;
-		position.X *= rh;
-		HMM_Vec3 normal = i < normals.size() ? normals[i] : HMM_V3_Up;
-		normal.X *= rh;
-		HMM_Vec2 texcoord = i < texcoords.size() ? texcoords[i] : HMM_V2(0, 0);
-		vertices[i] = { position, normal, texcoord };
-	}
-	
-	CGPUVertexAttribute mesh_vertex_attributes[3] =
-	{
-		{ "POSITION", 1, CGPU_VERTEX_FORMAT_FLOAT32X3, 0, 0, sizeof(float) * 3, CGPU_VERTEX_INPUT_RATE_VERTEX },
-		{ "NORMAL", 1, CGPU_VERTEX_FORMAT_FLOAT32X3, 0, sizeof(float) * 3, sizeof(float) * 3, CGPU_VERTEX_INPUT_RATE_VERTEX },
-		{ "TEXCOORD", 1, CGPU_VERTEX_FORMAT_FLOAT32X2, 0, sizeof(float) * 6, sizeof(float) * 2, CGPU_VERTEX_INPUT_RATE_VERTEX },
-	};
-	
-	CGPUVertexLayout mesh_vertex_layout =
-	{
-		.attribute_count = 3,
-		.p_attributes = mesh_vertex_attributes,
-	};
-	
-	int indexCount = 0;
-	int indexStride = 0;
-	std::vector<uint32_t> indices32;
-	std::vector<uint16_t> indices16;
-	if (gltf_primitive.indices >= 0)
-	{
-		auto& accessor = model.accessors[gltf_primitive.indices];
-		auto& bufferView = model.bufferViews[accessor.bufferView];
-		auto& buffer = model.buffers[bufferView.buffer];
-		auto stride = accessor.ByteStride(bufferView);
-		auto startByte = accessor.byteOffset + bufferView.byteOffset;
-		auto endByte = startByte + accessor.count * stride;
-	
-		indexCount = accessor.count;
-		const uint8_t* indexData = buffer.data.data() + startByte;
-		if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-		{
-			indexStride = 2;
-			indices16.resize(accessor.count);
-			memcpy(indices16.data(), indexData, accessor.count * stride);
-			if (right_hand)
-			{
-				for (size_t j = 0; j < indices16.size() / 3; ++j)
-				{
-					auto temp = indices16.at(j * 3 + 0);
-					indices16.at(j * 3 + 0) = indices16.at(j * 3 + 2);
-					indices16.at(j * 3 + 2) = temp;
-				}
-			}
-		}
-		else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_INT)
-		{
-			indexStride = 4;
-			indices32.resize(accessor.count);
-			memcpy(indices32.data(), indexData, accessor.count * stride);
-			if (right_hand)
-			{
-				for (size_t j = 0; j < indices32.size() / 3; ++j)
-				{
-					auto temp = indices32.at(j * 3 + 0);
-					indices32.at(j * 3 + 0) = indices32.at(j * 3 + 2);
-					indices32.at(j * 3 + 2) = temp;
-				}
-			}
-		}
-	}
-	
-	return oval_create_mesh_from_buffer(app.device, vertices.size(), indexCount, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, mesh_vertex_layout, indexStride, (const uint8_t *)vertices.data(), indexStride == 2 ? (const uint8_t*)indices16.data() : (const uint8_t*)indices32.data(), false, false);
-}
-
-bool FileExists(const std::string& abs_filename, void* user_data)
-{
-	SDL_IOStream* rw = SDL_IOFromFile(abs_filename.c_str(), "rb");
-	if (!rw)
-	{
-		return false;
-	}
-	SDL_CloseIO(rw);
-	return true;
-}
-
-std::string ExpandFilePath(const std::string& filepath, void*)
-{
-	return filepath;
-}
-
-bool ReadWholeFile(std::vector<unsigned char>* out, std::string* err,
-	const std::string& filepath, void*)
-{
-	SDL_IOStream* rw = SDL_IOFromFile(filepath.c_str(), "rb");
-	if (!rw)
-	{
-		return false;
-	}
-
-	auto size = SDL_GetIOSize(rw);
-
-	out->resize(size);
-	SDL_ReadIO(rw, out->data(), sizeof(char) * size);
-	SDL_CloseIO(rw);
-	return true;
-}
-
-bool WriteWholeFile(std::string* err, const std::string& filepath,
-	const std::vector<unsigned char>& contents, void*)
-{
-	SDL_IOStream* rw = SDL_IOFromFile(filepath.c_str(), "rb");
-	if (!rw)
-	{
-		return false;
-	}
-
-	SDL_WriteIO(rw, contents.data(), contents.size() * 1);
-	SDL_CloseIO(rw);
-	return true;
-}
-
-bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
-	const std::string& filepath, void*)
-{
-	SDL_IOStream* rw = SDL_IOFromFile(filepath.c_str(), "rb");
-	if (!rw)
-	{
-		return false;
-	}
-
-	(*filesize_out) = SDL_GetIOSize(rw);
-	//SDL_RWwrite(rw, contents.data(), contents.size(), 1);
-	SDL_CloseIO(rw);
-	return true;
-}
-
-void load_scene(Application& app, flecs::world& world, const char* filepath, HGEGraphics::Shader* shader)
-{
-	using namespace tinygltf;
-	Model model;
-	TinyGLTF loader;
-	std::string err;
-	std::string warn;
-
-	FsCallbacks tiny_gltfFsCallback = {
-		.FileExists = FileExists,
-		.ExpandFilePath = ExpandFilePath,
-		.ReadWholeFile = ReadWholeFile,
-		.WriteWholeFile = WriteWholeFile,
-		.GetFileSizeInBytes = GetFileSizeInBytes,
-	};
-	if (!loader.SetFsCallbacks(tiny_gltfFsCallback, &err))
-	{
-		printf("Err: %s\n", err.c_str());
-	}
-
-	std::filesystem::path path = filepath;
-	path.remove_filename();
-	bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filepath);
-	if (!warn.empty())
-		printf("Warn: %s\n", warn.c_str());
-	if (!err.empty())
-		printf("Err: %s\n", err.c_str());
-	if (!ret)
-	{
-		printf("Failed to parse: %s\n", filepath);
-		return;
-	}
-
-	std::vector<CGPUSamplerId> samplers;
-	for (size_t i = 0; i < model.samplers.size(); ++i)
-	{
-		auto& gltf_sampler = model.samplers[i];
-
-		ECGPUFilterType minFilter = find_min_filter(gltf_sampler.minFilter);
-		ECGPUFilterType magFilter = find_mag_filter(gltf_sampler.magFilter);
-		ECGPUMipMapMode mipmapMode = find_mipmap_mode(gltf_sampler.minFilter);
-		ECGPUAddressMode address_u = find_wrap_mode(gltf_sampler.wrapS);
-		ECGPUAddressMode address_v = find_wrap_mode(gltf_sampler.wrapT);
-		ECGPUAddressMode address_w = CGPU_ADDRESS_MODE_REPEAT;
-
-		CGPUSamplerDescriptor texture_sampler_desc = {
-			.min_filter = minFilter,
-			.mag_filter = magFilter,
-			.mipmap_mode = mipmapMode,
-			.address_u = address_u,
-			.address_v = address_v,
-			.address_w = address_w,
-			.mip_lod_bias = 0,
-			.max_anisotropy = 1,
-		};
-		auto sampler = oval_create_sampler(app.device, &texture_sampler_desc);
-		samplers.push_back(sampler);
-	}
-
-	std::vector<HGEGraphics::Texture*> textures;
-	for (size_t i = 0; i < model.images.size(); ++i)
-	{
-		auto& gltf_image = model.images[i];
-		auto texture = load_texture(app, gltf_image, path.string(), true);
-		textures.push_back(texture);
-	}
-
-	for (size_t i = 0; i < model.materials.size(); ++i)
-	{
-		auto& gltf_material = model.materials[i];
-		auto material = oval_create_material(app.device, shader);
-		auto& baseColorTexture = gltf_material.pbrMetallicRoughness.baseColorTexture;
-		if (baseColorTexture.index != -1)
-		{
-			auto& gltf_texture = model.textures[baseColorTexture.index];
-			auto tex = textures[gltf_texture.source];
-			material->bindTexture(1, 1, tex);
-			material->bindSampler(1, 2, samplers[0]);
-		}
-
-		float roughness = gltf_material.pbrMetallicRoughness.roughnessFactor;
-		float a2 = roughness * roughness;
-		a2 = std::clamp(a2, 0.0001f, 0.999f);
-		float shininess = 2 / a2 - 2;
-		float specularLevel = 1 / (a2 * 3.14159265359f);
-		auto materialData = MaterialData{
-			.albedo = HMM_V4(gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
-				gltf_material.pbrMetallicRoughness.baseColorFactor[1], 
-				gltf_material.pbrMetallicRoughness.baseColorFactor[2], 
-				gltf_material.pbrMetallicRoughness.baseColorFactor[3]),
-		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
-		app.materials.push_back(material);
-	}
-
-	struct TupleHasher {
-		std::size_t operator()(const std::tuple<int, int>& key) const {
-			// 使用标准库的哈希函数组合两个整数的哈希值
-			auto h1 = std::hash<int>{}(std::get<0>(key));
-			auto h2 = std::hash<int>{}(std::get<1>(key));
-
-			// 常见的组合方式：异或或移位组合
-			return h1 ^ (h2 << 1);
-		}
-	};
-
-	std::unordered_map<std::tuple<int, int>, int, TupleHasher> meshes;
-	for (size_t i = 0; i < model.meshes.size(); ++i)
-	{
-		auto& gltf_mesh = model.meshes[i];
-		for (size_t j = 0; j < gltf_mesh.primitives.size(); ++j)
-		{
-			meshes.insert({ std::make_tuple<int, int>((int)i, (int)j), (int)app.meshes.size() });
-			app.meshes.push_back(load_primitive(app, gltf_mesh.primitives[j], model, true));
-		}
-	}
-
-	std::vector<flecs::entity> entities;
-	for (size_t i = 0; i < model.nodes.size(); ++i)
-	{
-		auto& node = model.nodes[i];
-
-		HMM_Mat4 matrix = HMM_M4_Identity;
-		if (node.matrix.size() == 16)
-		{
-			matrix.Elements[0][0] = node.matrix[0];
-			matrix.Elements[0][1] = node.matrix[1];
-			matrix.Elements[0][2] = node.matrix[2];
-			matrix.Elements[0][3] = node.matrix[3];
-
-			matrix.Elements[1][0] = node.matrix[4];
-			matrix.Elements[1][1] = node.matrix[5];
-			matrix.Elements[1][2] = node.matrix[6];
-			matrix.Elements[1][3] = node.matrix[7];
-
-			matrix.Elements[2][0] = node.matrix[8];
-			matrix.Elements[2][1] = node.matrix[9];
-			matrix.Elements[2][2] = node.matrix[10];
-			matrix.Elements[2][3] = node.matrix[11];
-
-			matrix.Elements[3][0] = node.matrix[12];
-			matrix.Elements[3][1] = node.matrix[13];
-			matrix.Elements[3][2] = node.matrix[14];
-			matrix.Elements[3][3] = node.matrix[15];
-		}
-		else
-		{
-			HMM_Vec3 translate = HMM_V3_Zero;
-			HMM_Quat rot = HMM_Q_Identity;
-			HMM_Vec3 scale = HMM_V3_One;
-			if (node.translation.size() == 3)
-				translate = HMM_V3(node.translation[0], node.translation[1], node.translation[2]);
-			if (node.rotation.size() == 4)
-				rot = HMM_Q(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
-			if (node.scale.size() == 3)
-				scale = HMM_V3(node.scale[0], node.scale[1], node.scale[2]);
-			matrix = HMM_TRS(translate, rot, scale);
-		}
-
-		auto ent = world.entity();
-		ent.add<LocalTransform>()
-			.add<WorldTransform>();
-		ent.set<LocalTransform>({.model = matrix});
-		if (node.mesh != -1)
-		{
-			const auto& mesh = model.meshes[node.mesh];
-			for (size_t j = 0; j < mesh.primitives.size(); ++j)
-			{
-				auto sub = world.entity();
-				sub.add<WorldTransform>()
-					.add<Rendable>()
-					.add<ShowMatrix>();
-				sub.set<WorldTransform>({ .value = HMM_M4_Identity })
-					.set<Rendable>({.material = mesh.primitives[j].material, .mesh = meshes[std::tuple<int, int>(node.mesh, (int)j)]})
-					.set<ShowMatrix>({.model = HMM_M4_Identity});
-				setParent(world, sub, ent);
-			}
-		}
-		entities.push_back(ent);
-	}
-
-	std::vector<bool> transed(entities.size());
-	std::fill(transed.begin(), transed.end(), false);
-	for (size_t i = 0; i < model.nodes.size(); ++i)
-	{
-		auto& node = model.nodes[i];
-
-		for (size_t j = 0; j < node.children.size(); ++j)
-		{
-			auto& child = model.nodes[node.children[j]];
-			setParent(world, entities[node.children[j]], entities[i]);
-		}
-	}
-
-	entities[0].add<Rotation>()
-		.add<Rotate>();
-	entities[0].set<Rotation>({ .value = HMM_Q_Identity })
-		.set<Rotate>({ .axis = HMM_V3_Up, .speed = 1.0f, .base = HMM_Q_Identity });
+	ent.set<WorldTransform>({ .value = matrix })
+		.set<Rendable>({ .material = mat, .mesh = mesh })
+		.set<ShowMatrix>({ .model = HMM_M4_Identity });
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -945,30 +518,60 @@ void _init_resource(Application& app, flecs::world& world)
 	auto shader = oval_create_shader(app.device, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
 	auto quad = oval_load_mesh(app.device, "media/models/Quad.obj");
+	app.quad = app.meshes.size();
 	app.meshes.push_back(quad);
 
-	auto material = oval_create_material(app.device, shader);
-	auto materialData = MaterialData{
-		.albedo = HMM_V4(1, 0, 0, 0),
-	};
-	material->bindBuffer<MaterialData>(1, 0, materialData);
-	app.materials.push_back(material);
+	{
+		auto material = oval_create_material(app.device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(1, 1, 1, 1),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		app.boardMat = app.materials.size();
+		app.materials.push_back(material);
+	}
 
-	auto ent = world.entity();
-	ent.add<LocalTransform>()
-		.add<WorldTransform>()
-		.add<Position>()
-		.add<Rendable>()
-		.add<ShowMatrix>();
-	;
+	{
+		auto material = oval_create_material(app.device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(1, 0, 0, 0),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		app.appleMat = app.materials.size();
+		app.materials.push_back(material);
+	}
 
-	ent.set<Position>({ .value = HMM_V3(0, 0, 0) })
-		.set<LocalTransform>({ .model = HMM_M4_Identity })
-		.set<WorldTransform>({ .value = HMM_M4_Identity })
-		.set<Rendable>({ .material = 0, .mesh = 0 })
-		.set<ShowMatrix>({ .model = HMM_M4_Identity });
+	{
+		auto material = oval_create_material(app.device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(1, 1, 0, 1),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		app.snakeHeadMat = app.materials.size();
+		app.materials.push_back(material);
+	}
 
-	//load_scene(app, world, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
+	{
+		auto material = oval_create_material(app.device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(0, 1, 0, 1),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		app.snakeBodyMat = app.materials.size();
+		app.materials.push_back(material);
+	}
+
+	createBoard(world, HMM_TRS(HMM_V3(21, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, 32, 1)), app.boardMat, app.quad);
+	createBoard(world, HMM_TRS(HMM_V3(-20, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, 32, 1)), app.boardMat, app.quad);
+	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, 16, 0), HMM_Q_Identity, HMM_V3(42, 1, 1)), app.boardMat, app.quad);
+	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, -15, 0), HMM_Q_Identity, HMM_V3(42, 1, 1)), app.boardMat, app.quad);
+
+	createEntity(world, HMM_V3(0, 0, 0), app.snakeBodyMat, app.quad);
+	createEntity(world, HMM_V3(1, 0, 0), app.snakeBodyMat, app.quad);
+	createEntity(world, HMM_V3(20, 0, 0), app.snakeBodyMat, app.quad);
+	createEntity(world, HMM_V3(-19, 0, 0), app.snakeBodyMat, app.quad);
+	createEntity(world, HMM_V3(0, 15, 0), app.snakeBodyMat, app.quad);
+	createEntity(world, HMM_V3(0, -14, 0), app.snakeBodyMat, app.quad);
 }
 
 void _free_resource(Application& app)
@@ -980,12 +583,12 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 {
 	auto cam = world.entity();
 	auto cameraParentMat = HMM_M4_Identity;
-	auto cameraLocalMat = HMM_Translate(HMM_V3(0, 0, -10));
+	auto cameraLocalMat = HMM_Translate(HMM_V3(0 + 0.5, 0 + 0.5, -38));
 	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
 	cam.add<WorldTransform>()
 		.add<Camera>();
 	cam.set<WorldTransform>({ .value = cameraWMat })
-		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 20.f, .width = 800, .height = 600 });
+		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
 
 	app.systemDoSimpleHarmonicMove = world.system<const SimpleHarmonic, Position>("DoSimpleHarmonicMove")
 		.each(doSimpleHarmonicMove);
@@ -1285,7 +888,7 @@ int SDL_main(int argc, char *argv[])
 		.render_frequecy_mode = RENDER_FREQUENCY_MODE_LIMITED,
 		.render_need_interpolate = false,
 		.target_fps = 100,
-		.enable_capture = false,
+		.enable_capture = true,
 		.enable_profile = false,
 		.enable_gpu_validation = true,
 	};
@@ -1298,7 +901,7 @@ int SDL_main(int argc, char *argv[])
 		.width = width,
 		.height = height,
 		.primary = true,
-		.resizable = true,
+		.resizable = false,
 		.use_imgui = true,
 		.own_imgui = true,
 		.on_imgui = on_imgui1,
