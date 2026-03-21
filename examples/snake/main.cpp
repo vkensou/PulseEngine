@@ -259,13 +259,10 @@ struct CameraMatrix
 struct PassData
 {
 	HMM_Mat4	vpMatrix;
-	HMM_Vec4	lightDir;
-	HMM_Vec4	viewPos;
 };
 
 struct MaterialData
 {
-	HMM_Vec4	shininess;
 	HMM_Vec4	albedo;
 };
 
@@ -804,11 +801,10 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		float shininess = 2 / a2 - 2;
 		float specularLevel = 1 / (a2 * 3.14159265359f);
 		auto materialData = MaterialData{
-			.shininess = HMM_V4(shininess, specularLevel, 0, 0),
 			.albedo = HMM_V4(gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
-				gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
-				gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
-				gltf_material.pbrMetallicRoughness.baseColorFactor[0]),
+				gltf_material.pbrMetallicRoughness.baseColorFactor[1], 
+				gltf_material.pbrMetallicRoughness.baseColorFactor[2], 
+				gltf_material.pbrMetallicRoughness.baseColorFactor[3]),
 		};
 		material->bindBuffer<MaterialData>(1, 0, materialData);
 		app.materials.push_back(material);
@@ -917,6 +913,10 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		.add<Rotate>();
 	entities[0].set<Rotation>({ .value = HMM_Q_Identity })
 		.set<Rotate>({ .axis = HMM_V3_Up, .speed = 1.0f, .base = HMM_Q_Identity });
+
+	auto quad = oval_load_mesh(app.device, "media/models/Quad.obj");
+	app.meshes.push_back(quad);
+
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -947,7 +947,7 @@ void _init_resource(Application& app, flecs::world& world)
 		.cull_mode = CGPU_CULL_MODE_BACK,
 		.front_face	= CGPU_FRONT_FACE_CLOCK_WISE,
 	};
-	auto shader = oval_create_shader(app.device, "shaderbin/obj2.vert.spv", "shaderbin/obj2.frag.spv", blend_desc, depth_desc, rasterizer_state);
+	auto shader = oval_create_shader(app.device, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
 	load_scene(app, world, "media/gltf/gltf-truck/CesiumMilkTruck.gltf", shader);
 }
@@ -1120,8 +1120,6 @@ void enumViews(Application& app, flecs::world& world, FrameRenderPacket& current
 			.window_entity = camera.window_entity,
 			.passData = {
 				.vpMatrix = vpMat,
-				.lightDir = lightDir,
-				.viewPos = HMM_V4V(eye, 0),
 			},
 			.renderObjects = extract(app, world, std::move(visibles), currentFramePack.memory_resource),
 			});
