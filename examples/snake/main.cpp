@@ -442,6 +442,7 @@ struct Application
 	flecs::system systemUpdateHierarchyTransform;
 	flecs::system systemUpdateNonHierarchyTrasform;
 
+	flecs::system systemSnakeInput;
 	flecs::system systemSnakeMove;
 
 	flecs::system systemUpdateMoveInterpolation;
@@ -487,6 +488,16 @@ HMM_Vec3 toDelta(Direction direction)
 	}
 }
 
+bool isParallel(Direction left, Direction right)
+{
+	return (((int)left % 2) == ((int)right % 2));
+}
+
+bool isOpposite(Direction left, Direction right)
+{
+	return (left != right) && isParallel(left, right);
+}
+
 struct SnakeMove
 {
 	float interval;
@@ -505,7 +516,7 @@ struct Score
 
 struct SnakeInput
 {
-	SDL_Keycode rightKey, upKey, leftKey, downKey;
+	SDL_Scancode rightKey, upKey, leftKey, downKey;
 };
 
 struct Snake
@@ -601,7 +612,7 @@ flecs::entity createSnake(flecs::world& world, int quad, int headMat, int bodyMa
 		.add<SnakeMove>();
 
 	head.set<Direction>(Direction::Right)
-		.set<SnakeInput>({ .rightKey = SDLK_RIGHT, .upKey = SDLK_UP, .leftKey = SDLK_LEFT, .downKey = SDLK_DOWN })
+		.set<SnakeInput>({ .rightKey = SDL_SCANCODE_RIGHT, .upKey = SDL_SCANCODE_UP, .leftKey = SDL_SCANCODE_LEFT, .downKey = SDL_SCANCODE_DOWN })
 		.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
 
 	std::vector<flecs::entity> bodies;
@@ -643,6 +654,56 @@ flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up,
 	border.add<Border>()
 		.set<Border>({ .up = up, .bottom = bottom, .left = left,  .right = right });
 	return border;
+}
+
+struct SystemSnakeInput
+{
+	std::vector<uint8_t> lastKeyboardStates;
+};
+
+std::optional<Direction> getInputDirection(const SnakeInput& input, std::vector<uint8_t> lastKeyboardStates, std::span<const bool> currentKeyboardStates)
+{
+	bool lastRight = lastKeyboardStates[input.rightKey];
+	bool lastUp = lastKeyboardStates[input.upKey];
+	bool lastLeft = lastKeyboardStates[input.leftKey];
+	bool lastDown = lastKeyboardStates[input.downKey];
+
+	bool right = currentKeyboardStates[input.rightKey];
+	bool up = currentKeyboardStates[input.upKey];
+	bool left = currentKeyboardStates[input.leftKey];
+	bool down = currentKeyboardStates[input.downKey];
+
+	if (!lastRight && right)
+		return Direction::Right;
+	else if (!lastUp && up)
+		return Direction::Up;
+	else if (!lastLeft && left)
+		return Direction::Left;
+	else if (!lastDown && down)
+		return Direction::Down;
+	else
+		return {};
+}
+
+void snakeInput(flecs::iter& it, size_t i, const SnakeInput& input, Direction& direction, SnakeMove& move)
+{
+	auto& systemSnakeInput = it.system().get_mut<SystemSnakeInput>();
+	int numKeys;
+	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
+
+	assert(numKeys == systemSnakeInput.lastKeyboardStates.size());
+
+	auto keyInput = getInputDirection(input, systemSnakeInput.lastKeyboardStates, std::span<const bool>(currentKeyboardStates, numKeys));
+	if (keyInput.has_value())
+	{
+		if (!isOpposite(direction, keyInput.value()))
+		{
+			direction = keyInput.value();
+			move.lastTime = move.interval;
+		}
+	}
+
+	memcpy(systemSnakeInput.lastKeyboardStates.data(), currentKeyboardStates, numKeys);
 }
 
 struct SystemSnakeMove
@@ -806,6 +867,17 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.without<Tree>()
 		.each(updateNonHierarchyTrasform);
 
+	app.systemSnakeInput = world.system<const SnakeInput, Direction, SnakeMove>("SnakeInput")
+		.each(snakeInput);
+
+	app.systemSnakeInput.add<SystemSnakeInput>();
+
+	int numKeys;
+	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
+	std::vector<uint8_t> keyboardStates(numKeys);
+	memcpy(keyboardStates.data(), currentKeyboardStates, numKeys);
+	app.systemSnakeInput.set<SystemSnakeInput>({ .lastKeyboardStates = std::move(keyboardStates) });
+
 	app.systemSnakeMove = world.system<const Snake>("SnakeMove")
 		.each(snakeMove);
 
@@ -839,6 +911,7 @@ static void simulate(Application& app, const oval_update_context& update_context
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
 	app.systemDoSimpleHarmonicMove.run(0, &context);
 	app.systemDoRotation.run(0, &context);
+	app.systemSnakeInput.run(0, &context);
 	app.systemSnakeMove.run(0, &context);
 	app.systemUpdateMatrixPositionOnly.run(0, &context);
 	app.systemUpdateMatrixRotationOnly.run(0, &context);
