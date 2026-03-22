@@ -645,6 +645,12 @@ flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up,
 	return border;
 }
 
+struct SystemSnakeMove
+{
+	flecs::query<IsApple, Position> apple;
+	flecs::query<Border> border;
+};
+
 void snakeMove(flecs::iter& it, size_t i, const Snake& snake)
 {
 	const SystemContext& context = *it.param<SystemContext>();
@@ -656,8 +662,16 @@ void snakeMove(flecs::iter& it, size_t i, const Snake& snake)
 		return;
 
 	auto& headPosition = head.get_mut<Position>();
-	const auto& headDirection = head.get<Direction>();
+	auto& headDirection = head.get<Direction>();
 	auto nextPos = headPosition.value + toDelta(headDirection);
+
+	auto& systemSnameMove = it.system().get<SystemSnakeMove>();
+	auto appleEnt = systemSnameMove.apple.first();
+	auto& applePosition = appleEnt.get<Position>();
+
+	auto borderEnt = systemSnameMove.border.first();
+	auto& border = borderEnt.get<Border>();
+
 	auto& bodies = snake.bodies;
 	for (int i = 0; i < bodies.size() - 1; ++i)
 	{
@@ -794,6 +808,9 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	app.systemSnakeMove = world.system<const Snake>("SnakeMove")
 		.each(snakeMove);
+
+	app.systemSnakeMove.add<SystemSnakeMove>();
+	app.systemSnakeMove.set<SystemSnakeMove>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
