@@ -527,6 +527,8 @@ struct Snake
 
 struct IsApple {};
 
+struct AppleEat {};
+
 flecs::entity createRenderable(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
 {
 	auto ent = world.entity();
@@ -552,9 +554,9 @@ std::optional<HMM_Vec3> getNewApplePosition(flecs::world& world, const Snake& sn
 	int bottom = border.bottom;
 	int up = border.up;
 
-	int maxCount = (right - left + 1) * (up - bottom + 1);
+	int maxCount = (right - left - 1) * (up - bottom - 1);
 
-	if (snake.bodies.size() + 1 >= maxCount)
+	if (snake.bodies.size() >= maxCount)
 	{
 		return {};
 	}
@@ -576,16 +578,25 @@ std::optional<HMM_Vec3> getNewApplePosition(flecs::world& world, const Snake& sn
 
 	while (true)
 	{
-		int x = dis(gen, std::uniform_int_distribution<>::param_type(left + 1, right));
-		int y = dis(gen, std::uniform_int_distribution<>::param_type(bottom + 1, up));
+		int x = dis(gen, std::uniform_int_distribution<>::param_type(left + 1, right - 1));
+		int y = dis(gen, std::uniform_int_distribution<>::param_type(bottom + 1, up - 1));
 		auto newPos = HMM_V3(x, y, 0);
 
+		if (!(left < x && x < right && bottom < y && y < up))
+			continue;
+
+		bool bodyOverlaped = false;
 		for (int i = 0; i < used.size(); ++i)
 		{
 			if (used[i] == newPos)
+			{
+				bodyOverlaped = true;
 				continue;
+			}
 		}
-		return newPos;
+
+		if (!bodyOverlaped)
+			return newPos;
 	}
 
 	return {};
@@ -643,12 +654,14 @@ void createBoard(flecs::world& world, HMM_Mat4 matrix, int mat, int mesh)
 
 flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up, int bottom, int left, int right)
 {
+	auto centerX = (left + right) / 2.0f;
+	auto centerY = (up + bottom) / 2.0f;
 	auto width = right - left + 1;
 	auto height = up - bottom + 1;
-	createBoard(world, HMM_TRS(HMM_V3(right, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
-	createBoard(world, HMM_TRS(HMM_V3(left, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
-	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, up, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
-	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, bottom, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(right, centerY, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(left, centerY, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(centerX, up, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(centerX, bottom, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
 
 	auto border = world.entity();
 	border.add<Border>()
@@ -706,15 +719,89 @@ void snakeInput(flecs::iter& it, size_t i, const SnakeInput& input, Direction& d
 	memcpy(systemSnakeInput.lastKeyboardStates.data(), currentKeyboardStates, numKeys);
 }
 
+enum class ObstacleType
+{
+	None,
+	Apple,
+	SnakeBody,
+	Border
+};
+
+struct Obstacle
+{
+private:
+	const ObstacleType type;
+	const int appleId;
+
+	Obstacle(ObstacleType type, int appleId = -1)
+		: type(type), appleId(appleId)
+	{
+	}
+
+public:
+	ObstacleType Type() const { return type; }
+	int AppleId() const { return appleId; }
+
+	static Obstacle None()
+	{
+		return Obstacle(ObstacleType::None);
+	}
+
+	static Obstacle Apple(int appleId)
+	{
+		return Obstacle(ObstacleType::Apple, appleId);
+	}
+
+	static Obstacle SnakeBody()
+	{
+		return Obstacle(ObstacleType::SnakeBody);
+	}
+
+	static Obstacle Border()
+	{
+		return Obstacle(ObstacleType::Border);
+	}
+};
+
+Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const Snake& snake, const Border& border, std::optional<HMM_Vec3> applePos)
+{
+	int left = border.left;
+	int right = border.right;
+	int bottom = border.bottom;
+	int up = border.up;
+
+	if (nextPos.X <= left || nextPos.X >= right || nextPos.Y <= bottom || nextPos.Y >= up)
+		return Obstacle::Border();
+
+	for (int i = 1; i < snake.bodies.size() - 1; ++i)
+	{
+		auto bodyEnt = snake.bodies[i];
+		auto& bodyPos = bodyEnt.get<Position>();
+		if (bodyPos.value == nextPos)
+			return Obstacle::SnakeBody();
+	}
+
+	if (applePos.has_value())
+	{
+		if (nextPos == applePos.value())
+			return Obstacle::Apple(0);
+	}
+
+	return Obstacle::None();
+}
+
 struct SystemSnakeMove
 {
 	flecs::query<IsApple, Position> apple;
 	flecs::query<Border> border;
 };
 
-void snakeMove(flecs::iter& it, size_t i, const Snake& snake)
+void snakeMove(flecs::iter& it, size_t i, Snake& snake)
 {
 	const SystemContext& context = *it.param<SystemContext>();
+	auto world = it.world();
+	Application& app = *(Application*)world.get_ctx();
+
 	auto head = snake.head;
 	auto& headMove = head.get_mut<SnakeMove>();
 
@@ -728,20 +815,60 @@ void snakeMove(flecs::iter& it, size_t i, const Snake& snake)
 
 	auto& systemSnameMove = it.system().get<SystemSnakeMove>();
 	auto appleEnt = systemSnameMove.apple.first();
-	auto& applePosition = appleEnt.get<Position>();
+	std::optional<HMM_Vec3> applePos;
+	if (appleEnt.is_alive())
+		applePos = appleEnt.get<Position>().value;
 
 	auto borderEnt = systemSnameMove.border.first();
 	auto& border = borderEnt.get<Border>();
 
-	auto& bodies = snake.bodies;
-	for (int i = 0; i < bodies.size() - 1; ++i)
+	auto obstacle = queryCollideObstacle(nextPos, snake, border, applePos);
+
+	if (obstacle.Type() == ObstacleType::None)
 	{
-		auto& bodyPos = bodies[i].get_mut<Position>();
-		const auto& nextBodyPos = bodies[i + 1].get<Position>();
-		bodyPos.value = nextBodyPos.value;
+		auto& bodies = snake.bodies;
+		for (int i = 0; i < bodies.size() - 1; ++i)
+		{
+			auto& bodyPos = bodies[i].get_mut<Position>();
+			const auto& nextBodyPos = bodies[i + 1].get<Position>();
+			bodyPos.value = nextBodyPos.value;
+		}
+		headPosition.value = nextPos;
+		headMove.lastTime -= headMove.interval;
 	}
-	headPosition.value = nextPos;
-	headMove.lastTime -= headMove.interval;
+	else if (obstacle.Type() == ObstacleType::Apple)
+	{
+		auto newBody = createRenderable(world, headPosition.value, app.snakeBodyMat, app.quad);
+		snake.bodies.insert(snake.bodies.end() - 1, newBody);
+		headPosition.value = nextPos;
+		headMove.lastTime -= headMove.interval;
+
+		world.event<AppleEat>()
+			.id<IsApple>()
+			.entity(appleEnt)
+			.enqueue();
+	}
+	else
+	{
+		// TODO
+	}
+}
+
+void eatApple(flecs::entity apple, const IsApple&)
+{
+	auto world = apple.world();
+	apple.destruct();
+
+	Application& app = *(Application*)world.get_ctx();
+
+	auto snakeQuery = world.query<Snake>();
+	auto borderQuery = world.query<Border>();
+	auto snakeEnt = snakeQuery.first();
+	auto borderEnt = borderQuery.first();
+	if (snakeEnt.is_alive() && borderEnt.is_alive())
+	{
+		createApple(world, snakeEnt.get<Snake>(), borderEnt.get<Border>(), app.quad, app.appleMat);
+	}
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -878,11 +1005,15 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	memcpy(keyboardStates.data(), currentKeyboardStates, numKeys);
 	app.systemSnakeInput.set<SystemSnakeInput>({ .lastKeyboardStates = std::move(keyboardStates) });
 
-	app.systemSnakeMove = world.system<const Snake>("SnakeMove")
+	app.systemSnakeMove = world.system<Snake>("SnakeMove")
 		.each(snakeMove);
 
 	app.systemSnakeMove.add<SystemSnakeMove>();
 	app.systemSnakeMove.set<SystemSnakeMove>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
+
+	world.observer<IsApple>()
+		.event<AppleEat>()
+		.each(eatApple);
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
@@ -1182,6 +1313,7 @@ int SDL_main(int argc, char *argv[])
 	app.window1 = oval_create_window_entity(app.device, &window_descriptor);
 
 	flecs::world world = flecs::world(oval_get_world(app.device));
+	world.set_ctx(&app);
 
 	_init_resource(app, world);
 	_init_world(app, world, app.window1);
