@@ -10,6 +10,7 @@
 #include "tiny_gltf.h"
 #include <cassert>
 #include <SDL3/SDL.h>
+#include <random>
 
 constexpr ecs_entity_t kNullEntity = 0;
 
@@ -459,7 +460,44 @@ struct Application
 	}
 };
 
-void createEntity(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
+enum class Direction
+{
+	Right,
+	Up,
+	Left,
+	Down,
+};
+
+struct SnakeMove
+{
+	float interval;
+	float lastTime;
+};
+
+struct Border
+{
+	int up, bottom, left, right;
+};
+
+struct Score
+{
+	int value;
+};
+
+struct SnakeInput
+{
+	SDL_Keycode rightKey, upKey, leftKey, downKey;
+};
+
+struct Snake
+{
+	flecs::entity head;
+	std::vector<flecs::entity> bodies;
+};
+
+struct IsApple {};
+
+flecs::entity createRenderable(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
 {
 	auto ent = world.entity();
 	ent.add<LocalTransform>()
@@ -473,6 +511,92 @@ void createEntity(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
 		.set<WorldTransform>({ .value = HMM_M4_Identity })
 		.set<Rendable>({ .material = mat, .mesh = mesh })
 		.set<ShowMatrix>({ .model = HMM_M4_Identity });
+
+	return ent;
+}
+
+std::optional<HMM_Vec3> getNewApplePosition(flecs::world& world, const Snake& snake, const Border& border)
+{
+	int left = border.left;
+	int right = border.right;
+	int bottom = border.bottom;
+	int up = border.up;
+
+	int maxCount = (right - left + 1) * (up - bottom + 1);
+
+	if (snake.bodies.size() + 1 >= maxCount)
+	{
+		return {};
+	}
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<> dis;
+
+	int random_number = dis(gen);
+
+	std::vector<HMM_Vec3> used;
+	used.reserve(snake.bodies.size());
+	for (size_t i = 0; i < snake.bodies.size(); ++i)
+	{
+		auto body = snake.bodies[i];
+		auto& position = body.get<Position>();
+		used.push_back(position.value);
+	}
+
+	while (true)
+	{
+		int x = dis(gen, std::uniform_int_distribution<>::param_type(left + 1, right));
+		int y = dis(gen, std::uniform_int_distribution<>::param_type(bottom + 1, up));
+		auto newPos = HMM_V3(x, y, 0);
+
+		for (int i = 0; i < used.size(); ++i)
+		{
+			if (used[i] == newPos)
+				continue;
+		}
+		return newPos;
+	}
+
+	return {};
+}
+
+flecs::entity createApple(flecs::world& world, const Snake& snake, const Border& border, int quad, int appleMat)
+{
+	auto newPos = getNewApplePosition(world, snake, border);
+	if (!newPos.has_value())
+		return {};
+
+	auto apple = createRenderable(world, newPos.value(), appleMat, quad);
+	apple.add<IsApple>();
+	return apple;
+}
+
+flecs::entity createSnake(flecs::world& world, int quad, int headMat, int bodyMat, HMM_Vec3 initPos)
+{
+	int snakeInitLength = 3;
+
+	auto head = createRenderable(world, initPos, headMat, quad);
+	head.add<Direction>()
+		.add<SnakeInput>()
+		.add<SnakeMove>();
+
+	head.set<Direction>(Direction::Right)
+		.set<SnakeInput>({ .rightKey = SDLK_RIGHT, .upKey = SDLK_UP, .leftKey = SDLK_LEFT, .downKey = SDLK_DOWN })
+		.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
+
+	std::vector<flecs::entity> bodies;
+	bodies.push_back(head);
+	for (int i = 0; i < 3; ++i)
+	{
+		auto newBody = createRenderable(world, HMM_V3(initPos.X - 1 - i, initPos.Y, initPos.Z), bodyMat, quad);
+		bodies.push_back(newBody);
+	}
+
+	auto snake = world.entity();
+	snake.add<Snake>();
+	snake.set<Snake>({.head = head, .bodies = std::move(bodies)});
+	return snake;
 }
 
 void createBoard(flecs::world& world, HMM_Mat4 matrix, int mat, int mesh)
@@ -485,6 +609,21 @@ void createBoard(flecs::world& world, HMM_Mat4 matrix, int mat, int mesh)
 	ent.set<WorldTransform>({ .value = matrix })
 		.set<Rendable>({ .material = mat, .mesh = mesh })
 		.set<ShowMatrix>({ .model = HMM_M4_Identity });
+}
+
+flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up, int bottom, int left, int right)
+{
+	auto width = right - left + 1;
+	auto height = up - bottom + 1;
+	createBoard(world, HMM_TRS(HMM_V3(right, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(left, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, up, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
+	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, bottom, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
+
+	auto border = world.entity();
+	border.add<Border>()
+		.set<Border>({ .up = up, .bottom = bottom, .left = left,  .right = right });
+	return border;
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -561,17 +700,13 @@ void _init_resource(Application& app, flecs::world& world)
 		app.materials.push_back(material);
 	}
 
-	createBoard(world, HMM_TRS(HMM_V3(21, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, 32, 1)), app.boardMat, app.quad);
-	createBoard(world, HMM_TRS(HMM_V3(-20, 0 + 0.5, 0), HMM_Q_Identity, HMM_V3(1, 32, 1)), app.boardMat, app.quad);
-	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, 16, 0), HMM_Q_Identity, HMM_V3(42, 1, 1)), app.boardMat, app.quad);
-	createBoard(world, HMM_TRS(HMM_V3(0 + 0.5, -15, 0), HMM_Q_Identity, HMM_V3(42, 1, 1)), app.boardMat, app.quad);
-
-	createEntity(world, HMM_V3(0, 0, 0), app.snakeBodyMat, app.quad);
-	createEntity(world, HMM_V3(1, 0, 0), app.snakeBodyMat, app.quad);
-	createEntity(world, HMM_V3(20, 0, 0), app.snakeBodyMat, app.quad);
-	createEntity(world, HMM_V3(-19, 0, 0), app.snakeBodyMat, app.quad);
-	createEntity(world, HMM_V3(0, 15, 0), app.snakeBodyMat, app.quad);
-	createEntity(world, HMM_V3(0, -14, 0), app.snakeBodyMat, app.quad);
+	int up = 16;
+	int bottom = -15;
+	int left = -20;
+	int right = 21;
+	auto border = createBorder(world, app.quad, app.boardMat, up, bottom, left, right);
+	auto snake = createSnake(world, app.quad, app.snakeHeadMat, app.snakeBodyMat, HMM_V3(0, 0, 0));
+	auto apple = createApple(world, snake.get<Snake>(), border.get<Border>(), app.quad, app.appleMat);
 }
 
 void _free_resource(Application& app)
