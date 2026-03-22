@@ -888,7 +888,7 @@ int SDL_main(int argc, char *argv[])
 		.render_frequecy_mode = RENDER_FREQUENCY_MODE_LIMITED,
 		.render_need_interpolate = false,
 		.target_fps = 100,
-		.enable_capture = true,
+		.enable_capture = false,
 		.enable_profile = false,
 		.enable_gpu_validation = true,
 	};

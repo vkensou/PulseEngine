@@ -477,8 +477,11 @@ namespace HGEGraphics
 			if (data_count > 0)
 			{
 				bool dset_dirty = !compare(datas, encoder->last_bind_resources[i], data_count);
+				bool buffer_dirty = memcmp(encoder->buffers, encoder->last_buffers[i], buffer_count);
+				bool textureview_dirty = memcmp(encoder->textureviews, encoder->last_textureviews[i], texture_view_count);
+				bool sampler_dirty = memcmp(encoder->samplers, encoder->last_samplers[i], sampler_count);
 				bool offset_size_dirty = memcmp(encoder->buffer_offset_sizes, encoder->last_buffer_offset_sizes[i], sizeof(float) * 2 * offset_size_count);
-				if (dset_dirty || offset_size_dirty)
+				if (dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
 				{
 					cgpu_descriptor_set_update(dset->handle, data_count, datas);
 					if (is_graphics)
@@ -486,6 +489,9 @@ namespace HGEGraphics
 					else
 						cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset->handle);
 					memcpy(encoder->last_bind_resources[i], datas, sizeof(CGPUDescriptorData) * data_count);
+					memcpy(encoder->last_buffers[i], encoder->buffers, sizeof(CGPUBufferId) * buffer_count);
+					memcpy(encoder->last_textureviews[i], encoder->textureviews, sizeof(CGPUTextureViewId) * texture_view_count);
+					memcpy(encoder->last_samplers[i], encoder->samplers, sizeof(CGPUSamplerId) * sampler_count);
 					memcpy(encoder->last_buffer_offset_sizes[i], encoder->buffer_offset_sizes, sizeof(float) * 2 * offset_size_count);
 				}
 			}

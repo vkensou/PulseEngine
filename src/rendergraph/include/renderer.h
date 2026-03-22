@@ -225,6 +225,9 @@ namespace HGEGraphics
 		CGPURenderPipelineId last_render_pipeline;
 		CGPUComputePipelineId last_compute_pipeline;
 		CGPUDescriptorData last_bind_resources[4][64]{ 0 };
+		CGPUTextureViewId last_textureviews[4][64]{ 0 };
+		CGPUSamplerId last_samplers[4][64]{ 0 };
+		CGPUBufferId last_buffers[4][64]{ 0 };
 		uint64_t last_buffer_offset_sizes[4][128]{ 0 };
 		CGPUTextureViewId textureviews[64]{ 0 };
 		CGPUSamplerId samplers[64]{ 0 };
