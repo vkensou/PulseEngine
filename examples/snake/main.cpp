@@ -442,6 +442,8 @@ struct Application
 	flecs::system systemUpdateHierarchyTransform;
 	flecs::system systemUpdateNonHierarchyTrasform;
 
+	flecs::system systemSnakeMove;
+
 	flecs::system systemUpdateMoveInterpolation;
 	flecs::system systemUpdateRotateInterpolation;
 	flecs::system systemShowMatrixStatic;
@@ -467,6 +469,23 @@ enum class Direction
 	Left,
 	Down,
 };
+
+HMM_Vec3 toDelta(Direction direction)
+{
+	switch (direction)
+	{
+	case Direction::Right:
+		return HMM_V3(1, 0, 0);
+	case Direction::Up:
+		return HMM_V3(0, 1, 0);
+	case Direction::Left:
+		return HMM_V3(-1, 0, 0);
+	case Direction::Down:
+		return HMM_V3(0, -1, 0);
+	default:
+		return HMM_V3(0, 0, 0);
+	}
+}
 
 struct SnakeMove
 {
@@ -590,7 +609,7 @@ flecs::entity createSnake(flecs::world& world, int quad, int headMat, int bodyMa
 	for (int i = 0; i < 3; ++i)
 	{
 		auto newBody = createRenderable(world, HMM_V3(initPos.X - 1 - i, initPos.Y, initPos.Z), bodyMat, quad);
-		bodies.push_back(newBody);
+		bodies.insert(bodies.begin(), newBody);
 	}
 
 	auto snake = world.entity();
@@ -624,6 +643,30 @@ flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up,
 	border.add<Border>()
 		.set<Border>({ .up = up, .bottom = bottom, .left = left,  .right = right });
 	return border;
+}
+
+void snakeMove(flecs::iter& it, size_t i, const Snake& snake)
+{
+	const SystemContext& context = *it.param<SystemContext>();
+	auto head = snake.head;
+	auto& headMove = head.get_mut<SnakeMove>();
+
+	headMove.lastTime += context.delta_time;
+	if (headMove.lastTime < headMove.interval)
+		return;
+
+	auto& headPosition = head.get_mut<Position>();
+	const auto& headDirection = head.get<Direction>();
+	auto nextPos = headPosition.value + toDelta(headDirection);
+	auto& bodies = snake.bodies;
+	for (int i = 0; i < bodies.size() - 1; ++i)
+	{
+		auto& bodyPos = bodies[i].get_mut<Position>();
+		const auto& nextBodyPos = bodies[i + 1].get<Position>();
+		bodyPos.value = nextBodyPos.value;
+	}
+	headPosition.value = nextPos;
+	headMove.lastTime -= headMove.interval;
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -749,6 +792,9 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.without<Tree>()
 		.each(updateNonHierarchyTrasform);
 
+	app.systemSnakeMove = world.system<const Snake>("SnakeMove")
+		.each(snakeMove);
+
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
 
@@ -776,6 +822,7 @@ static void simulate(Application& app, const oval_update_context& update_context
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
 	app.systemDoSimpleHarmonicMove.run(0, &context);
 	app.systemDoRotation.run(0, &context);
+	app.systemSnakeMove.run(0, &context);
 	app.systemUpdateMatrixPositionOnly.run(0, &context);
 	app.systemUpdateMatrixRotationOnly.run(0, &context);
 	app.systemUpdateMatrixPositionAndRotation.run(0, &context);
