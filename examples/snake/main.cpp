@@ -527,6 +527,10 @@ struct Snake
 
 struct IsApple {};
 
+struct Center {};
+
+struct Game {};
+
 struct AppleEat {};
 
 flecs::entity createRenderable(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
@@ -847,6 +851,11 @@ void snakeMove(flecs::iter& it, size_t i, Snake& snake)
 			.id<IsApple>()
 			.entity(appleEnt)
 			.enqueue();
+
+		world.event<AppleEat>()
+			.id<Game>()
+			.entity(world.singleton<Center>())
+			.enqueue();
 	}
 	else
 	{
@@ -858,6 +867,11 @@ void eatApple(flecs::entity apple, const IsApple&)
 {
 	auto world = apple.world();
 	apple.destruct();
+}
+
+void createAppleSystem(flecs::entity entity, const Game&)
+{
+	auto world = entity.world();
 
 	Application& app = *(Application*)world.get_ctx();
 
@@ -945,6 +959,9 @@ void _init_resource(Application& app, flecs::world& world)
 		app.materials.push_back(material);
 	}
 
+	auto game = world.singleton<Center>();
+	game.add<Game>();
+
 	int up = 16;
 	int bottom = -15;
 	int left = -20;
@@ -1014,6 +1031,10 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	world.observer<IsApple>()
 		.event<AppleEat>()
 		.each(eatApple);
+
+	world.observer<Game>()
+		.event<AppleEat>()
+		.each(createAppleSystem);
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
@@ -1320,7 +1341,8 @@ int SDL_main(int argc, char *argv[])
 		
 	oval_runloop(app.device);
 	_free_resource(app);
-	oval_free_window_entity(app.device, app.window1);
+	if (app.window1 != 0)
+		oval_free_window_entity(app.device, app.window1);
 	oval_free_device(app.device);
 
 	return 0;
