@@ -10,7 +10,8 @@
 #include "tiny_gltf.h"
 #include <cassert>
 #include <SDL3/SDL.h>
-#include <random>
+#include "snake.h"
+#include "predefine_components.h"
 
 constexpr ecs_entity_t kNullEntity = 0;
 
@@ -181,16 +182,6 @@ struct BindSampler
 	CGPUSamplerId sampler;
 };
 
-struct Position
-{
-	HMM_Vec3 value;
-};
-
-struct Rotation
-{
-	HMM_Quat value;
-};
-
 struct SimpleHarmonic
 {
 	HMM_Vec3 amplitude;
@@ -213,48 +204,6 @@ struct MoveInterpolation
 struct RotateInterpolation
 {
 	HMM_Quat value;
-};
-
-struct LocalTransform
-{
-	HMM_Mat4 model{ HMM_M4_Identity };
-};
-
-struct WorldTransform
-{
-	HMM_Mat4 value{ HMM_M4_Identity };
-};
-
-struct ShowMatrix
-{
-	HMM_Mat4 model;
-};
-
-struct Rendable
-{
-	int material;
-	int mesh;
-};
-
-struct Light
-{
-	HMM_Vec4 color;
-};
-
-struct Camera
-{
-	ecs_entity_t window_entity;
-	float fov;
-	float nearPlane;
-	float farPlane;
-	int width;
-	int height;
-};
-
-struct CameraMatrix
-{
-	HMM_Mat4 view;
-	HMM_Mat4 proj;
 };
 
 struct PassData
@@ -285,16 +234,6 @@ struct ViewRenderPacket
 	PassData passData;
 	std::pmr::vector<RenderObject> renderObjects;
 	std::pmr::vector<ObjectData> renderData;
-};
-
-struct SystemContext
-{
-	float delta_time;
-	float time_since_startup;
-	double delta_time_double;
-	double time_since_startup_double;
-	float interpolation_time;
-	double interpolation_time_double;
 };
 
 void doSimpleHarmonicMove(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, Position& position)
@@ -430,9 +369,6 @@ struct Application
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
-	int quad;
-	int appleMat, snakeHeadMat, snakeBodyMat;
-	int boardMat;
 
 	flecs::system systemDoSimpleHarmonicMove;
 	flecs::system systemDoRotation;
@@ -463,490 +399,37 @@ struct Application
 	}
 };
 
-enum class Direction
+void snakeInputWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Direction& direction, SnakeMove& move)
 {
-	Right,
-	Up,
-	Left,
-	Down,
-};
-
-HMM_Vec3 toDelta(Direction direction)
-{
-	switch (direction)
-	{
-	case Direction::Right:
-		return HMM_V3(1, 0, 0);
-	case Direction::Up:
-		return HMM_V3(0, 1, 0);
-	case Direction::Left:
-		return HMM_V3(-1, 0, 0);
-	case Direction::Down:
-		return HMM_V3(0, -1, 0);
-	default:
-		return HMM_V3(0, 0, 0);
-	}
+	auto& systemSnakeInputState = it.system().get_mut<SystemSnakeInputState>();
+	snakeInput(systemSnakeInputState, input, direction, move);
 }
 
-bool isParallel(Direction left, Direction right)
-{
-	return (((int)left % 2) == ((int)right % 2));
-}
-
-bool isOpposite(Direction left, Direction right)
-{
-	return (left != right) && isParallel(left, right);
-}
-
-struct SnakeMove
-{
-	float interval;
-	float lastTime;
-};
-
-struct Border
-{
-	int up, bottom, left, right;
-};
-
-struct Score
-{
-	int value;
-};
-
-struct SnakeInput
-{
-	SDL_Scancode rightKey, upKey, leftKey, downKey;
-};
-
-struct Snake
-{
-	flecs::entity head;
-	std::vector<flecs::entity> bodies;
-};
-
-struct IsApple {};
-
-struct Center {};
-
-struct Game {};
-
-struct AppleEat {};
-
-struct GameOver {};
-
-flecs::entity createRenderable(flecs::world& world, HMM_Vec3 position, int mat, int mesh)
-{
-	auto ent = world.entity();
-	ent.add<LocalTransform>()
-		.add<WorldTransform>()
-		.add<Position>()
-		.add<Rendable>()
-		.add<ShowMatrix>();
-
-	ent.set<Position>({ .value = position })
-		.set<LocalTransform>({ .model = HMM_M4_Identity })
-		.set<WorldTransform>({ .value = HMM_M4_Identity })
-		.set<Rendable>({ .material = mat, .mesh = mesh })
-		.set<ShowMatrix>({ .model = HMM_M4_Identity });
-
-	return ent;
-}
-
-std::optional<HMM_Vec3> getNewApplePosition(flecs::world& world, const Snake& snake, const Border& border)
-{
-	int left = border.left;
-	int right = border.right;
-	int bottom = border.bottom;
-	int up = border.up;
-
-	int maxCount = (right - left - 1) * (up - bottom - 1);
-
-	if (snake.bodies.size() >= maxCount)
-	{
-		return {};
-	}
-
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<> dis;
-
-	int random_number = dis(gen);
-
-	std::vector<HMM_Vec3> used;
-	used.reserve(snake.bodies.size());
-	for (size_t i = 0; i < snake.bodies.size(); ++i)
-	{
-		auto body = snake.bodies[i];
-		auto& position = body.get<Position>();
-		used.push_back(position.value);
-	}
-
-	while (true)
-	{
-		int x = dis(gen, std::uniform_int_distribution<>::param_type(left + 1, right - 1));
-		int y = dis(gen, std::uniform_int_distribution<>::param_type(bottom + 1, up - 1));
-		auto newPos = HMM_V3(x, y, 0);
-
-		if (!(left < x && x < right && bottom < y && y < up))
-			continue;
-
-		bool bodyOverlaped = false;
-		for (int i = 0; i < used.size(); ++i)
-		{
-			if (used[i] == newPos)
-			{
-				bodyOverlaped = true;
-				continue;
-			}
-		}
-
-		if (!bodyOverlaped)
-			return newPos;
-	}
-
-	return {};
-}
-
-flecs::entity createApple(flecs::world& world, const Snake& snake, const Border& border, int quad, int appleMat)
-{
-	auto newPos = getNewApplePosition(world, snake, border);
-	if (!newPos.has_value())
-		return {};
-
-	auto apple = createRenderable(world, newPos.value(), appleMat, quad);
-	apple.add<IsApple>();
-	return apple;
-}
-
-flecs::entity createSnake(flecs::world& world, int quad, int headMat, int bodyMat, HMM_Vec3 initPos)
-{
-	int snakeInitLength = 3;
-
-	auto head = createRenderable(world, initPos, headMat, quad);
-	head.add<Direction>()
-		.add<SnakeInput>()
-		.add<SnakeMove>();
-
-	head.set<Direction>(Direction::Right)
-		.set<SnakeInput>({ .rightKey = SDL_SCANCODE_RIGHT, .upKey = SDL_SCANCODE_UP, .leftKey = SDL_SCANCODE_LEFT, .downKey = SDL_SCANCODE_DOWN })
-		.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
-
-	std::vector<flecs::entity> bodies;
-	bodies.push_back(head);
-	for (int i = 0; i < 3; ++i)
-	{
-		auto newBody = createRenderable(world, HMM_V3(initPos.X - 1 - i, initPos.Y, initPos.Z), bodyMat, quad);
-		bodies.insert(bodies.begin(), newBody);
-	}
-
-	auto snake = world.entity();
-	snake.add<Snake>();
-	snake.set<Snake>({.head = head, .bodies = std::move(bodies)});
-	return snake;
-}
-
-void createBoard(flecs::world& world, HMM_Mat4 matrix, int mat, int mesh)
-{
-	auto ent = world.entity();
-	ent.add<WorldTransform>()
-		.add<Rendable>()
-		.add<ShowMatrix>();
-
-	ent.set<WorldTransform>({ .value = matrix })
-		.set<Rendable>({ .material = mat, .mesh = mesh })
-		.set<ShowMatrix>({ .model = HMM_M4_Identity });
-}
-
-flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up, int bottom, int left, int right)
-{
-	auto centerX = (left + right) / 2.0f;
-	auto centerY = (up + bottom) / 2.0f;
-	auto width = right - left + 1;
-	auto height = up - bottom + 1;
-	createBoard(world, HMM_TRS(HMM_V3(right, centerY, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
-	createBoard(world, HMM_TRS(HMM_V3(left, centerY, 0), HMM_Q_Identity, HMM_V3(1, height, 1)), borderMat, quad);
-	createBoard(world, HMM_TRS(HMM_V3(centerX, up, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
-	createBoard(world, HMM_TRS(HMM_V3(centerX, bottom, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
-
-	auto border = world.singleton<Border>();
-	border.add<Border>()
-		.set<Border>({ .up = up, .bottom = bottom, .left = left,  .right = right });
-	return border;
-}
-
-void createEntities(Application& app, flecs::world& world)
-{
-	auto border = world.singleton<Border>();
-	auto snake = createSnake(world, app.quad, app.snakeHeadMat, app.snakeBodyMat, HMM_V3(0, 0, 0));
-	auto apple = createApple(world, snake.get<Snake>(), border.get<Border>(), app.quad, app.appleMat);
-}
-
-void destructEntities(flecs::world& world)
-{
-	auto appleQuery = world.query<IsApple>();
-	appleQuery.run([](flecs::iter& it)
-		{
-			while (it.next()) 
-			{
-				for (size_t i = 0; i < it.count(); ++i)
-				{
-					auto e = it.entity(i);
-					e.destruct();
-				}
-			}
-		});
-
-	auto snakeQuery = world.query<Snake>();
-	snakeQuery.run([](flecs::iter& it)
-		{
-			while (it.next()) 
-			{
-				const auto& snakes = it.field<Snake>(0);
-				for (size_t i = 0; i < it.count(); ++i)
-				{
-					auto e = it.entity(i);
-					auto& snake = snakes[i];
-					for (auto& body : snake.bodies)
-					{
-						body.destruct();
-					}
-					e.destruct();
-				}
-			}
-		});
-}
-
-struct SystemSnakeInput
-{
-	std::vector<uint8_t> lastKeyboardStates;
-};
-
-std::optional<Direction> getInputDirection(const SnakeInput& input, std::vector<uint8_t> lastKeyboardStates, std::span<const bool> currentKeyboardStates)
-{
-	bool lastRight = lastKeyboardStates[input.rightKey];
-	bool lastUp = lastKeyboardStates[input.upKey];
-	bool lastLeft = lastKeyboardStates[input.leftKey];
-	bool lastDown = lastKeyboardStates[input.downKey];
-
-	bool right = currentKeyboardStates[input.rightKey];
-	bool up = currentKeyboardStates[input.upKey];
-	bool left = currentKeyboardStates[input.leftKey];
-	bool down = currentKeyboardStates[input.downKey];
-
-	if (!lastRight && right)
-		return Direction::Right;
-	else if (!lastUp && up)
-		return Direction::Up;
-	else if (!lastLeft && left)
-		return Direction::Left;
-	else if (!lastDown && down)
-		return Direction::Down;
-	else
-		return {};
-}
-
-void snakeInput(flecs::iter& it, size_t i, const SnakeInput& input, Direction& direction, SnakeMove& move)
-{
-	auto& systemSnakeInput = it.system().get_mut<SystemSnakeInput>();
-	int numKeys;
-	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-
-	assert(numKeys == systemSnakeInput.lastKeyboardStates.size());
-
-	auto keyInput = getInputDirection(input, systemSnakeInput.lastKeyboardStates, std::span<const bool>(currentKeyboardStates, numKeys));
-	if (keyInput.has_value())
-	{
-		if (!isOpposite(direction, keyInput.value()))
-		{
-			direction = keyInput.value();
-			move.lastTime = move.interval;
-		}
-	}
-
-	memcpy(systemSnakeInput.lastKeyboardStates.data(), currentKeyboardStates, numKeys);
-}
-
-enum class ObstacleType
-{
-	None,
-	Apple,
-	SnakeBody,
-	Border
-};
-
-struct Obstacle
-{
-private:
-	const ObstacleType type;
-	const int appleId;
-
-	Obstacle(ObstacleType type, int appleId = -1)
-		: type(type), appleId(appleId)
-	{
-	}
-
-public:
-	ObstacleType Type() const { return type; }
-	int AppleId() const { return appleId; }
-
-	static Obstacle None()
-	{
-		return Obstacle(ObstacleType::None);
-	}
-
-	static Obstacle Apple(int appleId)
-	{
-		return Obstacle(ObstacleType::Apple, appleId);
-	}
-
-	static Obstacle SnakeBody()
-	{
-		return Obstacle(ObstacleType::SnakeBody);
-	}
-
-	static Obstacle Border()
-	{
-		return Obstacle(ObstacleType::Border);
-	}
-};
-
-Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const Snake& snake, const Border& border, std::optional<HMM_Vec3> applePos)
-{
-	int left = border.left;
-	int right = border.right;
-	int bottom = border.bottom;
-	int up = border.up;
-
-	if (nextPos.X <= left || nextPos.X >= right || nextPos.Y <= bottom || nextPos.Y >= up)
-		return Obstacle::Border();
-
-	for (int i = 1; i < snake.bodies.size() - 1; ++i)
-	{
-		auto bodyEnt = snake.bodies[i];
-		auto& bodyPos = bodyEnt.get<Position>();
-		if (bodyPos.value == nextPos)
-			return Obstacle::SnakeBody();
-	}
-
-	if (applePos.has_value())
-	{
-		if (nextPos == applePos.value())
-			return Obstacle::Apple(0);
-	}
-
-	return Obstacle::None();
-}
-
-struct SystemSnakeMove
-{
-	flecs::query<IsApple, Position> apple;
-	flecs::query<Border> border;
-};
-
-void snakeMove(flecs::iter& it, size_t i, Snake& snake)
+void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
 {
 	const SystemContext& context = *it.param<SystemContext>();
 	auto world = it.world();
-	Application& app = *(Application*)world.get_ctx();
-
-	auto head = snake.head;
-	auto& headMove = head.get_mut<SnakeMove>();
-
-	headMove.lastTime += context.delta_time;
-	if (headMove.lastTime < headMove.interval)
-		return;
-
-	auto& headPosition = head.get_mut<Position>();
-	auto& headDirection = head.get<Direction>();
-	auto nextPos = headPosition.value + toDelta(headDirection);
-
-	auto& systemSnameMove = it.system().get<SystemSnakeMove>();
-	auto appleEnt = systemSnameMove.apple.first();
-	std::optional<HMM_Vec3> applePos;
-	if (appleEnt.is_alive())
-		applePos = appleEnt.get<Position>().value;
-
-	auto borderEnt = systemSnameMove.border.first();
-	auto& border = borderEnt.get<Border>();
-
-	auto obstacle = queryCollideObstacle(nextPos, snake, border, applePos);
-
-	if (obstacle.Type() == ObstacleType::None)
-	{
-		auto& bodies = snake.bodies;
-		for (int i = 0; i < bodies.size() - 1; ++i)
-		{
-			auto& bodyPos = bodies[i].get_mut<Position>();
-			const auto& nextBodyPos = bodies[i + 1].get<Position>();
-			bodyPos.value = nextBodyPos.value;
-		}
-		headPosition.value = nextPos;
-		headMove.lastTime -= headMove.interval;
-	}
-	else if (obstacle.Type() == ObstacleType::Apple)
-	{
-		auto newBody = createRenderable(world, headPosition.value, app.snakeBodyMat, app.quad);
-		snake.bodies.insert(snake.bodies.end() - 1, newBody);
-		headPosition.value = nextPos;
-		headMove.lastTime -= headMove.interval;
-
-		world.event<AppleEat>()
-			.id<IsApple>()
-			.entity(appleEnt)
-			.enqueue();
-
-		world.event<AppleEat>()
-			.id<Score>()
-			.entity(world.singleton<Center>())
-			.enqueue();
-
-		world.event<AppleEat>()
-			.id<Game>()
-			.entity(world.singleton<Center>())
-			.enqueue();
-	}
-	else
-	{
-		world.event<GameOver>()
-			.id<Game>()
-			.entity(world.singleton<Center>())
-			.enqueue();
-	}
+	auto& systemSnakeMoveState = it.system().get_mut<SystemSnakeMoveState>();
+	auto& resources = world.singleton<SnakeApp>().get<SnakeResources>();
+	snakeMove(world, context, systemSnakeMoveState, resources, snake);
 }
 
-void eatApple(flecs::entity apple, const IsApple&)
+void addScoreWrapper(flecs::entity entity, Score& score)
 {
-	auto world = apple.world();
-	apple.destruct();
+	addScore(score);
 }
 
-void addScore(flecs::entity entity, Score& score)
-{
-	score.value += 1;
-}
-
-void createAppleSystem(flecs::entity entity, const Game&)
+void createAppleSystemWrapper(flecs::entity entity, const Game& game)
 {
 	auto world = entity.world();
-
-	Application& app = *(Application*)world.get_ctx();
-
-	auto snakeQuery = world.query<Snake>();
-	auto borderQuery = world.query<Border>();
-	auto snakeEnt = snakeQuery.first();
-	auto borderEnt = borderQuery.first();
-	if (snakeEnt.is_alive() && borderEnt.is_alive())
-	{
-		createApple(world, snakeEnt.get<Snake>(), borderEnt.get<Border>(), app.quad, app.appleMat);
-	}
+	auto& resources = world.singleton<SnakeApp>().get<SnakeResources>();
+	createAppleSystem(world, resources, game);
 }
 
-void gameover(flecs::entity entity, const Game&)
+void gameoverWrapper(flecs::entity entity, const Game& game)
 {
-	entity.disable();
 	auto world = entity.world();
-	destructEntities(world);
+	gameover(world, entity, game);
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -980,8 +463,10 @@ void _init_resource(Application& app, flecs::world& world)
 	auto shader = oval_create_shader(app.device, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
 	auto quad = oval_load_mesh(app.device, "media/models/Quad.obj");
-	app.quad = app.meshes.size();
+	int quadIndex = app.meshes.size();
 	app.meshes.push_back(quad);
+
+	int boardMatIndex, appleMatIndex, snakeHeadMatIndex, snakeBodyMatIndex;
 
 	{
 		auto material = oval_create_material(app.device, shader);
@@ -989,7 +474,7 @@ void _init_resource(Application& app, flecs::world& world)
 			.albedo = HMM_V4(1, 1, 1, 1),
 		};
 		material->bindBuffer<MaterialData>(1, 0, materialData);
-		app.boardMat = app.materials.size();
+		boardMatIndex = app.materials.size();
 		app.materials.push_back(material);
 	}
 
@@ -999,7 +484,7 @@ void _init_resource(Application& app, flecs::world& world)
 			.albedo = HMM_V4(1, 0, 0, 0),
 		};
 		material->bindBuffer<MaterialData>(1, 0, materialData);
-		app.appleMat = app.materials.size();
+		appleMatIndex = app.materials.size();
 		app.materials.push_back(material);
 	}
 
@@ -1009,7 +494,7 @@ void _init_resource(Application& app, flecs::world& world)
 			.albedo = HMM_V4(1, 1, 0, 1),
 		};
 		material->bindBuffer<MaterialData>(1, 0, materialData);
-		app.snakeHeadMat = app.materials.size();
+		snakeHeadMatIndex = app.materials.size();
 		app.materials.push_back(material);
 	}
 
@@ -1019,22 +504,23 @@ void _init_resource(Application& app, flecs::world& world)
 			.albedo = HMM_V4(0, 1, 0, 1),
 		};
 		material->bindBuffer<MaterialData>(1, 0, materialData);
-		app.snakeBodyMat = app.materials.size();
+		snakeBodyMatIndex = app.materials.size();
 		app.materials.push_back(material);
 	}
 
-	auto game = world.singleton<Center>();
-	game.add<Game>();
-	game.add<Score>();
+	auto snakeApp = world.singleton<SnakeApp>();
+	snakeApp.add<Game>();
+	snakeApp.add<Score>();
+	snakeApp.add<SnakeResources>();
 
-	game.set<Score>({ .value = 0 });
+	snakeApp.set<Score>({ .value = 0 })
+		.set<SnakeResources>({ .quad = quadIndex, .appleMat = appleMatIndex, .snakeHeadMat = snakeHeadMatIndex, .snakeBodyMat = snakeBodyMatIndex, .boardMat = boardMatIndex });
 
 	int up = 16;
 	int bottom = -15;
 	int left = -20;
 	int right = 21;
-	auto border = createBorder(world, app.quad, app.boardMat, up, bottom, left, right);
-	createEntities(app, world);
+	createSnakeGame(world, up, bottom, left, right);
 }
 
 void _free_resource(Application& app)
@@ -1078,21 +564,21 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.each(updateNonHierarchyTrasform);
 
 	app.systemSnakeInput = world.system<const SnakeInput, Direction, SnakeMove>("SnakeInput")
-		.each(snakeInput);
+		.each(snakeInputWrapper);
 
-	app.systemSnakeInput.add<SystemSnakeInput>();
+	app.systemSnakeInput.add<SystemSnakeInputState>();
 
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
 	std::vector<uint8_t> keyboardStates(numKeys);
 	memcpy(keyboardStates.data(), currentKeyboardStates, numKeys);
-	app.systemSnakeInput.set<SystemSnakeInput>({ .lastKeyboardStates = std::move(keyboardStates) });
+	app.systemSnakeInput.set<SystemSnakeInputState>({ .lastKeyboardStates = std::move(keyboardStates) });
 
 	app.systemSnakeMove = world.system<Snake>("SnakeMove")
-		.each(snakeMove);
+		.each(snakeMoveWrapper);
 
-	app.systemSnakeMove.add<SystemSnakeMove>();
-	app.systemSnakeMove.set<SystemSnakeMove>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
+	app.systemSnakeMove.add<SystemSnakeMoveState>();
+	app.systemSnakeMove.set<SystemSnakeMoveState>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
 
 	world.observer<IsApple>()
 		.event<AppleEat>()
@@ -1100,15 +586,15 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	world.observer<Score>()
 		.event<AppleEat>()
-		.each(addScore);
+		.each(addScoreWrapper);
 
 	world.observer<Game>()
 		.event<AppleEat>()
-		.each(createAppleSystem);
+		.each(createAppleSystemWrapper);
 
 	world.observer<Game>()
 		.event<GameOver>()
-		.each(gameover);
+		.each(gameoverWrapper);
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
@@ -1137,8 +623,8 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
 	app.systemDoSimpleHarmonicMove.run(0, &context);
 	app.systemDoRotation.run(0, &context);
-	auto center = world.singleton<Center>();
-	if (center.enabled())
+	auto snakeApp = world.singleton<SnakeApp>();
+	if (snakeApp.enabled())
 	{
 		app.systemSnakeInput.run(0, &context);
 		app.systemSnakeMove.run(0, &context);
@@ -1339,10 +825,10 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		oval_render_debug_capture(device);
 	
 	flecs::world world = flecs::world(oval_get_world(device));
-	auto center = world.singleton<Center>();
-	if (center.enabled())
+	auto snakeApp = world.singleton<SnakeApp>();
+	if (snakeApp.enabled())
 	{
-		auto& score = center.get<Score>();
+		auto& score = snakeApp.get<Score>();
 		ImGui::Text("%d", score.value);
 	}
 	else
@@ -1350,8 +836,8 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		if (ImGui::Button("Restart"))
 		{
 			Application& app = *(Application*)device->descriptor.userdata;
-			createEntities(app, world);
-			center.enable();
+			restart(world, snakeApp.get<SnakeResources>());
+			snakeApp.enable();
 		}
 	}
 
