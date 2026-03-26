@@ -78,8 +78,8 @@ void eatApple(flecs::entity apple, const IsApple&);
 
 void addScore(Score& score);
 
-void createAppleSystem(flecs::world& world, const SnakeResources& resources, const Game&);
+void createAppleSystem(flecs::world& world, const SnakeResources& resources);
 
-void gameover(flecs::world& world, flecs::entity entity, const Game&);
+void gameover(flecs::world& world, flecs::entity entity);
 
 void restart(flecs::world& world, const SnakeResources& resources);

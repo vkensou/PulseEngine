@@ -414,7 +414,7 @@ void addScore(Score& score)
 	score.value += 1;
 }
 
-void createAppleSystem(flecs::world& world, const SnakeResources& resources, const Game&)
+void createAppleSystem(flecs::world& world, const SnakeResources& resources)
 {
 	auto snakeQuery = world.query<Snake>();
 	auto borderQuery = world.query<Border>();
@@ -426,7 +426,7 @@ void createAppleSystem(flecs::world& world, const SnakeResources& resources, con
 	}
 }
 
-void gameover(flecs::world& world, flecs::entity entity, const Game&)
+void gameover(flecs::world& world, flecs::entity entity)
 {
 	entity.disable();
 	destructEntities(world);

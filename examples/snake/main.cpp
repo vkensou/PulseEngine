@@ -419,17 +419,16 @@ void addScoreWrapper(flecs::entity entity, Score& score)
 	addScore(score);
 }
 
-void createAppleSystemWrapper(flecs::entity entity, const Game& game)
+void createAppleSystemWrapper(flecs::entity entity, const SnakeResources& resources, const Game& game)
 {
 	auto world = entity.world();
-	auto& resources = world.singleton<SnakeApp>().get<SnakeResources>();
-	createAppleSystem(world, resources, game);
+	createAppleSystem(world, resources);
 }
 
 void gameoverWrapper(flecs::entity entity, const Game& game)
 {
 	auto world = entity.world();
-	gameover(world, entity, game);
+	gameover(world, entity);
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -588,7 +587,7 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.event<AppleEat>()
 		.each(addScoreWrapper);
 
-	world.observer<Game>()
+	world.observer<SnakeResources, Game>()
 		.event<AppleEat>()
 		.each(createAppleSystemWrapper);
 
