@@ -59,9 +59,9 @@ struct SnakeResources
 
 void createSnakeGame(flecs::world& world, int up, int bottom, int left, int right);
 
-void snakeInput(res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move);
+void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move);
 
-void snakeMove(flecs::world& world, res<const SystemContext> context, flecs::query<IsApple, Position> apple, flecs::query<Border> border, const SnakeResources& resources, Snake& snake);
+void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<IsApple, Position> apple, flecs::query<Border> border, const SnakeResources& resources, Snake& snake);
 
 void eatApple(flecs::entity apple, const IsApple&);
 

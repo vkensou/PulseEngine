@@ -2,17 +2,20 @@
 
 #include "flecs.h"
 
-template<typename T>
-struct res
+namespace pulse
 {
-public:
-	explicit res(T& value)
-		: value(value)
+	template<typename T>
+	struct res
 	{
-	}
+	public:
+		explicit res(T& value)
+			: value(value)
+		{
+		}
 
-	T& get() const { return value; }
+		T& get() const { return value; }
 
-private:
-	T& value;
-};
+	private:
+		T& value;
+	};
+}

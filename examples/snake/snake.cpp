@@ -214,7 +214,7 @@ void destructEntities(flecs::world& world)
 		});
 }
 
-std::optional<Direction> getInputDirection(const SnakeInput& input, res<const KeyboardState>& keyboardState)
+std::optional<Direction> getInputDirection(const SnakeInput& input, pulse::res<const KeyboardState>& keyboardState)
 {
 	bool lastRight = keyboardState.get().lastKeys[input.rightKey];
 	bool lastUp = keyboardState.get().lastKeys[input.upKey];
@@ -318,7 +318,7 @@ void createSnakeGame(flecs::world& world, int up, int bottom, int left, int righ
 	createEntities(world, resources);
 }
 
-void snakeInput(res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move)
+void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move)
 {
 	auto keyInput = getInputDirection(input, keyboardState);
 	if (keyInput.has_value())
@@ -331,7 +331,7 @@ void snakeInput(res<const KeyboardState> keyboardState, const SnakeInput& input,
 	}
 }
 
-void snakeMove(flecs::world& world, res<const SystemContext> context, flecs::query<IsApple, Position> appleQuery, flecs::query<Border> borderQuery, const SnakeResources& resources, Snake& snake)
+void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<IsApple, Position> appleQuery, flecs::query<Border> borderQuery, const SnakeResources& resources, Snake& snake)
 {
 	auto head = snake.head;
 	auto& headMove = head.get_mut<SnakeMove>();

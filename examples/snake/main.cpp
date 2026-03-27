@@ -405,7 +405,7 @@ void snakeInputWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Direc
 {
 	auto world = it.world();
 	Application& app = *(Application*)world.get_ctx();
-	snakeInput(res<const KeyboardState>(app.keyboardState), input, direction, move);
+	snakeInput(pulse::res<const KeyboardState>(app.keyboardState), input, direction, move);
 }
 
 struct __SystemSnakeMove__State
@@ -417,7 +417,7 @@ struct __SystemSnakeMove__State
 void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
 {
 	const SystemContext& context = *it.param<SystemContext>();
-	res<const SystemContext> systemContext(context);
+	pulse::res<const SystemContext> systemContext(context);
 	auto world = it.world();
 	auto& systemSnakeMoveState = it.system().get_mut<__SystemSnakeMove__State>();
 	auto& resources = world.singleton<SnakeApp>().get<SnakeResources>();
