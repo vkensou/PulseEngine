@@ -370,6 +370,8 @@ struct Application
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
 
+	KeyboardState keyboardState;
+
 	flecs::system systemDoSimpleHarmonicMove;
 	flecs::system systemDoRotation;
 	flecs::system systemUpdateMatrixPositionOnly;
@@ -401,17 +403,25 @@ struct Application
 
 void snakeInputWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Direction& direction, SnakeMove& move)
 {
-	auto& systemSnakeInputState = it.system().get_mut<SystemSnakeInputState>();
-	snakeInput(systemSnakeInputState, input, direction, move);
+	auto world = it.world();
+	Application& app = *(Application*)world.get_ctx();
+	snakeInput(res<const KeyboardState>(app.keyboardState), input, direction, move);
 }
+
+struct __SystemSnakeMove__State
+{
+	flecs::query<IsApple, Position> apple;
+	flecs::query<Border> border;
+};
 
 void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
 {
 	const SystemContext& context = *it.param<SystemContext>();
+	res<const SystemContext> systemContext(context);
 	auto world = it.world();
-	auto& systemSnakeMoveState = it.system().get_mut<SystemSnakeMoveState>();
+	auto& systemSnakeMoveState = it.system().get_mut<__SystemSnakeMove__State>();
 	auto& resources = world.singleton<SnakeApp>().get<SnakeResources>();
-	snakeMove(world, context, systemSnakeMoveState, resources, snake);
+	snakeMove(world, systemContext, systemSnakeMoveState.apple, systemSnakeMoveState.border, resources, snake);
 }
 
 void addScoreWrapper(flecs::entity entity, Score& score)
@@ -565,19 +575,18 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	app.systemSnakeInput = world.system<const SnakeInput, Direction, SnakeMove>("SnakeInput")
 		.each(snakeInputWrapper);
 
-	app.systemSnakeInput.add<SystemSnakeInputState>();
-
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	std::vector<uint8_t> keyboardStates(numKeys);
-	memcpy(keyboardStates.data(), currentKeyboardStates, numKeys);
-	app.systemSnakeInput.set<SystemSnakeInputState>({ .lastKeyboardStates = std::move(keyboardStates) });
+	app.keyboardState.lastKeys.resize(numKeys);
+	app.keyboardState.currentKeys.resize(numKeys);
+	std::fill(app.keyboardState.lastKeys.begin(), app.keyboardState.lastKeys.end(), 0);
+	memcpy(app.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
 	app.systemSnakeMove = world.system<Snake>("SnakeMove")
 		.each(snakeMoveWrapper);
 
-	app.systemSnakeMove.add<SystemSnakeMoveState>();
-	app.systemSnakeMove.set<SystemSnakeMoveState>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
+	app.systemSnakeMove.add<__SystemSnakeMove__State>();
+	app.systemSnakeMove.set<__SystemSnakeMove__State>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
 
 	world.observer<IsApple>()
 		.event<AppleEat>()
@@ -619,6 +628,13 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)
 {
+	int numKeys;
+	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
+	assert(numKeys == app.keyboardState.size());
+	assert(numKeys == app.keyboardState.currentKeys.size());
+	memcpy(app.keyboardState.lastKeys.data(), app.keyboardState.currentKeys.data(), numKeys);
+	memcpy(app.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
 	app.systemDoSimpleHarmonicMove.run(0, &context);
 	app.systemDoRotation.run(0, &context);

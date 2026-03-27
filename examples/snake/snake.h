@@ -1,7 +1,7 @@
 #pragma once
 
 #include "predefine_components.h"
-#include "flecs.h"
+#include "ecsext.hpp"
 #include <SDL3/SDL.h>
 #include <vector>
 
@@ -57,22 +57,11 @@ struct SnakeResources
 	int boardMat;
 };
 
-struct SystemSnakeInputState
-{
-	std::vector<uint8_t> lastKeyboardStates;
-};
-
-struct SystemSnakeMoveState
-{
-	flecs::query<IsApple, Position> apple;
-	flecs::query<Border> border;
-};
-
 void createSnakeGame(flecs::world& world, int up, int bottom, int left, int right);
 
-void snakeInput(SystemSnakeInputState& systemSnakeInputState, const SnakeInput& input, Direction& direction, SnakeMove& move);
+void snakeInput(res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move);
 
-void snakeMove(flecs::world& world, const SystemContext& context, SystemSnakeMoveState& systemSnakeMoveState, const SnakeResources& resources, Snake& snake);
+void snakeMove(flecs::world& world, res<const SystemContext> context, flecs::query<IsApple, Position> apple, flecs::query<Border> border, const SnakeResources& resources, Snake& snake);
 
 void eatApple(flecs::entity apple, const IsApple&);
 

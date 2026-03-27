@@ -214,17 +214,17 @@ void destructEntities(flecs::world& world)
 		});
 }
 
-std::optional<Direction> getInputDirection(const SnakeInput& input, std::vector<uint8_t> lastKeyboardStates, std::span<const bool> currentKeyboardStates)
+std::optional<Direction> getInputDirection(const SnakeInput& input, res<const KeyboardState>& keyboardState)
 {
-	bool lastRight = lastKeyboardStates[input.rightKey];
-	bool lastUp = lastKeyboardStates[input.upKey];
-	bool lastLeft = lastKeyboardStates[input.leftKey];
-	bool lastDown = lastKeyboardStates[input.downKey];
+	bool lastRight = keyboardState.get().lastKeys[input.rightKey];
+	bool lastUp = keyboardState.get().lastKeys[input.upKey];
+	bool lastLeft = keyboardState.get().lastKeys[input.leftKey];
+	bool lastDown = keyboardState.get().lastKeys[input.downKey];
 
-	bool right = currentKeyboardStates[input.rightKey];
-	bool up = currentKeyboardStates[input.upKey];
-	bool left = currentKeyboardStates[input.leftKey];
-	bool down = currentKeyboardStates[input.downKey];
+	bool right = keyboardState.get().currentKeys[input.rightKey];
+	bool up = keyboardState.get().currentKeys[input.upKey];
+	bool left = keyboardState.get().currentKeys[input.leftKey];
+	bool down = keyboardState.get().currentKeys[input.downKey];
 
 	if (!lastRight && right)
 		return Direction::Right;
@@ -318,14 +318,9 @@ void createSnakeGame(flecs::world& world, int up, int bottom, int left, int righ
 	createEntities(world, resources);
 }
 
-void snakeInput(SystemSnakeInputState& systemSnakeInputState, const SnakeInput& input, Direction& direction, SnakeMove& move)
+void snakeInput(res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move)
 {
-	int numKeys;
-	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-
-	assert(numKeys == systemSnakeInputState.lastKeyboardStates.size());
-
-	auto keyInput = getInputDirection(input, systemSnakeInputState.lastKeyboardStates, std::span<const bool>(currentKeyboardStates, numKeys));
+	auto keyInput = getInputDirection(input, keyboardState);
 	if (keyInput.has_value())
 	{
 		if (!isOpposite(direction, keyInput.value()))
@@ -334,16 +329,14 @@ void snakeInput(SystemSnakeInputState& systemSnakeInputState, const SnakeInput& 
 			move.lastTime = move.interval;
 		}
 	}
-
-	memcpy(systemSnakeInputState.lastKeyboardStates.data(), currentKeyboardStates, numKeys);
 }
 
-void snakeMove(flecs::world& world, const SystemContext& context, SystemSnakeMoveState& systemSnakeMoveState, const SnakeResources& resources, Snake& snake)
+void snakeMove(flecs::world& world, res<const SystemContext> context, flecs::query<IsApple, Position> appleQuery, flecs::query<Border> borderQuery, const SnakeResources& resources, Snake& snake)
 {
 	auto head = snake.head;
 	auto& headMove = head.get_mut<SnakeMove>();
 
-	headMove.lastTime += context.delta_time;
+	headMove.lastTime += context.get().delta_time;
 	if (headMove.lastTime < headMove.interval)
 		return;
 
@@ -351,12 +344,12 @@ void snakeMove(flecs::world& world, const SystemContext& context, SystemSnakeMov
 	auto& headDirection = head.get<Direction>();
 	auto nextPos = headPosition.value + toDelta(headDirection);
 
-	auto appleEnt = systemSnakeMoveState.apple.first();
+	auto appleEnt = appleQuery.first();
 	std::optional<HMM_Vec3> applePos;
 	if (appleEnt.is_alive())
 		applePos = appleEnt.get<Position>().value;
 
-	auto borderEnt = systemSnakeMoveState.border.first();
+	auto borderEnt = borderQuery.first();
 	auto& border = borderEnt.get<Border>();
 
 	auto obstacle = queryCollideObstacle(nextPos, snake, border, applePos);

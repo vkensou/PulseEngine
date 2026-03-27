@@ -2,6 +2,7 @@
 
 #include "handmademath.h"
 #include "flecs.h"
+#include <vector>
 
 struct SystemContext
 {
@@ -11,6 +12,12 @@ struct SystemContext
 	double time_since_startup_double;
 	float interpolation_time;
 	double interpolation_time_double;
+};
+
+struct KeyboardState
+{
+	std::vector<uint8_t> lastKeys;
+	std::vector<uint8_t> currentKeys;
 };
 
 struct Position
