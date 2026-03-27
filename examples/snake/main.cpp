@@ -1,4 +1,4 @@
-﻿#include "framework.h"
+#include "framework.h"
 #include "imgui.h"
 #include <flecs.h>
 #include <bit>
@@ -410,8 +410,7 @@ void snakeInputWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Direc
 
 struct __SystemSnakeMove__State
 {
-	flecs::query<IsApple, Position> apple;
-	flecs::query<Border> border;
+	flecs::query<const IsApple, const Position> apple;
 };
 
 void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
@@ -420,8 +419,9 @@ void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
 	pulse::res<const SystemContext> systemContext(context);
 	auto world = it.world();
 	auto& systemSnakeMoveState = it.system().get_mut<__SystemSnakeMove__State>();
-	auto& resources = world.singleton<SnakeApp>().get<SnakeResources>();
-	snakeMove(world, systemContext, systemSnakeMoveState.apple, systemSnakeMoveState.border, resources, snake);
+	auto borderQuery = pulse::singleton_query<const Border>(world);
+	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	snakeMove(world, systemContext, systemSnakeMoveState.apple, borderQuery, resourcesQuery, snake);
 }
 
 void addScoreWrapper(flecs::entity entity, Score& score)
@@ -432,7 +432,7 @@ void addScoreWrapper(flecs::entity entity, Score& score)
 void createAppleSystemWrapper(flecs::entity entity, const SnakeResources& resources, const Game& game)
 {
 	auto world = entity.world();
-	createAppleSystem(world, resources);
+	createAppleSystem(world, pulse::singleton_query<const SnakeResources>(world));
 }
 
 void gameoverWrapper(flecs::entity entity, const Game& game)
@@ -517,7 +517,7 @@ void _init_resource(Application& app, flecs::world& world)
 		app.materials.push_back(material);
 	}
 
-	auto snakeApp = world.singleton<SnakeApp>();
+	auto snakeApp = world.singleton<pulse::SingleHolder>();
 	snakeApp.add<Game>();
 	snakeApp.add<Score>();
 	snakeApp.add<SnakeResources>();
@@ -586,7 +586,7 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.each(snakeMoveWrapper);
 
 	app.systemSnakeMove.add<__SystemSnakeMove__State>();
-	app.systemSnakeMove.set<__SystemSnakeMove__State>({ .apple = world.query<IsApple, Position>(), .border = world.query<Border>() });
+	app.systemSnakeMove.set<__SystemSnakeMove__State>({ .apple = world.query<const IsApple, const Position>() });
 
 	world.observer<IsApple>()
 		.event<AppleEat>()
@@ -630,7 +630,7 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 {
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	assert(numKeys == app.keyboardState.size());
+	assert(numKeys == app.keyboardState.lastKeys.size());
 	assert(numKeys == app.keyboardState.currentKeys.size());
 	memcpy(app.keyboardState.lastKeys.data(), app.keyboardState.currentKeys.data(), numKeys);
 	memcpy(app.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
@@ -638,7 +638,7 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
 	app.systemDoSimpleHarmonicMove.run(0, &context);
 	app.systemDoRotation.run(0, &context);
-	auto snakeApp = world.singleton<SnakeApp>();
+	auto snakeApp = world.singleton<pulse::SingleHolder>();
 	if (snakeApp.enabled())
 	{
 		app.systemSnakeInput.run(0, &context);
@@ -840,7 +840,7 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		oval_render_debug_capture(device);
 	
 	flecs::world world = flecs::world(oval_get_world(device));
-	auto snakeApp = world.singleton<SnakeApp>();
+	auto snakeApp = world.singleton<pulse::SingleHolder>();
 	if (snakeApp.enabled())
 	{
 		auto& score = snakeApp.get<Score>();
@@ -851,7 +851,7 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		if (ImGui::Button("Restart"))
 		{
 			Application& app = *(Application*)device->descriptor.userdata;
-			restart(world, snakeApp.get<SnakeResources>());
+			restart(world, pulse::singleton_query<const SnakeResources>(world));
 			snakeApp.enable();
 		}
 	}

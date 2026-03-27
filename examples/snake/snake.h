@@ -48,8 +48,6 @@ struct AppleEat {};
 
 struct GameOver {};
 
-struct SnakeApp {};
-
 struct SnakeResources
 {
 	int quad;
@@ -61,14 +59,14 @@ void createSnakeGame(flecs::world& world, int up, int bottom, int left, int righ
 
 void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move);
 
-void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<IsApple, Position> apple, flecs::query<Border> border, const SnakeResources& resources, Snake& snake);
+void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<const IsApple, const Position> apple, pulse::singleton_query<const Border> border, pulse::singleton_query<const SnakeResources> resources, Snake& snake);
 
 void eatApple(flecs::entity apple, const IsApple&);
 
 void addScore(Score& score);
 
-void createAppleSystem(flecs::world& world, const SnakeResources& resources);
+void createAppleSystem(flecs::world& world, pulse::singleton_query<const SnakeResources> resources);
 
 void gameover(flecs::world& world, flecs::entity entity);
 
-void restart(flecs::world& world, const SnakeResources& resources);
+void restart(flecs::world& world, pulse::singleton_query<const SnakeResources> resources);

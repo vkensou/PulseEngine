@@ -166,7 +166,7 @@ flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up,
 	createBoard(world, HMM_TRS(HMM_V3(centerX, up, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
 	createBoard(world, HMM_TRS(HMM_V3(centerX, bottom, 0), HMM_Q_Identity, HMM_V3(width, 1, 1)), borderMat, quad);
 
-	auto border = world.singleton<Border>();
+	auto border = world.singleton<pulse::SingleHolder>();
 	border.add<Border>()
 		.set<Border>({ .up = up, .bottom = bottom, .left = left,  .right = right });
 	return border;
@@ -174,7 +174,7 @@ flecs::entity createBorder(flecs::world& world, int quad, int borderMat, int up,
 
 void createEntities(flecs::world& world, const SnakeResources& resources)
 {
-	auto border = world.singleton<Border>();
+	auto border = world.singleton<pulse::SingleHolder>();
 	auto snake = createSnake(world, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0, 0, 0));
 	auto apple = createApple(world, snake.get<Snake>(), border.get<Border>(), resources.quad, resources.appleMat);
 }
@@ -311,7 +311,7 @@ Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const Snake& snake, const Border
 
 void createSnakeGame(flecs::world& world, int up, int bottom, int left, int right)
 {
-	auto snakeApp = world.singleton<SnakeApp>();
+	auto snakeApp = world.singleton<pulse::SingleHolder>();
 	auto& resources = snakeApp.get<SnakeResources>();
 
 	auto border = createBorder(world, resources.quad, resources.boardMat, up, bottom, left, right);
@@ -331,7 +331,7 @@ void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput&
 	}
 }
 
-void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<IsApple, Position> appleQuery, flecs::query<Border> borderQuery, const SnakeResources& resources, Snake& snake)
+void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<const IsApple, const Position> appleQuery, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources, Snake& snake)
 {
 	auto head = snake.head;
 	auto& headMove = head.get_mut<SnakeMove>();
@@ -349,8 +349,7 @@ void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, fle
 	if (appleEnt.is_alive())
 		applePos = appleEnt.get<Position>().value;
 
-	auto borderEnt = borderQuery.first();
-	auto& border = borderEnt.get<Border>();
+	auto& border = borderQuery.get();
 
 	auto obstacle = queryCollideObstacle(nextPos, snake, border, applePos);
 
@@ -368,7 +367,7 @@ void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, fle
 	}
 	else if (obstacle.Type() == ObstacleType::Apple)
 	{
-		auto newBody = createRenderable(world, headPosition.value, resources.snakeBodyMat, resources.quad);
+		auto newBody = createRenderable(world, headPosition.value, resources.get().snakeBodyMat, resources.get().quad);
 		snake.bodies.insert(snake.bodies.end() - 1, newBody);
 		headPosition.value = nextPos;
 		headMove.lastTime -= headMove.interval;
@@ -380,19 +379,19 @@ void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, fle
 
 		world.event<AppleEat>()
 			.id<Score>()
-			.entity(world.singleton<SnakeApp>())
+			.entity(world.singleton<pulse::SingleHolder>())
 			.enqueue();
 
 		world.event<AppleEat>()
 			.id<Game>()
-			.entity(world.singleton<SnakeApp>())
+			.entity(world.singleton<pulse::SingleHolder>())
 			.enqueue();
 	}
 	else
 	{
 		world.event<GameOver>()
 			.id<Game>()
-			.entity(world.singleton<SnakeApp>())
+			.entity(world.singleton<pulse::SingleHolder>())
 			.enqueue();
 	}
 }
@@ -407,7 +406,7 @@ void addScore(Score& score)
 	score.value += 1;
 }
 
-void createAppleSystem(flecs::world& world, const SnakeResources& resources)
+void createAppleSystem(flecs::world& world, pulse::singleton_query<const SnakeResources> resources)
 {
 	auto snakeQuery = world.query<Snake>();
 	auto borderQuery = world.query<Border>();
@@ -415,7 +414,7 @@ void createAppleSystem(flecs::world& world, const SnakeResources& resources)
 	auto borderEnt = borderQuery.first();
 	if (snakeEnt.is_alive() && borderEnt.is_alive())
 	{
-		createApple(world, snakeEnt.get<Snake>(), borderEnt.get<Border>(), resources.quad, resources.appleMat);
+		createApple(world, snakeEnt.get<Snake>(), borderEnt.get<Border>(), resources.get().quad, resources.get().appleMat);
 	}
 }
 
@@ -425,7 +424,7 @@ void gameover(flecs::world& world, flecs::entity entity)
 	destructEntities(world);
 }
 
-void restart(flecs::world& world, const SnakeResources& resources)
+void restart(flecs::world& world, pulse::singleton_query<const SnakeResources> resources)
 {
-	createEntities(world, resources);
+	createEntities(world, resources.get());
 }
