@@ -100,6 +100,49 @@ namespace pulse
 		T event;
 	};
 
+	struct command_buffer
+	{
+	public:
+		explicit command_buffer(flecs::world& world)
+			: world(world)
+		{
+		}
+
+		void add_singleton(flecs::id_t component) const
+		{
+			auto single = world.singleton<pulse::SingleHolder>();
+			single.add(component);
+		}
+
+		template <typename T>
+		void set_singleton(const T& value) const
+		{
+			auto single = world.singleton<pulse::SingleHolder>();
+			single.set<T>(value);
+		}
+
+		template <typename T>
+		void set_singleton(T&& value) const
+		{
+			auto single = world.singleton<pulse::SingleHolder>();
+			single.set<T>(std::forward<T>(value));
+		}
+
+		template <typename... Args>
+		flecs::entity entity(Args &&... args) const
+		{
+			return world.entity<Args...>(std::forward<Args>(args)...);
+		}
+
+		void destruct(flecs::entity entity) const
+		{
+			entity.destruct();
+		}
+
+	private:
+		flecs::world& world;
+	};
+
 	template<typename T>
 	struct EventRegister
 	{

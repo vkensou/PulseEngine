@@ -426,10 +426,17 @@ void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
 	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
 	auto appleEatWriter = pulse::event_writer<AppleEat>(world);
 	auto gameoverWriter = pulse::event_writer<GameOver>(world);
-	snakeMove(world, systemContext, systemSnakeMoveState.apple, borderQuery, resourcesQuery, appleEatWriter, gameoverWriter, snake);
+	pulse::command_buffer command_buffer(world);
+	snakeMove(command_buffer, systemContext, systemSnakeMoveState.apple, borderQuery, resourcesQuery, appleEatWriter, gameoverWriter, snake);
 }
 
-void addScoreWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world, flecs::query<Score> scores)
+void eatAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world)
+{
+	pulse::command_buffer command_buffer(world);
+	eatApple(eventReader, command_buffer);
+}
+
+void addScoreWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world, flecs::query<Score>& scores)
 {
 	scores.each([&](Score& score)
 		{
@@ -437,9 +444,18 @@ void addScoreWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& wo
 		});
 }
 
-void createAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world)
+void createAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world, flecs::query<const Snake>& snakeQuery)
 {
-	createAppleSystem(eventReader, world, pulse::singleton_query<const SnakeResources>(world));
+	pulse::command_buffer command_buffer(world);
+	auto borderQuery = pulse::singleton_query<const Border>(world);
+	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	createAppleSystem(eventReader, command_buffer, snakeQuery, borderQuery, resourcesQuery);
+}
+
+void gameoverSystemWrapper(pulse::event_reader<GameOver> eventReader, flecs::world& world, flecs::query<Snake>& snakeQuery, flecs::query<IsApple>& appleQuery)
+{
+	pulse::command_buffer command_buffer(world);
+	gameover(eventReader, command_buffer, snakeQuery, appleQuery);
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -523,11 +539,8 @@ void _init_resource(Application& app, flecs::world& world)
 	snakeApp.add<EventTag>();
 	snakeApp.set<SnakeResources>({ .quad = quadIndex, .appleMat = appleMatIndex, .snakeHeadMat = snakeHeadMatIndex, .snakeBodyMat = snakeBodyMatIndex, .boardMat = boardMatIndex });
 
-	int up = 16;
-	int bottom = -15;
-	int left = -20;
-	int right = 21;
-	createSnakeGame(world, up, bottom, left, right);
+	pulse::command_buffer command_buffer(world);
+	initSnakeGame(command_buffer, pulse::singleton_query<const SnakeResources>(world));
 }
 
 void _free_resource(Application& app)
@@ -586,12 +599,12 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	app.systemSnakeMove.add<__SystemSnakeMove__State>();
 	app.systemSnakeMove.set<__SystemSnakeMove__State>({ .apple = world.query<const IsApple, const Position>() });
 
-	app.appleEatDispathcer.reg(eatApple);
-	app.appleEatDispathcer.reg(addScoreWrapper, (world.query<Score>()));
-	app.appleEatDispathcer.reg(createAppleSystemWrapper);
+	app.appleEatDispathcer.reg(eatAppleSystemWrapper);
+	app.appleEatDispathcer.reg(addScoreWrapper, world.query<Score>());
+	app.appleEatDispathcer.reg(createAppleSystemWrapper, world.query<const Snake>());
 	app.appleEatDispathcer.observe(world);
 
-	app.gameOverDispathcer.reg(gameover);
+	app.gameOverDispathcer.reg(gameoverSystemWrapper, world.query<Snake>(), world.query<IsApple>());
 	app.gameOverDispathcer.observe(world);
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
@@ -841,7 +854,8 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		if (ImGui::Button("Restart"))
 		{
 			Application& app = *(Application*)device->descriptor.userdata;
-			restart(world, pulse::singleton_query<const SnakeResources>(world));
+			pulse::command_buffer command_buffer(world);
+			restart(command_buffer, pulse::singleton_query<const Border>(world), pulse::singleton_query<const SnakeResources>(world));
 			snakeApp.enable();
 		}
 	}

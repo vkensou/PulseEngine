@@ -58,18 +58,18 @@ struct SnakeResources
 	int boardMat;
 };
 
-void createSnakeGame(flecs::world& world, int up, int bottom, int left, int right);
+void initSnakeGame(pulse::command_buffer& command_buffer, pulse::singleton_query<const SnakeResources> resources);
 
 void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move);
 
-void snakeMove(flecs::world& world, pulse::res<const SystemContext> context, flecs::query<const IsApple, const Position> apple, pulse::singleton_query<const Border> border, pulse::singleton_query<const SnakeResources> resources, pulse::event_writer<AppleEat> appleEatWriter, pulse::event_writer<GameOver> gameOverWriter, Snake& snake);
+void snakeMove(pulse::command_buffer& command_buffer, pulse::res<const SystemContext> context, flecs::query<const IsApple, const Position>& apple, pulse::singleton_query<const Border>& border, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEat> appleEatWriter, pulse::event_writer<GameOver> gameOverWriter, Snake& snake);
 
-void eatApple(pulse::event_reader<AppleEat> eventAppleEat, flecs::world& world);
+void eatApple(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer);
 
 void addScore(pulse::event_reader<AppleEat> eventAppleEat, Score& score);
 
-void createAppleSystem(pulse::event_reader<AppleEat> eventAppleEat, flecs::world& world, pulse::singleton_query<const SnakeResources> resources);
+void createAppleSystem(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<const Snake>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources);
 
-void gameover(pulse::event_reader<GameOver> eventAppleEat, flecs::world& world);
+void gameover(pulse::event_reader<GameOver> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<Snake>& snakeQuery, flecs::query<IsApple>& appleQuery);
 
-void restart(flecs::world& world, pulse::singleton_query<const SnakeResources> resources);
+void restart(pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);
