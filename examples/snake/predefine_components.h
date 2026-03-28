@@ -65,3 +65,5 @@ struct Camera
 	int width;
 	int height;
 };
+
+struct EventTag {};

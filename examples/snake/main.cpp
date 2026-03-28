@@ -1,4 +1,4 @@
-#include "framework.h"
+﻿#include "framework.h"
 #include "imgui.h"
 #include <flecs.h>
 #include <bit>
@@ -363,7 +363,7 @@ struct FrameRenderPacket
 
 struct Application
 {
-	oval_device_t* device{ nullptr };
+	std::unique_ptr<oval_device_t, decltype(&oval_free_device)> device;
 	ecs_entity_t window1{};
 	std::vector<HGEGraphics::Mesh*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
@@ -390,8 +390,11 @@ struct Application
 	flecs::system systemShowMatrixRotateOnly;
 	flecs::system systemShowMatrixMoveAndRotate;
 
+	pulse::EventRegister<AppleEat> appleEatDispathcer;
+	pulse::EventRegister<GameOver> gameOverDispathcer;
+
 	Application()
-		: frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
+		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
 	{
 		void* buffer = nullptr;
 		buffer = frameRenderPackets[0].memory_resource->allocate(1024 * 1024, 8);
@@ -421,24 +424,22 @@ void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
 	auto& systemSnakeMoveState = it.system().get_mut<__SystemSnakeMove__State>();
 	auto borderQuery = pulse::singleton_query<const Border>(world);
 	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	snakeMove(world, systemContext, systemSnakeMoveState.apple, borderQuery, resourcesQuery, snake);
+	auto appleEatWriter = pulse::event_writer<AppleEat>(world);
+	auto gameoverWriter = pulse::event_writer<GameOver>(world);
+	snakeMove(world, systemContext, systemSnakeMoveState.apple, borderQuery, resourcesQuery, appleEatWriter, gameoverWriter, snake);
 }
 
-void addScoreWrapper(flecs::entity entity, Score& score)
+void addScoreWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world, flecs::query<Score> scores)
 {
-	addScore(score);
+	scores.each([&](Score& score)
+		{
+			addScore(eventReader, score);
+		});
 }
 
-void createAppleSystemWrapper(flecs::entity entity, const SnakeResources& resources, const Game& game)
+void createAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world)
 {
-	auto world = entity.world();
-	createAppleSystem(world, pulse::singleton_query<const SnakeResources>(world));
-}
-
-void gameoverWrapper(flecs::entity entity, const Game& game)
-{
-	auto world = entity.world();
-	gameover(world, entity);
+	createAppleSystem(eventReader, world, pulse::singleton_query<const SnakeResources>(world));
 }
 
 void _init_resource(Application& app, flecs::world& world)
@@ -469,16 +470,16 @@ void _init_resource(Application& app, flecs::world& world)
 		.cull_mode = CGPU_CULL_MODE_BACK,
 		.front_face	= CGPU_FRONT_FACE_CLOCK_WISE,
 	};
-	auto shader = oval_create_shader(app.device, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
+	auto shader = oval_create_shader(app.device.get(), "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
 
-	auto quad = oval_load_mesh(app.device, "media/models/Quad.obj");
+	auto quad = oval_load_mesh(app.device.get(), "media/models/Quad.obj");
 	int quadIndex = app.meshes.size();
 	app.meshes.push_back(quad);
 
 	int boardMatIndex, appleMatIndex, snakeHeadMatIndex, snakeBodyMatIndex;
 
 	{
-		auto material = oval_create_material(app.device, shader);
+		auto material = oval_create_material(app.device.get(), shader);
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 1, 1, 1),
 		};
@@ -488,7 +489,7 @@ void _init_resource(Application& app, flecs::world& world)
 	}
 
 	{
-		auto material = oval_create_material(app.device, shader);
+		auto material = oval_create_material(app.device.get(), shader);
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 0, 0, 0),
 		};
@@ -498,7 +499,7 @@ void _init_resource(Application& app, flecs::world& world)
 	}
 
 	{
-		auto material = oval_create_material(app.device, shader);
+		auto material = oval_create_material(app.device.get(), shader);
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 1, 0, 1),
 		};
@@ -508,7 +509,7 @@ void _init_resource(Application& app, flecs::world& world)
 	}
 
 	{
-		auto material = oval_create_material(app.device, shader);
+		auto material = oval_create_material(app.device.get(), shader);
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(0, 1, 0, 1),
 		};
@@ -519,11 +520,8 @@ void _init_resource(Application& app, flecs::world& world)
 
 	auto snakeApp = world.singleton<pulse::SingleHolder>();
 	snakeApp.add<Game>();
-	snakeApp.add<Score>();
-	snakeApp.add<SnakeResources>();
-
-	snakeApp.set<Score>({ .value = 0 })
-		.set<SnakeResources>({ .quad = quadIndex, .appleMat = appleMatIndex, .snakeHeadMat = snakeHeadMatIndex, .snakeBodyMat = snakeBodyMatIndex, .boardMat = boardMatIndex });
+	snakeApp.add<EventTag>();
+	snakeApp.set<SnakeResources>({ .quad = quadIndex, .appleMat = appleMatIndex, .snakeHeadMat = snakeHeadMatIndex, .snakeBodyMat = snakeBodyMatIndex, .boardMat = boardMatIndex });
 
 	int up = 16;
 	int bottom = -15;
@@ -588,21 +586,13 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	app.systemSnakeMove.add<__SystemSnakeMove__State>();
 	app.systemSnakeMove.set<__SystemSnakeMove__State>({ .apple = world.query<const IsApple, const Position>() });
 
-	world.observer<IsApple>()
-		.event<AppleEat>()
-		.each(eatApple);
+	app.appleEatDispathcer.reg(eatApple);
+	app.appleEatDispathcer.reg(addScoreWrapper, (world.query<Score>()));
+	app.appleEatDispathcer.reg(createAppleSystemWrapper);
+	app.appleEatDispathcer.observe(world);
 
-	world.observer<Score>()
-		.event<AppleEat>()
-		.each(addScoreWrapper);
-
-	world.observer<SnakeResources, Game>()
-		.event<AppleEat>()
-		.each(createAppleSystemWrapper);
-
-	world.observer<Game>()
-		.event<GameOver>()
-		.each(gameoverWrapper);
+	app.gameOverDispathcer.reg(gameover);
+	app.gameOverDispathcer.observe(world);
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
 		.each(updateMoveInterpolation);
@@ -817,14 +807,14 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 void on_update(oval_device_t* device, oval_update_context update_context)
 {
 	Application& app = *(Application*)device->descriptor.userdata;
-	flecs::world world = flecs::world(oval_get_world(app.device));
+	flecs::world world = flecs::world(oval_get_world(app.device.get()));
 	simulate(app, world, update_context);
 }
 
 void on_render(oval_device_t* device, oval_render_context render_context)
 {
 	Application& app = *(Application*)device->descriptor.userdata;
-	flecs::world world = flecs::world(oval_get_world(app.device));
+	flecs::world world = flecs::world(oval_get_world(app.device.get()));
 	auto& cuurentFrameRenderPacket = app.frameRenderPackets[render_context.currentRenderPacketFrame];
 	interpolate(app, world, render_context);
 	enumViews(app, world, cuurentFrameRenderPacket);
@@ -913,7 +903,7 @@ int SDL_main(int argc, char *argv[])
 		.enable_profile = false,
 		.enable_gpu_validation = true,
 	};
-	app.device = oval_create_device(&device_descriptor);
+	app.device.reset(oval_create_device(&device_descriptor));
 
 	if (!app.device)
 		return -1;
@@ -928,19 +918,18 @@ int SDL_main(int argc, char *argv[])
 		.on_imgui = on_imgui1,
 		.on_close = on_window_close1,
 	};
-	app.window1 = oval_create_window_entity(app.device, &window_descriptor);
+	app.window1 = oval_create_window_entity(app.device.get(), &window_descriptor);
 
-	flecs::world world = flecs::world(oval_get_world(app.device));
+	flecs::world world = flecs::world(oval_get_world(app.device.get()));
 	world.set_ctx(&app);
 
 	_init_resource(app, world);
 	_init_world(app, world, app.window1);
 		
-	oval_runloop(app.device);
+	oval_runloop(app.device.get());
 	_free_resource(app);
 	if (app.window1 != 0)
-		oval_free_window_entity(app.device, app.window1);
-	oval_free_device(app.device);
+		oval_free_window_entity(app.device.get(), app.window1);
 
 	return 0;
 }
