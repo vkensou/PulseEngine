@@ -3,6 +3,19 @@
 #include "flecs.h"
 #include <functional>
 
+// ECS组件
+#define PULSE_ECS_COMPONENT
+// ECS全局单例组件
+#define PULSE_ECS_SINGLETON_COMPONENT
+// ECS标签，无成员变量
+#define PULSE_ECS_TAG
+// ECS事件，Event后缀
+#define PULSE_ECS_EVENT
+// ECS系统，System后缀
+#define PULSE_ECS_SYSTEM
+// ECS外部资源
+#define PULSE_ECS_RESOURCE
+
 namespace pulse
 {
 	template<typename T>
@@ -20,7 +33,11 @@ namespace pulse
 		T& value;
 	};
 
+	PULSE_ECS_TAG
 	struct SingleHolder {};
+
+	PULSE_ECS_TAG
+		struct EventTag {};
 
 	template<typename T>
 	struct singleton_query

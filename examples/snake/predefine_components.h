@@ -1,7 +1,7 @@
 #pragma once
 
 #include "handmademath.h"
-#include "flecs.h"
+#include "ecsext.hpp"
 #include <vector>
 
 struct SystemContext
@@ -65,5 +65,3 @@ struct Camera
 	int width;
 	int height;
 };
-
-struct EventTag {};
