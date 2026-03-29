@@ -4,6 +4,7 @@
 #include <optional>
 #include <random>
 #include <span>
+#include "imgui.h"
 
 HMM_Vec3 toDelta(Direction4W direction)
 {
@@ -170,6 +171,7 @@ Border createBorder(pulse::command_buffer& command_buffer, int quad, int borderM
 
 void createEntities(pulse::command_buffer& command_buffer, const Border& border, const SnakeResources& resources)
 {
+	command_buffer.set_singleton<SnakeGame>({ .playing = true });
 	command_buffer.set_singleton<Score>({ .value = 0 });
 	auto snake = createSnake(command_buffer, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0, 0, 0));
 	auto apple = createApple(command_buffer, snake.get<SnakeBodies>(), border, resources.quad, resources.appleMat);
@@ -397,11 +399,29 @@ void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> eventAppleEat, pulse:
 
 void onGameOverSystem(pulse::event_reader<GameOverEvent> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
 {
-	command_buffer.add_singleton(flecs::Disabled);
+	command_buffer.set_singleton<SnakeGame>({ .playing = false });
 	destructEntities(snakeQuery, appleQuery);
 }
 
-void restartSystem(pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources)
+void onImguiSystem(const SnakeGame& snakeGame, const Score& score, pulse::event_writer<RestartEvent> restartEvent)
 {
+	if (snakeGame.playing)
+	{
+		ImGui::Text("%d", score.value);
+	}
+	else
+	{
+		if (ImGui::Button("Restart"))
+		{
+			restartEvent.broadcast();
+		}
+	}
+}
+
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources)
+{
+	command_buffer.defer_suspend();
 	createEntities(command_buffer, borderQuery.get(), resources.get());
+	command_buffer.defer_resume();
+	command_buffer.set_singleton<SnakeGame>({ .playing = true });
 }

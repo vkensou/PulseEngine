@@ -27,6 +27,12 @@ struct SnakeMove
 };
 
 PULSE_ECS_SINGLETON_COMPONENT
+struct SnakeGame
+{
+	bool playing;
+};
+
+PULSE_ECS_SINGLETON_COMPONENT
 struct Border
 {
 	int up, bottom, left, right;
@@ -82,6 +88,9 @@ struct SnakeResources
 	int boardMat;
 };
 
+PULSE_ECS_EVENT
+struct RestartEvent {};
+
 PULSE_ECS_SYSTEM
 void initSnakeGameSystem(pulse::command_buffer& command_buffer, pulse::singleton_query<const SnakeResources> resources);
 
@@ -110,4 +119,7 @@ PULSE_ECS_SYSTEM
 void onGameOverSystem(pulse::event_reader<GameOverEvent> gameOverEvent, pulse::command_buffer& command_buffer, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery);
 
 PULSE_ECS_SYSTEM
-void restartSystem(pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);
+void onImguiSystem(const SnakeGame& snakeGame, const Score& score, pulse::event_writer<RestartEvent> restartEvent);
+
+PULSE_ECS_SYSTEM
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);

@@ -22,6 +22,7 @@ namespace pulse
 	struct LogicPipeline {};
 	struct PostLogicPipeline {};
 	struct RenderPipeline {};
+	struct ImguiPipeline {};
 
 	template<typename T>
 	struct res
@@ -181,6 +182,19 @@ namespace pulse
 			single.set<T>(std::forward<T>(value));
 		}
 
+		template <typename T>
+		void remove_singleton() const
+		{
+			auto single = world.singleton<pulse::SingleHolder>();
+			single.remove<T>();
+		}
+
+		void remove_singleton(flecs::entity_t entity) const
+		{
+			auto single = world.singleton<pulse::SingleHolder>();
+			single.remove(entity);
+		}
+
 		template <typename... Args>
 		flecs::entity entity(Args &&... args) const
 		{
@@ -190,6 +204,16 @@ namespace pulse
 		void destruct(flecs::entity entity) const
 		{
 			entity.destruct();
+		}
+
+		void defer_suspend()
+		{
+			world.defer_suspend();
+		}
+
+		void defer_resume()
+		{
+			world.defer_resume();
 		}
 
 	private:
@@ -310,5 +334,15 @@ namespace pulse
 
 	private:
 		std::vector<std::unique_ptr<EventRegisterBase>> eventRegisters;
+	};
+
+	struct ModuleContext
+	{
+		flecs::world world;
+		flecs::entity_t updatePipeline;
+		flecs::entity_t postUpdatePipeline;
+		flecs::entity_t renderPipeline;
+		flecs::entity_t imguiPipeline;
+		pulse::EventCenter* eventManager;
 	};
 }

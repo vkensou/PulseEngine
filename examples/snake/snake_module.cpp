@@ -64,43 +64,68 @@ void onGameOverSystemWrapper(pulse::event_reader<GameOverEvent> eventReader, fle
 	onGameOverSystem(eventReader, command_buffer, snakeQuery, appleQuery);
 }
 
-static void registerSnakeSystems(flecs::world& world)
+void onImguiWrapper(flecs::iter& it, size_t i, const SnakeGame& snakeGame, const Score& score)
 {
-	world.system<const SnakeInput, Facing4W, SnakeMove>("SnakeInput")
-		.kind<pulse::LogicPipeline>()
-		.each(handleSnakeInputSystemWrapper);
-
-	world.system<const Facing4W, SnakeMove>("ScheduleSnakeMove")
-		.kind<pulse::LogicPipeline>()
-		.each(scheduleSnakeMoveSystemWrapper);
-
-	world.system<SnakeBodies>("SyncSnakeBodyPosition")
-		.kind<pulse::LogicPipeline>()
-		.each(syncSnakeBodyPositionSystem);
+	auto world = it.world();
+	auto restartWriter = pulse::event_writer<RestartEvent>(world);
+	onImguiSystem(snakeGame, score, restartWriter);
 }
 
-static void registerSnakeEvents(flecs::world& world, pulse::EventCenter& eventManager)
+void restartSystemWrapper(pulse::event_reader<RestartEvent> restartEvent, flecs::world& world)
+{
+	pulse::command_buffer command_buffer(world);
+	auto borderQuery = pulse::singleton_query<const Border>(world);
+	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	restartSystem(restartEvent, command_buffer, borderQuery, resourcesQuery);
+}
+
+static void registerSnakeSystems(pulse::ModuleContext* moduleContext)
+{
+	moduleContext->world.system<const SnakeInput, Facing4W, SnakeMove>("SnakeInput")
+		.kind(moduleContext->updatePipeline)
+		.each(handleSnakeInputSystemWrapper);
+
+	moduleContext->world.system<const Facing4W, SnakeMove>("ScheduleSnakeMove")
+		.kind(moduleContext->updatePipeline)
+		.each(scheduleSnakeMoveSystemWrapper);
+
+	moduleContext->world.system<SnakeBodies>("SyncSnakeBodyPosition")
+		.kind(moduleContext->updatePipeline)
+		.each(syncSnakeBodyPositionSystem);
+
+	moduleContext->world.system<const SnakeGame, const Score>("SnakeUI")
+		.kind(moduleContext->imguiPipeline)
+		.immediate()
+		.each(onImguiWrapper);
+}
+
+static void registerSnakeEvents(pulse::ModuleContext* moduleContext)
 {
 	auto snakeMoveIntentDispatcher = std::make_unique<pulse::EntityEventRegister<SnakeMoveIntentEvent, SnakeBodies>>();
-	snakeMoveIntentDispatcher->reg(executeSnakeMoveSystemWrapper, world.query<const IsApple, const Position>());
-	snakeMoveIntentDispatcher->observe(world);
-	eventManager.register_event(std::move(snakeMoveIntentDispatcher));
+	snakeMoveIntentDispatcher->reg(executeSnakeMoveSystemWrapper, moduleContext->world.query<const IsApple, const Position>());
+	snakeMoveIntentDispatcher->observe(moduleContext->world);
+	moduleContext->eventManager->register_event(std::move(snakeMoveIntentDispatcher));
 
 	auto appleEatenDispatcher = std::make_unique<pulse::EventRegister<AppleEatenEvent>>();
 	appleEatenDispatcher->reg(eatAppleSystemWrapper);
-	appleEatenDispatcher->reg(increaseScoreSystemWrapper, world.query<Score>());
-	appleEatenDispatcher->reg(spawnAppleSystemWrapper, world.query<const SnakeBodies>());
-	appleEatenDispatcher->observe(world);
-	eventManager.register_event(std::move(appleEatenDispatcher));
+	appleEatenDispatcher->reg(increaseScoreSystemWrapper, moduleContext->world.query<Score>());
+	appleEatenDispatcher->reg(spawnAppleSystemWrapper, moduleContext->world.query<const SnakeBodies>());
+	appleEatenDispatcher->observe(moduleContext->world);
+	moduleContext->eventManager->register_event(std::move(appleEatenDispatcher));
 
 	auto gameOverDispatcher = std::make_unique<pulse::EventRegister<GameOverEvent>>();
-	gameOverDispatcher->reg(onGameOverSystemWrapper, world.query<SnakeBodies>(), world.query<IsApple>());
-	gameOverDispatcher->observe(world);
-	eventManager.register_event(std::move(gameOverDispatcher));
+	gameOverDispatcher->reg(onGameOverSystemWrapper, moduleContext->world.query<SnakeBodies>(), moduleContext->world.query<IsApple>());
+	gameOverDispatcher->observe(moduleContext->world);
+	moduleContext->eventManager->register_event(std::move(gameOverDispatcher));
+
+	auto restartDispatcher = std::make_unique<pulse::EventRegister<RestartEvent>>();
+	restartDispatcher->reg(restartSystemWrapper);
+	restartDispatcher->observe(moduleContext->world);
+	moduleContext->eventManager->register_event(std::move(restartDispatcher));
 }
 
-void importModule(flecs::world& world, pulse::EventCenter& eventManager)
+void importModule(pulse::ModuleContext* moduleContext)
 {
-	registerSnakeSystems(world);
-	registerSnakeEvents(world, eventManager);
+	registerSnakeSystems(moduleContext);
+	registerSnakeEvents(moduleContext);
 }

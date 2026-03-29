@@ -369,9 +369,14 @@ struct Application
 
 	SystemContext systemContext;
 
-	flecs::entity logicPipeline;
-	flecs::entity postLogicPipeline;
+	flecs::entity updatePipeline;
+	flecs::entity_t updatePipelineId;
+	flecs::entity postUpdatePipeline;
+	flecs::entity_t postUpdatePipelineId;
 	flecs::entity renderPipeline;
+	flecs::entity_t renderPipelineId;
+	flecs::entity imguiPipeline;
+	flecs::entity_t imguiPipelineId;
 
 	pulse::EventCenter eventCenter;
 
@@ -488,14 +493,16 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	cam.set<WorldTransform>({ .value = cameraWMat })
 		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
 
-	app.logicPipeline = world.pipeline()
+	app.updatePipelineId = flecs::_::type<pulse::LogicPipeline>::id(world);
+	app.updatePipeline = world.pipeline()
 		.with(flecs::System)
-		.with<pulse::LogicPipeline>()
+		.with(app.updatePipelineId)
 		.build();
 
-	app.postLogicPipeline = world.pipeline()
+	app.postUpdatePipelineId = flecs::_::type<pulse::PostLogicPipeline>::id(world);
+	app.postUpdatePipeline = world.pipeline()
 		.with(flecs::System)
-		.with<pulse::PostLogicPipeline>()
+		.with(app.postUpdatePipelineId)
 		.build();
 
 	int numKeys;
@@ -528,9 +535,10 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.kind<pulse::PostLogicPipeline>()
 		.each(updateNonHierarchyTrasform);
 
+	app.renderPipelineId = flecs::_::type<pulse::RenderPipeline>::id(world);
 	app.renderPipeline = world.pipeline()
 		.with(flecs::System)
-		.with<pulse::RenderPipeline>()
+		.with(app.renderPipelineId)
 		.build();
 
 	world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
@@ -560,7 +568,21 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixMoveAndRotate);
 
-	importModule(world, app.eventCenter);
+	app.imguiPipelineId = flecs::_::type<pulse::ImguiPipeline>::id(world);
+	app.imguiPipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.imguiPipelineId)
+		.build();
+
+	pulse::ModuleContext moduleContext {
+		.world = world,
+		.updatePipeline = app.updatePipelineId,
+		.postUpdatePipeline = app.postUpdatePipelineId,
+		.renderPipeline = app.renderPipelineId,
+		.imguiPipeline = app.imguiPipelineId,
+		.eventManager = &app.eventCenter,
+	};
+	importModule(&moduleContext);
 }
 
 static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)
@@ -573,8 +595,8 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 	memcpy(app.systemContext.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
 	app.systemContext.updateContext = update_context;
-	world.run_pipeline(app.logicPipeline, update_context.delta_time);
-	world.run_pipeline(app.postLogicPipeline, update_context.delta_time);
+	world.run_pipeline(app.updatePipeline, update_context.delta_time);
+	world.run_pipeline(app.postUpdatePipeline, update_context.delta_time);
 }
 
 std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
@@ -760,24 +782,6 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 	if (ImGui::Button("Capture"))
 		oval_render_debug_capture(device);
 	
-	flecs::world world = flecs::world(oval_get_world(device));
-	auto snakeApp = world.singleton<pulse::SingleHolder>();
-	if (snakeApp.enabled())
-	{
-		auto& score = snakeApp.get<Score>();
-		ImGui::Text("%d", score.value);
-	}
-	else
-	{
-		if (ImGui::Button("Restart"))
-		{
-			Application& app = *(Application*)device->descriptor.userdata;
-			pulse::command_buffer command_buffer(world);
-			restartSystem(command_buffer, pulse::singleton_query<const Border>(world), pulse::singleton_query<const SnakeResources>(world));
-			snakeApp.enable();
-		}
-	}
-
 	uint32_t length;
 	const char** names;
 	const float* durations;
@@ -793,6 +797,11 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 		}
 		ImGui::Text("Total Time: %7.2f us", total_duration);
 	}
+
+	Application& app = *(Application*)device->descriptor.userdata;
+	app.systemContext.renderContext = render_context;
+	flecs::world world = flecs::world(oval_get_world(device));
+	world.run_pipeline(app.imguiPipeline);
 }
 
 void on_window_close1(ecs_entity_t entity, oval_device_t* device)
