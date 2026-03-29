@@ -890,7 +890,6 @@ void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGra
 
 void on_post_update(oval_device_t* device, oval_update_context update_context)
 {
-	oval_sync_window_component_and_raw_handle(device);
 }
 
 extern "C"

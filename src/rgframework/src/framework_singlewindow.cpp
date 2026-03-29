@@ -919,6 +919,8 @@ void oval_runloop(oval_device_t* device)
 		if (D->super.descriptor.on_post_update)
 			D->super.descriptor.on_post_update(&D->super, post_update_context);
 
+		oval_sync_window_component_and_raw_handle(device);
+
 		if (rdc_capturing)
 		{
 			D->rdc->EndFrameCapture(nullptr, nullptr);

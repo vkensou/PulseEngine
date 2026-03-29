@@ -121,7 +121,6 @@ void oval_query_render_profile(oval_device_t* device, uint32_t* length, const ch
 ecs_entity_t oval_create_window_entity(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window_entity(oval_device_t* device, ecs_entity_t window_entity);
 HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, ecs_entity_t window_entity, HGEGraphics::rendergraph_t& rg);
-void oval_sync_window_component_and_raw_handle(struct oval_device_t* device);
 
 HGEGraphics::Texture* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
 HGEGraphics::Texture* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size);
