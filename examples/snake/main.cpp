@@ -381,7 +381,8 @@ struct Application
 	flecs::system systemUpdateNonHierarchyTrasform;
 
 	flecs::system systemSnakeInput;
-	flecs::system systemSnakeMove;
+	flecs::system systemSnakeMoveTrigger;
+	flecs::system systemSnakeBodyPositionSyncer;
 
 	flecs::system systemUpdateMoveInterpolation;
 	flecs::system systemUpdateRotateInterpolation;
@@ -390,6 +391,7 @@ struct Application
 	flecs::system systemShowMatrixRotateOnly;
 	flecs::system systemShowMatrixMoveAndRotate;
 
+	pulse::EntityEventRegister<SnakeNeedMove, SnakeBodies> snakeMoveDispathcer;
 	pulse::EventRegister<AppleEat> appleEatDispathcer;
 	pulse::EventRegister<GameOver> gameOverDispathcer;
 
@@ -411,23 +413,24 @@ void snakeInputWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Direc
 	snakeInput(pulse::res<const KeyboardState>(app.keyboardState), input, direction, move);
 }
 
-struct __SystemSnakeMove__State
+void snakeMoveTriggerWrapper(flecs::iter& it, size_t i, const Direction& direction, SnakeMove& move)
 {
-	flecs::query<const IsApple, const Position> apple;
-};
-
-void snakeMoveWrapper(flecs::iter& it, size_t i, Snake& snake)
-{
+	auto entity = it.entity(i);
 	const SystemContext& context = *it.param<SystemContext>();
 	pulse::res<const SystemContext> systemContext(context);
 	auto world = it.world();
-	auto& systemSnakeMoveState = it.system().get_mut<__SystemSnakeMove__State>();
+	auto snakeMoveWriter = pulse::event_writer<SnakeNeedMove>(world);
+	snakeMoveTrigger(systemContext, snakeMoveWriter, entity, direction, move);
+}
+
+void snakeMoveWrapper(pulse::event_reader<SnakeNeedMove> eventReader, flecs::world& world, flecs::query<const IsApple, const Position> apple, SnakeBodies& snake)
+{
 	auto borderQuery = pulse::singleton_query<const Border>(world);
 	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
 	auto appleEatWriter = pulse::event_writer<AppleEat>(world);
 	auto gameoverWriter = pulse::event_writer<GameOver>(world);
 	pulse::command_buffer command_buffer(world);
-	snakeMove(command_buffer, systemContext, systemSnakeMoveState.apple, borderQuery, resourcesQuery, appleEatWriter, gameoverWriter, snake);
+	snakeMove(eventReader, command_buffer, apple, borderQuery, resourcesQuery, appleEatWriter, gameoverWriter, snake);
 }
 
 void eatAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world)
@@ -444,7 +447,7 @@ void addScoreWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& wo
 		});
 }
 
-void createAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world, flecs::query<const Snake>& snakeQuery)
+void createAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::world& world, flecs::query<const SnakeBodies>& snakeQuery)
 {
 	pulse::command_buffer command_buffer(world);
 	auto borderQuery = pulse::singleton_query<const Border>(world);
@@ -452,7 +455,7 @@ void createAppleSystemWrapper(pulse::event_reader<AppleEat> eventReader, flecs::
 	createAppleSystem(eventReader, command_buffer, snakeQuery, borderQuery, resourcesQuery);
 }
 
-void gameoverSystemWrapper(pulse::event_reader<GameOver> eventReader, flecs::world& world, flecs::query<Snake>& snakeQuery, flecs::query<IsApple>& appleQuery)
+void gameoverSystemWrapper(pulse::event_reader<GameOver> eventReader, flecs::world& world, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
 {
 	pulse::command_buffer command_buffer(world);
 	gameover(eventReader, command_buffer, snakeQuery, appleQuery);
@@ -593,18 +596,21 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	std::fill(app.keyboardState.lastKeys.begin(), app.keyboardState.lastKeys.end(), 0);
 	memcpy(app.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
-	app.systemSnakeMove = world.system<Snake>("SnakeMove")
-		.each(snakeMoveWrapper);
+	app.systemSnakeMoveTrigger = world.system<const Direction, SnakeMove>("SystemSnakeMoveTrigger")
+		.each(snakeMoveTriggerWrapper);
 
-	app.systemSnakeMove.add<__SystemSnakeMove__State>();
-	app.systemSnakeMove.set<__SystemSnakeMove__State>({ .apple = world.query<const IsApple, const Position>() });
+	app.systemSnakeBodyPositionSyncer = world.system<SnakeBodies>()
+		.each(snakeBodyPositionSyncer);
+
+	app.snakeMoveDispathcer.reg_entity(snakeMoveWrapper, world.query<const IsApple, const Position>());
+	app.snakeMoveDispathcer.observe_entity(world);
 
 	app.appleEatDispathcer.reg(eatAppleSystemWrapper);
 	app.appleEatDispathcer.reg(addScoreWrapper, world.query<Score>());
-	app.appleEatDispathcer.reg(createAppleSystemWrapper, world.query<const Snake>());
+	app.appleEatDispathcer.reg(createAppleSystemWrapper, world.query<const SnakeBodies>());
 	app.appleEatDispathcer.observe(world);
 
-	app.gameOverDispathcer.reg(gameoverSystemWrapper, world.query<Snake>(), world.query<IsApple>());
+	app.gameOverDispathcer.reg(gameoverSystemWrapper, world.query<SnakeBodies>(), world.query<IsApple>());
 	app.gameOverDispathcer.observe(world);
 
 	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
@@ -645,7 +651,8 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 	if (snakeApp.enabled())
 	{
 		app.systemSnakeInput.run(0, &context);
-		app.systemSnakeMove.run(0, &context);
+		app.systemSnakeMoveTrigger.run(0, &context);
+		app.systemSnakeBodyPositionSyncer.run(0, &context);
 	}
 	app.systemUpdateMatrixPositionOnly.run(0, &context);
 	app.systemUpdateMatrixRotationOnly.run(0, &context);

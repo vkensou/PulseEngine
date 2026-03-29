@@ -50,7 +50,7 @@ flecs::entity createRenderable(pulse::command_buffer& command_buffer, HMM_Vec3 p
 	return ent;
 }
 
-std::optional<HMM_Vec3> getNewApplePosition(const Snake& snake, const Border& border)
+std::optional<HMM_Vec3> getNewApplePosition(const SnakeBodies& snake, const Border& border)
 {
 	int left = border.left;
 	int right = border.right;
@@ -74,9 +74,8 @@ std::optional<HMM_Vec3> getNewApplePosition(const Snake& snake, const Border& bo
 	used.reserve(snake.bodies.size());
 	for (size_t i = 0; i < snake.bodies.size(); ++i)
 	{
-		auto body = snake.bodies[i];
-		auto& position = body.get<Position>();
-		used.push_back(position.value);
+		auto& body = snake.bodies[i];
+		used.push_back(body.position);
 	}
 
 	while (true)
@@ -105,7 +104,7 @@ std::optional<HMM_Vec3> getNewApplePosition(const Snake& snake, const Border& bo
 	return {};
 }
 
-flecs::entity createApple(pulse::command_buffer& command_buffer, const Snake& snake, const Border& border, int quad, int appleMat)
+flecs::entity createApple(pulse::command_buffer& command_buffer, const SnakeBodies& snake, const Border& border, int quad, int appleMat)
 {
 	auto newPos = getNewApplePosition(snake, border);
 	if (!newPos.has_value())
@@ -122,25 +121,23 @@ flecs::entity createSnake(pulse::command_buffer& command_buffer, int quad, int h
 	int snakeInitLength = 3;
 
 	auto head = createRenderable(command_buffer, initPos, headMat, quad);
-	head.add<Direction>()
-		.add<SnakeInput>()
-		.add<SnakeMove>();
 
-	head.set<Direction>(Direction::Right)
-		.set<SnakeInput>({ .rightKey = SDL_SCANCODE_RIGHT, .upKey = SDL_SCANCODE_UP, .leftKey = SDL_SCANCODE_LEFT, .downKey = SDL_SCANCODE_DOWN })
-		.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
-
-	std::vector<flecs::entity> bodies;
-	bodies.push_back(head);
+	std::vector<SnakeBody> bodies;
+	bodies.push_back({ .position = initPos, .entity = head });
 	for (int i = 0; i < 3; ++i)
 	{
-		auto newBody = createRenderable(command_buffer, HMM_V3(initPos.X - 1 - i, initPos.Y, initPos.Z), bodyMat, quad);
-		bodies.insert(bodies.begin(), newBody);
+		auto bodyPos = HMM_V3(initPos.X - 1 - i, initPos.Y, initPos.Z);
+		auto newBody = createRenderable(command_buffer, bodyPos, bodyMat, quad);
+		bodies.insert(bodies.begin(), { .position = bodyPos, .entity = newBody });
 	}
 
 	auto snake = command_buffer.entity();
-	snake.add<Snake>();
-	snake.set<Snake>({ .head = head, .bodies = std::move(bodies) });
+	snake
+		.add<EventTag>()
+		.set<SnakeBodies>({ .bodies = std::move(bodies) })
+		.set<Direction>(Direction::Right)
+		.set<SnakeInput>({ .rightKey = SDL_SCANCODE_RIGHT, .upKey = SDL_SCANCODE_UP, .leftKey = SDL_SCANCODE_LEFT, .downKey = SDL_SCANCODE_DOWN })
+		.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
 	return snake;
 }
 
@@ -176,16 +173,16 @@ void createEntities(pulse::command_buffer& command_buffer, const Border& border,
 {
 	command_buffer.set_singleton<Score>({ .value = 0 });
 	auto snake = createSnake(command_buffer, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0, 0, 0));
-	auto apple = createApple(command_buffer, snake.get<Snake>(), border, resources.quad, resources.appleMat);
+	auto apple = createApple(command_buffer, snake.get<SnakeBodies>(), border, resources.quad, resources.appleMat);
 }
 
-void destructEntities(flecs::query<Snake>& snakeQuery, flecs::query<IsApple>& appleQuery)
+void destructEntities(flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
 {
-	snakeQuery.each([](flecs::entity entity, Snake& snake)
+	snakeQuery.each([](flecs::entity entity, SnakeBodies& snake)
 		{
 			for (auto& body : snake.bodies)
 			{
-				body.destruct();
+				body.entity.destruct();
 			}
 			entity.destruct();
 		});
@@ -264,7 +261,7 @@ public:
 	}
 };
 
-Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const Snake& snake, const Border& border, std::optional<HMM_Vec3> applePos)
+Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const SnakeBodies& snake, const Border& border, std::optional<HMM_Vec3> applePos)
 {
 	int left = border.left;
 	int right = border.right;
@@ -276,9 +273,8 @@ Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const Snake& snake, const Border
 
 	for (int i = 1; i < snake.bodies.size() - 1; ++i)
 	{
-		auto bodyEnt = snake.bodies[i];
-		auto& bodyPos = bodyEnt.get<Position>();
-		if (bodyPos.value == nextPos)
+		auto body = snake.bodies[i];
+		if (body.position == nextPos)
 			return Obstacle::SnakeBody();
 	}
 
@@ -315,18 +311,26 @@ void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput&
 	}
 }
 
-void snakeMove(pulse::command_buffer& command_buffer, pulse::res<const SystemContext> context, flecs::query<const IsApple, const Position>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEat> appleEatWriter, pulse::event_writer<GameOver> gameOverWriter, Snake& snake)
-{
-	auto head = snake.head;
-	auto& headMove = head.get_mut<SnakeMove>();
-
-	headMove.lastTime += context.get().delta_time;
-	if (headMove.lastTime < headMove.interval)
+void snakeMoveTrigger(pulse::res<const SystemContext> context, pulse::event_writer<SnakeNeedMove> snakeMoveWriter, flecs::entity entity, const Direction& direction, SnakeMove& move)
+{	
+	move.lastTime += context.get().delta_time;
+	if (move.lastTime < move.interval)
 		return;
 
-	auto& headPosition = head.get_mut<Position>();
-	auto& headDirection = head.get<Direction>();
-	auto nextPos = headPosition.value + toDelta(headDirection);
+	while (move.lastTime > move.interval)
+		move.lastTime -= move.interval;
+
+	auto delta = toDelta(direction);
+	snakeMoveWriter.send<SnakeBodies>(entity, { .delta = delta });
+}
+
+void snakeMove(pulse::event_reader<SnakeNeedMove> snakeMoveReader, pulse::command_buffer& command_buffer, flecs::query<const IsApple, const Position>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEat> appleEatWriter, pulse::event_writer<GameOver> gameOverWriter, SnakeBodies& snake)
+{
+	auto& head = snake.bodies.back();
+
+	auto delta = snakeMoveReader.read().delta;
+	auto headPosition = head.position;
+	auto nextPos = headPosition + delta;
 
 	auto appleEnt = appleQuery.first();
 	std::optional<HMM_Vec3> applePos;
@@ -342,17 +346,17 @@ void snakeMove(pulse::command_buffer& command_buffer, pulse::res<const SystemCon
 		auto& bodies = snake.bodies;
 		for (int i = 0; i < bodies.size() - 1; ++i)
 		{
-			auto& bodyPos = bodies[i].get_mut<Position>();
-			const auto& nextBodyPos = bodies[i + 1].get<Position>();
-			bodyPos.value = nextBodyPos.value;
+			auto& body = bodies[i];
+			const auto& nextBodyPos = bodies[i + 1].position;
+			body.position = nextBodyPos;
 		}
-		headPosition.value = nextPos;
+		head.position = nextPos;
 	}
 	else if (obstacle.Type() == ObstacleType::Apple)
 	{
-		auto newBody = createRenderable(command_buffer, headPosition.value, resources.get().snakeBodyMat, resources.get().quad);
-		snake.bodies.insert(snake.bodies.end() - 1, newBody);
-		headPosition.value = nextPos;
+		head.position = nextPos;
+		auto newBody = createRenderable(command_buffer, headPosition, resources.get().snakeBodyMat, resources.get().quad);
+		snake.bodies.insert(snake.bodies.end() - 1, { .position = headPosition , .entity = newBody });
 
 		AppleEat appleEat = { .apple = appleEnt };
 		appleEatWriter.broadcast(appleEat);
@@ -361,9 +365,16 @@ void snakeMove(pulse::command_buffer& command_buffer, pulse::res<const SystemCon
 	{
 		gameOverWriter.broadcast();
 	}
+}
 
-	while (headMove.lastTime > headMove.interval)
-		headMove.lastTime -= headMove.interval;
+void snakeBodyPositionSyncer(SnakeBodies& snake)
+{
+	for (int i = 0; i < snake.bodies.size(); ++i)
+	{
+		auto& body = snake.bodies[i];
+		body.entity.get_mut<Position>().value = body.position;
+	}
+
 }
 
 void eatApple(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer)
@@ -376,16 +387,16 @@ void addScore(pulse::event_reader<AppleEat> eventAppleEat, Score& score)
 	score.value += 1;
 }
 
-void createAppleSystem(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<const Snake>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources)
+void createAppleSystem(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources)
 {
 	auto snakeEnt = snakeQuery.first();
 	if (snakeEnt.is_alive())
 	{
-		createApple(command_buffer, snakeEnt.get<Snake>(), borderQuery.get(), resources.get().quad, resources.get().appleMat);
+		createApple(command_buffer, snakeEnt.get<SnakeBodies>(), borderQuery.get(), resources.get().quad, resources.get().appleMat);
 	}
 }
 
-void gameover(pulse::event_reader<GameOver> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<Snake>& snakeQuery, flecs::query<IsApple>& appleQuery)
+void gameover(pulse::event_reader<GameOver> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
 {
 	command_buffer.add_singleton(flecs::Disabled);
 	destructEntities(snakeQuery, appleQuery);

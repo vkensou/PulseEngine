@@ -34,10 +34,15 @@ struct SnakeInput
 	SDL_Scancode rightKey, upKey, leftKey, downKey;
 };
 
-struct Snake
+struct SnakeBody
 {
-	flecs::entity head;
-	std::vector<flecs::entity> bodies;
+	HMM_Vec3 position;
+	flecs::entity entity;
+};
+
+struct SnakeBodies
+{
+	std::vector<SnakeBody> bodies;
 };
 
 struct IsApple {};
@@ -47,6 +52,11 @@ struct Game {};
 struct AppleEat
 {
 	flecs::entity apple;
+};
+
+struct SnakeNeedMove
+{
+	HMM_Vec3 delta;
 };
 
 struct GameOver {};
@@ -62,14 +72,18 @@ void initSnakeGame(pulse::command_buffer& command_buffer, pulse::singleton_query
 
 void snakeInput(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Direction& direction, SnakeMove& move);
 
-void snakeMove(pulse::command_buffer& command_buffer, pulse::res<const SystemContext> context, flecs::query<const IsApple, const Position>& apple, pulse::singleton_query<const Border>& border, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEat> appleEatWriter, pulse::event_writer<GameOver> gameOverWriter, Snake& snake);
+void snakeMoveTrigger(pulse::res<const SystemContext> context, pulse::event_writer<SnakeNeedMove> snakeMoveWriter, flecs::entity entity, const Direction& direction, SnakeMove& move);
+
+void snakeMove(pulse::event_reader<SnakeNeedMove> snakeMoveReader, pulse::command_buffer& command_buffer, flecs::query<const IsApple, const Position>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEat> appleEatWriter, pulse::event_writer<GameOver> gameOverWriter, SnakeBodies& snake);
+
+void snakeBodyPositionSyncer(SnakeBodies& snake);
 
 void eatApple(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer);
 
 void addScore(pulse::event_reader<AppleEat> eventAppleEat, Score& score);
 
-void createAppleSystem(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<const Snake>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources);
+void createAppleSystem(pulse::event_reader<AppleEat> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources);
 
-void gameover(pulse::event_reader<GameOver> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<Snake>& snakeQuery, flecs::query<IsApple>& appleQuery);
+void gameover(pulse::event_reader<GameOver> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery);
 
 void restart(pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);

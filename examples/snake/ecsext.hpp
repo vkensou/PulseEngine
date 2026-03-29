@@ -56,9 +56,40 @@ namespace pulse
 		{
 		}
 
-		void send(flecs::entity)
+		template<typename...C>
+		void send(flecs::entity entity)
 		{
+			world.event<T>()
+				.id<C...>()
+				.entity(entity)
+				.enqueue();
+		}
 
+		template<typename...C>
+		void send(flecs::entity entity, const T& payload)
+		{
+			world.event<T>()
+				.id<C...>()
+				.entity(entity)
+				.ctx(payload)
+				.enqueue();
+		}
+
+		void send(flecs::entity entity)
+		{
+			world.event<T>()
+				.id<EventTag>()
+				.entity(entity)
+				.enqueue();
+		}
+
+		void send(flecs::entity entity, const T& payload)
+		{
+			world.event<T>()
+				.id<EventTag>()
+				.entity(entity)
+				.ctx(payload)
+				.enqueue();
 		}
 
 		void broadcast()
@@ -168,7 +199,7 @@ namespace pulse
 			world.observer<EventTag>()
 				.event<T>()
 				.ctx(this)
-				.each([](flecs::iter& it, size_t i, const EventTag& eventTag)
+				.each([](flecs::iter& it, size_t i, EventTag)
 					{
 						auto world = it.world();
 						auto c = (EventRegister<T>*)it.ctx();
@@ -188,5 +219,52 @@ namespace pulse
 		}
 
 		std::vector<std::function<void(pulse::event_reader<T>, flecs::world&)>> listeners;
+	};
+
+	template<typename T, typename...C>
+	struct EntityEventRegister
+	{
+	public:
+		template <typename Func, typename... Payloads>
+		void reg_entity(Func&& func, Payloads&&... payloads)
+		{
+			listeners.emplace_back(
+				[
+					f = std::forward<Func>(func),
+					bound_payloads = std::make_tuple(std::forward<Payloads>(payloads)...)
+				](pulse::event_reader<T> eventReader, flecs::world& world, C&...c) mutable
+				{
+					std::apply([&](auto&... unpacked_payloads) {
+						f(eventReader, world, unpacked_payloads..., c...);
+						}, bound_payloads);
+				}
+			);
+		}
+
+		void observe_entity(flecs::world& world)
+		{
+			world.observer<C...>()
+				.event<T>()
+				.ctx(this)
+				.each([](flecs::iter& it, size_t i, C&...c)
+					{
+						auto world = it.world();
+						auto* self = (EntityEventRegister<T, C...>*)it.ctx();
+						const T& event = *(T*)it.param();
+						auto eventReader = pulse::event_reader<T>(event);
+						self->dispatch(eventReader, world, c...);
+					});
+		}
+
+	private:
+		void dispatch(pulse::event_reader<T> eventReader, flecs::world& world, C&...c)
+		{
+			for (auto& listener : listeners)
+			{
+				listener(eventReader, world, c...);
+			}
+		}
+
+		std::vector<std::function<void(pulse::event_reader<T>, flecs::world&, C&...)>> listeners;
 	};
 }
