@@ -5,8 +5,8 @@ void loadSnakeResourcesSystemWrapper(flecs::iter& it)
 {
 	auto world = it.world();
 	pulse::command_buffer command_buffer(world);
-    SystemContext& app = *(SystemContext*)world.get_ctx();
-	loadSnakeResourcesSystem(pulse::res<ResourceManager>(app.resourceManager), command_buffer);
+	auto& resourceQuery = world.get_mut<ResourceManager>();
+	loadSnakeResourcesSystem(pulse::res<ResourceManager>(resourceQuery), command_buffer);
 }
 
 void initSnakeGameSystemWrapper(flecs::iter& it)
@@ -20,16 +20,16 @@ void initSnakeGameSystemWrapper(flecs::iter& it)
 void handleSnakeInputSystemWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Facing4W& direction, SnakeMove& move)
 {
 	auto world = it.world();
-	SystemContext& app = *(SystemContext*)world.get_ctx();
-	handleSnakeInputSystem(pulse::res<const KeyboardState>(app.keyboardState), input, direction, move);
+	auto& keyboardQuery = world.get<const KeyboardState>();
+	handleSnakeInputSystem(pulse::res<const KeyboardState>(keyboardQuery), input, direction, move);
 }
 
 void scheduleSnakeMoveSystemWrapper(flecs::iter& it, size_t i, const Facing4W& direction, SnakeMove& move)
 {
 	auto world = it.world();
 	auto entity = it.entity(i);
-	SystemContext& app = *(SystemContext*)world.get_ctx();
-	pulse::res<const oval_update_context> updateContext(app.updateContext);
+	auto& updateContextQuery = world.get<const UpdateContext>();
+	pulse::res<const oval_update_context> updateContext(updateContextQuery.value);
 	auto snakeMoveWriter = pulse::event_writer<SnakeMoveIntentEvent>(world);
 	scheduleSnakeMoveSystem(updateContext, snakeMoveWriter, entity, direction, move);
 }

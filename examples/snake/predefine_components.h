@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 
+PULSE_ECS_RESOURCE
 struct ResourceManager
 {
 	oval_device_t* device;
@@ -13,10 +14,23 @@ struct ResourceManager
 	std::vector<HGEGraphics::Material*> materials;
 };
 
+PULSE_ECS_RESOURCE
 struct KeyboardState
 {
 	std::vector<uint8_t> lastKeys;
 	std::vector<uint8_t> currentKeys;
+};
+
+PULSE_ECS_RESOURCE
+struct UpdateContext
+{
+	oval_update_context value;
+};
+
+PULSE_ECS_RESOURCE
+struct RenderContext
+{
+	oval_render_context value;
 };
 
 struct Position
@@ -63,12 +77,4 @@ struct Camera
 	float farPlane;
 	int width;
 	int height;
-};
-
-struct SystemContext
-{
-	KeyboardState keyboardState;
-	oval_update_context updateContext;
-	oval_render_context renderContext;
-	ResourceManager resourceManager;
 };

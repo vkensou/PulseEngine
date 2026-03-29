@@ -292,8 +292,9 @@ void updateNonHierarchyTrasform(const LocalTransform& local, WorldTransform& wor
 
 void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
 {
-	const SystemContext& app = *it.ctx<SystemContext>();
-	const oval_render_context& context = app.renderContext;
+	auto world = it.world();
+	auto& renderContextQuery = world.get<RenderContext>();
+	const oval_render_context& context = renderContextQuery.value;
 	auto pos1 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
 	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.render_interpolation_time)) + simpleHarmonic.base;
 	moveInterp.value = pos2 - pos1;
@@ -301,8 +302,9 @@ void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& si
 
 void updateRotateInterpolation(flecs::iter& it, size_t i, const Rotate& rotate, RotateInterpolation& rotateInterp)
 {
-	const SystemContext& app = *it.ctx<SystemContext>();
-	const oval_render_context& context = app.renderContext;
+	auto world = it.world();
+	auto& renderContextQuery = world.get<RenderContext>();
+	const oval_render_context& context = renderContextQuery.value;
 	auto rot1 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
 	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.render_interpolation_time) * rotate.speed);
 	rotateInterp.value = HMM_MulQ(HMM_InvQ(rot2), rot1);
@@ -357,8 +359,6 @@ struct Application
 	ecs_entity_t window1{};
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
-
-	SystemContext systemContext;
 
 	flecs::entity initPipeline;
 	flecs::entity_t initPipelineId;
@@ -418,10 +418,21 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	app.systemContext.keyboardState.lastKeys.resize(numKeys);
-	app.systemContext.keyboardState.currentKeys.resize(numKeys);
-	std::fill(app.systemContext.keyboardState.lastKeys.begin(), app.systemContext.keyboardState.lastKeys.end(), 0);
-	memcpy(app.systemContext.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+	KeyboardState keyboardState = {};
+	keyboardState.lastKeys.resize(numKeys);
+	keyboardState.currentKeys.resize(numKeys);
+	std::fill(keyboardState.lastKeys.begin(), keyboardState.lastKeys.end(), 0);
+	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+	pulse::registerResource<KeyboardState>(world, "Keyboard State", std::move(keyboardState));
+
+	ResourceManager resourceManager = {};
+	resourceManager.device = app.device.get();
+	resourceManager.meshes.clear();
+	resourceManager.materials.clear();
+	pulse::registerResource<ResourceManager>(world, "Resource Manager", std::move(resourceManager));
+
+	pulse::registerResource<UpdateContext>(world, "Update Context");
+	pulse::registerResource<RenderContext>(world, "Render Context");
 
 	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
 		.without<Rotation>()
@@ -503,12 +514,13 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 {
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	assert(numKeys == app.systemContext.keyboardState.lastKeys.size());
-	assert(numKeys == app.systemContext.keyboardState.currentKeys.size());
-	memcpy(app.systemContext.keyboardState.lastKeys.data(), app.systemContext.keyboardState.currentKeys.data(), numKeys);
-	memcpy(app.systemContext.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+	auto& keyboardState = world.get_mut<KeyboardState>();
+	assert(numKeys == keyboardState.lastKeys.size());
+	assert(numKeys == keyboardState.currentKeys.size());
+	memcpy(keyboardState.lastKeys.data(), keyboardState.currentKeys.data(), numKeys);
+	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
-	app.systemContext.updateContext = update_context;
+	world.set<UpdateContext>(UpdateContext{ .value = update_context });
 	world.run_pipeline(app.updatePipeline, update_context.delta_time);
 	world.run_pipeline(app.postUpdatePipeline, update_context.delta_time);
 }
@@ -547,7 +559,7 @@ std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, st
 
 void interpolate(Application& app, flecs::world& world, const oval_render_context& render_context)
 {
-	app.systemContext.renderContext = render_context;
+	world.set<RenderContext>(RenderContext{ .value = render_context });
 	world.run_pipeline(app.renderPipeline, render_context.delta_time);
 }
 
@@ -646,7 +658,7 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 
 		struct MainPassPassData
 		{
-			Application* app;
+			const ResourceManager* resourceManager;
 			ViewRenderPacket* view;
 			HGEGraphics::buffer_handle_t pass_ubo_handle;
 			HGEGraphics::buffer_handle_t object_ubo_handle;
@@ -655,16 +667,16 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 		renderpass_set_executable(&passBuilder, [](RenderPassEncoder* encoder, void* passdata)
 			{
 				MainPassPassData* resolved_passdata = (MainPassPassData*)passdata;
-				Application& app = *resolved_passdata->app;
 				set_global_dynamic_buffer(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
 				for (size_t i = 0; i < resolved_passdata->view->renderObjects.size(); ++i)
 				{
 					auto& obj = resolved_passdata->view->renderObjects[i];
 					set_global_buffer_with_offset_size(encoder, resolved_passdata->object_ubo_handle, 2, 0, i * sizeof(ObjectData), sizeof(ObjectData));
-					draw(encoder, app.systemContext.resourceManager.materials[obj.material], app.systemContext.resourceManager.meshes[obj.mesh]);
+					draw(encoder, resolved_passdata->resourceManager->materials[obj.material], resolved_passdata->resourceManager->meshes[obj.mesh]);
 				}
 			}, sizeof(MainPassPassData), (void**)&passdata);
-		passdata->app = &app;
+		flecs::world world = flecs::world(oval_get_world(device));
+		passdata->resourceManager = &world.get<ResourceManager>();
 		passdata->view = &view;
 		passdata->pass_ubo_handle = pass_ubo_handle;
 		passdata->object_ubo_handle = object_ubo_handle;
@@ -713,8 +725,8 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 	}
 
 	Application& app = *(Application*)device->descriptor.userdata;
-	app.systemContext.renderContext = render_context;
 	flecs::world world = flecs::world(oval_get_world(device));
+	world.set<RenderContext>(RenderContext{ .value = render_context });
 	world.run_pipeline(app.imguiPipeline);
 }
 
@@ -758,7 +770,6 @@ int SDL_main(int argc, char *argv[])
 		.enable_gpu_validation = true,
 	};
 	app.device.reset(oval_create_device(&device_descriptor));
-	app.systemContext.resourceManager.device = app.device.get();
 
 	if (!app.device)
 		return -1;
@@ -776,7 +787,6 @@ int SDL_main(int argc, char *argv[])
 	app.window1 = oval_create_window_entity(app.device.get(), &window_descriptor);
 
 	flecs::world world = flecs::world(oval_get_world(app.device.get()));
-	world.set_ctx(&app.systemContext);
 
 	_init_world(app, world, app.window1);
 		

@@ -347,4 +347,22 @@ namespace pulse
 		flecs::entity_t imguiPipeline;
 		pulse::EventCenter* eventManager;
 	};
+
+	template<typename T>
+	void registerResource(flecs::world& world, const char* name)
+	{
+		auto keyboardState = flecs::component<T>(world, name, false);
+		keyboardState.add(flecs::Sparse);
+		keyboardState.add(flecs::Singleton);
+		world.set<T>({});
+	}
+
+	template<typename T>
+	void registerResource(flecs::world& world, const char* name, T&& value)
+	{
+		auto keyboardState = flecs::component<T>(world, name, false);
+		keyboardState.add(flecs::Sparse);
+		keyboardState.add(flecs::Singleton);
+		world.set<T>(value);
+	}
 }
