@@ -2,6 +2,7 @@
 
 #include "flecs.h"
 #include <functional>
+#include <memory>
 
 // ECS组件
 #define PULSE_ECS_COMPONENT
@@ -18,6 +19,10 @@
 
 namespace pulse
 {
+	struct LogicPipeline {};
+	struct PostLogicPipeline {};
+	struct RenderPipeline {};
+
 	template<typename T>
 	struct res
 	{
@@ -191,8 +196,13 @@ namespace pulse
 		flecs::world& world;
 	};
 
+	struct EventRegisterBase
+	{
+		virtual ~EventRegisterBase() = default;
+	};
+
 	template<typename T>
-	struct EventRegister
+	struct EventRegister : public EventRegisterBase
 	{
 	public:
 		template <typename Func, typename... Payloads>
@@ -239,11 +249,11 @@ namespace pulse
 	};
 
 	template<typename T, typename...C>
-	struct EntityEventRegister
+	struct EntityEventRegister : public EventRegisterBase
 	{
 	public:
 		template <typename Func, typename... Payloads>
-		void reg_entity(Func&& func, Payloads&&... payloads)
+		void reg(Func&& func, Payloads&&... payloads)
 		{
 			listeners.emplace_back(
 				[
@@ -258,7 +268,7 @@ namespace pulse
 			);
 		}
 
-		void observe_entity(flecs::world& world)
+		void observe(flecs::world& world)
 		{
 			world.observer<C...>()
 				.event<T>()
@@ -283,5 +293,22 @@ namespace pulse
 		}
 
 		std::vector<std::function<void(pulse::event_reader<T>, flecs::world&, C&...)>> listeners;
+	};
+
+	struct EventCenter
+	{
+	public:
+		void register_event(std::unique_ptr<EventRegisterBase> eventRegister)
+		{
+			eventRegisters.push_back(std::move(eventRegister));
+		}
+
+		void clear()
+		{
+			eventRegisters.clear();
+		}
+
+	private:
+		std::vector<std::unique_ptr<EventRegisterBase>> eventRegisters;
 	};
 }

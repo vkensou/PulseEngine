@@ -10,8 +10,8 @@
 #include "tiny_gltf.h"
 #include <cassert>
 #include <SDL3/SDL.h>
-#include "snake.h"
 #include "predefine_components.h"
+#include "snake_module.h"
 
 constexpr ecs_entity_t kNullEntity = 0;
 
@@ -373,9 +373,7 @@ struct Application
 	flecs::entity postLogicPipeline;
 	flecs::entity renderPipeline;
 
-	pulse::EntityEventRegister<SnakeMoveIntentEvent, SnakeBodies> snakeMoveIntentDispatcher;
-	pulse::EventRegister<AppleEatenEvent> appleEatenDispatcher;
-	pulse::EventRegister<GameOverEvent> gameOverDispatcher;
+	pulse::EventCenter eventCenter;
 
 	Application()
 		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
@@ -388,60 +386,7 @@ struct Application
 	}
 };
 
-void handleSnakeInputSystemWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Facing4W& direction, SnakeMove& move)
-{
-	auto world = it.world();
-	SystemContext& app = *(SystemContext*)world.get_ctx();
-	handleSnakeInputSystem(pulse::res<const KeyboardState>(app.keyboardState), input, direction, move);
-}
 
-void scheduleSnakeMoveSystemWrapper(flecs::iter& it, size_t i, const Facing4W& direction, SnakeMove& move)
-{
-	auto world = it.world();
-	auto entity = it.entity(i);
-	SystemContext& app = *(SystemContext*)world.get_ctx();
-	pulse::res<const oval_update_context> updateContext(app.updateContext);
-	auto snakeMoveWriter = pulse::event_writer<SnakeMoveIntentEvent>(world);
-	scheduleSnakeMoveSystem(updateContext, snakeMoveWriter, entity, direction, move);
-}
-
-void executeSnakeMoveSystemWrapper(pulse::event_reader<SnakeMoveIntentEvent> eventReader, flecs::world& world, flecs::query<const IsApple, const Position> apple, SnakeBodies& snake)
-{
-	auto borderQuery = pulse::singleton_query<const Border>(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	auto appleEatWriter = pulse::event_writer<AppleEatenEvent>(world);
-	auto gameoverWriter = pulse::event_writer<GameOverEvent>(world);
-	pulse::command_buffer command_buffer(world);
-	executeSnakeMoveSystem(eventReader, command_buffer, apple, borderQuery, resourcesQuery, appleEatWriter, gameoverWriter, snake);
-}
-
-void eatAppleSystemWrapper(pulse::event_reader<AppleEatenEvent> eventReader, flecs::world& world)
-{
-	pulse::command_buffer command_buffer(world);
-	eatAppleSystem(eventReader, command_buffer);
-}
-
-void increaseScoreSystemWrapper(pulse::event_reader<AppleEatenEvent> eventReader, flecs::world& world, flecs::query<Score>& scores)
-{
-	scores.each([&](Score& score)
-		{
-			increaseScoreSystem(eventReader, score);
-		});
-}
-
-void spawnAppleSystemWrapper(pulse::event_reader<AppleEatenEvent> eventReader, flecs::world& world, flecs::query<const SnakeBodies>& snakeQuery)
-{
-	pulse::command_buffer command_buffer(world);
-	auto borderQuery = pulse::singleton_query<const Border>(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	spawnAppleSystem(eventReader, command_buffer, snakeQuery, borderQuery, resourcesQuery);
-}
-
-void onGameOverSystemWrapper(pulse::event_reader<GameOverEvent> eventReader, flecs::world& world, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
-{
-	pulse::command_buffer command_buffer(world);
-	onGameOverSystem(eventReader, command_buffer, snakeQuery, appleQuery);
-}
 
 void _init_resource(Application& app, flecs::world& world)
 {
@@ -532,10 +477,6 @@ void _free_resource(Application& app)
 	app.materials.clear();
 }
 
-struct LogicPipeline {};
-struct PostLogicPipeline {};
-struct RenderPipeline {};
-
 void _init_world(Application& app, flecs::world& world, ecs_entity_t window_entity)
 {
 	auto cam = world.entity();
@@ -549,17 +490,13 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	app.logicPipeline = world.pipeline()
 		.with(flecs::System)
-		.with<LogicPipeline>()
+		.with<pulse::LogicPipeline>()
 		.build();
 
 	app.postLogicPipeline = world.pipeline()
 		.with(flecs::System)
-		.with<PostLogicPipeline>()
+		.with<pulse::PostLogicPipeline>()
 		.build();
-
-	world.system<const SnakeInput, Facing4W, SnakeMove>("SnakeInput")
-		.kind<LogicPipeline>()
-		.each(handleSnakeInputSystemWrapper);
 
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
@@ -568,79 +505,62 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	std::fill(app.systemContext.keyboardState.lastKeys.begin(), app.systemContext.keyboardState.lastKeys.end(), 0);
 	memcpy(app.systemContext.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
-	world.system<const Facing4W, SnakeMove>("ScheduleSnakeMove")
-		.kind<LogicPipeline>()
-		.each(scheduleSnakeMoveSystemWrapper);
-
-	world.system<SnakeBodies>("SyncSnakeBodyPosition")
-		.kind<LogicPipeline>()
-		.each(syncSnakeBodyPositionSystem);
-
 	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
 		.without<Rotation>()
-		.kind<PostLogicPipeline>()
+		.kind<pulse::PostLogicPipeline>()
 		.each(updateMatrixPositionOnly);
 
 	world.system<const Rotation, LocalTransform>("UpdateMatrixRotationOnly")
 		.without<Position>()
-		.kind<PostLogicPipeline>()
+		.kind<pulse::PostLogicPipeline>()
 		.each(updateMatrixRotationOnly);
 
 	world.system<const Position, const Rotation, LocalTransform>("UpdateMatrixPositionAndRotation")
-		.kind<PostLogicPipeline>()
+		.kind<pulse::PostLogicPipeline>()
 		.each(updateMatrixPositionAndRotation);
 
 	world.system<const Tree>("UpdateHierarchyTransform")
-		.kind<PostLogicPipeline>()
+		.kind<pulse::PostLogicPipeline>()
 		.each(updateHierarchyTransform);
 
 	world.system<const LocalTransform, WorldTransform>("UpdateNonHierarchyTrasform")
 		.without<Tree>()
-		.kind<PostLogicPipeline>()
+		.kind<pulse::PostLogicPipeline>()
 		.each(updateNonHierarchyTrasform);
-
-	app.snakeMoveIntentDispatcher.reg_entity(executeSnakeMoveSystemWrapper, world.query<const IsApple, const Position>());
-	app.snakeMoveIntentDispatcher.observe_entity(world);
-
-	app.appleEatenDispatcher.reg(eatAppleSystemWrapper);
-	app.appleEatenDispatcher.reg(increaseScoreSystemWrapper, world.query<Score>());
-	app.appleEatenDispatcher.reg(spawnAppleSystemWrapper, world.query<const SnakeBodies>());
-	app.appleEatenDispatcher.observe(world);
-
-	app.gameOverDispatcher.reg(onGameOverSystemWrapper, world.query<SnakeBodies>(), world.query<IsApple>());
-	app.gameOverDispatcher.observe(world);
 
 	app.renderPipeline = world.pipeline()
 		.with(flecs::System)
-		.with<RenderPipeline>()
+		.with<pulse::RenderPipeline>()
 		.build();
 
 	world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
-		.kind<RenderPipeline>()
+		.kind<pulse::RenderPipeline>()
 		.each(updateMoveInterpolation);
 
 	world.system<const Rotate, RotateInterpolation>("UpdateRotateInterpolation")
-		.kind<RenderPipeline>()
+		.kind<pulse::RenderPipeline>()
 		.each(updateRotateInterpolation);
 
 	world.system<const WorldTransform, ShowMatrix>("ShowMatrixStatic")
 		.without<MoveInterpolation, RotateInterpolation>()
-		.kind<RenderPipeline>()
+		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixStatic);
 
 	world.system<const WorldTransform, const MoveInterpolation, ShowMatrix>("ShowMatrixMoveOnly")
 		.without<RotateInterpolation>()
-		.kind<RenderPipeline>()
+		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixMoveOnly);
 
 	world.system<const WorldTransform, const RotateInterpolation, ShowMatrix>("ShowMatrixRotateOnly")
 		.without<MoveInterpolation>()
-		.kind<RenderPipeline>()
+		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixRotateOnly);
 
 	world.system<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>("ShowMatrixMoveAndRotate")
-		.kind<RenderPipeline>()
+		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixMoveAndRotate);
+
+	importModule(world, app.eventCenter);
 }
 
 static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)
