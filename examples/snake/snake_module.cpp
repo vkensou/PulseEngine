@@ -87,7 +87,7 @@ void restartSystemWrapper(pulse::event_reader<RestartEvent> restartEvent, flecs:
 	restartSystem(restartEvent, command_buffer, borderQuery, resourcesQuery);
 }
 
-static void registerSnakeSystems(pulse::ModuleContext* moduleContext)
+void importModule(pulse::ModuleContext* moduleContext)
 {
 	moduleContext->world.system("LoadSnakeResources")
 		.kind(moduleContext->initPipeline)
@@ -115,10 +115,7 @@ static void registerSnakeSystems(pulse::ModuleContext* moduleContext)
 		.kind(moduleContext->imguiPipeline)
 		.immediate()
 		.each(onImguiWrapper);
-}
 
-static void registerSnakeEvents(pulse::ModuleContext* moduleContext)
-{
 	auto snakeMoveIntentDispatcher = std::make_unique<pulse::EntityEventRegister<SnakeMoveIntentEvent, SnakeBodies>>();
 	snakeMoveIntentDispatcher->reg(executeSnakeMoveSystemWrapper, moduleContext->world.query<const IsApple, const Position>());
 	snakeMoveIntentDispatcher->observe(moduleContext->world);
@@ -140,10 +137,4 @@ static void registerSnakeEvents(pulse::ModuleContext* moduleContext)
 	restartDispatcher->reg(restartSystemWrapper);
 	restartDispatcher->observe(moduleContext->world);
 	moduleContext->eventManager->register_event(std::move(restartDispatcher));
-}
-
-void importModule(pulse::ModuleContext* moduleContext)
-{
-	registerSnakeSystems(moduleContext);
-	registerSnakeEvents(moduleContext);
 }
