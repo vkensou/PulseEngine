@@ -6,6 +6,11 @@
 #include <span>
 #include "imgui.h"
 
+struct MaterialData
+{
+	HMM_Vec4	albedo;
+};
+
 HMM_Vec3 toDelta(Direction4W direction)
 {
 	switch (direction)
@@ -288,6 +293,86 @@ Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const SnakeBodies& snake, const 
 	return Obstacle::None();
 }
 
+void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse::command_buffer& command_buffer)
+{
+	CGPUBlendAttachmentState blend_attachments = {
+		.enable = false,
+		.src_factor = CGPU_BLEND_FACTOR_ONE,
+		.dst_factor = CGPU_BLEND_FACTOR_ZERO,
+		.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
+		.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
+		.blend_op = CGPU_BLEND_OP_ADD,
+		.blend_alpha_op = CGPU_BLEND_OP_ADD,
+		.color_mask = CGPU_COLOR_MASK_RGBA,
+	};
+	CGPUBlendStateDescriptor blend_desc = {
+		.attachment_count = 1,
+		.p_attachments = &blend_attachments,
+		.alpha_to_coverage = false,
+		.independent_blend = false,
+	};
+	CGPUDepthStateDescriptor depth_desc = {
+		.depth_test = true,
+		.depth_write = true,
+		.depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
+		.stencil_test = false,
+	};
+	CGPURasterizerStateDescriptor rasterizer_state = {
+		.cull_mode = CGPU_CULL_MODE_BACK,
+		.front_face	= CGPU_FRONT_FACE_CLOCK_WISE,
+	};
+	auto shader = oval_create_shader(resourceManager.get().device, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
+
+	auto quad = oval_load_mesh(resourceManager.get().device, "media/models/Quad.obj");
+	int quadIndex = resourceManager.get().meshes.size();
+	resourceManager.get().meshes.push_back(quad);
+
+	int boardMatIndex, appleMatIndex, snakeHeadMatIndex, snakeBodyMatIndex;
+
+	{
+		auto material = oval_create_material(resourceManager.get().device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(1, 1, 1, 1),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		boardMatIndex = resourceManager.get().materials.size();
+		resourceManager.get().materials.push_back(material);
+	}
+
+	{
+		auto material = oval_create_material(resourceManager.get().device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(1, 0, 0, 0),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		appleMatIndex = resourceManager.get().materials.size();
+		resourceManager.get().materials.push_back(material);
+	}
+
+	{
+		auto material = oval_create_material(resourceManager.get().device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(1, 1, 0, 1),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		snakeHeadMatIndex = resourceManager.get().materials.size();
+		resourceManager.get().materials.push_back(material);
+	}
+
+	{
+		auto material = oval_create_material(resourceManager.get().device, shader);
+		auto materialData = MaterialData{
+			.albedo = HMM_V4(0, 1, 0, 1),
+		};
+		material->bindBuffer<MaterialData>(1, 0, materialData);
+		snakeBodyMatIndex = resourceManager.get().materials.size();
+		resourceManager.get().materials.push_back(material);
+	}
+
+	SnakeResources snakeResources = { .quad = quadIndex, .appleMat = appleMatIndex, .snakeHeadMat = snakeHeadMatIndex, .snakeBodyMat = snakeBodyMatIndex, .boardMat = boardMatIndex };
+	command_buffer.set_singleton<SnakeResources>(snakeResources);
+}
+
 void initSnakeGameSystem(pulse::command_buffer& command_buffer, pulse::singleton_query<const SnakeResources> resources)
 {
 	int up = 16;
@@ -295,8 +380,10 @@ void initSnakeGameSystem(pulse::command_buffer& command_buffer, pulse::singleton
 	int left = -20;
 	int right = 21;
 
+	command_buffer.defer_suspend();
 	Border border = createBorder(command_buffer, resources.get().quad, resources.get().boardMat, up, bottom, left, right);
 	createEntities(command_buffer, border, resources.get());
+	command_buffer.defer_resume();
 }
 
 void handleSnakeInputSystem(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Facing4W& direction, SnakeMove& move)

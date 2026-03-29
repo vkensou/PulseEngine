@@ -92,6 +92,9 @@ PULSE_ECS_EVENT
 struct RestartEvent {};
 
 PULSE_ECS_SYSTEM
+void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse::command_buffer& command_buffer);
+
+PULSE_ECS_SYSTEM
 void initSnakeGameSystem(pulse::command_buffer& command_buffer, pulse::singleton_query<const SnakeResources> resources);
 
 PULSE_ECS_SYSTEM

@@ -15,13 +15,6 @@
 
 constexpr ecs_entity_t kNullEntity = 0;
 
-struct SystemContext
-{
-	KeyboardState keyboardState;
-	oval_update_context updateContext;
-	oval_render_context renderContext;
-};
-
 struct Tree
 {
 	ecs_entity_t parent{ kNullEntity };
@@ -362,13 +355,13 @@ struct Application
 {
 	std::unique_ptr<oval_device_t, decltype(&oval_free_device)> device;
 	ecs_entity_t window1{};
-	std::vector<HGEGraphics::Mesh*> meshes;
-	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
 
 	SystemContext systemContext;
 
+	flecs::entity initPipeline;
+	flecs::entity_t initPipelineId;
 	flecs::entity updatePipeline;
 	flecs::entity_t updatePipelineId;
 	flecs::entity postUpdatePipeline;
@@ -391,99 +384,11 @@ struct Application
 	}
 };
 
-
-
-void _init_resource(Application& app, flecs::world& world)
-{
-	CGPUBlendAttachmentState blend_attachments = {
-		.enable = false,
-		.src_factor = CGPU_BLEND_FACTOR_ONE,
-		.dst_factor = CGPU_BLEND_FACTOR_ZERO,
-		.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
-		.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
-		.blend_op = CGPU_BLEND_OP_ADD,
-		.blend_alpha_op = CGPU_BLEND_OP_ADD,
-		.color_mask = CGPU_COLOR_MASK_RGBA,
-	};
-	CGPUBlendStateDescriptor blend_desc = {
-		.attachment_count = 1,
-		.p_attachments = &blend_attachments,
-		.alpha_to_coverage = false,
-		.independent_blend = false,
-	};
-	CGPUDepthStateDescriptor depth_desc = {
-		.depth_test = true,
-		.depth_write = true,
-		.depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
-		.stencil_test = false,
-	};
-	CGPURasterizerStateDescriptor rasterizer_state = {
-		.cull_mode = CGPU_CULL_MODE_BACK,
-		.front_face	= CGPU_FRONT_FACE_CLOCK_WISE,
-	};
-	auto shader = oval_create_shader(app.device.get(), "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state);
-
-	auto quad = oval_load_mesh(app.device.get(), "media/models/Quad.obj");
-	int quadIndex = app.meshes.size();
-	app.meshes.push_back(quad);
-
-	int boardMatIndex, appleMatIndex, snakeHeadMatIndex, snakeBodyMatIndex;
-
-	{
-		auto material = oval_create_material(app.device.get(), shader);
-		auto materialData = MaterialData{
-			.albedo = HMM_V4(1, 1, 1, 1),
-		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
-		boardMatIndex = app.materials.size();
-		app.materials.push_back(material);
-	}
-
-	{
-		auto material = oval_create_material(app.device.get(), shader);
-		auto materialData = MaterialData{
-			.albedo = HMM_V4(1, 0, 0, 0),
-		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
-		appleMatIndex = app.materials.size();
-		app.materials.push_back(material);
-	}
-
-	{
-		auto material = oval_create_material(app.device.get(), shader);
-		auto materialData = MaterialData{
-			.albedo = HMM_V4(1, 1, 0, 1),
-		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
-		snakeHeadMatIndex = app.materials.size();
-		app.materials.push_back(material);
-	}
-
-	{
-		auto material = oval_create_material(app.device.get(), shader);
-		auto materialData = MaterialData{
-			.albedo = HMM_V4(0, 1, 0, 1),
-		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
-		snakeBodyMatIndex = app.materials.size();
-		app.materials.push_back(material);
-	}
-
-	auto snakeApp = world.singleton<pulse::SingleHolder>();
-	snakeApp.add<pulse::EventTag>();
-	snakeApp.set<SnakeResources>({ .quad = quadIndex, .appleMat = appleMatIndex, .snakeHeadMat = snakeHeadMatIndex, .snakeBodyMat = snakeBodyMatIndex, .boardMat = boardMatIndex });
-
-	pulse::command_buffer command_buffer(world);
-	initSnakeGameSystem(command_buffer, pulse::singleton_query<const SnakeResources>(world));
-}
-
-void _free_resource(Application& app)
-{
-	app.materials.clear();
-}
-
 void _init_world(Application& app, flecs::world& world, ecs_entity_t window_entity)
 {
+	auto snakeApp = world.singleton<pulse::SingleHolder>();
+	snakeApp.add<pulse::EventTag>();
+
 	auto cam = world.entity();
 	auto cameraParentMat = HMM_M4_Identity;
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0 + 0.5, 0 + 0.5, -38));
@@ -493,13 +398,19 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	cam.set<WorldTransform>({ .value = cameraWMat })
 		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
 
-	app.updatePipelineId = flecs::_::type<pulse::LogicPipeline>::id(world);
+	app.initPipelineId = flecs::_::type<pulse::InitPipeline>::id(world);
+	app.initPipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.initPipelineId)
+		.build();
+
+	app.updatePipelineId = flecs::_::type<pulse::UpdatePipeline>::id(world);
 	app.updatePipeline = world.pipeline()
 		.with(flecs::System)
 		.with(app.updatePipelineId)
 		.build();
 
-	app.postUpdatePipelineId = flecs::_::type<pulse::PostLogicPipeline>::id(world);
+	app.postUpdatePipelineId = flecs::_::type<pulse::PostUpdatePipeline>::id(world);
 	app.postUpdatePipeline = world.pipeline()
 		.with(flecs::System)
 		.with(app.postUpdatePipelineId)
@@ -514,25 +425,25 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
 		.without<Rotation>()
-		.kind<pulse::PostLogicPipeline>()
+		.kind<pulse::PostUpdatePipeline>()
 		.each(updateMatrixPositionOnly);
 
 	world.system<const Rotation, LocalTransform>("UpdateMatrixRotationOnly")
 		.without<Position>()
-		.kind<pulse::PostLogicPipeline>()
+		.kind<pulse::PostUpdatePipeline>()
 		.each(updateMatrixRotationOnly);
 
 	world.system<const Position, const Rotation, LocalTransform>("UpdateMatrixPositionAndRotation")
-		.kind<pulse::PostLogicPipeline>()
+		.kind<pulse::PostUpdatePipeline>()
 		.each(updateMatrixPositionAndRotation);
 
 	world.system<const Tree>("UpdateHierarchyTransform")
-		.kind<pulse::PostLogicPipeline>()
+		.kind<pulse::PostUpdatePipeline>()
 		.each(updateHierarchyTransform);
 
 	world.system<const LocalTransform, WorldTransform>("UpdateNonHierarchyTrasform")
 		.without<Tree>()
-		.kind<pulse::PostLogicPipeline>()
+		.kind<pulse::PostUpdatePipeline>()
 		.each(updateNonHierarchyTrasform);
 
 	app.renderPipelineId = flecs::_::type<pulse::RenderPipeline>::id(world);
@@ -576,6 +487,7 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	pulse::ModuleContext moduleContext {
 		.world = world,
+		.initPipeline = app.initPipelineId,
 		.updatePipeline = app.updatePipelineId,
 		.postUpdatePipeline = app.postUpdatePipelineId,
 		.renderPipeline = app.renderPipelineId,
@@ -583,6 +495,8 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.eventManager = &app.eventCenter,
 	};
 	importModule(&moduleContext);
+
+	world.run_pipeline(app.initPipeline);
 }
 
 static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)
@@ -747,7 +661,7 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 				{
 					auto& obj = resolved_passdata->view->renderObjects[i];
 					set_global_buffer_with_offset_size(encoder, resolved_passdata->object_ubo_handle, 2, 0, i * sizeof(ObjectData), sizeof(ObjectData));
-					draw(encoder, app.materials[obj.material], app.meshes[obj.mesh]);
+					draw(encoder, app.systemContext.resourceManager.materials[obj.material], app.systemContext.resourceManager.meshes[obj.mesh]);
 				}
 			}, sizeof(MainPassPassData), (void**)&passdata);
 		passdata->app = &app;
@@ -844,6 +758,7 @@ int SDL_main(int argc, char *argv[])
 		.enable_gpu_validation = true,
 	};
 	app.device.reset(oval_create_device(&device_descriptor));
+	app.systemContext.resourceManager.device = app.device.get();
 
 	if (!app.device)
 		return -1;
@@ -863,11 +778,9 @@ int SDL_main(int argc, char *argv[])
 	flecs::world world = flecs::world(oval_get_world(app.device.get()));
 	world.set_ctx(&app.systemContext);
 
-	_init_resource(app, world);
 	_init_world(app, world, app.window1);
 		
 	oval_runloop(app.device.get());
-	_free_resource(app);
 	if (app.window1 != 0)
 		oval_free_window_entity(app.device.get(), app.window1);
 

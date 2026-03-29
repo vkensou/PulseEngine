@@ -4,6 +4,14 @@
 #include "handmademath.h"
 #include "ecsext.hpp"
 #include <vector>
+#include <memory>
+
+struct ResourceManager
+{
+	oval_device_t* device;
+	std::vector<HGEGraphics::Mesh*> meshes;
+	std::vector<HGEGraphics::Material*> materials;
+};
 
 struct KeyboardState
 {
@@ -55,4 +63,12 @@ struct Camera
 	float farPlane;
 	int width;
 	int height;
+};
+
+struct SystemContext
+{
+	KeyboardState keyboardState;
+	oval_update_context updateContext;
+	oval_render_context renderContext;
+	ResourceManager resourceManager;
 };

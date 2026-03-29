@@ -1,13 +1,21 @@
 #include "snake_module.h"
-//#include "predefine_components.h"
-//#include "framework.h"
 #include "snake.h"
 
-struct SystemContext
+void loadSnakeResourcesSystemWrapper(flecs::iter& it)
 {
-	KeyboardState keyboardState;
-	oval_update_context updateContext;
-};
+	auto world = it.world();
+	pulse::command_buffer command_buffer(world);
+    SystemContext& app = *(SystemContext*)world.get_ctx();
+	loadSnakeResourcesSystem(pulse::res<ResourceManager>(app.resourceManager), command_buffer);
+}
+
+void initSnakeGameSystemWrapper(flecs::iter& it)
+{
+	auto world = it.world();
+	pulse::command_buffer command_buffer(world);
+	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	initSnakeGameSystem(command_buffer, resourcesQuery);
+}
 
 void handleSnakeInputSystemWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Facing4W& direction, SnakeMove& move)
 {
@@ -81,6 +89,16 @@ void restartSystemWrapper(pulse::event_reader<RestartEvent> restartEvent, flecs:
 
 static void registerSnakeSystems(pulse::ModuleContext* moduleContext)
 {
+	moduleContext->world.system("LoadSnakeResources")
+		.kind(moduleContext->initPipeline)
+		.immediate()
+		.run(loadSnakeResourcesSystemWrapper);
+
+	moduleContext->world.system("SnakeInit")
+		.kind(moduleContext->initPipeline)
+		.immediate()
+		.run(initSnakeGameSystemWrapper);
+
 	moduleContext->world.system<const SnakeInput, Facing4W, SnakeMove>("SnakeInput")
 		.kind(moduleContext->updatePipeline)
 		.each(handleSnakeInputSystemWrapper);
