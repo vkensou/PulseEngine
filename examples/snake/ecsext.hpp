@@ -337,17 +337,6 @@ namespace pulse
 		std::vector<std::unique_ptr<EventRegisterBase>> eventRegisters;
 	};
 
-	struct ModuleContext
-	{
-		flecs::world world;
-		flecs::entity_t initPipeline;
-		flecs::entity_t updatePipeline;
-		flecs::entity_t postUpdatePipeline;
-		flecs::entity_t renderPipeline;
-		flecs::entity_t imguiPipeline;
-		pulse::EventCenter* eventManager;
-	};
-
 	template<typename T>
 	void registerResource(flecs::world& world, const char* name)
 	{

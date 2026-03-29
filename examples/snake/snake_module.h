@@ -1,5 +1,5 @@
 #pragma once
 
-#include "ecsext.hpp"
+#include "module_importer.h"
 
 void importModule(pulse::ModuleContext* moduleContext);
