@@ -13,7 +13,7 @@
 // ECS事件，Event后缀
 #define PULSE_ECS_EVENT
 // ECS系统，System后缀
-#define PULSE_ECS_SYSTEM
+#define PULSE_ECS_SYSTEM(...) 
 // ECS外部资源
 #define PULSE_ECS_RESOURCE
 
