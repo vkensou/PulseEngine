@@ -15,6 +15,13 @@
 
 constexpr ecs_entity_t kNullEntity = 0;
 
+struct SystemContext
+{
+	KeyboardState keyboardState;
+	oval_update_context updateContext;
+	oval_render_context renderContext;
+};
+
 struct Tree
 {
 	ecs_entity_t parent{ kNullEntity };
@@ -236,18 +243,6 @@ struct ViewRenderPacket
 	std::pmr::vector<ObjectData> renderData;
 };
 
-void doSimpleHarmonicMove(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, Position& position)
-{
-	const SystemContext& context = *it.param<SystemContext>();
-	position.value = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
-}
-
-void doRotation(flecs::iter& it, size_t i, const Rotate& rotate, Rotation& rotation)
-{
-	const SystemContext& context = *it.param<SystemContext>();
-	rotation.value = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
-}
-
 void updateMatrixPositionOnly(const Position& position, LocalTransform& matrix)
 {
 	matrix.model = HMM_Translate(position.value);
@@ -304,17 +299,19 @@ void updateNonHierarchyTrasform(const LocalTransform& local, WorldTransform& wor
 
 void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
 {
-	const SystemContext& context = *it.param<SystemContext>();
+	const SystemContext& app = *it.ctx<SystemContext>();
+	const oval_render_context& context = app.renderContext;
 	auto pos1 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
-	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.interpolation_time)) + simpleHarmonic.base;
+	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.render_interpolation_time)) + simpleHarmonic.base;
 	moveInterp.value = pos2 - pos1;
 }
 
 void updateRotateInterpolation(flecs::iter& it, size_t i, const Rotate& rotate, RotateInterpolation& rotateInterp)
 {
-	const SystemContext& context = *it.param<SystemContext>();
+	const SystemContext& app = *it.ctx<SystemContext>();
+	const oval_render_context& context = app.renderContext;
 	auto rot1 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
-	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.interpolation_time) * rotate.speed);
+	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.render_interpolation_time) * rotate.speed);
 	rotateInterp.value = HMM_MulQ(HMM_InvQ(rot2), rot1);
 }
 
@@ -370,26 +367,11 @@ struct Application
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
 
-	KeyboardState keyboardState;
+	SystemContext systemContext;
 
-	flecs::system systemDoSimpleHarmonicMove;
-	flecs::system systemDoRotation;
-	flecs::system systemUpdateMatrixPositionOnly;
-	flecs::system systemUpdateMatrixRotationOnly;
-	flecs::system systemUpdateMatrixPositionAndRotation;
-	flecs::system systemUpdateHierarchyTransform;
-	flecs::system systemUpdateNonHierarchyTrasform;
-
-	flecs::system handleSnakeInputSystem;
-	flecs::system scheduleSnakeMoveSystem;
-	flecs::system syncSnakeBodyPositionSystem;
-
-	flecs::system systemUpdateMoveInterpolation;
-	flecs::system systemUpdateRotateInterpolation;
-	flecs::system systemShowMatrixStatic;
-	flecs::system systemShowMatrixMoveOnly;
-	flecs::system systemShowMatrixRotateOnly;
-	flecs::system systemShowMatrixMoveAndRotate;
+	flecs::entity logicPipeline;
+	flecs::entity postLogicPipeline;
+	flecs::entity renderPipeline;
 
 	pulse::EntityEventRegister<SnakeMoveIntentEvent, SnakeBodies> snakeMoveIntentDispatcher;
 	pulse::EventRegister<AppleEatenEvent> appleEatenDispatcher;
@@ -409,18 +391,18 @@ struct Application
 void handleSnakeInputSystemWrapper(flecs::iter& it, size_t i, const SnakeInput& input, Facing4W& direction, SnakeMove& move)
 {
 	auto world = it.world();
-	Application& app = *(Application*)world.get_ctx();
+	SystemContext& app = *(SystemContext*)world.get_ctx();
 	handleSnakeInputSystem(pulse::res<const KeyboardState>(app.keyboardState), input, direction, move);
 }
 
 void scheduleSnakeMoveSystemWrapper(flecs::iter& it, size_t i, const Facing4W& direction, SnakeMove& move)
 {
-	auto entity = it.entity(i);
-	const SystemContext& context = *it.param<SystemContext>();
-	pulse::res<const SystemContext> systemContext(context);
 	auto world = it.world();
+	auto entity = it.entity(i);
+	SystemContext& app = *(SystemContext*)world.get_ctx();
+	pulse::res<const oval_update_context> updateContext(app.updateContext);
 	auto snakeMoveWriter = pulse::event_writer<SnakeMoveIntentEvent>(world);
-	scheduleSnakeMoveSystem(systemContext, snakeMoveWriter, entity, direction, move);
+	scheduleSnakeMoveSystem(updateContext, snakeMoveWriter, entity, direction, move);
 }
 
 void executeSnakeMoveSystemWrapper(pulse::event_reader<SnakeMoveIntentEvent> eventReader, flecs::world& world, flecs::query<const IsApple, const Position> apple, SnakeBodies& snake)
@@ -550,6 +532,10 @@ void _free_resource(Application& app)
 	app.materials.clear();
 }
 
+struct LogicPipeline {};
+struct PostLogicPipeline {};
+struct RenderPipeline {};
+
 void _init_world(Application& app, flecs::world& world, ecs_entity_t window_entity)
 {
 	auto cam = world.entity();
@@ -561,45 +547,57 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	cam.set<WorldTransform>({ .value = cameraWMat })
 		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
 
-	app.systemDoSimpleHarmonicMove = world.system<const SimpleHarmonic, Position>("DoSimpleHarmonicMove")
-		.each(doSimpleHarmonicMove);
+	app.logicPipeline = world.pipeline()
+		.with(flecs::System)
+		.with<LogicPipeline>()
+		.build();
 
-	app.systemDoRotation = world.system<const Rotate, Rotation>("DoRotation")
-		.each(doRotation);
+	app.postLogicPipeline = world.pipeline()
+		.with(flecs::System)
+		.with<PostLogicPipeline>()
+		.build();
 
-	app.systemUpdateMatrixPositionOnly = world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
-		.without<Rotation>()
-		.each(updateMatrixPositionOnly);
-
-	app.systemUpdateMatrixRotationOnly = world.system<const Rotation, LocalTransform>("UpdateMatrixRotationOnly")
-		.without<Position>()
-		.each(updateMatrixRotationOnly);
-
-	app.systemUpdateMatrixPositionAndRotation = world.system<const Position, const Rotation, LocalTransform>("UpdateMatrixPositionAndRotation")
-		.each(updateMatrixPositionAndRotation);
-
-	app.systemUpdateHierarchyTransform = world.system<const Tree>("UpdateHierarchyTransform")
-		.each(updateHierarchyTransform);
-
-	app.systemUpdateNonHierarchyTrasform = world.system<const LocalTransform, WorldTransform>("UpdateNonHierarchyTrasform")
-		.without<Tree>()
-		.each(updateNonHierarchyTrasform);
-
-	app.handleSnakeInputSystem = world.system<const SnakeInput, Facing4W, SnakeMove>("SnakeInput")
+	world.system<const SnakeInput, Facing4W, SnakeMove>("SnakeInput")
+		.kind<LogicPipeline>()
 		.each(handleSnakeInputSystemWrapper);
 
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	app.keyboardState.lastKeys.resize(numKeys);
-	app.keyboardState.currentKeys.resize(numKeys);
-	std::fill(app.keyboardState.lastKeys.begin(), app.keyboardState.lastKeys.end(), 0);
-	memcpy(app.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+	app.systemContext.keyboardState.lastKeys.resize(numKeys);
+	app.systemContext.keyboardState.currentKeys.resize(numKeys);
+	std::fill(app.systemContext.keyboardState.lastKeys.begin(), app.systemContext.keyboardState.lastKeys.end(), 0);
+	memcpy(app.systemContext.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
-	app.scheduleSnakeMoveSystem = world.system<const Facing4W, SnakeMove>("SystemSnakeMoveTrigger")
+	world.system<const Facing4W, SnakeMove>("ScheduleSnakeMove")
+		.kind<LogicPipeline>()
 		.each(scheduleSnakeMoveSystemWrapper);
 
-	app.syncSnakeBodyPositionSystem = world.system<SnakeBodies>()
+	world.system<SnakeBodies>("SyncSnakeBodyPosition")
+		.kind<LogicPipeline>()
 		.each(syncSnakeBodyPositionSystem);
+
+	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
+		.without<Rotation>()
+		.kind<PostLogicPipeline>()
+		.each(updateMatrixPositionOnly);
+
+	world.system<const Rotation, LocalTransform>("UpdateMatrixRotationOnly")
+		.without<Position>()
+		.kind<PostLogicPipeline>()
+		.each(updateMatrixRotationOnly);
+
+	world.system<const Position, const Rotation, LocalTransform>("UpdateMatrixPositionAndRotation")
+		.kind<PostLogicPipeline>()
+		.each(updateMatrixPositionAndRotation);
+
+	world.system<const Tree>("UpdateHierarchyTransform")
+		.kind<PostLogicPipeline>()
+		.each(updateHierarchyTransform);
+
+	world.system<const LocalTransform, WorldTransform>("UpdateNonHierarchyTrasform")
+		.without<Tree>()
+		.kind<PostLogicPipeline>()
+		.each(updateNonHierarchyTrasform);
 
 	app.snakeMoveIntentDispatcher.reg_entity(executeSnakeMoveSystemWrapper, world.query<const IsApple, const Position>());
 	app.snakeMoveIntentDispatcher.observe_entity(world);
@@ -612,25 +610,36 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	app.gameOverDispatcher.reg(onGameOverSystemWrapper, world.query<SnakeBodies>(), world.query<IsApple>());
 	app.gameOverDispatcher.observe(world);
 
-	app.systemUpdateMoveInterpolation = world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
+	app.renderPipeline = world.pipeline()
+		.with(flecs::System)
+		.with<RenderPipeline>()
+		.build();
+
+	world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
+		.kind<RenderPipeline>()
 		.each(updateMoveInterpolation);
 
-	app.systemUpdateRotateInterpolation = world.system<const Rotate, RotateInterpolation>("UpdateRotateInterpolation")
+	world.system<const Rotate, RotateInterpolation>("UpdateRotateInterpolation")
+		.kind<RenderPipeline>()
 		.each(updateRotateInterpolation);
 
-	app.systemShowMatrixStatic = world.system<const WorldTransform, ShowMatrix>("ShowMatrixStatic")
+	world.system<const WorldTransform, ShowMatrix>("ShowMatrixStatic")
 		.without<MoveInterpolation, RotateInterpolation>()
+		.kind<RenderPipeline>()
 		.each(updateShowMatrixStatic);
 
-	app.systemShowMatrixMoveOnly = world.system<const WorldTransform, const MoveInterpolation, ShowMatrix>("ShowMatrixMoveOnly")
+	world.system<const WorldTransform, const MoveInterpolation, ShowMatrix>("ShowMatrixMoveOnly")
 		.without<RotateInterpolation>()
+		.kind<RenderPipeline>()
 		.each(updateShowMatrixMoveOnly);
 
-	app.systemShowMatrixRotateOnly = world.system<const WorldTransform, const RotateInterpolation, ShowMatrix>("ShowMatrixRotateOnly")
+	world.system<const WorldTransform, const RotateInterpolation, ShowMatrix>("ShowMatrixRotateOnly")
 		.without<MoveInterpolation>()
+		.kind<RenderPipeline>()
 		.each(updateShowMatrixRotateOnly);
 
-	app.systemShowMatrixMoveAndRotate = world.system<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>("ShowMatrixMoveAndRotate")
+	world.system<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>("ShowMatrixMoveAndRotate")
+		.kind<RenderPipeline>()
 		.each(updateShowMatrixMoveAndRotate);
 }
 
@@ -638,26 +647,14 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 {
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	assert(numKeys == app.keyboardState.lastKeys.size());
-	assert(numKeys == app.keyboardState.currentKeys.size());
-	memcpy(app.keyboardState.lastKeys.data(), app.keyboardState.currentKeys.data(), numKeys);
-	memcpy(app.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+	assert(numKeys == app.systemContext.keyboardState.lastKeys.size());
+	assert(numKeys == app.systemContext.keyboardState.currentKeys.size());
+	memcpy(app.systemContext.keyboardState.lastKeys.data(), app.systemContext.keyboardState.currentKeys.data(), numKeys);
+	memcpy(app.systemContext.keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
-	SystemContext context = SystemContext{ update_context.delta_time, update_context.time_since_startup, update_context.delta_time_double, update_context.time_since_startup_double, 0, 0 };
-	app.systemDoSimpleHarmonicMove.run(0, &context);
-	app.systemDoRotation.run(0, &context);
-	auto snakeApp = world.singleton<pulse::SingleHolder>();
-	if (snakeApp.enabled())
-	{
-		app.handleSnakeInputSystem.run(0, &context);
-		app.scheduleSnakeMoveSystem.run(0, &context);
-		app.syncSnakeBodyPositionSystem.run(0, &context);
-	}
-	app.systemUpdateMatrixPositionOnly.run(0, &context);
-	app.systemUpdateMatrixRotationOnly.run(0, &context);
-	app.systemUpdateMatrixPositionAndRotation.run(0, &context);
-	app.systemUpdateHierarchyTransform.run(0, &context);
-	app.systemUpdateNonHierarchyTrasform.run(0, &context);
+	app.systemContext.updateContext = update_context;
+	world.run_pipeline(app.logicPipeline, update_context.delta_time);
+	world.run_pipeline(app.postLogicPipeline, update_context.delta_time);
 }
 
 std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
@@ -694,13 +691,8 @@ std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, st
 
 void interpolate(Application& app, flecs::world& world, const oval_render_context& render_context)
 {
-	SystemContext context = SystemContext{ render_context.delta_time, render_context.time_since_startup, render_context.delta_time_double, render_context.time_since_startup_double, render_context.render_interpolation_time, render_context.render_interpolation_time_double };
-	app.systemUpdateMoveInterpolation.run(0, &context);
-	app.systemUpdateRotateInterpolation.run(0, &context);
-	app.systemShowMatrixStatic.run(0, &context);
-	app.systemShowMatrixMoveOnly.run(0, &context);
-	app.systemShowMatrixRotateOnly.run(0, &context);
-	app.systemShowMatrixMoveAndRotate.run(0, &context);
+	app.systemContext.renderContext = render_context;
+	world.run_pipeline(app.renderPipeline, render_context.delta_time);
 }
 
 void enumViews(Application& app, flecs::world& world, FrameRenderPacket& currentFramePack)
@@ -941,7 +933,7 @@ int SDL_main(int argc, char *argv[])
 	app.window1 = oval_create_window_entity(app.device.get(), &window_descriptor);
 
 	flecs::world world = flecs::world(oval_get_world(app.device.get()));
-	world.set_ctx(&app);
+	world.set_ctx(&app.systemContext);
 
 	_init_resource(app, world);
 	_init_world(app, world, app.window1);

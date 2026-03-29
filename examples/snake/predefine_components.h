@@ -1,18 +1,9 @@
 #pragma once
 
+#include "framework.h"
 #include "handmademath.h"
 #include "ecsext.hpp"
 #include <vector>
-
-struct SystemContext
-{
-	float delta_time;
-	float time_since_startup;
-	double delta_time_double;
-	double time_since_startup_double;
-	float interpolation_time;
-	double interpolation_time_double;
-};
 
 struct KeyboardState
 {
