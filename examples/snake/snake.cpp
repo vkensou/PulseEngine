@@ -399,9 +399,9 @@ void handleSnakeInputSystem(pulse::res<const KeyboardState> keyboardState, const
 	}
 }
 
-void scheduleSnakeMoveSystem(pulse::res<const oval_update_context> context, pulse::event_writer<SnakeMoveIntentEvent> snakeMoveWriter, flecs::entity entity, const Facing4W& direction, SnakeMove& move)
+void scheduleSnakeMoveSystem(pulse::res<const UpdateContext> context, pulse::event_writer<SnakeMoveIntentEvent> snakeMoveWriter, flecs::entity entity, const Facing4W& direction, SnakeMove& move)
 {	
-	move.lastTime += context.get().delta_time;
+	move.lastTime += context.get().value.delta_time;
 	if (move.lastTime < move.interval)
 		return;
 
