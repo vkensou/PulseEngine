@@ -1266,7 +1266,6 @@ void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGra
 
 void on_post_update(oval_device_t* device, oval_update_context update_context)
 {
-	oval_sync_window_component_and_raw_handle(device);
 }
 
 extern "C"
@@ -1325,8 +1324,10 @@ int SDL_main(int argc, char *argv[])
 		
 	oval_runloop(app.device);
 	_free_resource(app);
-	oval_free_window_entity(app.device, app.window2);
-	oval_free_window_entity(app.device, app.window1);
+	if (app.window2 != 0)
+		oval_free_window_entity(app.device, app.window2);
+	if (app.window1 != 0)
+		oval_free_window_entity(app.device, app.window1);
 	oval_free_device(app.device);
 
 	return 0;
