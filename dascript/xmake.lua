@@ -1,11 +1,3 @@
-if is_plat("windows") then
-    add_defines("DAS_ENABLE_EXCEPTIONS=1")
-    add_defines("_CRT_SECURE_NO_WARNINGS")
-    add_cxflags("/utf-8", "/bigobj")
-    add_mxflags("/MP")
-elseif is_plat("unix") then
-    add_cxflags("-Wno-strict-aliasing")
-end
 
 add_requires("fmt <12.0.0")
 add_requires("uriparser")
@@ -27,8 +19,13 @@ target("libDaScript")
     add_packages("fmt")
     add_packages("uriparser")
     if is_plat("windows") then
+        add_defines("DAS_ENABLE_EXCEPTIONS=1")
+        add_defines("_CRT_SECURE_NO_WARNINGS")
+        add_cxflags("/utf-8", "/bigobj")
+        add_mxflags("/MP")
         add_links("dbghelp")
-    elseif is_plat("linux") or is_plat("macosx") then
+    elseif is_plat("unix") then
+        add_cxflags("-Wno-strict-aliasing")
         add_links("dl")
     end
 
