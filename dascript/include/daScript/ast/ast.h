@@ -259,7 +259,9 @@ namespace das
         FieldDeclarationRef findFieldRef ( const string & name ) const;
         int getSizeOf() const;
         uint64_t getSizeOf64() const;
+        uint64_t getSizeOf64(bool & failed) const;
         int getAlignOf() const;
+        int getAlignOfFailed(bool & failed) const;
         __forceinline bool canCopy() const { return canCopy(false); }
         bool canCopy(bool tempMatters) const;
         bool canCloneFromConst() const;
@@ -311,7 +313,6 @@ namespace das
                 bool    privateStructure : 1;
                 bool    macroInterface : 1;
                 bool    sealed : 1;
-                bool    skipLockCheck : 1;
                 bool    circular : 1;
                 bool    generator : 1;
                 bool    hasStaticMembers : 1;
@@ -578,9 +579,10 @@ namespace das
         virtual bool isYetAnotherVectorTemplate() const { return false; }   // has [], there is length(x), data is linear in memory
         // factory
         virtual void * factory () const { return nullptr; }
-        // new and delete, jit versions
+        // new, delete, and clone, jit versions
         virtual void * jitGetNew () const { return nullptr; }
         virtual void * jitGetDelete () const { return nullptr; }
+        virtual void * jitGetClone () const { return nullptr; }
         uint64_t ownSemanticHash = 0;
     };
 
@@ -952,7 +954,7 @@ namespace das
                 bool    lateInit : 1;
                 bool    requestJit : 1;
                 bool    unsafeOutsideOfFor : 1;
-                bool    skipLockCheck : 1;
+                // empty spot
                 bool    safeImplicit : 1;
 
                 bool    deprecated : 1;
@@ -1008,6 +1010,7 @@ namespace das
         uint64_t hash = 0;
         uint64_t aotHash = 0;
 
+        int32_t optimizationRound = 0;
         bool isFullyInferred = false;
         string inferredSource;
 
@@ -1022,6 +1025,7 @@ namespace das
     uint64_t getFunctionHash ( Function * fun, SimNode * node, Context * context );
 
     uint64_t getFunctionAotHash ( const Function * fun );
+    string getAotHashComment ( const Function * fun );
     uint64_t getVariableListAotHash ( const vector<const Variable *> & globs, uint64_t initHash );
 
     class DAS_API BuiltInFunction : public Function {
@@ -1255,7 +1259,6 @@ namespace das
                 bool    doNotAllowUnsafe : 1;
                 bool    wasParsedNameless : 1;
                 bool    visibleEverywhere : 1;
-                bool    skipLockCheck : 1;
                 bool    allowPodInscope : 1;
             };
             uint32_t        moduleFlags = 0;
@@ -1483,7 +1486,6 @@ namespace das
         bool        aot_macros = false;                 // enables aot of macro code (like 'qmacro_block')
         bool        paranoid_validation = false;        // todo
         bool        cross_platform = false;             // aot supports platform independent mode
-        string      aot_module_path;
         string      aot_result;                         // Path where to store cpp-result of aot
     // End aot config
         bool        completion = false;                 // this code is being compiled for 'completion' mode
@@ -1495,6 +1497,7 @@ namespace das
         int32_t     always_report_candidates_threshold = 6; // always report candidates if there are less than this number
     // infer passes
         /*option*/ int32_t     max_infer_passes = 50;              // maximum number of infer passes
+        /*option*/ int32_t     max_call_depth = 50;                // maximum call expression nesting depth during inference
         bool verify_infer_types = false;                       // verify inferred types (to see if there is internal consistency). note - this adds errors to failing tests
     // memory
         /*option*/ uint32_t    stack = 16*1024;                    // 0 for unique stack
@@ -1513,8 +1516,7 @@ namespace das
     // rtti
         /*option*/ bool rtti = false;                              // create extended RTTI
     // language
-        /*option*/ bool unsafe_table_lookup = true;                // table lookup (tab[key]) to be unsafe
-        /*option*/ bool skip_lock_check = false;                   // skip all lock check
+        /*option*/ bool unsafe_table_lookup = false;                // table lookup (tab[key]) to be unsafe
         /*option*/ bool relaxed_pointer_const = false;             // allow const correctness to be relaxed on pointers
         bool version_2_syntax = false;                  // use syntax version 2
         bool gen2_make_syntax = false;                  // only new make syntax is allowed (no [[...]] or [{...}])
@@ -1547,7 +1549,8 @@ namespace das
         /*option*/ bool no_writing_to_nameless = true;             // if true, then writing to nameless variables (intermediate on the stack) is not allowed
         /*option*/ bool always_call_super = false;                  // if true, then super() needs to be called from every class constructor
     // environment
-        /*options*/ bool no_optimizations = false;                  // disable optimizations, regardless of settings
+        /*option*/ bool no_optimizations = false;                  // disable optimizations, regardless of settings
+        /*option*/ bool no_infer_time_folding = false;             // disable infer-time constant folding
         bool fail_on_no_aot = true;                     // AOT link failure is error
         bool fail_on_lack_of_aot_export = false;        // remove_unused_symbols = false is missing in the module, which is passed to AOT
         /*option*/ bool log_compile_time = false;                  // if true, then compile time will be printed at the end of the compilation
@@ -1563,31 +1566,31 @@ namespace das
         //      3. context always has context mutex
         bool debugger = false;
         /*option*/ bool debug_infer_flag = false;  // set this to true to debug macros for missing "not_inferred"
-        string debug_module;
     // profiler
         // only enabled if profiler is disabled
         // when enabled
         //      1. disables [fastcall]
         bool profiler = false;
-        string profile_module;
     // pinvoke
         /*option*/ bool threadlock_context = false;               // has context mutex
     // jit
         bool jit_enabled = false;                // enable JIT
-        string jit_module;                       // path to jit module
         // todo: add this params to serialization?
         bool jit_jit_all_functions = true;       // JIT all functions by default
         bool jit_debug_info = false;             // Add debug info to generate binary code
         bool jit_dll_mode = true;                // Create if missing and reuse DLL or JIT compile
         bool jit_exe_mode = false;                // Create executable
         bool jit_emit_prologue = false;          // Emit prologue for all functions and blocks
-        string jit_output_path;                  // Folder to store compiled dll's. By default it'll be _das_root_/jitted_scripts
+        string jit_output_path;                  // Folder to store compiled dll's. By default it'll be _das_root_/.jitted_scripts
         int32_t jit_opt_level = 3u;              // Opt level for LLVM to codegen and IR optimizations
         int32_t jit_size_level = 3u;             // Opt level for LLVM for binary size
         string jit_path_to_shared_lib;           // Path to libDaScript. Optional, we'll try to find it in _das_root_/lib/ if not provided.
         string jit_path_to_linker;               // Path to linker. Optional, we'll use clang-cl from LLVM on Windows and cc otherwise.
     // dll loading
         vector<string> dll_search_paths;          // additional search paths for dll loading
+    // one-liners
+        /*option*/ bool temp_one_liner_warning = false;
+        /*option*/ bool temp_table_lint_warning = false;
     };
 
     struct CommentReader : public ptr_ref_count {
@@ -1660,11 +1663,11 @@ namespace das
         void inferLint(TextWriter & logs);
         void checkSideEffects();
         void foldUnsafe();
-        bool optimizationRefFolding();
-        bool optimizationConstFolding();
-        bool optimizationBlockFolding();
-        bool optimizationCondFolding();
-        bool optimizationUnused(TextWriter & logs);
+        bool optimizationRefFolding(int32_t round);
+        bool optimizationConstFolding(int32_t round);
+        bool optimizationBlockFolding(int32_t round);
+        bool optimizationCondFolding(int32_t round);
+        bool optimizationUnused(TextWriter & logs, int32_t round);
         void fusion ( Context & context, TextWriter & logs );
         void buildAccessFlags(TextWriter & logs);
         bool verifyAndFoldContracts();
@@ -1692,10 +1695,10 @@ namespace das
         TypeDecl * makeTypeDeclaration ( const LineInfo & at, const string & name );
         StructurePtr visitStructure(Visitor & vis, Structure *);
         EnumerationPtr visitEnumeration(Visitor & vis, Enumeration *);
-        void visitModule(Visitor & vis, Module * thatModule, bool visitGenerics = false);
+        void visitModule(Visitor & vis, Module * thatModule, bool visitGenerics = false, bool sortStructures = false);
         void visitModulesInOrder(Visitor & vis, bool visitGenerics = false);
         void visitModules(Visitor & vis, bool visitGenerics = false);
-        void visit(Visitor & vis, bool visitGenerics = false);
+        void visit(Visitor & vis, bool visitGenerics = false, bool sortStructures = false);
         void setPrintFlags();
         void aotCpp ( Context & context, TextWriter & logs, bool cross_platform = false );
         void registerAotCpp ( TextWriter & logs, Context & context, bool headers = true, bool allModules = false );
@@ -1725,7 +1728,7 @@ namespace das
             if ( needHeader ) ss << "candidates are:";
             for ( auto & fn : result ) {
                 ss << "\n\t";
-                if ( fn->module && !fn->module->name.empty() && !(fn->module->name=="$") )
+                if ( fn->module && !fn->module->name.empty() && !(fn->module->name=="builtin") )
                     ss << fn->module->name << "::";
                 ss << fn->describe();
             }

@@ -156,6 +156,63 @@ namespace das {
         return false;
     }
 
+    struct PathToLoop {
+        const Variable * var = nullptr;
+        const Function * func = nullptr;
+    };
+
+    bool detectLoop ( vector<PathToLoop> & path, const Variable * var, das_hash_set<const Variable*> & visitedVar, das_hash_set<const Function*> & visitedFunc );
+    bool detectLoop ( vector<PathToLoop> & path, const Function * func, das_hash_set<const Variable*> & visitedVar, das_hash_set<const Function*> & visitedFunc );
+
+    // we are going to detect, if global variable uses itself during initialization (via other variables or functions)
+    bool detectLoop ( vector<PathToLoop> & path, const Variable * var, das_hash_set<const Variable*> & visitedVar, das_hash_set<const Function*> & visitedFunc ) {
+        if ( var == path[0].var && path.size()>1 ) {
+            // we are back to the original variable, we have a loop
+            return true;
+        }
+        if ( visitedVar.find(var) != visitedVar.end() ) {
+            return false;
+        }
+        visitedVar.insert(var);
+        for ( auto & use : var->useGlobalVariables ) {
+            path.push_back({use,nullptr});
+            if ( detectLoop(path, use, visitedVar, visitedFunc) ) {
+                return true;
+            }
+            path.pop_back();
+        }
+        for ( auto & use : var->useFunctions ) {
+            path.push_back({nullptr,use});
+            if ( detectLoop(path, use, visitedVar, visitedFunc) ) {
+                return true;
+            }
+            path.pop_back();
+        }
+        return false;
+    }
+
+    bool detectLoop ( vector<PathToLoop> & path, const Function * func, das_hash_set<const Variable*> & visitedVar, das_hash_set<const Function*> & visitedFunc ) {
+        if ( visitedFunc.find(func) != visitedFunc.end() ) {
+            return false;
+        }
+        visitedFunc.insert(func);
+        for ( auto & use : func->useGlobalVariables ) {
+            path.push_back({use,nullptr});
+            if ( detectLoop(path, use, visitedVar, visitedFunc) ) {
+                return true;
+            }
+            path.pop_back();
+        }
+        for ( auto & use : func->useFunctions ) {
+            path.push_back({nullptr,use});
+            if ( detectLoop(path, use, visitedVar, visitedFunc) ) {
+                return true;
+            }
+            path.pop_back();
+        }
+        return false;
+    }
+
     class LintVisitor : public Visitor {
         bool checkOnlyFastAot;
         bool checkAotSideEffects;
@@ -362,8 +419,26 @@ namespace das {
         virtual void preVisitGlobalLetInit ( const VariablePtr & var, Expression * that ) override {
             Visitor::preVisitGlobalLetInit(var,that);
             globalVar = var.get();
+            das_hash_set<const Variable*> visitedVar;
+            das_hash_set<const Function*> visitedFunc;
+            vector<PathToLoop> path;
+            path.push_back(PathToLoop{var.get(), nullptr});
+            if ( detectLoop(path, var.get(), visitedVar, visitedFunc) ) {
+                TextWriter ss;
+                for ( auto & step : path ) {
+                    if ( step.var ) {
+                        ss << "->" << step.var->name;
+                    } else if ( step.func ) {
+                        ss << "->" << step.func->getMangledName();
+                    }
+                }
+                program->error("global variable initialization loop", ss.str(), "",
+                    var->at, CompilationError::variable_not_found);
+            }
+            tableLookupCollision.push_back(das_hash_set<uint64_t>());
         }
         virtual ExpressionPtr visitGlobalLetInit ( const VariablePtr & var, Expression * that ) override {
+            tableLookupCollision.pop_back();
             if ( disableInit && !var->init->rtti_isConstant() ) {   // we double check here, if it made it past infer
                 program->error("[init] is disabled in the options or CodeOfPolicies", "", "",
                         var->at, CompilationError::no_init);
@@ -581,15 +656,9 @@ namespace das {
                         arg->at, CompilationError::cant_be_null);
                 }
             }
-            if ( expr->func->fromGeneric && expr->func->fromGeneric->module->name=="$" ) {
+            if ( expr->func->fromGeneric && expr->func->fromGeneric->module->name=="builtin" ) {
                 if ( expr->func->fromGeneric->name=="to_table_move" ) {
                     verifyToTableMove(expr);
-                } else if ( expr->func->fromGeneric->name=="_move_with_lockcheck" ) {
-                    if ( noWritingToNameless && expr->arguments[0]->rtti_isMakeLocal() ) {
-                        program->error("dead move to a temporary value, which is prohibited by CodeOfPolicies",
-                            getNamelessHint(expr->arguments[0], expr->arguments[1], "<-"), "",
-                                expr->arguments[0]->at, CompilationError::no_writing_to_nameless);
-                    }
                 }
             }
             if ( isClassCtor ) {
@@ -904,16 +973,6 @@ namespace das {
                     var->at,CompilationError::invalid_variable_type);
             }
         }
-        virtual void preVisitBlockExpression ( ExprBlock * block, Expression * expr ) override {
-            Visitor::preVisitBlockExpression(block, expr);
-            if ( expr->rtti_isOp2() ) {
-                auto op2 = static_cast<ExprOp2 *>(expr);
-                if ( op2->func && op2->func->builtIn && op2->func->sideEffectFlags==0 ) {
-                    program->error("top level no side effect operation " + op2->op, "", "",
-                        expr->at, CompilationError::top_level_no_sideeffect_operation);
-                }
-            }
-        }
         virtual void preVisit ( ExprMakeStruct * mks ) override {
             Visitor::preVisit(mks);
             if ( mks->constructor && mks->constructor->arguments.size() ) {
@@ -926,12 +985,65 @@ namespace das {
             if ( expr->alwaysSafe ) return;
             usedTypeExprs.insert(expr);
         }
+        virtual void preVisitBlockExpression ( ExprBlock * block, Expression * expr ) override {
+            Visitor::preVisitBlockExpression(block, expr);
+            tableLookupCollision.push_back(das_hash_set<uint64_t>());
+            if ( expr->rtti_isOp2() ) {
+                auto op2 = static_cast<ExprOp2 *>(expr);
+                if ( op2->func && op2->func->builtIn && op2->func->sideEffectFlags==0 ) {
+                    program->error("top level no side effect operation " + op2->op, "", "",
+                        expr->at, CompilationError::top_level_no_sideeffect_operation);
+                }
+            }
+        }
+        virtual ExpressionPtr visitBlockExpression ( ExprBlock * block, Expression * expr ) override {
+            tableLookupCollision.pop_back();
+            return Visitor::visitBlockExpression(block,expr);
+        }
+
+        virtual void preVisitBlockFinalExpression ( ExprBlock * block, Expression * expr ) override {
+            Visitor::preVisitBlockFinalExpression(block, expr);
+            tableLookupCollision.push_back(das_hash_set<uint64_t>());
+            if ( expr->rtti_isOp2() ) {
+                auto op2 = static_cast<ExprOp2 *>(expr);
+                if ( op2->func && op2->func->builtIn && op2->func->sideEffectFlags==0 ) {
+                    program->error("top level no side effect operation " + op2->op, "", "",
+                        expr->at, CompilationError::top_level_no_sideeffect_operation);
+                }
+            }
+        }
+        virtual ExpressionPtr visitBlockFinalExpression (  ExprBlock * block, Expression * expr ) override {
+            tableLookupCollision.pop_back();
+            return Visitor::visitBlockFinalExpression(block,expr);
+        }
+        virtual void preVisit ( ExprAt * expr ) override {
+            Visitor::preVisit(expr);
+            // we look for table at, and check 'subexpr' of it, which is the table.
+            // if it collides with anything - its an error
+            if ( !expr->underDeref && expr->subexpr->type->isGoodTableType() ) {
+                auto subexprText = expr->subexpr->describe();
+                auto subexprHash = hash64z(subexprText.c_str());
+                auto it = tableLookupCollision.back().find(subexprHash);
+                if ( it!=tableLookupCollision.back().end() ) {
+                    if ( program->policies.temp_table_lint_warning ) {
+                        (*daScriptEnvironment::getBound()->g_compilerLog) << expr->subexpr->at.describe() << ": *warning* potential table lookup collision for " << subexprText << "\n";
+                    } else {
+                        program->error("potential table lookup collision for " + subexprText, "",
+                                "tab[key1] = tab[key2], or fun(tab[key1],tab[key2]) scenarios may produce undefined behavior",
+                                expr->subexpr->at, CompilationError::table_lookup_collision);
+                    }
+                } else {
+                    tableLookupCollision.back().insert(subexprHash);
+                }
+            }
+        }
     public:
         ProgramPtr program;
         Function * func = nullptr;
         Variable * globalVar = nullptr;
         bool anyUnsafe = false;
         das_hash_set<Expression *> usedTypeExprs;
+        vector<das_hash_set<uint64_t>> tableLookupCollision;
     };
 
     struct Option {
@@ -946,6 +1058,8 @@ namespace das {
         "heap_size_limit",              Type::tInt,
         "string_heap_size_limit",       Type::tInt,
         "gc",                           Type::tBool,
+    // coverage
+        "no_coverage",                  Type::tBool,
     // aot
         "no_aot",                       Type::tBool,
         "aot_prologue",                 Type::tBool,
@@ -985,11 +1099,10 @@ namespace das {
         "disable_run",                  Type::tBool,
         "indenting",                    Type::tInt,
         "no_unsafe_uninitialized_structures", Type::tBool,
-    // runtime checks
-        "skip_lock_checks",             Type::tBool,
-        "skip_module_lock_checks",      Type::tBool,
     // version_2_syntax
         "gen2",                         Type::tBool,
+    // deprecated
+        "skip_lock_checks",             Type::tBool,
     };
 
     void verifyOptions() {

@@ -40,14 +40,13 @@ namespace das {
 
     InferTypes::InferTypes(const ProgramPtr &prog, TextWriter *logs_) : FoldingVisitor(prog), logs(logs_) {
         debugInferFlag = prog->options.getBoolOption("debug_infer_flag", prog->policies.debug_infer_flag);
-        enableInferTimeFolding = prog->options.getBoolOption("infer_time_folding", true);
+        enableInferTimeFolding = prog->options.getBoolOption("infer_time_folding", !prog->policies.no_infer_time_folding);
         disableAot = prog->options.getBoolOption("no_aot", false);
         multiContext = prog->options.getBoolOption("multiple_contexts", prog->policies.multiple_contexts);
         standaloneContext = prog->options.getBoolOption("standalone_context", prog->policies.standalone_context);
         checkNoGlobalVariablesAtAll = prog->options.getBoolOption("no_global_variables_at_all", prog->policies.no_global_variables_at_all);
         strictSmartPointers = prog->options.getBoolOption("strict_smart_pointers", prog->policies.strict_smart_pointers);
         disableInit = prog->options.getBoolOption("no_init", prog->policies.no_init);
-        prog->thisModule->skipLockCheck = prog->options.getBoolOption("skip_module_lock_checks", false);
         strictUnsafeDelete = prog->options.getBoolOption("strict_unsafe_delete", prog->policies.strict_unsafe_delete);
         reportInvisibleFunctions = prog->options.getBoolOption("report_invisible_functions", prog->policies.report_invisible_functions);
         reportPrivateFunctions = prog->options.getBoolOption("report_private_functions", prog->policies.report_private_functions);
@@ -690,14 +689,6 @@ namespace das {
                     ExprVar *exprVar = nullptr;
                     if (oneReturn->subexpr->rtti_isVar()) {
                         exprVar = (ExprVar *)oneReturn->subexpr.get();
-                    } else if (oneReturn->subexpr->rtti_isCallFunc()) {
-                        auto callExpr = (ExprCallFunc *)oneReturn->subexpr.get();
-                        if (
-                            callExpr->func && callExpr->func->fromGeneric && callExpr->func->fromGeneric->module->name == "$" && callExpr->func->fromGeneric->name == "_return_with_lockcheck") {
-                            if (callExpr->arguments.size() == 1 && callExpr->arguments[0]->rtti_isVar()) {
-                                exprVar = (ExprVar *)callExpr->arguments[0].get();
-                            }
-                        }
                     }
                     if (exprVar && exprVar->variable) {
                         exprVar->variable->single_return_via_move = true;
@@ -848,6 +839,11 @@ namespace das {
             if (!expr->subexpr->type)
                 return Visitor::visit(expr);
             expr->subexpr = Expression::autoDereference(expr->subexpr);
+            if (!expr->subexpr->type) {
+                error("goto label type can't be inferred", "", "",
+                      expr->at, CompilationError::type_not_found);
+                return Visitor::visit(expr);
+            }
             if (!expr->subexpr->type->isSimpleType(Type::tInt)) {
                 error("label type has to be int, not " + describeType(expr->subexpr->type), "", "",
                       expr->at, CompilationError::invalid_label);
@@ -923,6 +919,11 @@ namespace das {
                 mks->useInitializer = false;
                 return mks;
             }
+        }
+        // mark ExprAt to be under_deref
+        if (expr->subexpr->rtti_isAt()) {
+            auto atExpr = static_cast<ExprAt*>(expr->subexpr.get());
+            atExpr->underDeref = true;
         }
         // infer
         if (!expr->subexpr->type->isRef()) {
@@ -1049,6 +1050,11 @@ namespace das {
         expr->unsafeDeref = func ? func->unsafeDeref : false;
         // infer
         expr->subexpr = Expression::autoDereference(expr->subexpr);
+        if (!expr->subexpr->type) {
+            error("dereference type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (!expr->subexpr->type->isPointer()) {
             error("can only dereference a pointer", "", "",
                   expr->at, CompilationError::cant_dereference);
@@ -1143,6 +1149,11 @@ namespace das {
         // infer
         expr->subexpr = Expression::autoDereference(expr->subexpr);
         auto seT = expr->subexpr->type;
+        if (!seT) {
+            error("null coalescing type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         auto dvT = expr->defaultValue->type;
         if (!seT->isPointer()) {
             error("can only dereference a pointer", "", "",
@@ -1184,6 +1195,11 @@ namespace das {
         }
         // infer
         expr->autoDereference();
+        if (!expr->arguments[0]->type) {
+            error("static_assert argument type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (!expr->arguments[0]->type->isSimpleType(Type::tBool))
             error("static assert condition must be boolean", "", "",
                   expr->at, CompilationError::invalid_argument_type);
@@ -1247,6 +1263,11 @@ namespace das {
         }
         // infer
         expr->autoDereference();
+        if (!expr->arguments[0]->type) {
+            error("assert argument type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (!expr->arguments[0]->type->isSimpleType(Type::tBool))
             error("assert condition must be boolean", "", "",
                   expr->at, CompilationError::invalid_argument_type);
@@ -1268,7 +1289,7 @@ namespace das {
         expr->type->smartPtr = true;
         expr->type->smartPtrNative = true;
         expr->type->firstType = make_smart<TypeDecl>(Type::tHandle);
-        expr->type->firstType->annotation = (TypeAnnotation *)Module::require("ast")->findAnnotation("Expression").get();
+        expr->type->firstType->annotation = (TypeAnnotation *)Module::require("ast_core")->findAnnotation("Expression").get();
         // mark quote as noAot
         if (func) {
             if (!program->policies.aot_macros) {
@@ -1342,9 +1363,66 @@ namespace das {
             return nullptr;
         }
     }
+
+    ExpressionPtr extractCastAutoDeref ( ExpressionPtr & expr ) {
+        auto eFoo = expr;
+        if ( eFoo->rtti_isCast() ) {
+            eFoo = static_pointer_cast<ExprCast>(eFoo)->subexpr;
+            if ( eFoo->rtti_isPtr2Ref() ) {
+                auto ePtr2Ref = static_pointer_cast<ExprPtr2Ref>(eFoo);
+                if ( ePtr2Ref->alwaysSafe ) {
+                    eFoo = ePtr2Ref->subexpr;
+                }
+            }
+        }
+        return eFoo;
+    }
+
     ExpressionPtr InferTypes::visit(ExprInvoke *expr) {
         if (expr->argumentsFailedToInfer) {
             auto blockT = expr->arguments[0]->type;
+            if ( expr->isInvokeMethod && expr->arguments[0]->rtti_isField() && expr->arguments[1]->rtti_isTypeDecl() ) {
+                auto eField = static_pointer_cast<ExprField>(expr->arguments[0]);
+                auto eFVT = eField->value->type;
+                if ( eFVT && !eFVT->isAutoOrAlias() ) {
+                    // arg 1 becomes cast<auto> deref(field.value)
+                    auto pCast = make_smart<ExprCast>();
+                    pCast->at = expr->at;
+                    pCast->castType = make_smart<TypeDecl>(Type::autoinfer);
+                    pCast->subexpr = make_smart<ExprPtr2Ref>(expr->at, eField->value);
+                    pCast->subexpr->alwaysSafe = true;
+                    expr->arguments[1] = pCast;
+                    // arg 0 becomes cast<filed_type>.fieldName
+                    eField->value = make_smart<ExprTypeDecl>(expr->at, make_smart<TypeDecl>(*eFVT));
+                    // and we are done
+                    reportAstChanged();
+                    // we don't need to wait for another pass - code bellow handles exactly this case
+                    // return Visitor::visit(expr);
+                } else if (func && func->isClassMethod && eField->value->rtti_isVar()) {
+                    auto eVar = static_pointer_cast<ExprVar>(eField->value);
+                    if (eVar->name == "super") {
+                        if (auto baseClass = func->classParent->parent) {
+                            reportAstChanged();
+                            auto callName = "_::" + baseClass->name + "`" + eField->name;
+                            auto newCall = make_smart<ExprCall>(expr->at, callName);
+                            newCall->atEnclosure = expr->atEnclosure;
+                            newCall->arguments.push_back(make_smart<ExprVar>(expr->at, "self"));
+                            for (size_t i = 2; i != expr->arguments.size(); ++i) {
+                                newCall->arguments.push_back(expr->arguments[i]);
+                            }
+                            return newCall;
+                        } else {
+                            error("call to super in " + func->name + " is not allowed, no base class for " + func->classParent->name, "", "",
+                                    expr->at, CompilationError::function_not_found);
+                            return Visitor::visit(expr);
+                        }
+                    }
+                } else {
+                    error("can't infer method call, field type is not inferred yet", "", "",
+                          expr->at, CompilationError::function_not_found);
+                    return Visitor::visit(expr);
+                }
+            }
             if (!blockT) {
                 if (expr->isInvokeMethod) {
                     ExpressionPtr value;
@@ -1353,26 +1431,9 @@ namespace das {
                     if (expr->arguments[0]->rtti_isField()) {
                         auto eField = static_pointer_cast<ExprField>(expr->arguments[0]);
                         if (eField->value->type) { // it inferred, but field not found
-                            value = eField->value;
+                            value = extractCastAutoDeref(expr->arguments[1]);
                             valueType = eField->value->type;
                             methodName = eField->name;
-                        } else if (func && func->isClassMethod && eField->value->rtti_isVar()) {
-                            auto eVar = static_pointer_cast<ExprVar>(eField->value);
-                            if (eVar->name == "super") {
-                                if (auto baseClass = func->classParent->parent) {
-                                    reportAstChanged();
-                                    auto callName = "_::" + baseClass->name + "`" + eField->name;
-                                    auto newCall = make_smart<ExprCall>(expr->at, callName);
-                                    newCall->arguments.push_back(make_smart<ExprVar>(expr->at, "self"));
-                                    for (size_t i = 2; i != expr->arguments.size(); ++i) {
-                                        newCall->arguments.push_back(expr->arguments[i]);
-                                    }
-                                    return newCall;
-                                } else {
-                                    error("call to super in " + func->name + " is not allowed, no base class for " + func->classParent->name, "", "",
-                                          expr->at, CompilationError::function_not_found);
-                                }
-                            }
                         }
                     } else if (expr->arguments[0]->rtti_isSwizzle()) {
                         auto eSwizzle = static_pointer_cast<ExprSwizzle>(expr->arguments[0]);
@@ -1401,6 +1462,7 @@ namespace das {
                             // we build _::{field.name} ( field, arg1, arg2, ... )
                             auto callName = "_::" + methodName;
                             auto newCall = make_smart<ExprCall>(expr->at, callName);
+                            newCall->atEnclosure = expr->atEnclosure;
                             newCall->alwaysSafe = expr->alwaysSafe;
                             if (value->rtti_isR2V()) {
                                 value = static_pointer_cast<ExprRef2Value>(value)->subexpr;
@@ -1451,7 +1513,7 @@ namespace das {
                 // no go, not a good block
             } else if (expr->arguments.size() - 1 != blockT->argTypes.size()) {
                 // default arguments
-                // invoke(foo.GetValue,cast<auto> foo)
+                // invoke(type<foo>.GetValue,cast<auto> deref(foo))
                 if (expr->isInvokeMethod) {
                     auto classDotMethod = expr->arguments[0];
                     if (classDotMethod->rtti_isR2V()) {
@@ -1514,7 +1576,9 @@ namespace das {
                                         auto stf = sttf->type.get();
                                         if (stf && stf->dim.size() == 0 && (stf->baseType == Type::tBlock || stf->baseType == Type::tFunction || stf->baseType == Type::tLambda)) {
                                             reportAstChanged();
-                                            expr->isInvokeMethod = false; // we replace invoke(foo.GetValue,cast<auto> foo,...) with invoke(foo.GetValue,...)
+                                            expr->isInvokeMethod = false;
+                                            // we replace invoke(foo.GetValue,cast<auto> foo,...) with invoke(foo.GetValue,...)
+                                            eField->value = extractCastAutoDeref(expr->arguments[1]);
                                             expr->arguments.erase(expr->arguments.begin() + 1);
                                         } else {
                                             error("'" + stt->name + "->" + eField->name + "' expecting function", "", "",
@@ -1566,6 +1630,11 @@ namespace das {
         // infer
         expr->arguments[0] = Expression::autoDereference(expr->arguments[0]);
         auto blockT = expr->arguments[0]->type;
+        if (!blockT) {
+            error("invoke argument type can't be inferred", "", "",
+                  expr->at, CompilationError::invalid_argument_type);
+            return Visitor::visit(expr);
+        }
         if (blockT->isAutoOrAlias()) {
             error("invoke argument not fully inferred " + describeType(blockT), "", "",
                   expr->at, CompilationError::invalid_argument_type);
@@ -1596,6 +1665,11 @@ namespace das {
         }
         for (size_t i = 0, is = blockT->argTypes.size(); i != is; ++i) {
             auto &passType = expr->arguments[i + 1]->type;
+            if (!passType) {
+                error("invoke argument " + to_string(i + 1) + " type can't be inferred", "", "",
+                      expr->at, CompilationError::invalid_argument_type);
+                return Visitor::visit(expr);
+            }
             auto &argType = blockT->argTypes[i];
             if (!isMatchingArgument(nullptr, argType, passType, false, false)) {
                 auto extras = verbose ? ("\n" + describeMismatchingArgument(to_string(i + 1), passType, argType, (int)i)) : "";
@@ -1650,6 +1724,11 @@ namespace das {
         expr->arguments[1] = Expression::autoDereference(expr->arguments[1]);
         auto containerType = expr->arguments[0]->type;
         auto valueType = expr->arguments[1]->type;
+        if (!containerType || !valueType) {
+            error("argument type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (containerType->isGoodTableType()) {
             if (!containerType->firstType->isSameType(*valueType, RefMatters::no, ConstMatters::no, TemporaryMatters::no))
                 error("key must be of the same type as table<key,...>", "", "",
@@ -1677,6 +1756,11 @@ namespace das {
         expr->arguments[1] = Expression::autoDereference(expr->arguments[1]);
         auto containerType = expr->arguments[0]->type;
         auto valueType = expr->arguments[1]->type;
+        if (!containerType || !valueType) {
+            error("argument type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (containerType->isGoodTableType()) {
             if (!containerType->firstType->isSameType(*valueType, RefMatters::no, ConstMatters::no, TemporaryMatters::no))
                 error("key must be of the same type as table<key,...>", "", "",
@@ -1704,6 +1788,11 @@ namespace das {
         expr->arguments[1] = Expression::autoDereference(expr->arguments[1]);
         auto containerType = expr->arguments[0]->type;
         auto valueType = expr->arguments[1]->type;
+        if (!containerType || !valueType) {
+            error("argument type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (containerType->isGoodTableType()) {
             if (!containerType->firstType->isSameType(*valueType, RefMatters::no, ConstMatters::no, TemporaryMatters::no))
                 error("key must be of the same type as table<key,...>", "", "",
@@ -1733,6 +1822,11 @@ namespace das {
         expr->arguments[1] = Expression::autoDereference(expr->arguments[1]);
         auto containerType = expr->arguments[0]->type;
         auto valueType = expr->arguments[1]->type;
+        if (!containerType || !valueType) {
+            error("argument type can't be inferred", "", "",
+                  expr->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (containerType->isGoodTableType()) {
             if (!containerType->firstType->isSameType(*valueType, RefMatters::no, ConstMatters::no, TemporaryMatters::no))
                 error("key must be of the same type as table<key,...>", "", "",
@@ -1750,11 +1844,17 @@ namespace das {
         if (expr->typeexpr->isExprType()) {
             return Visitor::visit(expr);
         }
-        if (!expr->subexpr->type) {
+        if (!expr->subexpr->type || expr->subexpr->type->isAutoOrAlias()) {
             return Visitor::visit(expr);
         }
-        // TODO: verify
-        if (expr->typeexpr->isAutoOrAlias()) {
+        // generic operator
+        if ( !expr->typeexpr->isAutoOrAlias() ) {
+            auto tname = das_to_string(expr->typeexpr->baseType);
+            if (auto opE = inferGenericOperator("`is`" + tname, expr->at, expr->subexpr, nullptr))
+                return opE;
+            if (auto opE = inferGenericOperatorWithName("`is", expr->at, expr->subexpr, tname))
+                return opE;
+        } else {
             error("is " + (expr->typeexpr ? describeType(expr->typeexpr) : "...") + " can't be inferred", "", "",
                   expr->at, CompilationError::type_not_found);
             return Visitor::visit(expr);
@@ -1815,25 +1915,6 @@ namespace das {
         TypeDecl::clone(expr->type, expr->typeexpr);
         return Visitor::visit(expr);
     }
-    bool InferTypes::skipLockCheck() const {
-        if (program->policies.skip_lock_check)
-            return true; // if code of policy we should skip
-        if (program->thisModule->skipLockCheck)
-            return true; // if this module has options skip_lock_check - we skip
-        if (func) {
-            if (func->skipLockCheck)
-                return true; // if this function is [skip_lock_check] - we skip
-            if (func->module->skipLockCheck)
-                return true; // if this function is from the module, with options skip_lock_check - we skip
-            if (auto fromGeneric = func->getOriginPtr()) {
-                if (fromGeneric->skipLockCheck)
-                    return true; // if this function is from generic function, with options skip_lock_check - we skip
-                if (fromGeneric->module->skipLockCheck)
-                    return true; // if this function is from generic function, from the module, with options skip_lock_check - we skip
-            }
-        }
-        return false;
-    }
     ExpressionPtr InferTypes::visit(ExprTypeInfo *expr) {
         expr->macro = nullptr;
         if (expr->typeexpr && expr->typeexpr->isExprType()) {
@@ -1886,27 +1967,30 @@ namespace das {
         }
         if (nErrors == program->errors.size()) {
             if (expr->trait == "sizeof") {
-                if (expr->typeexpr->isExprTypeAnywhere()) {
-                    error("typeinfo(sizeof " + describeType(expr->typeexpr) + ") is not fully inferred, expecting resolved dim", "", "",
-                          expr->at, CompilationError::type_not_found);
+                bool failed = false;
+                uint64_t size = expr->typeexpr->getSizeOf64(failed);
+                if (failed) {
+                    error("typeinfo(sizeof " + describeType(expr->typeexpr) + ") is not fully inferred yet", "", "",
+                          expr->at, CompilationError::invalid_type);
                     return Visitor::visit(expr);
                 }
-                reportAstChanged();
-                uint64_t size = expr->typeexpr->getSizeOf64();
                 if (size > 0x7fffffff) {
                     error("typeinfo(sizeof " + describeType(expr->typeexpr) + ") is too big", "", "",
                           expr->at, CompilationError::invalid_type);
                     return Visitor::visit(expr);
                 }
+                reportAstChanged();
                 return make_smart<ExprConstInt>(expr->at, int(size));
             } else if (expr->trait == "alignof") {
-                if (expr->typeexpr->isExprTypeAnywhere()) {
-                    error("typeinfo(alignof " + describeType(expr->typeexpr) + ") is not fully inferred, expecting resolved dim", "", "",
-                          expr->at, CompilationError::type_not_found);
+                bool failed = false;
+                auto align = expr->typeexpr->getAlignOfFailed(failed);
+                if (failed) {
+                    error("typeinfo(alignof " + describeType(expr->typeexpr) + ") is not fully inferred yet", "", "",
+                          expr->at, CompilationError::invalid_type);
                     return Visitor::visit(expr);
                 }
                 reportAstChanged();
-                return make_smart<ExprConstInt>(expr->at, expr->typeexpr->getAlignOf());
+                return make_smart<ExprConstInt>(expr->at, align);
             } else if (expr->trait == "is_dim") {
                 reportAstChanged();
                 return make_smart<ExprConstBool>(expr->at, expr->typeexpr->dim.size() != 0);
@@ -2192,9 +2276,6 @@ namespace das {
             } else if (expr->trait == "has_nontrivial_copy") {
                 reportAstChanged();
                 return make_smart<ExprConstBool>(expr->at, expr->typeexpr->hasNonTrivialCopy());
-            } else if (expr->trait == "need_lock_check") {
-                reportAstChanged();
-                return make_smart<ExprConstBool>(expr->at, skipLockCheck() ? false : expr->typeexpr->lockCheck());
             } else if (expr->trait == "has_field" || expr->trait == "safe_has_field") {
                 auto etype = expr->typeexpr;
                 if (etype->isPointer() && etype->firstType)
@@ -2418,6 +2499,11 @@ namespace das {
         // size
         if (expr->sizeexpr) {
             expr->sizeexpr = Expression::autoDereference(expr->sizeexpr);
+            if (!expr->sizeexpr->type) {
+                error("delete size type can't be inferred", "", "",
+                      expr->at, CompilationError::type_not_found);
+                return Visitor::visit(expr);
+            }
             if (!expr->sizeexpr->type->isSimpleType(Type::tInt)) {
                 error("can't delete, expecting size to be int and not " + describeType(expr->sizeexpr->type), "", "",
                       expr->at, CompilationError::bad_delete);
@@ -2770,7 +2856,9 @@ namespace das {
         verifyType(expr->typeexpr);
         return Visitor::visit(expr);
     }
+
     ExpressionPtr InferTypes::visit(ExprAt *expr) {
+        expr->underDeref = false;
         if (!expr->subexpr->type || expr->subexpr->type->isAliasOrExpr())
             return Visitor::visit(expr); // failed to infer
         if (!expr->index->type || expr->index->type->isAliasOrExpr())
@@ -2796,6 +2884,11 @@ namespace das {
         expr->index = Expression::autoDereference(expr->index);
         auto seT = expr->subexpr->type;
         auto ixT = expr->index->type;
+        if (!ixT) {
+            error("index type can't be inferred", "", "",
+                  expr->index->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (seT->isGoodTableType()) {
             if (!seT->firstType->isSameType(*ixT, RefMatters::no, ConstMatters::no, TemporaryMatters::no)) {
                 error("table index type mismatch, '" + describeType(seT->firstType) + "' vs '" + describeType(ixT) + "'", "", "",
@@ -2816,15 +2909,6 @@ namespace das {
                 error("table<...; void> cannot be accessed by index", "", "",
                       expr->index->at, CompilationError::invalid_index_type);
                 return Visitor::visit(expr);
-            }
-            if (seT->secondType && seT->secondType->lockCheck()) {
-                if (!(expr->at.fileInfo && expr->at.fileInfo->name == "builtin.das") && !skipLockCheck()) { // we always skip at lockchecks in builtin
-                    reportAstChanged();                                                                     // we promote tab[index] into _at_with_lockcheck(tab,index)
-                    auto pCall = make_smart<ExprCall>(expr->at, "_at_with_lockcheck");
-                    pCall->arguments.push_back(expr->subexpr->clone());
-                    pCall->arguments.push_back(expr->index->clone());
-                    return pCall;
-                }
             }
             if (unsafeTableLookup && !safeExpression(expr)) {
                 error("table index requires unsafe", "use 'get_value', 'insert', 'insert_clone' or 'emplace' instead. consider 'get'", "",
@@ -2916,6 +3000,11 @@ namespace das {
         }
         expr->index = Expression::autoDereference(expr->index);
         auto ixT = expr->index->type;
+        if (!ixT) {
+            error("safe index type can't be inferred", "", "",
+                  expr->index->at, CompilationError::type_not_found);
+            return Visitor::visit(expr);
+        }
         if (expr->subexpr->type->isPointer()) {
             if (!expr->subexpr->type->firstType) {
                 error("can't index 'void' pointer", "", "",
@@ -2945,11 +3034,8 @@ namespace das {
                 // }
                 // expr->type = seT->annotation->makeIndexType(expr->subexpr, expr->index);
                 // expr->type->constant |= seT->constant;
-            } else if (seT->isPointer()) {
-                error("safe-index of pointer is not supported", "", "",
-                      expr->index->at, CompilationError::cant_index);
-                return Visitor::visit(expr);
-            } else {
+            } else if (seT->isVectorType() || seT->isGoodArrayType() || seT->dim.size()) {
+                // bounded types — int/uint only
                 if (!ixT->isIndex()) {
                     expr->type.reset();
                     error("index type must be 'int' or 'uint', not '" + describeType(ixT) + "'", "", "",
@@ -2981,23 +3067,29 @@ namespace das {
                         }
                         expr->type->firstType->constant |= seT->constant;
                     }
-                } else if (seT->isVectorType()) {
-                    expr->type = make_smart<TypeDecl>(Type::tPointer);
-                    expr->type->firstType = make_smart<TypeDecl>(seT->getVectorBaseType());
-                    expr->type->firstType->constant = seT->constant;
-                } else {
-                    error("type can't be safe-indexed: '" + describeType(seT) + "'", "", "",
-                          expr->subexpr->at, CompilationError::cant_index);
+                }
+            } else {
+                // pointer safe-at: a?[index] where a : T*
+                if (!ixT->isIndexExt()) {
+                    expr->type.reset();
+                    error("index type must be 'int', 'int64', 'uint', or 'uint64' and not '" + describeType(ixT) + "'", "", "",
+                          expr->index->at, CompilationError::invalid_index_type);
                     return Visitor::visit(expr);
                 }
+                if (!safeExpression(expr)) {
+                    error("safe-index of pointer must be inside the 'unsafe' block", "", "",
+                          expr->at, CompilationError::unsafe);
+                }
+                expr->type = make_smart<TypeDecl>(*expr->subexpr->type);
+                expr->type->constant |= seT->constant;
             }
         } else if (expr->subexpr->type->isGoodArrayType()) {
             if (!safeExpression(expr)) {
                 error("safe-index of array<> must be inside the 'unsafe' block", "", "",
                       expr->at, CompilationError::unsafe);
             }
-            if (!ixT->isIndexExt()) {
-                error("index type must be 'int', 'int64', 'uint', or 'uint64' and not '" + describeType(ixT) + "'", "", "",
+            if (!ixT->isIndex()) {
+                error("index type must be 'int' or 'uint', not '" + describeType(ixT) + "'", "", "",
                       expr->index->at, CompilationError::invalid_index_type);
                 return Visitor::visit(expr);
             }
@@ -3029,8 +3121,8 @@ namespace das {
                 error("safe-index of fixed_array<> must be inside the 'unsafe' block", "", "",
                       expr->at, CompilationError::unsafe);
             }
-            if (!ixT->isIndexExt()) {
-                error("index type must be 'int', 'int64', 'uint', or 'uint64' and not '" + describeType(ixT) + "'", "", "",
+            if (!ixT->isIndex()) {
+                error("index type must be 'int' or 'uint', not '" + describeType(ixT) + "'", "", "",
                       expr->index->at, CompilationError::invalid_index_type);
                 return Visitor::visit(expr);
             }
@@ -3047,8 +3139,8 @@ namespace das {
             }
             expr->type->firstType->constant |= seT->constant;
         } else if (expr->subexpr->type->isVectorType() && expr->subexpr->type->isRef()) {
-            if (!ixT->isIndexExt()) {
-                error("index type must be 'int', 'int64', 'uint', or 'uint64' and not '" + describeType(ixT) + "'", "", "",
+            if (!ixT->isIndex()) {
+                error("index type must be 'int' or 'uint', not '" + describeType(ixT) + "'", "", "",
                       expr->index->at, CompilationError::invalid_index_type);
                 return Visitor::visit(expr);
             }
@@ -3614,6 +3706,11 @@ namespace das {
             } else if (valT->isBitfield()) {
                 expr->value = Expression::autoDereference(expr->value);
                 valT = expr->value->type;
+                if (!valT) {
+                    error("bitfield type can't be inferred", "", "",
+                          expr->at, CompilationError::type_not_found);
+                    return Visitor::visit(expr);
+                }
                 int index = valT->bitFieldIndex(expr->name);
                 if (index == -1 || index >= int(valT->argNames.size())) {
                     error("can't get bit field '" + expr->name + "' in " + describeType(valT), "", "",
@@ -3687,7 +3784,13 @@ namespace das {
                 expr->type = make_smart<TypeDecl>(Type::tBool);
             } else {
                 auto tupleT = valT->isPointer() ? valT->firstType : valT;
-                TypeDecl::clone(expr->type, tupleT->argTypes[expr->fieldIndex]);
+                auto & tt = tupleT->argTypes[expr->fieldIndex];
+                if ( !tt->isRefType() && tt->ref ) {
+                    error("can't get field '" + expr->name + "', invalid field type '" + describeType(tt), "", "",
+                          expr->at, CompilationError::cant_get_field);
+                    return Visitor::visit(expr);
+                }
+                TypeDecl::clone(expr->type, tt);
                 expr->type->ref = true;
                 expr->type->constant |= tupleT->constant;
             }
@@ -3784,7 +3887,13 @@ namespace das {
                 return Visitor::visit(expr);
             }
             expr->fieldIndex = index;
-            TypeDecl::clone(expr->type, valT->firstType->argTypes[expr->fieldIndex]);
+            auto & tt = valT->firstType->argTypes[expr->fieldIndex];
+            if ( !tt->isRefType() && tt->ref ) {
+                error("can't safe get field '" + expr->name + "', invalid field type '" + describeType(tt), "", "",
+                      expr->at, CompilationError::cant_get_field);
+                return Visitor::visit(expr);
+            }
+            TypeDecl::clone(expr->type, tt);
         } else {
             error("can only safe dereference a pointer to a tuple, a structure or a handle " + describeType(valT), "", "",
                   expr->at, CompilationError::cant_get_field);
@@ -3818,11 +3927,11 @@ namespace das {
     ExpressionPtr InferTypes::visit(ExprVar *expr) {
         // assume (that on the stack)
         for (auto it = assume.rbegin(), its = assume.rend(); it != its; ++it) {
-            auto ita = *it;
-            if (ita->alias == expr->name) {
+            auto & ita = *it;
+            if (ita.expr->alias == expr->name) {
                 reportAstChanged();
-                auto csub = ita->subexpr->clone();
-                // forceAt(csub, ita->at);
+                auto csub = ita.expr->subexpr->clone();
+                // forceAt(csub, ita.expr->at);
                 return csub;
             }
         }
@@ -4054,28 +4163,6 @@ namespace das {
                 TypeDecl::clone(expr->returnType, func->result);
             }
         }
-        if (expr->moveSemantics && expr->subexpr && expr->subexpr->type && expr->subexpr->type->lockCheck()) {
-            if (!(expr->at.fileInfo && expr->at.fileInfo->name == "builtin.das")) { // we always skip lock check in builtin.das
-                if (!expr->skipLockCheck && !skipLockCheck()) {
-                    bool checkIt = true;
-                    if (expr->subexpr->rtti_isCall()) {
-                        auto ccall = static_pointer_cast<ExprCall>(expr->subexpr);
-                        if (ccall->name == "_return_with_lockcheck" || starts_with(ccall->name, "__::builtin`_return_with_lockcheck`"))
-                            checkIt = false;
-                    }
-                    if (checkIt) {
-                        reportAstChanged();
-                        auto pCall = make_smart<ExprCall>(expr->at, "_return_with_lockcheck");
-                        pCall->arguments.push_back(expr->subexpr->clone());
-                        auto pRet = static_pointer_cast<ExprReturn>(expr->clone());
-                        pRet->subexpr = pCall;
-                        if (forceInscopePod && func)
-                            returnCount++; // ast changed, so we don't really care
-                        return pRet;
-                    }
-                }
-            }
-        }
         expr->type = make_smart<TypeDecl>();
         if (forceInscopePod && func) {
             if (returnCount == 0)
@@ -4209,8 +4296,8 @@ namespace das {
         // assume
         if (expr->subexpr) {
             for (const auto &aa : assume) {
-                if (aa->alias == name) {
-                    error("can't assume " + name + ", alias already taken by another assume expression at " + aa->at.describe(), "", "",
+                if (aa.expr->alias == name) {
+                    error("can't assume " + name + ", alias already taken by another assume expression at " + aa.expr->at.describe(), "", "",
                           expr->at, CompilationError::invalid_assume);
                     return;
                 }
@@ -4282,9 +4369,70 @@ namespace das {
             }
         }
     }
+    struct CollectAssumeVars : Visitor {
+        das_hash_set<string> vars;
+        virtual void preVisit(ExprVar * expr) override {
+            Visitor::preVisit(expr);
+            vars.insert(expr->name);
+        }
+    };
     ExpressionPtr InferTypes::visit(ExprAssume *expr) {
         if (expr->subexpr) {
-            assume.emplace_back(expr);
+            // collect variables referenced in subexpr
+            CollectAssumeVars collector;
+            expr->subexpr->visit(collector);
+            // check for circular dependency: can we reach expr->alias transitively?
+            das_hash_map<string,string> cameFrom;   // node -> predecessor in BFS
+            vector<string> worklist;
+            for (const auto & v : collector.vars) {
+                if (cameFrom.find(v) == cameFrom.end()) {
+                    worklist.push_back(v);
+                    cameFrom[v] = expr->alias;
+                }
+            }
+            bool hasCycle = false;
+            while (!worklist.empty()) {
+                auto cur = move(worklist.back());
+                worklist.pop_back();
+                if (cur == expr->alias) { hasCycle = true; break; }
+                for (const auto & ae : assume) {
+                    if (ae.expr->alias == cur) {
+                        for (const auto & v : ae.vars) {
+                            if (cameFrom.find(v) == cameFrom.end()) {
+                                cameFrom[v] = cur;
+                                worklist.push_back(v);
+                            }
+                        }
+                    }
+                }
+            }
+            if (hasCycle) {
+                string extra;
+                if (verbose) {
+                    // reconstruct: walk cameFrom backwards from the node that reached expr->alias
+                    // cameFrom[expr->alias] was set during seed, so find the node whose assume deps include expr->alias
+                    vector<string> chain;
+                    string cur = expr->alias;
+                    do {
+                        chain.push_back(cur);
+                        auto it = cameFrom.find(cur);
+                        if (it == cameFrom.end()) break;
+                        cur = it->second;
+                    } while (cur != expr->alias);
+                    chain.push_back(expr->alias);
+                    // chain is reversed (e.g. [y, x, y]), reverse to get [y, x, y] -> "y -> x -> y"
+                    // actually it's already in reverse BFS order, so reverse it
+                    std::reverse(chain.begin(), chain.end());
+                    extra = chain[0];
+                    for (size_t i = 1; i < chain.size(); i++) {
+                        extra += " -> " + chain[i];
+                    }
+                }
+                error("assume '" + expr->alias + "' creates a circular dependency", extra, "",
+                      expr->at, CompilationError::invalid_assume);
+                return expr;
+            }
+            assume.push_back(AssumeEntry{expr, move(collector.vars)});
         } else {
             assumeType.emplace_back(expr);
         }
@@ -4425,7 +4573,7 @@ namespace das {
             pVar->source = src;
             pVar->can_shadow = expr->canShadow;
             for (auto &al : assume) {
-                if (al->alias == pVar->name) {
+                if (al.expr->alias == pVar->name) {
                     error("can't make loop variable `" + pVar->name + "`, name already taken by alias", "", "",
                           pVar->at, CompilationError::variable_not_found);
                 }
@@ -4604,7 +4752,7 @@ namespace das {
                   var->at, CompilationError::cant_infer_missing_initializer);
         }
         for (auto &al : assume) {
-            if (al->alias == var->name) {
+            if (al.expr->alias == var->name) {
                 error("can't make local variable `" + var->name + "`, name already taken by alias", "", "",
                       var->at, CompilationError::variable_not_found);
             }
@@ -4933,13 +5081,26 @@ namespace das {
         }
         return Visitor::visit(expr);
     }
+    bool InferTypes::canVisitLooksLikeCall(ExprLooksLikeCall *call) {
+        if ( callDepth >= program->policies.max_call_depth ) {
+            error("call expression depth exceeded maximum allowed (" + to_string(program->policies.max_call_depth) + ")", "", "",
+                  call->at, CompilationError::too_many_infer_passes);
+            return false;
+        }
+        return true;
+    }
     void InferTypes::preVisit(ExprLooksLikeCall *call) {
+        callDepth++;
         Visitor::preVisit(call);
         call->argumentsFailedToInfer = false;
         if (call->arguments.size() > DAS_MAX_FUNCTION_ARGUMENTS) {
             error("too many arguments in " + call->name + ", max allowed is DAS_MAX_FUNCTION_ARGUMENTS=" DAS_STR(DAS_MAX_FUNCTION_ARGUMENTS), "", "",
                   call->at, CompilationError::too_many_arguments);
         }
+    }
+    ExpressionPtr InferTypes::visit(ExprLooksLikeCall *call) {
+        callDepth--;
+        return Visitor::visit(call);
     }
     ExpressionPtr InferTypes::visitLooksLikeCallArg(ExprLooksLikeCall *call, Expression *arg, bool last) {
         if (!arg->type)
@@ -4949,7 +5110,16 @@ namespace das {
         checkEmptyBlock(arg);
         return Visitor::visitLooksLikeCallArg(call, arg, last);
     }
+    bool InferTypes::canVisitNamedCall(ExprNamedCall *call) {
+        if ( callDepth >= program->policies.max_call_depth ) {
+            error("call expression depth exceeded maximum allowed (" + to_string(program->policies.max_call_depth) + ")", "", "",
+                  call->at, CompilationError::too_many_infer_passes);
+            return false;
+        }
+        return true;
+    }
     void InferTypes::preVisit(ExprNamedCall *call) {
+        callDepth++;
         Visitor::preVisit(call);
         call->argumentsFailedToInfer = false;
         if ((call->arguments.size() > DAS_MAX_FUNCTION_ARGUMENTS) || (call->nonNamedArguments.size() > DAS_MAX_FUNCTION_ARGUMENTS)) {
@@ -4966,6 +5136,7 @@ namespace das {
         return Visitor::visitNamedCallArg(call, arg, last);
     }
     ExpressionPtr InferTypes::visit(ExprNamedCall *expr) {
+        callDepth--;
         if (expr->argumentsFailedToInfer) {
             if (func)
                 func->notInferred();
@@ -4974,7 +5145,8 @@ namespace das {
 
         vector<TypeDeclPtr> nonNamedTypes;
         if (!inferArguments(nonNamedTypes, expr->nonNamedArguments)) {
-            // TODO: report error
+            error("can't infer type of non-named argument in call to " + expr->name, "", "",
+                  expr->at, CompilationError::invalid_argument_type);
             return Visitor::visit(expr);
         }
         MatchingFunctions functions, generics;
@@ -5012,7 +5184,7 @@ namespace das {
                         nonNamedArgumentTypes.push_back(vSelf->type);
                         if (hasMatchingMemberCall(callStruct, expr->name, expr->arguments, nonNamedArgumentTypes, true)) {
                             reportAstChanged();
-                            auto pInvoke = makeInvokeMethod(expr->at, vSelf.get(), expr->name);
+                            auto pInvoke = makeInvokeMethod(expr->at, callStruct, vSelf.get(), expr->name);
                             auto methodFunc = findMethodFunction(callStruct, expr->name);
                             auto newArguments = demoteCallArguments(expr, methodFunc);
                             for (size_t i = 1, n = newArguments.size(); i != n; ++i) {
@@ -5037,7 +5209,7 @@ namespace das {
                     if (hasMatchingMemberCall(selfStruct, expr->name, expr->arguments, nonNamedArgumentTypes, false)) {
                         reportAstChanged();
                         auto self = new ExprVar(expr->at, "self");
-                        auto pInvoke = makeInvokeMethod(expr->at, self, expr->name);
+                        auto pInvoke = makeInvokeMethod(expr->at, selfStruct, self, expr->name);
                         auto methodFunc = findMethodFunction(selfStruct, expr->name);
                         expr->nonNamedArguments.insert(expr->nonNamedArguments.begin(), self);
                         auto newArguments = demoteCallArguments(expr, methodFunc);
@@ -5070,7 +5242,16 @@ namespace das {
         }
         return Visitor::visit(expr);
     }
+    bool InferTypes::canVisitCall(ExprCall *call) {
+        if ( callDepth >= program->policies.max_call_depth ) {
+            error("call expression depth exceeded maximum allowed (" + to_string(program->policies.max_call_depth) + ")", "", "",
+                  call->at, CompilationError::too_many_infer_passes);
+            return false;
+        }
+        return true;
+    }
     void InferTypes::preVisit(ExprCall *call) {
+        callDepth++;
         Visitor::preVisit(call);
         call->argumentsFailedToInfer = false;
         if (call->arguments.size() > DAS_MAX_FUNCTION_ARGUMENTS) {
@@ -5114,6 +5295,7 @@ namespace das {
         return Visitor::visitCallArg(call, arg, last);
     }
     ExpressionPtr InferTypes::visit(ExprCall *expr) {
+        callDepth--;
         if (expr->argumentsFailedToInfer) {
             if (func)
                 func->notInferred();
@@ -5171,6 +5353,15 @@ namespace das {
                     mks->useInitializer = true;
                     mks->alwaysUseInitializer = true;
                     return mks;
+                } else if (aliasT->isStructure() && aliasT->structType) {
+                    // this is Blah(args...) where Blah is a typedef for a struct — promote to StructName(args...)
+                    auto structName = aliasT->structType->name;
+                    if (structName != expr->name) {
+                        reportAstChanged();
+                        auto newCall = expr->clone();
+                        static_cast<ExprCall *>(newCall.get())->name = structName;
+                        return newCall;
+                    }
                 }
             }
         }
@@ -5200,7 +5391,7 @@ namespace das {
                             reportAstChanged();
                             if (memFn->classMethod) {
                                 auto self = new ExprVar(expr->at, "self");
-                                auto pInvoke = makeInvokeMethod(expr->at, self, expr->name);
+                                auto pInvoke = makeInvokeMethod(expr->at, bt->structType, self, expr->name);
                                 for (auto &arg : expr->arguments) {
                                     pInvoke->arguments.push_back(arg->clone());
                                 }

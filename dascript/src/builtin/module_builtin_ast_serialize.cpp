@@ -12,7 +12,7 @@
 namespace das {
 
     AstSerializer::AstSerializer ( SerializationStorage * storage, bool isWriting ) {
-        astModule = Module::require("ast");
+        astModule = Module::require("ast_core");
         astModule->handleTypes.foreach([&](const AnnotationPtr & annotation) {
             if ( starts_with(annotation->name,"Expr") ) {
                 uint32_t hash = hash_tag(annotation->name.c_str());
@@ -2168,6 +2168,7 @@ namespace das {
               << value.keep_alive
               << value.very_safe_context
               << value.max_infer_passes
+              << value.max_call_depth
               << value.verify_infer_types
               << value.stack
               << value.intern_strings
@@ -2183,7 +2184,6 @@ namespace das {
               << value.max_string_heap_allocated
               << value.rtti
               << value.unsafe_table_lookup
-              << value.skip_lock_check
               << value.relaxed_pointer_const
               << value.version_2_syntax
               << value.gen2_make_syntax
@@ -2214,6 +2214,7 @@ namespace das {
               << value.no_writing_to_nameless
               << value.always_call_super
               << value.no_optimizations
+              << value.no_infer_time_folding
               << value.fail_on_no_aot
               << value.fail_on_lack_of_aot_export
               << value.no_fast_call
@@ -2221,9 +2222,7 @@ namespace das {
               << value.force_inscope_pod
               << value.log_inscope_pod
               << value.debugger
-              << value.debug_module
               << value.profiler
-              << value.profile_module
               << value.jit_enabled
               << value.jit_jit_all_functions
               << value.jit_debug_info
@@ -2330,7 +2329,7 @@ namespace das {
     }
 
     uint32_t AstSerializer::getVersion () {
-        static constexpr uint32_t currentVersion = 77;
+        static constexpr uint32_t currentVersion = 80;
         return currentVersion;
     }
 

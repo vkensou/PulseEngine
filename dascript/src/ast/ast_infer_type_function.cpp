@@ -37,6 +37,10 @@ namespace das {
         } else if (pFn->module == mod || pFn->module == thisMod) {
             return true;
         }
+        // builtin module can access private functions of $
+        if (pFn->module->name == "$" && mod->name == "builtin") {
+            return true;
+        }
         if (pFn->fromGeneric) {
             auto origin = pFn->getOrigin();
             return (origin->module == mod) || (origin->module == thisMod);
@@ -676,7 +680,7 @@ namespace das {
         return newCall;
     }
     bool InferTypes::isConsumeArgumentFunc(Function *fn) {
-        if (fn->fromGeneric && fn->fromGeneric->module->name == "$" && fn->fromGeneric->name == "consume_argument") {
+        if (fn->fromGeneric && fn->fromGeneric->module->name == "builtin" && fn->fromGeneric->name == "consume_argument") {
             return true;
         }
         return false;
@@ -1067,7 +1071,20 @@ namespace das {
         }
         return true;
     }
+
+    struct InferDepthGuard {
+        InferDepthGuard(int32_t *depth) : depth(depth) { (*depth)++; }
+        ~InferDepthGuard() { (*depth)--; }
+        int32_t *depth;
+    };
+
     FunctionPtr InferTypes::inferFunctionCall(ExprLooksLikeCall *expr, InferCallError cerr, Function *lookupFunction, bool failOnMissingCtor, bool visCheck) {
+        if ( inferDepth > 1 ) {
+            error("infer expression depth exceeded maximum allowed", "", "",
+                expr->at, CompilationError::too_many_infer_passes);
+            return nullptr;
+        }
+        InferDepthGuard guard(&inferDepth);
         vector<TypeDeclPtr> types;
         if (!inferArguments(types, expr->arguments)) {
             if (func)
@@ -1086,6 +1103,12 @@ namespace das {
             if ( inArgumentInit && funcC==func ) {
                 error("recursive call in argument initializer is not allowed", "", "", expr->at);
                 return nullptr;
+            }
+            if (funcC->result->baseType == Type::autoinfer) {
+                if ( cerr != InferCallError::tryOperator ) {
+                    error("cannot infer type for function call '" + expr->name + "' with 'auto' return type", "", "", expr->at, CompilationError::invalid_type);
+                    return nullptr;
+                }
             }
             if ( find(inInfer.begin(), inInfer.end(), funcC) != inInfer.end() ) {
                 error("recursive call in function is not allowed", "", "", expr->at);
@@ -1256,13 +1279,18 @@ namespace das {
                     // resolve tail-end types
                     for (size_t ai = types.size(), ais = clone->arguments.size(); ai != ais; ++ai) {
                         auto &arg = clone->arguments[ai];
-                        if (arg->type->isAuto()) {
+                        if (arg->type->isAutoOrAlias()) {
                             if (arg->init) {
                                 arg->init = arg->init->visit(*this);
                                 if (arg->init->type && !arg->init->type->isAutoOrAlias()) {
                                     arg->type = make_smart<TypeDecl>(*arg->init->type);
                                     continue;
                                 }
+                            }
+                            auto argT = inferPartialAliases(arg->type, arg->type, clone, &aliases);
+                            if ( !argT->isAutoOrAlias() ) {
+                                arg->type = argT;
+                                continue;
                             }
                             error("unknown type of argument " + clone->arguments[ai]->name + "; can't instance " + describeFunction(oneGeneric), "",
                                   "provide argument type explicitly",
@@ -1410,6 +1438,8 @@ namespace das {
         }
     }
     ExpressionPtr InferTypes::inferGenericOperator(const string &opN, const LineInfo &expr_at, const ExpressionPtr &arg0, const ExpressionPtr &arg1, InferCallError err) {
+        if ( arg0->type && arg0->type->isExprType() ) return nullptr;
+        if ( arg1 && arg1->type && arg1->type->isExprType() ) return nullptr;
         auto opName = "_::" + opN;
         auto tempCall = make_smart<ExprLooksLikeCall>(expr_at, opName);
         tempCall->arguments.push_back(arg0);

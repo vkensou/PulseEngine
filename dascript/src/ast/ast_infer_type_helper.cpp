@@ -1106,7 +1106,10 @@ namespace das {
                             }
                         }
                         auto vecType = swz->type->getVectorType(baseType, int(fields.size()));
-                        return program->makeConst(expr->at, make_smart<TypeDecl>(vecType), resData);
+                        auto constValue = program->makeConst(expr->at, make_smart<TypeDecl>(vecType), resData);
+                        constValue->type = make_smart<TypeDecl>(vecType);
+                        constValue->type->at = expr->at;
+                        return constValue;
                     }
                 }
             }
@@ -1238,7 +1241,7 @@ namespace das {
             // we build var_name._partIndex
             auto varName = make_smart<ExprVar>(varAt, name);
             auto partExpr = make_smart<ExprField>(varAt, varName, "_" + to_string(partIndex), true);
-            assume.push_back(make_smart<ExprAssume>(varAt, part, ExpressionPtr(partExpr)));
+            assume.push_back(AssumeEntry{make_smart<ExprAssume>(varAt, part, ExpressionPtr(partExpr)), {}});
             partIndex++;
         }
     }
@@ -1269,7 +1272,7 @@ namespace das {
             return false;
         if (!call->func->fromGeneric)
             return false;
-        if (!(call->func->fromGeneric->name == "to_array_move" && call->func->fromGeneric->module->name == "$"))
+        if (!(call->func->fromGeneric->name == "to_array_move" && call->func->fromGeneric->module->name == "builtin"))
             return false;
         return true;
     }

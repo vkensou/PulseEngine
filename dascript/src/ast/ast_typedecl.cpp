@@ -213,6 +213,7 @@ namespace das
     }
 
     void TypeDecl::applyAutoContracts ( const TypeDeclPtr & TT, const TypeDeclPtr & autoT ) {
+        if ( !TT || !autoT ) return;
         if ( !autoT->isAuto() ) return;
         TT->ref = (TT->ref || autoT->ref) && !autoT->removeRef && !TT->removeRef;
         TT->constant = (TT->constant || autoT->constant) && !autoT->removeConstant && !TT->removeConstant;
@@ -238,7 +239,7 @@ namespace das
             if ( TT->firstType ) {
                 applyAutoContracts(TT->firstType, autoT->firstType);
             }
-            for ( size_t i=0, is=autoT->argTypes.size(); i!=is; ++i ) {
+            for ( size_t i=0, is=min(TT->argTypes.size(),autoT->argTypes.size()); i!=is; ++i ) {
                 applyAutoContracts(TT->argTypes[i], autoT->argTypes[i]);
             }
         }
@@ -276,7 +277,7 @@ namespace das
         } else {
             if ( decl->firstType ) updateAliasMap(decl->firstType, pass->firstType, aliases, options);
             if ( decl->secondType ) updateAliasMap(decl->secondType, pass->secondType, aliases, options);
-            for ( size_t iA=0, iAs = decl->argTypes.size(); iA!=iAs; ++iA ) {
+            for ( size_t iA=0, iAs = min(decl->argTypes.size(), pass->argTypes.size()); iA!=iAs; ++iA ) {
                 updateAliasMap(decl->argTypes[iA], pass->argTypes[iA], aliases, options);
             }
         }
@@ -1424,43 +1425,6 @@ namespace das
         } else if ( baseType==Type::tArray || baseType==Type::tTable ) {
             if ( firstType && firstType->hasClasses(dep) ) return true;
             if ( secondType && secondType->hasClasses(dep) ) return true;
-        }
-        return false;
-    }
-
-    bool TypeDecl::lockCheck() const {
-        das_set<Structure *> dep;
-        return lockCheck(dep);
-    }
-
-    bool TypeDecl::lockCheck(das_set<Structure *> & dep) const {
-        // logic is 'OR'
-        if ( baseType==Type::tStructure ) {
-            if ( structType ) {
-                if (dep.find(structType) != dep.end()) return false;
-                if ( structType->skipLockCheck ) return false;
-                dep.insert(structType);
-                for ( auto fld : structType->fields ) {
-                    bool checkLocks = true;
-                    for ( auto & ann : fld.annotation ) {
-                        if ( ann.name=="skip_field_lock_check" ) {
-                            checkLocks = false;
-                            break;
-                        }
-                    }
-                    if ( checkLocks && fld.type->lockCheck(dep) ) {
-                        return true;
-                    }
-                }
-            }
-        } else if ( baseType==Type::tTuple || baseType==Type::tVariant || baseType == Type::option ) {
-            for ( const auto & arg : argTypes ) {
-                if ( arg->lockCheck(dep) ) {
-                    return true;
-                }
-            }
-        } else if ( baseType==Type::tArray || baseType==Type::tTable ) {
-            return true;
         }
         return false;
     }
@@ -2869,11 +2833,33 @@ namespace das
         return size;
     }
 
+    uint64_t TypeDecl::getTupleSize64(bool & failed) const {
+        DAS_ASSERT(baseType==Type::tTuple);
+        uint64_t size = 0;
+        for ( const auto & argT : argTypes ) {
+            int al = argT->getAlignOfFailed(failed) - 1;
+            size = (size + al) & ~al;
+            size += argT->getSizeOf64(failed);
+        }
+        int al = getTupleAlignFailed(failed) - 1;
+        size = (size + al) & ~al;
+        return size;
+    }
+
     int TypeDecl::getTupleAlign() const {
         DAS_ASSERT(baseType==Type::tTuple);
         int align = 1;
         for ( const auto & argT : argTypes ) {
             align = das::max ( argT->getAlignOf(), align );
+        }
+        return align;
+    }
+
+    int TypeDecl::getTupleAlignFailed(bool & failed) const {
+        DAS_ASSERT(baseType==Type::tTuple);
+        int align = 1;
+        for ( const auto & argT : argTypes ) {
+            align = das::max ( argT->getAlignOfFailed(failed), align );
         }
         return align;
     }
@@ -2922,11 +2908,33 @@ namespace das
         return maxSize;
     }
 
+    uint64_t TypeDecl::getVariantSize64(bool & failed) const {
+        DAS_ASSERT(baseType==Type::tVariant);
+        uint64_t maxSize = 0;
+        int al = getVariantAlignFailed(failed) - 1;
+        for ( const auto & argT : argTypes ) {
+            uint64_t size = (getTypeBaseSize(Type::tInt) + al) & ~al;
+            size += argT->getSizeOf64(failed);
+            maxSize = das::max(size, maxSize);
+        }
+        maxSize = (maxSize + al) & ~al;
+        return maxSize;
+    }
+
     int TypeDecl::getVariantAlign() const {
         DAS_ASSERT(baseType==Type::tVariant);
         int align = getTypeBaseAlign(Type::tInt);
         for ( const auto & argT : argTypes ) {
             align = das::max ( argT->getAlignOf(), align );
+        }
+        return align;
+    }
+
+    int TypeDecl::getVariantAlignFailed(bool & failed) const {
+        DAS_ASSERT(baseType==Type::tVariant);
+        int align = getTypeBaseAlign(Type::tInt);
+        for ( const auto & argT : argTypes ) {
+            align = das::max ( argT->getAlignOfFailed(failed), align );
         }
         return align;
     }
@@ -2976,6 +2984,26 @@ namespace das
         }
     }
 
+    uint64_t TypeDecl::getBaseSizeOf64(bool & failed) const {
+        if ( baseType==Type::tHandle ) {
+            return annotation->getSizeOf();
+        } else if ( baseType==Type::tStructure ) {
+            return !structType->circular ? structType->getSizeOf64(failed) : 0;
+        } else if ( baseType==Type::tTuple ) {
+            return getTupleSize64(failed);
+        } else if ( baseType==Type::tVariant ) {
+            return getVariantSize64(failed);
+        } else if ( isEnumT() ) {
+            return enumType ? getTypeBaseSize(enumType->baseType) : getTypeBaseSize(Type::tInt);
+        } else {
+            if ( baseType==Type::alias || baseType==Type::autoinfer || baseType==Type::option || baseType==Type::typeMacro ) {
+                failed = true;
+                return 0;
+            }
+            return getTypeBaseSize(baseType);
+        }
+    }
+
     int TypeDecl::getAlignOf() const {
         if ( baseType==Type::tHandle ) {
             return int(annotation->getAlignOf());
@@ -2988,6 +3016,26 @@ namespace das
         } else if ( isEnumT() ) {
             return enumType ? getTypeBaseAlign(enumType->baseType) : getTypeBaseAlign(Type::tInt);
         } else {
+            return getTypeBaseAlign(baseType);
+        }
+    }
+
+    int TypeDecl::getAlignOfFailed(bool &failed) const {
+        if ( baseType==Type::tHandle ) {
+            return int(annotation->getAlignOf());
+        } else if ( baseType==Type::tStructure ) {
+            return !structType->circular ? structType->getAlignOfFailed(failed) : 0;
+        } else if ( baseType==Type::tTuple ) {
+            return getTupleAlignFailed(failed);
+        } else if ( baseType==Type::tVariant ) {
+            return getVariantAlignFailed(failed);
+        } else if ( isEnumT() ) {
+            return enumType ? getTypeBaseAlign(enumType->baseType) : getTypeBaseAlign(Type::tInt);
+        } else {
+            if ( baseType==Type::alias || baseType==Type::autoinfer || baseType==Type::option || baseType==Type::typeMacro ) {
+                failed = true;
+                return 0;
+            }
             return getTypeBaseAlign(baseType);
         }
     }
@@ -3014,6 +3062,16 @@ namespace das
 
     uint64_t TypeDecl::getSizeOf64() const {
         return getBaseSizeOf64() * getCountOf64();
+    }
+
+    uint64_t TypeDecl::getSizeOf64(bool & failed) const {
+        for ( auto di : dim ) {
+            if ( di==TypeDecl::dimAuto || di==TypeDecl::dimConst ) {
+                failed = true;
+                return 0;
+            }
+        }
+        return getBaseSizeOf64(failed) * getCountOf64();
     }
 
     int TypeDecl::getStride() const {
@@ -3224,6 +3282,14 @@ namespace das
                 case Type::tString:         ss << "s"; break;
                 case Type::tVoid:           ss << "v"; break;
                 case Type::tBool:           ss << "b"; break;
+                case Type::none:
+                    if ( isTag ) {
+                        ss << "``TAG``";
+                    } else {
+                        LOG(LogLevel::error) << "unexpected type none in mangled name\n";
+                        DAS_ASSERT(0 && "we should not be here");
+                    }
+                    break;
                 default:
                     LOG(LogLevel::error) << das_to_string(baseType) << "\n";
                     DAS_ASSERT(0 && "we should not be here");
@@ -3411,6 +3477,18 @@ namespace das
                 if ( thisModule && ann.size()==0 ) {
                     if ( auto tann = thisModule->findAnnotation(annName) ) {
                         ann.push_back(tann);
+                    }
+                }
+                if ( ann.size()==0 ) {
+                    // Fallback: resolve module-qualified names globally (e.g. "rtti_core::TypeInfo")
+                    string modName, shortName;
+                    splitTypeName(annName, modName, shortName);
+                    if ( !modName.empty() ) {
+                        if ( auto mod = Module::require(modName) ) {
+                            if ( auto tann = mod->findAnnotation(shortName) ) {
+                                ann.push_back(tann);
+                            }
+                        }
                     }
                 }
                 if ( ann.size()!=1 ) error("unresolved annotation '" + annName + "'", ch);

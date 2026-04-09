@@ -197,14 +197,6 @@ namespace das
         };
     };
 
-    struct SkipLockCheckFunctionAnnotation : MarkFunctionAnnotation {
-        SkipLockCheckFunctionAnnotation() : MarkFunctionAnnotation("skip_lock_check") { }
-        virtual bool apply(const FunctionPtr & func, ModuleGroup &, const AnnotationArgumentList &, string &) override {
-            func->skipLockCheck = true;
-            return true;
-        };
-    };
-
     struct GenericFunctionAnnotation : MarkFunctionAnnotation {
         GenericFunctionAnnotation() : MarkFunctionAnnotation("generic") { }
         virtual bool isGeneric() const override {
@@ -461,20 +453,6 @@ namespace das
         virtual bool touch(const StructurePtr & ps, ModuleGroup &,
                            const AnnotationArgumentList &, string & ) override {
             ps->macroInterface = true;
-            return true;
-        }
-        virtual bool look ( const StructurePtr &, ModuleGroup &,
-                           const AnnotationArgumentList &, string & ) override {
-            return true;
-        }
-    };
-
-
-    struct SkipLockCheckStructureAnnotation : StructureAnnotation {
-        SkipLockCheckStructureAnnotation() : StructureAnnotation("skip_field_lock_check") {}
-        virtual bool touch(const StructurePtr & ps, ModuleGroup &,
-                           const AnnotationArgumentList &, string & ) override {
-            ps->skipLockCheck = true;
             return true;
         }
         virtual bool look ( const StructurePtr &, ModuleGroup &,
@@ -918,11 +896,19 @@ namespace das
         context->reportAnyHeap(info,true,true,false,errOnly);
     }
 
-    void builtin_table_lock ( const Table & arr, Context * context, LineInfoArg * at ) {
+    void builtin_table_lock ( Table & arr, Context * context, LineInfoArg * at ) {
+        table_lock(*context, arr, at);
+    }
+
+    void builtin_table_unlock ( Table & arr, Context * context, LineInfoArg * at ) {
+        table_unlock(*context, arr, at);
+    }
+
+    void builtin_table_lock_mutable ( const Table & arr, Context * context, LineInfoArg * at ) {
         table_lock(*context, const_cast<Table&>(arr), at);
     }
 
-    void builtin_table_unlock ( const Table & arr, Context * context, LineInfoArg * at ) {
+    void builtin_table_unlock_mutable ( const Table & arr, Context * context, LineInfoArg * at ) {
         table_unlock(*context, const_cast<Table&>(arr), at);
     }
 
@@ -1151,7 +1137,7 @@ namespace das
 
     void builtin_array_free ( Array & dim, int szt, Context * __context__, LineInfoArg * at ) {
         if ( dim.data ) {
-            if ( !dim.lock || dim.hopeless ) {
+            if ( !dim.isLocked() || dim.hopeless ) {
                 uint32_t oldSize = dim.capacity*szt;
                 __context__->free(dim.data, oldSize, at);
             } else {
@@ -1168,7 +1154,7 @@ namespace das
 
     void builtin_table_free ( Table & tab, int szk, int szv, Context * __context__, LineInfoArg * at ) {
         if ( tab.data ) {
-            if ( !tab.lock || tab.hopeless ) {
+            if ( !tab.isLocked() || tab.hopeless ) {
                 uint32_t oldSize = tab.capacity*(szk+szv+sizeof(TableHashKey));
                 __context__->free(tab.data, oldSize, at);
             } else {
@@ -1400,7 +1386,7 @@ namespace das
     TypeDeclPtr makePrintFlags() {
         auto ft = make_smart<TypeDecl>(Type::tBitfield);
         ft->alias = "print_flags";
-        ft->argNames = { "escapeString", "namesAndDimensions", "typeQualifiers", "refAddresses", "singleLine", "fixedPoint" };
+        ft->argNames = { "escapeString", "namesAndDimensions", "typeQualifiers", "refAddresses", "singleLine", "fixedPoint", "fullTypeInfo" };
         return ft;
     }
 
@@ -1430,22 +1416,46 @@ namespace das
         return cast<char *>::from(sres);
     }
 
+    vec4f builtin_json_sscan ( Context & context, SimNode_CallBase * call, vec4f * args ) {
+        auto json = cast<char *>::to(args[0]);
+        if ( !json ) return cast<bool>::from(false);
+        auto typeInfo = call->types[1];
+        char * dst;
+        if ( typeInfo->flags & TypeInfo::flag_refType ) {
+            dst = cast<char *>::to(args[1]);
+        } else {
+            dst = (char *)&args[1];
+        }
+        uint32_t jsonLen = uint32_t(strlen(json));
+        bool ok = debug_json_scan(context, dst, typeInfo, json, jsonLen, &call->debugInfo);
+        return cast<bool>::from(ok);
+    }
+
     Array  g_CommandLineArguments;
 
     void setCommandLineArguments ( int argc, char * argv[] ) {
-        g_CommandLineArguments.data = (char *) argv;
-        g_CommandLineArguments.capacity = argc;
-        g_CommandLineArguments.size = argc;
-        g_CommandLineArguments.lock = 1;
-        g_CommandLineArguments.flags = 0;
+        array_mark_locked(g_CommandLineArguments, (char *)argv, uint32_t(argc));
     }
 
     void getCommandLineArguments( Array & arr ) {
         arr = g_CommandLineArguments;
     }
 
+    void withCommandLineArguments( const Array & arr, const TBlock<void> & body, Context * context, LineInfoArg * at ) {
+        auto prev = g_CommandLineArguments;
+        g_CommandLineArguments = arr;
+        context->invoke(body, nullptr, nullptr, at);
+        g_CommandLineArguments = prev;
+    }
+
     char * builtin_das_root ( Context * context, LineInfoArg * at ) {
         return context->allocateString(getDasRoot(), at);
+    }
+
+    char * builtin_get_das_version ( Context * context, LineInfoArg * at ) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%d.%d.%d", DAS_VERSION_MAJOR, DAS_VERSION_MINOR, DAS_VERSION_PATCH);
+        return context->allocateString(string(buf), at);
     }
 
     char * to_das_string(const string & str, Context * ctx, LineInfoArg * at) {
@@ -1484,20 +1494,14 @@ namespace das
 
     void builtin_temp_array ( void * data, int size, const Block & block, Context * context, LineInfoArg * at ) {
         Array arr;
-        arr.data = (char *) data;
-        arr.size = arr.capacity = size;
-        arr.lock = 1;
-        arr.flags = 0;
+        array_mark_locked(arr, (char *)data, uint32_t(size));
         vec4f args[1];
         args[0] = cast<Array &>::from(arr);
         context->invoke(block, args, nullptr, at);
     }
 
     void builtin_make_temp_array ( Array & arr, void * data, int size ) {
-        arr.data = (char *) data;
-        arr.size = arr.capacity = size;
-        arr.lock = 0;
-        arr.flags = 0;
+        array_mark_locked(arr, (char *)data, uint32_t(size));
     }
 
     void toLog ( int level, const char * text, Context * context, LineInfoArg * at ) {
@@ -1555,6 +1559,34 @@ namespace das
 
     const char * compiling_module_name ( ) {
         return daScriptEnvironment::getBound() ? daScriptEnvironment::getBound()->g_compilingModuleName : nullptr;
+    }
+
+    const char * get_module_file_name ( const char * name, Context * context ) {
+        if ( context && context->thisProgram ) {
+            string modName = name ? name : "";
+            if ( modName.empty() ) {
+                // return the main module's file name
+                auto mod = context->thisProgram->thisModule.get();
+                if ( mod && !mod->fileName.empty() ) return mod->fileName.c_str();
+            } else {
+                // search program's library for named module
+                const char * result = nullptr;
+                context->thisProgram->library.foreach([&](Module * mod) {
+                    if ( mod->name == modName && !mod->fileName.empty() ) {
+                        result = mod->fileName.c_str();
+                        return false;
+                    }
+                    return true;
+                }, modName);
+                if ( result ) return result;
+            }
+        }
+        // fallback to global module list
+        auto mod = Module::require(name ? name : "");
+        if ( mod && !mod->fileName.empty() ) {
+            return mod->fileName.c_str();
+        }
+        return nullptr;
     }
 
 // remove define to enable emscripten version
@@ -1665,7 +1697,6 @@ namespace das
         addAnnotation(make_smart<CommentAnnotation>());
         addAnnotation(make_smart<NoDefaultCtorAnnotation>());
         addAnnotation(make_smart<MacroInterfaceAnnotation>());
-        addAnnotation(make_smart<SkipLockCheckStructureAnnotation>());
         addAnnotation(make_smart<MarkFunctionOrBlockAnnotation>());
         addAnnotation(make_smart<CppAlignmentAnnotation>());
         addAnnotation(make_smart<SafeWhenUninitializedAnnotation>());
@@ -1692,7 +1723,6 @@ namespace das
         addAnnotation(make_smart<FinalizeFunctionAnnotation>());
         addAnnotation(make_smart<HybridFunctionAnnotation>());
         addAnnotation(make_smart<UnsafeDerefFunctionAnnotation>());
-        addAnnotation(make_smart<SkipLockCheckFunctionAnnotation>());
         addAnnotation(make_smart<MarkUsedFunctionAnnotation>());
         addAnnotation(make_smart<LocalOnlyFunctionAnnotation>());
         addAnnotation(make_smart<PersistentStructureAnnotation>());
@@ -1719,9 +1749,15 @@ namespace das
         addExtern<DAS_BIND_FUN(builtin_das_root)>(*this, lib, "get_das_root",
             SideEffects::accessExternal,"builtin_das_root")
                 ->args({"context","at"});
+        addExtern<DAS_BIND_FUN(builtin_get_das_version)>(*this, lib, "get_das_version",
+            SideEffects::none,"builtin_get_das_version")
+                ->args({"context","at"});
         addExtern<DAS_BIND_FUN(getCommandLineArguments)>(*this, lib, "builtin_get_command_line_arguments",
             SideEffects::accessExternal,"getCommandLineArguments")
                 ->arg("arguments");
+        addExtern<DAS_BIND_FUN(withCommandLineArguments)>(*this, lib,  "with_argv",
+            SideEffects::invoke, "withArgv")
+                ->args({"new_arguments", "block","context","line"});
         // compile-time functions
         addExtern<DAS_BIND_FUN(is_compiling)>(*this, lib, "is_compiling",
             SideEffects::accessExternal, "is_compiling");
@@ -1815,6 +1851,9 @@ namespace das
         addInterop<builtin_json_sprint,char *,vec4f,bool>(*this, lib, "sprint_json",
             SideEffects::modifyExternal, "builtin_json_sprint")
                 ->args({"value","humanReadable"});
+        addInterop<builtin_json_sscan,bool,char *,vec4f>(*this, lib, "sscan_json",
+            SideEffects::modifyArgumentAndExternal, "builtin_json_sscan")
+                ->args({"json","value"});
         addExtern<DAS_BIND_FUN(builtin_terminate)>(*this, lib, "terminate",
             SideEffects::modifyExternal, "terminate")
                 ->args({"context","at"});
@@ -1911,20 +1950,7 @@ namespace das
         addExtern<DAS_BIND_FUN(_builtin_hash_ptr)>(*this, lib, "hash", SideEffects::none, "_builtin_hash_ptr")->arg("value");
         addExtern<DAS_BIND_FUN(_builtin_hash_float)>(*this, lib, "hash", SideEffects::none, "_builtin_hash_float")->arg("value");
         addExtern<DAS_BIND_FUN(_builtin_hash_double)>(*this, lib, "hash", SideEffects::none, "_builtin_hash_double")->arg("value");
-        addExtern<DAS_BIND_FUN(_builtin_hash_das_string)>(*this, lib, "hash", SideEffects::none, "_builtin_hash_string")->arg("value");
-        // locks
-        addInterop<builtin_verify_locks,void,vec4f,char *>(*this, lib, "_builtin_verify_locks",
-            SideEffects::modifyArgumentAndExternal, "builtin_verify_locks")
-                ->args({"anything","errorMessage"});
-        addExtern<DAS_BIND_FUN(builtin_set_verify_array_locks)>(*this, lib, "set_verify_array_locks",
-            SideEffects::modifyArgument, "builtin_set_verify_array_locks")
-                ->args({"array","check"})->unsafeOperation = true;
-        addExtern<DAS_BIND_FUN(builtin_set_verify_table_locks)>(*this, lib, "set_verify_table_locks",
-            SideEffects::modifyArgument, "builtin_set_verify_table_locks")
-                ->args({"table","check"})->unsafeOperation = true;
-        addExtern<DAS_BIND_FUN(builtin_set_verify_context)>(*this, lib, "set_verify_context_locks",
-            SideEffects::modifyExternal, "builtin_set_verify_context")
-                ->args({"check","context"})->unsafeOperation = true;
+        addExtern<DAS_BIND_FUN(_builtin_hash_das_string)>(*this, lib, "hash", SideEffects::none, "_builtin_hash_das_string")->arg("value");
         // table functions
         addExtern<DAS_BIND_FUN(builtin_table_clear)>(*this, lib, "_builtin_table_clear",
             SideEffects::modifyArgument, "builtin_table_clear")
@@ -1938,8 +1964,14 @@ namespace das
         addExtern<DAS_BIND_FUN(builtin_table_lock)>(*this, lib, "__builtin_table_lock",
             SideEffects::modifyArgumentAndExternal, "builtin_table_lock")
                 ->args({"table","context","at"});
+        addExtern<DAS_BIND_FUN(builtin_table_lock_mutable)>(*this, lib, "__builtin_table_lock_mutable",
+            SideEffects::modifyArgumentAndExternal, "builtin_table_lock_mutable")
+                ->args({"table","context","at"});
         addExtern<DAS_BIND_FUN(builtin_table_unlock)>(*this, lib, "__builtin_table_unlock",
             SideEffects::modifyArgumentAndExternal, "builtin_table_unlock")
+                ->args({"table","context","at"});
+        addExtern<DAS_BIND_FUN(builtin_table_unlock_mutable)>(*this, lib, "__builtin_table_unlock_mutable",
+            SideEffects::modifyArgumentAndExternal, "builtin_table_unlock_mutable")
                 ->args({"table","context","at"});
         addExtern<DAS_BIND_FUN(builtin_table_clear_lock)>(*this, lib, "__builtin_table_clear_lock",
             SideEffects::modifyArgumentAndExternal, "builtin_table_clear_lock")
@@ -1950,6 +1982,9 @@ namespace das
         addExtern<DAS_BIND_FUN(builtin_table_values)>(*this, lib, "__builtin_table_values",
             SideEffects::modifyArgumentAndExternal, "builtin_table_values")
                 ->args({"iterator","table","stride","context","at"});
+        addExtern<DAS_BIND_FUN(builtin_table_get_key)>(*this, lib, "__builtin_table_get_key",
+            SideEffects::modifyExternal, "builtin_table_get_key")
+                ->args({"result","table","value_ptr","value_stride","key_stride","context","at"});
         addInterop<builtin_table_reserve,void,vec4f,uint32_t>(*this, lib, "__builtin_table_reserve",
             SideEffects::modifyArgumentAndExternal, "builtin_table_reserve")
                 ->args({"table","size"});
@@ -2145,6 +2180,8 @@ namespace das
             SideEffects::accessExternal, "compiling_file_name");
         addExtern<DAS_BIND_FUN(compiling_module_name)>(*this, lib, "compiling_module_name",
             SideEffects::accessExternal, "compiling_module_name");
+        addExtern<DAS_BIND_FUN(get_module_file_name)>(*this, lib, "get_module_file_name",
+            SideEffects::accessExternal, "get_module_file_name")->args({"name", "context"});
         // logger
         addExtern<DAS_BIND_FUN(toLog)>(*this, lib, "to_log",
             SideEffects::modifyExternal, "toLog")->args({"level", "text", "context", "at"});

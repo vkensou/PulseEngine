@@ -35,6 +35,30 @@ namespace das {
 
     DAS_API void das_debug ( Context * context, TypeInfo * typeInfo, const char * FILE, int LINE, vec4f res, const char * message = nullptr );
 
+    __forceinline void das_assert ( bool cond, Context * __context__ ) {
+        if ( !cond ) {
+            __context__->throw_error("assert failed");
+        }
+    }
+
+    __forceinline void das_assertf ( bool cond, const char * message, Context * __context__ ) {
+        if ( !cond ) {
+            __context__->throw_error_ex("assert failed, %s", message ? message : "");
+        }
+    }
+
+    __forceinline void das_verify ( bool cond, Context * __context__ ) {
+        if ( !cond ) {
+            __context__->throw_error("assert failed");
+        }
+    }
+
+    __forceinline void das_verifyf ( bool cond, const char * message, Context * __context__ ) {
+        if ( !cond ) {
+            __context__->throw_error_ex("assert failed, %s", message ? message : "");
+        }
+    }
+
 #if (!defined(DAS_ENABLE_EXCEPTIONS)) || (!DAS_ENABLE_EXCEPTIONS)
     void das_throw(const char * msg);
     void das_trycatch(callable<void()> tryBody, callable<void(const char * msg)> catchBody);
@@ -355,7 +379,7 @@ namespace das {
         }
     };
 
-    template <typename ResT,typename VecT, int f0, int f1, int f2 = 0, int f3 = 0>
+    template <typename ResT,typename VecT, int f0, int f1, int f2 = -1, int f3 = -1>
     struct das_swizzle {
         static __forceinline ResT swizzle ( const VecT & val ) {
             ResT res;
@@ -371,7 +395,7 @@ namespace das {
     };
 
     template <typename ResT,typename VecT, int f0, int f1, int f2>
-    struct das_swizzle<ResT,VecT,f0,f1,f2,0> {
+    struct das_swizzle<ResT,VecT,f0,f1,f2,-1> {
         static __forceinline ResT swizzle ( const VecT & val ) {
             ResT res;
             res.x = *((&val.x) + f0);
@@ -385,7 +409,7 @@ namespace das {
     };
 
     template <typename ResT,typename VecT, int f0, int f1>
-    struct das_swizzle<ResT,VecT,f0,f1,0,0> {
+    struct das_swizzle<ResT,VecT,f0,f1,-1,-1> {
         static __forceinline ResT swizzle ( const VecT & val ) {
             ResT res;
             res.x = *((&val.x) + f0);
@@ -775,6 +799,12 @@ namespace das {
         static __forceinline TT & at ( TT * value, uint32_t index, Context * ) {
             return value[index];
         }
+        static __forceinline TT * safe_at ( TT * value, int32_t index, Context * ) {
+            return value ? value + index : nullptr;
+        }
+        static __forceinline TT * safe_at ( TT * value, uint32_t index, Context * ) {
+            return value ? value + index : nullptr;
+        }
     };
 
     template <typename TT>
@@ -784,6 +814,12 @@ namespace das {
         }
         static __forceinline const TT & at ( const TT * value, uint32_t index, Context * ) {
             return value[index];
+        }
+        static __forceinline const TT * safe_at ( const TT * value, int32_t index, Context * ) {
+            return value ? value + index : nullptr;
+        }
+        static __forceinline const TT * safe_at ( const TT * value, uint32_t index, Context * ) {
+            return value ? value + index : nullptr;
         }
     };
 
@@ -800,6 +836,18 @@ namespace das {
         }
         static __forceinline TT & at ( TT * value, uint64_t index, Context * ) {
             return value[index];
+        }
+        static __forceinline TT * safe_at ( TT * value, int32_t index, Context * ) {
+            return value ? value + index : nullptr;
+        }
+        static __forceinline TT * safe_at ( TT * value, uint32_t index, Context * ) {
+            return value ? value + index : nullptr;
+        }
+        static __forceinline TT * safe_at ( TT * value, int64_t index, Context * ) {
+            return value ? value + index : nullptr;
+        }
+        static __forceinline TT * safe_at ( TT * value, uint64_t index, Context * ) {
+            return value ? value + index : nullptr;
         }
     };
 
@@ -893,17 +941,19 @@ namespace das {
     template <typename TT>
     struct TArray : Array {
         using THIS_TYPE = TArray<TT>;
-        enum { stride = sizeof(TT) };
+        template <typename U = TT>
+        static constexpr size_t stride = sizeof(U);
         TArray()  {}
         TArray(TArray & arr) { moveA(arr); }
         TArray(TArray && arr ) { moveA(arr); }
         TArray & operator = ( TArray & arr ) { moveA(arr); return *this; }
         TArray & operator = ( TArray && arr ) { moveA(arr); return *this; }
-        __forceinline void moveA ( Array & arr ) {
+        __forceinline void moveA ( TArray & arr ) {
             data = arr.data; arr.data = 0;
             size = arr.size; arr.size = 0;
             capacity = arr.capacity; arr.capacity = 0;
             lock = arr.lock; arr.lock = 0;
+            magic = arr.magic; arr.magic = 0;
             flags = arr.flags; arr.flags = 0;
         }
         __forceinline TT & operator [] ( int32_t index ) {
@@ -967,11 +1017,12 @@ namespace das {
         TTable(TTable && arr ) { moveT(arr); }
         TTable & operator = ( TTable & arr ) { moveT(arr); return *this; }
         TTable & operator = ( TTable && arr ) { moveT(arr); return *this; }
-        __forceinline void moveT ( Table & arr ) {
+        __forceinline void moveT ( TTable & arr ) {
             data = arr.data; arr.data = 0;
             size = arr.size; arr.size = 0;
             capacity = arr.capacity; arr.capacity = 0;
             lock = arr.lock; arr.lock = 0;
+            magic = arr.magic; arr.magic = 0;
             flags = arr.flags; arr.flags = 0;
             keys = arr.keys; arr.keys = 0;
             hashes = arr.hashes; arr.hashes = 0;
@@ -1007,11 +1058,12 @@ namespace das {
         TTable(TTable && arr ) { moveT(arr); }
         TTable & operator = ( TTable & arr ) { moveT(arr); return *this; }
         TTable & operator = ( TTable && arr ) { moveT(arr); return *this; }
-        __forceinline void moveT ( Table & arr ) {
+        __forceinline void moveT ( TTable & arr ) {
             data = arr.data; arr.data = 0;
             size = arr.size; arr.size = 0;
             capacity = arr.capacity; arr.capacity = 0;
             lock = arr.lock; arr.lock = 0;
+            magic = arr.magic; arr.magic = 0;
             flags = arr.flags; arr.flags = 0;
             keys = arr.keys; arr.keys = 0;
             hashes = arr.hashes; arr.hashes = 0;
@@ -1354,8 +1406,8 @@ namespace das {
         }
         template <typename QQ>
         __forceinline void close(Context * __context__, QQ * & i) {
-            array_unlock(*__context__, *that, /*at*/nullptr);
             context = nullptr;
+            array_unlock(*__context__, *that, /*at*/nullptr);
             i = nullptr;
         }
         ~das_iterator() {
@@ -1387,8 +1439,8 @@ namespace das {
         }
         template <typename QQ>
         __forceinline void close ( Context * __context__, const QQ * & i ) {
-            array_unlock(*__context__, *(Array *)(that), /*at*/nullptr);  // technically we don't need for the const array, but...
             context = nullptr;
+            array_unlock(*__context__, *(Array *)(that), /*at*/nullptr);  // technically we don't need for the const array, but...
             i = nullptr;
         }
         ~das_iterator() {
@@ -1687,7 +1739,7 @@ namespace das {
     struct das_delete<TArray<TT>> {
         static __forceinline void clear ( Context * __context__, TArray<TT> & dim ) {
             if ( dim.data ) {
-                if ( !dim.lock ) {
+                if ( !dim.isLocked() ) {
                     uint32_t oldSize = dim.capacity*sizeof(TT);
                     __context__->free(dim.data, oldSize);
                 } else {
@@ -1702,7 +1754,7 @@ namespace das {
     struct das_delete<TTable<TKey,TVal>> {
         static __forceinline void clear ( Context * __context__, TTable<TKey,TVal> & tab ) {
             if ( tab.data ) {
-                if ( !tab.lock ) {
+                if ( !tab.isLocked() ) {
                     uint32_t oldSize = tab.capacity*(sizeof(TKey)+sizeof(TVal)+sizeof(TableHashKey));
                     __context__->free(tab.data, oldSize);
                 } else {
@@ -1749,6 +1801,19 @@ namespace das {
     __forceinline TT & das_deref ( Context * __context__, const TT * ptr, const char * file = "", int line = 0 ) {
         if ( !ptr ) __context__->throw_error_ex("dereferencing null pointer at %s:%d", file, line);
         return *((TT *)ptr);
+    }
+
+    struct das_null_deref {
+        Context * ctx; const char * file; int line;
+        template <typename TT>
+        __forceinline operator TT & () const {
+            ctx->throw_error_ex("dereferencing null pointer at %s:%d", file, line);
+            return *(TT *)nullptr;
+        }
+    };
+
+    __forceinline das_null_deref das_deref ( Context * __context__, nullptr_t, const char * file = "", int line = 0 ) {
+        return das_null_deref { __context__, file, line };
     }
 
     template <typename TT>
@@ -2690,8 +2755,8 @@ namespace das {
         }
         template <typename TT>
         __forceinline void close ( Context * __context__, TT & i ) {
-            that->close(*__context__,(char *)&i);
             context = nullptr;
+            that->close(*__context__,(char *)&i);
         }
         ~das_iterator() {
             if (context) that->close(*context, nullptr);
@@ -2733,7 +2798,7 @@ namespace das {
 
     template <typename TK, typename TV, typename TKey>
     __forceinline bool __builtin_table_erase ( Context * context, TTable<TK,TV> & tab, TKey _key ) {
-        if ( tab.lock ) context->throw_error("can't erase from locked table");
+        if ( tab.isLocked() ) context->throw_error("can't erase from locked table");
         TK key = (TK) _key;
         auto hfn = hash_function(*context, key);
         TableHash<TK> thh(context,safe_size_of<TV>::value);
@@ -2742,7 +2807,7 @@ namespace das {
 
     template <typename TK, typename TKey>
     __forceinline void __builtin_table_set_insert ( Context * context, TTable<TK,void> & tab, TKey _key ) {
-        if ( tab.lock ) context->throw_error("can't insert to a locked table");
+        if ( tab.isLocked() ) context->throw_error("can't insert to a locked table");
         TK key = (TK) _key;
         auto hfn = hash_function(*context, key);
         TableHash<TK> thh(context,0);

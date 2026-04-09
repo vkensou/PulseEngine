@@ -561,6 +561,7 @@ namespace das {
     void ast_globalBitfieldConst ( yyscan_t scanner, const TypeDeclPtr & bType, bool pub_var, const string & name, Expression * expr ) {
         auto pVar = make_smart<Variable>();
         pVar->name = "`" + bType->alias + "`" + name;
+        pVar->at = expr->at;
         pVar->type = make_smart<TypeDecl>(*bType);
         pVar->type->constant = true;
         pVar->init = expr;
@@ -1293,7 +1294,7 @@ namespace das {
     }
 
     Expression * ast_makeMoveArgument ( yyscan_t scanner, Expression * expr, const LineInfo & at ) {
-        auto moveExpr = new ExprCall(at, "$::consume_argument");
+        auto moveExpr = new ExprCall(at, "builtin::consume_argument");
         moveExpr->arguments.push_back(expr);
         return moveExpr;
     }

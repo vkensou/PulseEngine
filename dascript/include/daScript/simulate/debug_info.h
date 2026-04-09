@@ -224,6 +224,9 @@ namespace das
             return false;
         }
 
+        void addExtraModule ( const string & modName, const string & modFile ) { extraModules.emplace_back(modName, modFile); }
+        const vector<pair<string,string>> & getExtraModules () const { return extraModules; }
+
         void lock() { locked = true; }
         void unlock() { locked = false; }
         bool isLocked() const { return locked; }
@@ -231,6 +234,7 @@ namespace das
         virtual FileInfo * getNewFileInfo ( const string & ) { return nullptr; }
     protected:
         das_hash_map<string, FileInfoPtr>    files;
+        vector<pair<string,string>>          extraModules;
         bool    locked = false;
     };
     template <> struct isCloneable<FileAccess> : false_type {};
@@ -307,8 +311,7 @@ namespace das
             flag_isHandled = 1<<12,
             flag_heapGC = 1<<13,
             flag_stringHeapGC = 1<<14,
-            flag_lockCheck = 1<<15,
-            flag_private = 1<<16,
+            flag_private = 1<<15,
         };
         union {
             StructInfo *                structType;
@@ -355,6 +358,50 @@ namespace das
         __forceinline bool isTemp() const { return flags & flag_isTemp; }
         __forceinline bool isImplicit() const { return flags & flag_isImplicit; }
         __forceinline bool isSmartPtr() const { return flags & flag_isSmartPtr; }
+        __forceinline static bool isSimpleBaseType(Type t) {
+            switch ( t ) {
+                case Type::tString:
+                case Type::tStructure:
+                case Type::tHandle:
+                case Type::tTuple:
+                case Type::tVariant:
+                case Type::tArray:
+                case Type::tTable:
+                case Type::tLambda:
+                case Type::tIterator:
+                case Type::tBlock:
+                case Type::tPointer:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+        __forceinline bool isSimpleType() const {
+            return dimSize == 0 && isSimpleBaseType(type);
+        }
+        __forceinline bool isDimOfSimpleType() const {
+            return dimSize == 1 && isSimpleBaseType(type);
+        }
+        __forceinline bool isArrayOfSimpleType() const {
+            return firstType && firstType->isSimpleType();
+        }
+        __forceinline bool isTableOfSimpleTypes() const {
+            return firstType && secondType
+                && firstType->isSimpleType()
+                && secondType->isSimpleType();
+        }
+        __forceinline bool isTupleOfSimpleTypes() const {
+            for ( uint32_t i=0, is=argCount; i!=is; ++i ) {
+                if ( !argTypes[i]->isSimpleType() ) return false;
+            }
+            return true;
+        }
+        __forceinline bool isVariantOfSimpleTypes() const {
+            for ( uint32_t i=0, is=argCount; i!=is; ++i ) {
+                if ( !argTypes[i]->isSimpleType() ) return false;
+            }
+            return true;
+        }
         TypeAnnotation * getAnnotation() const;
         StructInfo * getStructType() const;
         EnumInfo * getEnumType() const;
@@ -391,7 +438,6 @@ namespace das
         ,   flag_lambda =       (1<<1)
         ,   flag_heapGC =       (1<<2)
         ,   flag_stringHeapGC = (1<<3)
-        ,   flag_lockCheck =    (1<<4)
         };
         const char* name;
         const char* module_name;
@@ -509,6 +555,7 @@ namespace das
     ,   refAddresses =          (1<<3)
     ,   singleLine =            (1<<4)
     ,   fixedFloatingPoint =    (1<<5)
+    ,   fullTypeInfo =          (1<<6)
 
     ,   string_builder  =   PrintFlags::none
     ,   debugger        =   PrintFlags::escapeString | PrintFlags::namesAndDimensions

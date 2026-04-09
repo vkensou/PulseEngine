@@ -178,10 +178,7 @@ namespace das {
             return true;
         },moduleName);
         Array arr;
-        arr.data = (char *) result.data();
-        arr.size = arr.capacity = (int32_t) result.size();
-        arr.lock = 1;
-        arr.flags = 0;
+        array_mark_locked(arr, (char *)result.data(), (int32_t)result.size());
         das_invoke<void>::invoke<Array&>(context,arg,block,arr);
     }
 
@@ -275,6 +272,13 @@ namespace das {
         return context->allocateString(ss.str(),at);
     }
 
+    char * ast_describe_program ( smart_ptr_raw<Program> t, Context * context, LineInfoArg * at ) {
+        if ( !t ) context->throw_error_at(at, "expecting program, not null");
+        TextWriter ss;
+        ss << *t;
+        return context->allocateString(ss.str(),at);
+    }
+
     char * ast_describe_function ( smart_ptr_raw<Function> t, Context * context, LineInfoArg * at ) {
         if ( !t ) context->throw_error_at(at, "expecting function, not null");
         TextWriter ss;
@@ -307,6 +311,11 @@ namespace das {
     void ast_error ( ProgramPtr prog, const LineInfo & at, const char * message, Context * context, LineInfoArg * lineInfo ) {
         if ( !prog ) context->throw_error_at(lineInfo,"program can't be null (expecting compiling_program())");
         prog->error(message ? message : "macro error","","",at,CompilationError::macro_failed);
+    }
+
+    void ast_performance_warning ( ProgramPtr prog, const LineInfo & at, const char * message, Context * context, LineInfoArg * lineInfo ) {
+        if ( !prog ) context->throw_error_at(lineInfo,"program can't be null (expecting compiling_program())");
+        prog->error(message ? message : "performance warning","","",at,CompilationError::performance_lint);
     }
 
     int32_t get_variant_field_offset ( smart_ptr_raw<TypeDecl> td, int32_t index, Context * context, LineInfoArg * at ) {
@@ -468,6 +477,11 @@ namespace das {
     char * get_mangled_name ( smart_ptr_raw<Function> func, Context * context, LineInfoArg * at ) {
         if ( !func ) context->throw_error_at(at,"expecting function");
         return context->allocateString(func->getMangledName(),at);
+    }
+
+    char * get_aot_hash_comment_fn ( const Function * func, Context * context, LineInfoArg * at ) {
+        if ( !func ) context->throw_error_at(at,"expecting function");
+        return context->allocateString(getAotHashComment(func),at);
     }
 
     char * get_mangled_name_t ( smart_ptr_raw<TypeDecl> typ, Context * context, LineInfoArg * at ) {
@@ -640,7 +654,7 @@ namespace das {
     Annotation * get_expression_annotation ( Expression * expr, Context * context, LineInfoArg * at ) {
         if ( !expr ) return nullptr;
         if ( !daScriptEnvironment::getBound() ) context->throw_error_at(at, "expecting bound environment");
-        auto mod = Module::require("ast");
+        auto mod = Module::require("ast_core");
         return mod->findAnnotation(expr->__rtti).get();
     }
 
@@ -686,7 +700,7 @@ namespace das {
             return apply(static_cast<vector<const char *>*>(vec));
         } else if (tstr == "$::das_string") {
             return apply(static_cast<vector<string>*>(vec));
-        } else if (tstr == "ast::CaptureEntry") {
+        } else if (tstr == "ast_core::CaptureEntry") {
             return apply(static_cast<vector<CaptureEntry>*>(vec));
         } else if (tstr == "int") {
             return apply(static_cast<vector<int>*>(vec));
@@ -696,16 +710,16 @@ namespace das {
             return apply(static_cast<vector<pair<unsigned int, unsigned int>>*>(vec));
         } else if (tstr == "smart_ptr<rtti::AnnotationDeclaration>") {
             return apply(static_cast<vector<smart_ptr<AnnotationDeclaration>>*>(vec));
-        } else if (tstr == "rtti::AnnotationArgument") {
+        } else if (tstr == "rtti_core::AnnotationArgument") {
             return apply(static_cast<vector<AnnotationArgument>*>(vec));
-        } else if (tstr == "rtti::LineInfo") {
+        } else if (tstr == "rtti_core::LineInfo") {
             return apply(static_cast<vector<LineInfo>*>(vec));
         } else if (tstr == "smart_ptr<ast::MakeStruct>") {
             return apply(static_cast<vector<smart_ptr<MakeStruct>>*>(vec));
         } else if (tstr == "smart_ptr<ast::MakeFieldDecl>") {
             auto vec2 = (MakeStruct*)(vec); // todo: hack, multiple inheritance breaks order in memory.
             return apply(static_cast<vector<smart_ptr<MakeFieldDecl>>*>(vec2));
-        } else if (tstr == "ast::EnumEntry") {
+        } else if (tstr == "ast_core::EnumEntry") {
             return apply(static_cast<vector<Enumeration::EnumEntry>*>(vec));
         }
         DAS_FATAL_ERROR("vec length/index for %s is not implemented!\n", tstr.data());
@@ -925,6 +939,32 @@ namespace das {
         return res;
     }
 
+    void get_file_source_line(FileInfo * info, uint32_t line, const TBlock<void,TTemporary<const char *>> & blk, Context * context, LineInfoArg * at) {
+        if ( !info || line == 0 ) return;
+        const char * src = nullptr;
+        uint32_t len = 0;
+        info->getSourceAndLength(src, len);
+        if ( !src || len == 0 ) return;
+        uint32_t curLine = 1;
+        const char * lineStart = src;
+        const char * srcEnd = src + len;
+        while ( lineStart < srcEnd && curLine < line ) {
+            if ( *lineStart == '\n' ) curLine++;
+            lineStart++;
+        }
+        if ( curLine != line ) return;
+        const char * lineEnd = lineStart;
+        while ( lineEnd < srcEnd && *lineEnd != '\n' && *lineEnd != '\r' ) lineEnd++;
+        // make a temporary null-terminated copy on the stack
+        uint32_t lineLen = uint32_t(lineEnd - lineStart);
+        char * tmp = (char *)alloca(lineLen + 1);
+        memcpy(tmp, lineStart, lineLen);
+        tmp[lineLen] = 0;
+        vec4f args[1];
+        args[0] = cast<const char *>::from(tmp);
+        context->invoke(blk, args, nullptr, at);
+    }
+
     void for_each_module_function(Module *module, const TBlock<void,FunctionPtr> &blk, Context * context, LineInfoArg * at) {
         module->functions.foreach([&](auto fn) {
             vec4f args[1];
@@ -981,13 +1021,11 @@ namespace das {
         return mod->findFunctionByMangledNameHash(mnh);
     }
 
-    #include "ast.das.inc"
-
-    Module_Ast::Module_Ast() : Module("ast") {
+    Module_Ast::Module_Ast() : Module("ast_core") {
         DAS_PROFILE_SECTION("Module_Ast");
         ModuleLibrary lib(this);
         lib.addBuiltInModule();
-        addBuiltinDependency(lib, Module::require("rtti"));
+        addBuiltinDependency(lib, Module::require("rtti_core"), true);
         registerAnnotations(lib);
         registerAnnotations1(lib);
         registerAnnotations2(lib);
@@ -995,8 +1033,6 @@ namespace das {
         registerAdapterAnnotations(lib);
         registerMacroExpressions(lib);
         registerFunctions(lib);
-        // add builtin module
-        compileBuiltinModule("ast.das",ast_das,sizeof(ast_das));
         // lets make sure its all aot ready
         // verifyAotReady();
     }
@@ -1107,6 +1143,9 @@ namespace das {
         addExtern<DAS_BIND_FUN(ast_describe_function)>(*this, lib,  "describe_function",
             SideEffects::none, "ast_describe_function")
                 ->args({"function","context","lineinfo"});
+        addExtern<DAS_BIND_FUN(ast_describe_program)>(*this, lib,  "describe_program",
+            SideEffects::none, "ast_describe_program")
+                ->args({"program","context","lineinfo"});
         addExtern<DAS_BIND_FUN(ast_find_bitfield_name)>(*this, lib,  "find_bitfield_name",
             SideEffects::none, "ast_find_bitfield_name")
                 ->args({"bit","value","context","lineinfo"});
@@ -1282,6 +1321,9 @@ namespace das {
         addExtern<DAS_BIND_FUN(ast_error)>(*this, lib,  "macro_error",
             SideEffects::modifyArgumentAndExternal, "ast_error")
                 ->args({"porogram","at","message","context","line"});
+        addExtern<DAS_BIND_FUN(ast_performance_warning)>(*this, lib,  "macro_performance_warning",
+            SideEffects::modifyArgumentAndExternal, "ast_performance_warning")
+                ->args({"porogram","at","message","context","line"});
         // class
         addExtern<DAS_BIND_FUN(makeClassRtti)>(*this, lib,  "builtin_ast_make_class_rtti",
             SideEffects::modifyArgumentAndExternal, "makeClassRtti")
@@ -1324,6 +1366,9 @@ namespace das {
         addExtern<DAS_BIND_FUN(getFunctionAotHash)>(*this, lib,  "get_function_aot_hash",
             SideEffects::none, "getFunctionAotHash")
                 ->args({"fun"});
+        addExtern<DAS_BIND_FUN(get_aot_hash_comment_fn)>(*this, lib,  "get_aot_hash_comment",
+            SideEffects::none, "get_aot_hash_comment_fn")
+                ->args({"fun","context","line"});
         // infer
         addExtern<DAS_BIND_FUN(inferGenericTypeEx)>(*this, lib,  "infer_generic_type",
             SideEffects::none, "inferGenericTypeEx")
@@ -1381,6 +1426,9 @@ namespace das {
         addExtern<DAS_BIND_FUN(clone_file_info)>(*this, lib,  "clone_file_info",
                                                            SideEffects::none, "clone_file_info")
             ->args({"name","tab_size", "context", "at"});
+        addExtern<DAS_BIND_FUN(get_file_source_line)>(*this, lib,  "get_file_source_line",
+                                                           SideEffects::modifyExternal, "get_file_source_line")
+            ->args({"info","line", "blk", "context", "at"});
         addExtern<DAS_BIND_FUN(for_each_module_function)>(*this, lib,  "for_each_module_function",
                                                           SideEffects::modifyExternal, "for_each_module_function")
             ->args({"module","blk", "context", "at"});

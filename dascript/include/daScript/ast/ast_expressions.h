@@ -145,6 +145,7 @@ namespace das
                 bool        write : 1;
                 bool        no_promotion : 1;
                 bool        underClone : 1;
+                bool        underDeref : 1;
             };
             uint32_t atFlags = 0;
         };
@@ -507,7 +508,6 @@ namespace das
         virtual void serialize( AstSerializer & ser ) override;
         union {
             struct {
-                bool skipLockCheck : 1;
                 bool takeOverRightStack : 1;
                 bool allowConstantLValue : 1;
                 bool podDelete : 1;
@@ -591,7 +591,6 @@ namespace das
                 bool returnCMRES        : 1;
                 bool fromYield          : 1;
                 bool fromComprehension  : 1;
-                bool skipLockCheck      : 1;
             };
             uint32_t    returnFlags = 0;
         };
@@ -1100,7 +1099,6 @@ namespace das
         union {
             struct {
                 bool moveSemantics      : 1;
-                bool skipLockCheck      : 1;
             };
             uint32_t    returnFlags = 0;
         };

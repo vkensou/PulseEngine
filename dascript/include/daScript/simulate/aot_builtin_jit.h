@@ -7,11 +7,11 @@
 namespace das {
 
     class Context;
-    class LineInfo;
-    class LineInfoArg;
+    struct LineInfo;
+    struct LineInfoArg;
     class Function;
-    class ExprCallFunc;
-    class ExprStringBuilder;
+    struct ExprCallFunc;
+    struct ExprStringBuilder;
 
     struct TypeDecl;
     typedef smart_ptr<TypeDecl> TypeDeclPtr;
@@ -51,8 +51,6 @@ namespace das {
     void * das_get_jit_iterator_first();
     void * das_get_jit_iterator_next();
     void * das_get_builtin_function_address ( Function * fn, Context * context, LineInfoArg * at );
-    void * das_get_jit_new ( TypeDeclPtr htype, Context * context, LineInfoArg * at );
-    void * das_get_jit_delete ( TypeDeclPtr htype, Context * context, LineInfoArg * at );
     void * das_get_jit_debug_enter ();
     void * das_get_jit_debug_exit ();
     void * das_get_jit_debug_line ();

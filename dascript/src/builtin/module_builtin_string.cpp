@@ -32,11 +32,36 @@ namespace das
     };
 
     int32_t get_character_at ( const char * str, int32_t index, Context * context, LineInfoArg * at ) {
-        const uint32_t strLen = stringLengthSafe ( *context, str );
-        if ( uint32_t(index)>=strLen ) {
-            context->throw_error_at(at, "string character index out of range, %u of %u", uint32_t(index), strLen);
+        if ( !str || index<0 ) {
+            context->throw_error_at(at, "string character index out of range, %u", uint32_t(index));
+        }
+        for ( int32_t i = 0; i <= index; ++i ) {
+            if ( str[i]==0 ) {
+                context->throw_error_at(at, "string character index out of range, %u", uint32_t(index));
+            }
         }
         return ((uint8_t *)str)[index];
+    }
+
+    int32_t get_first_character ( const char * str, Context * context, LineInfoArg * at ) {
+        if ( !str || str[0]==0 ) {
+            context->throw_error_at(at, "string is empty");
+        }
+        return ((uint8_t *)str)[0];
+    }
+
+    int32_t get_first_character_ds ( const string & str, Context * context, LineInfoArg * at ) {
+        if ( str.empty() ) {
+            context->throw_error_at(at, "string is empty");
+        }
+        return ((uint8_t *)str.c_str())[0];
+    }
+
+    void with_das_string ( const TBlock<void,TTemporary<string>> & block, Context * context, LineInfoArg * at ) {
+        string tmp;
+        vec4f args[1];
+        args[0] = cast<string&>::from(tmp);
+        context->invoke(block, args, nullptr, at);
     }
 
     bool builtin_string_endswith ( const char * str, const char * cmp, Context * context ) {
@@ -135,6 +160,39 @@ namespace das
             return -1;
         const char *ret = strstr(str, substr);
         return ret ? int(ret-str) : -1;
+    }
+
+    int builtin_string_rfind1 ( const char *str, const char *substr, int start, Context * context ) {
+        if (!str || !substr)
+            return -1;
+        const uint32_t strLen = stringLengthSafe ( *context, str );
+        if (!strLen)
+            return -1;
+        const uint32_t subLen = uint32_t(strlen(substr));
+        if (!subLen)
+            return clamp_int(start, 0, strLen);
+        int from = clamp_int(start, 0, strLen);
+        if ( from + int(subLen) > int(strLen) )
+            from = int(strLen) - int(subLen);
+        for ( int i = from; i >= 0; --i ) {
+            if ( memcmp(str + i, substr, subLen) == 0 )
+                return i;
+        }
+        return -1;
+    }
+
+    int builtin_string_rfind2 (const char *str, const char *substr) {
+        if (!str || !substr)
+            return -1;
+        const uint32_t strLen = uint32_t(strlen(str));
+        const uint32_t subLen = uint32_t(strlen(substr));
+        if (!strLen || !subLen || subLen > strLen)
+            return -1;
+        for ( int i = int(strLen) - int(subLen); i >= 0; --i ) {
+            if ( memcmp(str + i, substr, subLen) == 0 )
+                return i;
+        }
+        return -1;
     }
 
     int builtin_string_length ( const char *str, Context * context ) {
@@ -491,10 +549,7 @@ namespace das
         }
         if ( tokens.empty() ) tokens.push_back("");
         Array arr;
-        arr.data = (char *) tokens.data();
-        arr.capacity = arr.size = uint32_t(tokens.size());
-        arr.lock = 1;
-        arr.flags = 0;
+        array_mark_locked(arr, (char *)tokens.data(), uint32_t(tokens.size()));
         vec4f args[1];
         args[0] = cast<Array *>::from(&arr);
         context->invoke(block, args, nullptr, at);
@@ -530,10 +585,7 @@ namespace das
         }
         if ( tokens.empty() ) tokens.push_back("");
         Array arr;
-        arr.data = (char *) tokens.data();
-        arr.capacity = arr.size = uint32_t(tokens.size());
-        arr.lock = 1;
-        arr.flags = 0;
+        array_mark_locked(arr, (char *)tokens.data(), uint32_t(tokens.size()));
         vec4f args[1];
         args[0] = cast<Array *>::from(&arr);
         context->invoke(block, args, nullptr, at);
@@ -719,10 +771,7 @@ namespace das
     void builtin_string_peek ( const char * str, const TBlock<void,TTemporary<TArray<uint8_t> const>> & block, Context * context, LineInfoArg * at ) {
         if ( !str ) return;
         Array arr;
-        arr.data = (char *) str;
-        arr.capacity = arr.size = uint32_t(strlen(str));
-        arr.lock = 1;
-        arr.flags = 0;
+        array_mark_locked(arr, (char *)str, uint32_t(strlen(str)));
         vec4f args[1];
         args[0] = cast<Array *>::from(&arr);
         context->invoke(block, args, nullptr, at);
@@ -734,10 +783,7 @@ namespace das
         char * cstr = context->allocateString(str, len, at);
         memcpy(cstr, str, len);
         Array arr;
-        arr.data = cstr;
-        arr.capacity = arr.size = len;
-        arr.lock = 1;
-        arr.flags = 0;
+        array_mark_locked(arr, cstr, uint32_t(len));
         vec4f args[1];
         args[0] = cast<Array *>::from(&arr);
         context->invoke(block, args, nullptr, at);
@@ -901,6 +947,12 @@ namespace das
                 SideEffects::none, "get_character_at")->args({"str","idx","context","at"});
             addExtern<DAS_BIND_FUN(get_character_uat)>(*this, lib, "character_uat",
                 SideEffects::none, "get_character_uat")->args({"str","idx"})->unsafeOperation = true;
+            addExtern<DAS_BIND_FUN(get_first_character)>(*this, lib, "first_character",
+                SideEffects::none, "get_first_character")->args({"str","context","at"});
+            addExtern<DAS_BIND_FUN(get_first_character_ds)>(*this, lib, "first_character",
+                SideEffects::none, "get_first_character_ds")->args({"str","context","at"});
+            addExtern<DAS_BIND_FUN(with_das_string)>(*this, lib, "with_das_string",
+                SideEffects::invoke, "with_das_string")->args({"block","context","at"});
             addExtern<DAS_BIND_FUN(string_repeat)>(*this, lib, "repeat",
                 SideEffects::none, "string_repeat")->args({"str","count","context","at"});
             addExtern<DAS_BIND_FUN(to_string_char)>(*this, lib, "to_char",
@@ -937,6 +989,10 @@ namespace das
                 SideEffects::none, "builtin_find_first_char_of")->args({"str","substr","context"});
             addExtern<DAS_BIND_FUN(builtin_find_first_char_of2)>(*this, lib, "find",
                 SideEffects::none, "builtin_find_first_char_of2")->args({"str","substr", "start", "context"});
+            addExtern<DAS_BIND_FUN(builtin_string_rfind1)>(*this, lib, "rfind",
+                SideEffects::none, "builtin_string_rfind1")->args({"str","substr","start","context"});
+            addExtern<DAS_BIND_FUN(builtin_string_rfind2)>(*this, lib, "rfind",
+                SideEffects::none, "builtin_string_rfind2")->args({"str","substr"});
             addExtern<DAS_BIND_FUN(builtin_string_length)>(*this, lib, "length",
                 SideEffects::none, "builtin_string_length")->args({"str","context"});
             addExtern<DAS_BIND_FUN(builtin_string_reverse)>(*this, lib, "reverse",

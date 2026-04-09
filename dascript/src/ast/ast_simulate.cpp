@@ -516,7 +516,9 @@ namespace das
             int bytes = stride;
             SimNode * init0;
             if ( useCMRES ) {
-                if ( bytes <= 32 ) {
+                if ( bytes==0 ) {
+                    init0 = nullptr;
+                } else if ( bytes <= 32 ) {
                     init0 = context.code->makeNodeUnrollNZ<SimNode_InitLocalCMResN>(bytes, at,extraOffset);
                 } else {
                     init0 = context.code->makeNode<SimNode_InitLocalCMRes>(at,extraOffset,bytes);
@@ -526,7 +528,7 @@ namespace das
             } else {
                 init0 = context.code->makeNode<SimNode_InitLocal>(at,stackTop + extraOffset,bytes);
             }
-            simlist.push_back(init0);
+            if (init0) simlist.push_back(init0);
         }
         // now fields
         for ( const auto & decl : variants ) {
@@ -640,7 +642,9 @@ namespace das
             int bytes = das::max(total,1) * stride;
             SimNode * init0;
             if ( useCMRES ) {
-                if ( bytes <= 32 ) {
+                if ( bytes==0 ) {
+                    init0 = nullptr;
+                } else if ( bytes <= 32 ) {
                     init0 = context.code->makeNodeUnrollNZ<SimNode_InitLocalCMResN>(bytes, at,extraOffset);
                 } else {
                     init0 = context.code->makeNode<SimNode_InitLocalCMRes>(at,extraOffset,bytes);
@@ -650,7 +654,7 @@ namespace das
             } else {
                 init0 = context.code->makeNode<SimNode_InitLocal>(at,stackTop + extraOffset,bytes);
             }
-            simlist.push_back(init0);
+            if (init0) simlist.push_back(init0);
         }
         if ( makeType->baseType == Type::tStructure ) {
             for ( int index=0; index != total; ++index ) {
@@ -862,7 +866,9 @@ namespace das
             int bytes = total * stride;
             SimNode * init0;
             if ( useCMRES ) {
-                if ( bytes <= 32 ) {
+                if ( bytes==0 ) {
+                    init0 = nullptr;
+                } else if ( bytes <= 32 ) {
                     init0 = context.code->makeNodeUnrollNZ<SimNode_InitLocalCMResN>(bytes, at,extraOffset);
                 } else {
                     init0 = context.code->makeNode<SimNode_InitLocalCMRes>(at,extraOffset,bytes);
@@ -872,7 +878,7 @@ namespace das
             } else {
                 init0 = context.code->makeNode<SimNode_InitLocal>(at,stackTop + extraOffset,stride * total);
             }
-            simlist.push_back(init0);
+            if (init0) simlist.push_back(init0);
         }
         for ( int index=0; index != total; ++index ) {
             auto & val = values[index];
@@ -959,7 +965,9 @@ namespace das
             uint32_t sizeOf = makeType->getSizeOf();
             SimNode * init0;
             if ( useCMRES ) {
-                if ( sizeOf <= 32 ) {
+                if ( sizeOf==0 ) {
+                    init0 = nullptr;
+                } else if ( sizeOf <= 32 ) {
                     init0 = context.code->makeNodeUnrollNZ<SimNode_InitLocalCMResN>(sizeOf, at,extraOffset);
                 } else {
                     init0 = context.code->makeNode<SimNode_InitLocalCMRes>(at,extraOffset,sizeOf);
@@ -969,7 +977,7 @@ namespace das
             } else {
                 init0 = context.code->makeNode<SimNode_InitLocal>(at,stackTop + extraOffset,sizeOf);
             }
-            simlist.push_back(init0);
+            if (init0) simlist.push_back(init0);
         }
         for ( int index=0; index != total; ++index ) {
             auto & val = values[index];
@@ -1748,7 +1756,19 @@ namespace das
                 uint32_t stride = type->firstType->getSizeOf();
                 return context.code->makeNode<SimNode_SafeAt>(at, prv, pidx, stride, 0, range);
             } else {
-                DAS_VERIFY(0 && "TODO: safe-at not implemented");
+                // pointer safe-at: null check + pointer arithmetic, no bounds check
+                uint32_t stride = seT->getSizeOf();
+                auto prv = subexpr->simulate(context);
+                auto pidx = index->simulate(context);
+                switch ( index->type->baseType ) {
+                case Type::tInt:    return context.code->makeNode<SimNode_PtrSafeAt<int32_t>>(at, prv, pidx, stride, 0);
+                case Type::tUInt:   return context.code->makeNode<SimNode_PtrSafeAt<uint32_t>>(at, prv, pidx, stride, 0);
+                case Type::tInt64:  return context.code->makeNode<SimNode_PtrSafeAt<int64_t>>(at, prv, pidx, stride, 0);
+                case Type::tUInt64: return context.code->makeNode<SimNode_PtrSafeAt<uint64_t>>(at, prv, pidx, stride, 0);
+                default:
+                    DAS_VERIFY(0 && "unsupported index type for pointer safe-at");
+                    return nullptr;
+                }
             }
         } else {
             const auto & seT = subexpr->type;
@@ -2489,7 +2509,10 @@ namespace das
                 return context.code->makeNode<SimNode_ReturnAndMove>(at, simSubE, subexpr->type->getSizeOf());
             }
         }
-        DAS_VERIFYF(simSubE, "internal error. can't be zero");
+        if ( !simSubE ) {
+            // this is when subexpr produces no expression worth simulating (meaning its internal reported error or internal error)
+            return nullptr;
+        }
         if ( moveSemantics ) {
             if ( subexpr->type->isRef() ) {
                 return context.code->makeValueNode<SimNode_ReturnAndMoveR2V>(subexpr->type->getR2VType(), at, simSubE);
@@ -2865,7 +2888,9 @@ namespace das
                 init = ExprLet::simulateInit(context, var, true);
             } else if (var->aliasCMRES ) {
                 int bytes = var->type->getSizeOf();
-                if ( bytes <= 32 ) {
+                if ( bytes==0 ) {
+                    init = nullptr;
+                } else if ( bytes <= 32 ) {
                     init = context.code->makeNodeUnrollNZ<SimNode_InitLocalCMResN>(bytes, pLet->at,0);
                 } else {
                     init = context.code->makeNode<SimNode_InitLocalCMRes>(pLet->at,0,bytes);
@@ -2873,8 +2898,7 @@ namespace das
             } else {
                 init = context.code->makeNode<SimNode_InitLocal>(pLet->at, var->stackTop, var->type->getSizeOf());
             }
-            if (init)
-                simlist.push_back(init);
+            if (init) simlist.push_back(init);
         }
         return simlist;
     }
@@ -3483,8 +3507,6 @@ namespace das
         } else {
             context.initFunctions = nullptr;
         }
-        // lockchecking
-        context.skipLockChecks = options.getBoolOption("skip_lock_checks",false);
         // run init script and restart
         if ( !folding ) {
             auto time1 = ref_time_ticks();
@@ -3653,6 +3675,7 @@ namespace das
                     if ( logIt ) logs << "NOT FOUND " << fn.mangledName << " AOT=0x" << HEX << semHash << DEC << "\n";
                     TextWriter tp;
                     tp << "semantic hash is " << HEX << semHash << DEC << "\n";
+                    tp << "// " << getAotHashComment(fnn[fni]) << "\n";
                     printSimFunction(tp, &context, indexToFunction[fni], fn.code, true);
                     linkError(string(fn.mangledName), tp.str() );
                 }

@@ -172,6 +172,30 @@ namespace das {
         }
     }
 
+    bool VisitorAdapter::canVisitNamedCall(ExprNamedCall *expr) {
+        if ( auto fnCanVisit = get_canVisitNamedCall(classPtr) ) {
+            bool result = true;
+            runMacroFunction(context, "canVisitNamedCall", [&]() {
+                result = invoke_canVisitNamedCall(context,fnCanVisit,classPtr,expr);
+            });
+            return result;
+        } else {
+            return true;
+        }
+    }
+
+    bool VisitorAdapter::canVisitLooksLikeCall(ExprLooksLikeCall *expr) {
+        if ( auto fnCanVisit = get_canVisitLooksLikeCall(classPtr) ) {
+            bool result = true;
+            runMacroFunction(context, "canVisitLooksLikeCall", [&]() {
+                result = invoke_canVisitLooksLikeCall(context,fnCanVisit,classPtr,expr);
+            });
+            return result;
+        } else {
+            return true;
+        }
+    }
+
     void VisitorAdapter::preVisitProgram(Program *prog) {
         if ( auto fnPreVisit = get_preVisitProgram(classPtr) ) {
             runMacroFunction(context, "preVisitProgram", [&]() {
@@ -2462,6 +2486,14 @@ namespace das {
         program->visit(*adapter);
     }
 
+    void astVisitWithSort ( smart_ptr_raw<Program> program, smart_ptr_raw<VisitorAdapter> adapter, bool sortStructures, Context * context, LineInfoArg * line_info ) {
+        if (!adapter)
+            context->throw_error_at(line_info, "adapter is required");
+        if (!program)
+            context->throw_error_at(line_info, "program is required");
+        program->visit(*adapter, false, sortStructures);
+    }
+
     void astVisitModule ( smart_ptr_raw<Program> program, smart_ptr_raw<VisitorAdapter> adapter,
                           Module* module, Context * context, LineInfoArg * line_info ) {
         if (!adapter)
@@ -2540,6 +2572,9 @@ namespace das {
         addExtern<DAS_BIND_FUN(astVisit)>(*this, lib,  "visit",
             SideEffects::accessExternal, "astVisit")
                 ->args({"program","adapter","context","line"});
+        addExtern<DAS_BIND_FUN(astVisitWithSort)>(*this, lib,  "visit",
+            SideEffects::accessExternal, "astVisitWithSort")
+                ->args({"program","adapter","sortStructures","context","line"});
         addExtern<DAS_BIND_FUN(astVisitModulesInOrder)>(*this, lib,  "visit_modules",
             SideEffects::accessExternal, "astVisitModulesInOrder")
                 ->args({"program","adapter","context","line"});

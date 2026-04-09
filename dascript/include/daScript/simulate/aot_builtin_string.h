@@ -30,6 +30,9 @@ namespace das {
     DAS_API vec4f builtin_strdup ( Context &, SimNode_CallBase * call, vec4f * args );
 
     DAS_API int32_t get_character_at ( const char * str, int32_t index, Context * context, LineInfoArg * at );
+    DAS_API int32_t get_first_character ( const char * str, Context * context, LineInfoArg * at );
+    DAS_API int32_t get_first_character_ds ( const string & str, Context * context, LineInfoArg * at );
+    DAS_API void with_das_string ( const TBlock<void,TTemporary<string>> & block, Context * context, LineInfoArg * at );
 
     DAS_API bool builtin_string_endswith ( const char * str, const char * cmp, Context * context );
     DAS_API bool builtin_string_startswith ( const char * str, const char * cmp, Context * context );
@@ -41,6 +44,8 @@ namespace das {
     DAS_API char* builtin_string_strip_right ( const char *str, Context * context, LineInfoArg * at );
     DAS_API int builtin_string_find1 ( const char *str, const char *substr, int start, Context * context );
     DAS_API int builtin_string_find2 (const char *str, const char *substr);
+    DAS_API int builtin_string_rfind1 ( const char *str, const char *substr, int start, Context * context );
+    DAS_API int builtin_string_rfind2 (const char *str, const char *substr);
     DAS_API int builtin_find_first_of ( const char * str, const char * substr, Context * context );
     DAS_API int builtin_find_first_char_of ( const char * str, int Ch, Context * context );
     DAS_API int builtin_find_first_char_of2 ( const char * str, int Ch, int start, Context * context );
@@ -148,7 +153,7 @@ namespace das {
     uint64_t builtin_build_hash_T ( TT && block, Context * /*context*/, LineInfoArg * /*at*/ ) {
         StringBuilderWriter writer;
         block(writer);
-        return hash_block64((const uint8_t *)writer.c_str(),size_t(writer.tellp()));
+        return hash_blockz64((const uint8_t *)writer.c_str());
     }
 
     inline uint64_t builtin_build_hash_T ( const Block &block, Context * context, LineInfoArg * at ) {

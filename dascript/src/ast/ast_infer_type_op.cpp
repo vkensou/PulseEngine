@@ -30,6 +30,11 @@ namespace das {
                     pop = "i_das_ptr_dec";
                 }
                 if (!pop.empty()) {
+                    if ( expr->subexpr->type->firstType->isAuto() ) {
+                        error("type is not fully inferred, fixed array dimension is unknown", "", "",
+                              expr->at, CompilationError::invalid_type);
+                        return Visitor::visit(expr);
+                    }
                     reportAstChanged();
                     auto popc = make_smart<ExprCall>(expr->at, pop);
                     auto stride = expr->subexpr->type->firstType->getSizeOf();
@@ -518,6 +523,7 @@ namespace das {
             pVar->type->ref = true;
             pVar->name = "_pod_inscope_temp_" + to_string(pVar->at.line) + "_" + to_string(pVar->at.column);
             pVar->init = expr->left->clone();
+            pVar->generated = true;
             pLet->variables.push_back(pVar);
             auto pCall = make_smart<ExprCall>(expr->at, "_::builtin_collect_local_and_zero");
             pCall->alwaysSafe = true;
@@ -529,14 +535,6 @@ namespace das {
             pBlock->list.push_back(pCall);
             pBlock->list.push_back(pMove);
             return pBlock;
-        } else if (expr->left->type->lockCheck() || expr->right->type->lockCheck()) {
-            if (!expr->skipLockCheck && !(expr->at.fileInfo && expr->at.fileInfo->name == "builtin.das") && !skipLockCheck()) { // we always skip lock check in builtin.das
-                reportAstChanged();
-                auto pCall = make_smart<ExprCall>(expr->at, "_move_with_lockcheck");
-                pCall->arguments.push_back(expr->left->clone());
-                pCall->arguments.push_back(expr->right->clone());
-                return pCall;
-            }
         }
         expr->type = make_smart<TypeDecl>(); // we return nothing
         return Visitor::visit(expr);
@@ -773,7 +771,7 @@ namespace das {
                 auto fnList = getCloneFunc(cloneType, cloneType);
                 if (verifyCloneFunc(fnList, expr->at)) {
                     if (fnList.size() == 0) {
-                        auto clf = makeCloneTuple(expr->at, cloneType);
+                        auto clf = makeCloneTuple(expr->at, cloneType, expr->right->type->constant);
                         clf->privateFunction = true;
                         extraFunctions.push_back(clf);
                     }
@@ -789,7 +787,7 @@ namespace das {
                 auto fnList = getCloneFunc(cloneType, cloneType);
                 if (verifyCloneFunc(fnList, expr->at)) {
                     if (fnList.size() == 0) {
-                        auto clf = makeCloneVariant(expr->at, cloneType);
+                        auto clf = makeCloneVariant(expr->at, cloneType, expr->right->type->constant);
                         clf->privateFunction = true;
                         extraFunctions.push_back(clf);
                     }

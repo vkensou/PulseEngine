@@ -97,7 +97,7 @@ namespace das {
       a._1 := b._1
       ...
     */
-    DAS_API FunctionPtr makeCloneTuple(const LineInfo & at, const TypeDeclPtr & tupleType);
+    DAS_API FunctionPtr makeCloneTuple(const LineInfo & at, const TypeDeclPtr & tupleType, bool fromConst);
 
     /*
      def clone(var a:tuple<...>; var b:tuple<...>)
@@ -107,7 +107,7 @@ namespace das {
         a._1 := b._1
       ...
     */
-    DAS_API FunctionPtr makeCloneVariant(const LineInfo & at, const TypeDeclPtr & variantType);
+    DAS_API FunctionPtr makeCloneVariant(const LineInfo & at, const TypeDeclPtr & variantType, bool fromConst);
 
     /*
         delete var
@@ -119,6 +119,11 @@ namespace das {
      */
     struct ExprInvoke;
     DAS_API ExprInvoke * makeInvokeMethod ( const LineInfo & at, Expression * a, const string & b );
+
+    /*
+        this is short for invoke(type<callStruct>.b, a, args)
+    */
+    DAS_API ExprInvoke * makeInvokeMethod ( const LineInfo & at, Structure * callStruct, Expression * a, const string & b );
 
     /*
      pointer finalizer, i.e.

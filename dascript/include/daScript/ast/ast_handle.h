@@ -53,6 +53,8 @@ namespace das
         virtual SimNode * simulateClone ( Context & context, const LineInfo & at, SimNode * l, SimNode * r ) const override {
             return context.code->makeNode<SimNode_CloneRefValueT<string>>(at, l, r);
         }
+        static void jit_clone_string ( void * dst, const void * src ) { *(string*)dst = *(const string*)src; }
+        virtual void * jitGetClone() const override { return (void *) &jit_clone_string; }
     };
 
     template <typename OT>
@@ -126,6 +128,8 @@ namespace das
         static __forceinline SimNode * simulateClone ( Context & context, const LineInfo & at, SimNode * l, SimNode * r ) {
             return context.code->makeNode<SimNode_CloneRefValueT<TT>>(at, l, r);
         }
+        static void jit_clone ( void * dst, const void * src ) { *(TT*)dst = *(const TT*)src; }
+        static void * jitGetClone () { return (void *) &jit_clone; }
     };
 
     template <typename TT>
@@ -133,6 +137,7 @@ namespace das
         static __forceinline SimNode * simulateClone ( Context &, const LineInfo &, SimNode *, SimNode * ) {
             return nullptr;
         }
+        static void * jitGetClone () { return nullptr; }
     };
 
     template <typename FuncT, FuncT fn> struct CallProperty;
@@ -296,6 +301,7 @@ namespace das
         virtual SimNode * simulateClone ( Context & context, const LineInfo & at, SimNode * l, SimNode * r ) const override {
             return GenCloneNode<OT>::simulateClone(context,at,l,r);
         }
+        virtual void * jitGetClone() const override { return GenCloneNode<OT>::jitGetClone(); }
     };
 
     template <typename OT, bool is_smart>
@@ -518,32 +524,42 @@ namespace das
 
     template <typename TT>
     struct registerVectorJitFunctions {
-        static void initIndex ( const FunctionPtr & ptr ) {
-            ptr->generated = true;
-            ptr->jitOnly = true;
-            ptr->arguments[0]->type->explicitConst = true;
-        }
+        // This should be done before insertion to module
+        // because it changes mangled name.
+        struct vectorIndexArgFn : defaultTempFn {
+            vectorIndexArgFn() : defaultTempFn() {}
+            ___noinline bool operator () ( Function * fn ) {
+                defaultTempFn::operator()(fn);
+                if ( !fn->arguments.empty() ) {
+                    fn->arguments[0]->type->explicitConst = true;
+                }
+                fn->builtIn = true;
+                fn->generated = true;
+                fn->jitOnly = true;
+                return true;
+            }
+        };
         static void init ( Module * mod, const ModuleLibrary & lib ) {
             // index
             using OT = typename TT::value_type;
             auto TTN = describeCppType(makeType<TT>(lib));
             auto OTN = describeCppType(makeType<OT>(lib));
             auto atin = "das_ati<"+TTN+","+OTN+">";
-            initIndex(addExtern<DAS_BIND_FUN((das_ati<TT,OT>)),SimNode_ExtFuncCallRef>(*mod, lib, ".[]",
+            addExtern<DAS_BIND_FUN((das_ati<TT,OT>)),SimNode_ExtFuncCallRef,vectorIndexArgFn>(*mod, lib, ".[]",
                 SideEffects::modifyArgument, atin.c_str())
-                    ->args({"vec","index","context","at"}));
+                    ->args({"vec","index","context","at"});
             auto atun = "das_atu<"+TTN+","+OTN+">";
-            initIndex(addExtern<DAS_BIND_FUN((das_atu<TT,OT>)),SimNode_ExtFuncCallRef>(*mod, lib, ".[]",
+            addExtern<DAS_BIND_FUN((das_atu<TT,OT>)),SimNode_ExtFuncCallRef,vectorIndexArgFn>(*mod, lib, ".[]",
                 SideEffects::modifyArgument, atun.c_str())
-                    ->args({"vec","index","context","at"}));
+                    ->args({"vec","index","context","at"});
             auto atcin = "das_atci<"+TTN+","+OTN+">";
-            initIndex(addExtern<DAS_BIND_FUN((das_atci<TT,OT>)),SimNode_ExtFuncCallRef>(*mod, lib, ".[]",
+            addExtern<DAS_BIND_FUN((das_atci<TT,OT>)),SimNode_ExtFuncCallRef,vectorIndexArgFn>(*mod, lib, ".[]",
                 SideEffects::none, atcin.c_str())
-                    ->args({"vec","index","context","at"}));
+                    ->args({"vec","index","context","at"});
             auto atcun = "das_atcu<"+TTN+","+OTN+">";
-            initIndex(addExtern<DAS_BIND_FUN((das_atcu<TT,OT>)),SimNode_ExtFuncCallRef>(*mod, lib, ".[]",
+            addExtern<DAS_BIND_FUN((das_atcu<TT,OT>)),SimNode_ExtFuncCallRef,vectorIndexArgFn>(*mod, lib, ".[]",
                 SideEffects::none, atcun.c_str())
-                    ->args({"vec","index","context","at"}));
+                    ->args({"vec","index","context","at"});
         }
     };
 
@@ -768,6 +784,8 @@ namespace das
         das::SimNode *simulateClone(das::Context &context, const das::LineInfo &at, das::SimNode *l, das::SimNode *r) const override {
             return context.code->makeNode<SimNode_Set<OT>>(at, l, r);
         }
+        static void jit_clone_value ( void * dst, const void * src ) { *(OT*)dst = *(const OT*)src; }
+        virtual void * jitGetClone() const override { return (void *) &jit_clone_value; }
         virtual uint64_t getOwnSemanticHash ( HashBuilder & hb, das_set<Structure *> & dep, das_set<Annotation *> & adep ) const override {
             hb.updateString(getMangledName());
             valueType->getOwnSemanticHash(hb, dep, adep);

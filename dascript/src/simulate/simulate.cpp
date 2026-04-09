@@ -61,7 +61,7 @@ namespace das
 
     SimNode * SimNode::copyNode ( Context &, NodeAllocator * code ) {
         auto prefix = ((NodePrefix *)this) - 1;
-#ifndef NDEBUG
+#ifndef DAS_NO_ASSERTIONS
         DAS_ASSERTF(prefix->magic==0xdeadc0de,"node was allocated on the heap without prefix");
 #endif
         char * newNode;
@@ -257,7 +257,7 @@ namespace das
                 if ( message )
                     error_message = error_message + ", " + message;
                 string error = reportError(debugInfo, error_message, "", "");
-#ifdef NDEBUG
+#ifdef DAS_NO_ASSERTIONS
                 error = context.getStackWalk(&debugInfo, false, false) + error;
 #else
                 error = context.getStackWalk(&debugInfo, true, true) + error;
@@ -1131,8 +1131,6 @@ namespace das
         tabMnLookup = ctx.tabMnLookup;
         tabGMnLookup = ctx.tabGMnLookup;
         tabAdLookup = ctx.tabAdLookup;
-        // lockcheck
-        skipLockChecks = ctx.skipLockChecks;
     }
 
     void Context::freeGlobalsAndShared() {
@@ -1150,6 +1148,7 @@ namespace das
         freeGlobalsAndShared();
         globals = globalsSize ? (char *) das_aligned_alloc16(globalsSize) : nullptr;
         shared = (sharedOwner && sharedSize) ? (char *) das_aligned_alloc16(sharedSize) : nullptr;
+        if ( shared ) memset(shared, 0, sharedSize);
         globalsOwner = true;
         sharedOwner = true;
     }
@@ -1224,8 +1223,8 @@ namespace das
         tabMnLookup = ctx.tabMnLookup;
         tabGMnLookup = ctx.tabGMnLookup;
         tabAdLookup = ctx.tabAdLookup;
-        // lockcheck
-        skipLockChecks = ctx.skipLockChecks;
+        // jit init script
+        jitInitScript = ctx.jitInitScript;
         // threadlock_context
         if ( ctx.contextMutex ) contextMutex = new recursive_mutex;
         // register
@@ -1408,8 +1407,11 @@ namespace das
         };
         abiArg = args;
         abiCMRES = nullptr;
+        if (globals) memset(globals, 0, globalsSize);
         if ( aotInitScript ) {
             aotInitScript->eval(*this);
+        } else if ( jitInitScript ) {
+            jitInitScript(this);
         } else {
 #if DAS_ENABLE_STACK_WALK
             FuncInfo finfo;
@@ -1434,8 +1436,6 @@ namespace das
                         pp->info = nullptr;
 #endif
                     }
-                } else {
-                    memset ( globals + pv.offset, 0, pv.size );
                 }
             }
         }

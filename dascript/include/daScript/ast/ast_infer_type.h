@@ -38,7 +38,11 @@ namespace das {
         vector<ExprBlock *> blocks;
         vector<ExprBlock *> scopes;
         vector<ExprWith *> with;
-        vector<smart_ptr<ExprAssume>> assume;
+        struct AssumeEntry {
+            smart_ptr<ExprAssume>   expr;
+            das_hash_set<string>    vars;   // ExprVar names referenced in subexpr
+        };
+        vector<AssumeEntry> assume;
         vector<smart_ptr<ExprAssume>> assumeType;
         vector<size_t> varStack;
         vector<size_t> assumeStack;
@@ -82,6 +86,8 @@ namespace das {
         int32_t consumeDepth = 0;
         bool   fatalAliasLoop = false;
         bool   inArgumentInit = false;
+        int32_t callDepth = 0;
+        int32_t inferDepth = 0;
 
     public:
         vector<FunctionPtr> extraFunctions;
@@ -353,7 +359,6 @@ namespace das {
         virtual ExpressionPtr visit(ExprTypeDecl *expr) override;
 
         // ExprTypeInfo
-        bool skipLockCheck() const;
         virtual ExpressionPtr visit(ExprTypeInfo *expr) override;
         // ExprDelete
         void reportMissingFinalizer(const string &message, const LineInfo &at, const TypeDeclPtr &ftype);
@@ -506,9 +511,12 @@ namespace das {
         virtual void preVisit(ExprCallMacro *expr) override;
         virtual ExpressionPtr visit(ExprCallMacro *expr) override;
         // ExprLooksLikeCall
+        virtual bool canVisitLooksLikeCall(ExprLooksLikeCall *call) override;
         virtual void preVisit(ExprLooksLikeCall *call) override;
+        virtual ExpressionPtr visit(ExprLooksLikeCall *call) override;
         virtual ExpressionPtr visitLooksLikeCallArg(ExprLooksLikeCall *call, Expression *arg, bool last) override;
         // ExprNamedCall
+        virtual bool canVisitNamedCall(ExprNamedCall *call) override;
         vector<ExpressionPtr> demoteCallArguments(ExprNamedCall *expr, const FunctionPtr &pFn);
         ExpressionPtr demoteCall(ExprNamedCall *expr, const FunctionPtr &pFn);
         virtual void preVisit(ExprNamedCall *call) override;
@@ -537,6 +545,7 @@ namespace das {
                           CompilationError cerror = CompilationError::function_not_found);
         virtual ExpressionPtr visit(ExprNamedCall *expr) override;
         // ExprCall
+        virtual bool canVisitCall(ExprCall *call) override;
         void markNoDiscard(Expression *expr);
         virtual void preVisit(ExprCall *call) override;
         bool isConsumeArgumentFunc(Function *fn);
@@ -587,8 +596,9 @@ namespace das {
         // make structure
         void describeLocalType(vector<string> &results, TypeDecl *tp, const string &prefix, das_set<Structure *> &dep) const;
         string describeLocalType(TypeDecl *tp) const;
+        virtual bool canVisitMakeStructure ( ExprMakeStruct * expr );
         virtual void preVisit(ExprMakeStruct *expr) override;
-        void convertCloneSemanticsToExpression(ExprMakeStruct *expr, int index, MakeFieldDecl *decl);
+        bool convertCloneSemanticsToExpression(ExprMakeStruct *expr, int index, MakeFieldDecl *decl);
         virtual MakeFieldDeclPtr visitMakeStructureField(ExprMakeStruct *expr, int index, MakeFieldDecl *decl, bool last) override;
         virtual ExpressionPtr structToTuple(const TypeDeclPtr &makeType, const MakeStructPtr &st, const LineInfo &at);
         virtual ExpressionPtr visit(ExprMakeStruct *expr) override;

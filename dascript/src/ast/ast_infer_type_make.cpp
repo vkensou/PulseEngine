@@ -113,8 +113,6 @@ namespace das {
                                 if (func && func->requestNoJit)
                                     jitFlags |= generator_nojit;
                                 auto pFn = generateLambdaFunction(lname, block.get(), ls, cl.capt, expr->capture, generator_needYield | jitFlags, program);
-                                if (func && func->skipLockCheck)
-                                    pFn->skipLockCheck = true; // we propagate skipLockCheck to the generator function
                                 if (program->addFunction(pFn)) {
                                     auto pFnFin = generateLambdaFinalizer(lname, block.get(), ls, program);
                                     if (program->addFunction(pFnFin)) {
@@ -243,8 +241,6 @@ namespace das {
                             if (func && func->requestNoJit)
                                 jitFlags |= generator_nojit;
                             auto pFn = generateLambdaFunction(lname, block.get(), ls, cl.capt, expr->capture, jitFlags, program);
-                            if (func && func->skipLockCheck)
-                                pFn->skipLockCheck = true; // we propagate skipLockCheck to the lambda function
                             if (program->addFunction(pFn)) {
                                 auto pFnFin = generateLambdaFinalizer(lname, block.get(), ls, program);
                                 if (program->addFunction(pFnFin)) {
@@ -492,7 +488,16 @@ namespace das {
             return "";
         }
     }
+    bool InferTypes::canVisitMakeStructure ( ExprMakeStruct * expr ) {
+        if ( callDepth >= program->policies.max_call_depth ) {
+            error("call expression depth exceeded maximum allowed (" + to_string(program->policies.max_call_depth) + ")", "", "",
+                  expr->at, CompilationError::too_many_infer_passes);
+            return false;
+        }
+        return true;
+    }
     void InferTypes::preVisit(ExprMakeStruct *expr) {
+        callDepth ++;
         Visitor::preVisit(expr);
         if (expr->makeType && expr->makeType->isExprType()) {
             return;
@@ -545,12 +550,20 @@ namespace das {
             }
         }
     }
-    void InferTypes::convertCloneSemanticsToExpression(ExprMakeStruct *expr, int index, MakeFieldDecl *decl) {
+    bool InferTypes::convertCloneSemanticsToExpression(ExprMakeStruct *expr, int index, MakeFieldDecl *decl) {
         if (!expr->block)
             expr->block = makeStructWhereBlock(expr);
-        DAS_ASSERT(expr->block->rtti_isMakeBlock());
+        if ( !expr->block->rtti_isMakeBlock() ) {
+            error("Expected make block for struct construction, got " + expr->block->describe(), "", "",
+                  expr->at, CompilationError::invalid_type);
+            return false;
+        }
         auto mkb = static_pointer_cast<ExprMakeBlock>(expr->block);
-        DAS_ASSERT(mkb->block->rtti_isBlock());
+        if (!mkb->block->rtti_isBlock()) {
+            error("Expected block for make block, got " + mkb->block->describe(), "", "",
+                  expr->at, CompilationError::invalid_type);
+            return false;
+        }
         auto blk = static_pointer_cast<ExprBlock>(mkb->block);
         bool ignoreCapturedConstant = false;
         if (expr->makeType->baseType == Type::tStructure) {
@@ -563,14 +576,18 @@ namespace das {
         auto cle = convertToCloneExpr(expr, index, decl, ignoreCapturedConstant);
         blk->list.insert(blk->list.begin(), cle); // TODO: fix order. we are making them backwards now
         reportAstChanged();
+        return true;
     }
     MakeFieldDeclPtr InferTypes::visitMakeStructureField(ExprMakeStruct *expr, int index, MakeFieldDecl *decl, bool last) {
         if (!decl->value->type) {
             return Visitor::visitMakeStructureField(expr, index, decl, last);
         }
         if (decl->cloneSemantics) {
-            convertCloneSemanticsToExpression(expr, index, decl);
-            return nullptr;
+            if ( convertCloneSemanticsToExpression(expr, index, decl) ) {
+                return nullptr;
+            } else {
+                return Visitor::visitMakeStructureField(expr, index, decl, last);
+            }
         }
         if (expr->makeType->baseType == Type::tStructure) {
             if (auto field = expr->makeType->structType->findField(decl->name)) {
@@ -718,6 +735,7 @@ namespace das {
         return mkt;
     }
     ExpressionPtr InferTypes::visit(ExprMakeStruct *expr) {
+        callDepth --;
         if (expr->makeType && expr->makeType->isExprType()) {
             return Visitor::visit(expr);
         }

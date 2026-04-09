@@ -412,12 +412,49 @@ namespace das {
         return size;
     }
 
+    uint64_t Structure::getSizeOf64(bool & failed) const {
+        if ( circularGuard ) return 1;
+        circularGuard = true;
+        uint64_t size = 0;
+        const Structure * cppLayoutParent = nullptr;
+        for ( const auto & fd : fields ) {
+            int fieldAlignemnt = fd.type->getAlignOfFailed(failed);
+            int al = fieldAlignemnt - 1;
+            if ( cppLayout ) {
+                auto fp = findFieldParent(fd.name);
+                if ( fp!=cppLayoutParent ) {
+                    if (DAS_NON_POD_PADDING || !cppLayoutNotPod) {
+                        size = cppLayoutParent ? cppLayoutParent->getSizeOf64(failed) : 0;
+                    }
+                    cppLayoutParent = fp;
+                }
+            }
+            size = (size + al) & ~al;
+            size += fd.type->getSizeOf64(failed);
+        }
+        circularGuard = false;
+        int al = getAlignOfFailed(failed) - 1;
+        size = (size + al) & ~al;
+        return size;
+    }
+
     int Structure::getAlignOf() const {
         if ( circularGuard ) return 1;
         circularGuard = true;
         int align = 1;
         for ( const auto & fd : fields ) {
             align = das::max ( fd.type->getAlignOf(), align );
+        }
+        circularGuard = false;
+        return align;
+    }
+
+    int Structure::getAlignOfFailed(bool & failed) const {
+        if ( circularGuard ) return 1;
+        circularGuard = true;
+        int align = 1;
+        for ( const auto & fd : fields ) {
+            align = das::max ( fd.type->getAlignOfFailed(failed), align );
         }
         circularGuard = false;
         return align;
@@ -2267,6 +2304,7 @@ namespace das {
             cexpr->subexpr = subexpr->clone();
         cexpr->moveSemantics = moveSemantics;
         cexpr->fromYield = fromYield;
+        cexpr->fromComprehension = fromComprehension;
         return cexpr;
     }
 
@@ -2535,15 +2573,19 @@ namespace das {
     // ExprLooksLikeCall
 
     ExpressionPtr ExprLooksLikeCall::visit(Visitor & vis) {
-        vis.preVisit(this);
-        for ( auto & arg : arguments ) {
-            if ( vis.canVisitLooksLikeCallArg(this, arg.get(), arg==arguments.back()) ) {
-                vis.preVisitLooksLikeCallArg(this, arg.get(), arg==arguments.back());
-                arg = arg->visit(vis);
-                arg = vis.visitLooksLikeCallArg(this, arg.get(), arg==arguments.back());
+        if ( vis.canVisitLooksLikeCall(this) ) {
+            vis.preVisit(this);
+            for ( auto & arg : arguments ) {
+                if ( vis.canVisitLooksLikeCallArg(this, arg.get(), arg==arguments.back()) ) {
+                    vis.preVisitLooksLikeCallArg(this, arg.get(), arg==arguments.back());
+                    arg = arg->visit(vis);
+                    arg = vis.visitLooksLikeCallArg(this, arg.get(), arg==arguments.back());
+                }
             }
+            return vis.visit(this);
+        } else {
+            return this;
         }
-        return vis.visit(this);
     }
 
     ExpressionPtr ExprLooksLikeCall::clone( const ExpressionPtr & expr ) const {
@@ -2609,23 +2651,27 @@ namespace das {
     // named call
 
     ExpressionPtr ExprNamedCall::visit(Visitor & vis) {
-        vis.preVisit(this);
+        if ( vis.canVisitNamedCall(this) ) {
+            vis.preVisit(this);
 
-        if (nonNamedArguments.size() > 0) {
-            ExprCall dummy;
-            for (auto& arg : nonNamedArguments) {
-                vis.preVisitCallArg(&dummy, arg.get(), arg == nonNamedArguments.back());
-                arg = arg->visit(vis);
-                arg = vis.visitCallArg(&dummy, arg.get(), arg == nonNamedArguments.back());
+            if (nonNamedArguments.size() > 0) {
+                ExprCall dummy;
+                for (auto& arg : nonNamedArguments) {
+                    vis.preVisitCallArg(&dummy, arg.get(), arg == nonNamedArguments.back());
+                    arg = arg->visit(vis);
+                    arg = vis.visitCallArg(&dummy, arg.get(), arg == nonNamedArguments.back());
+                }
+                this->argumentsFailedToInfer = dummy.argumentsFailedToInfer;
             }
-            this->argumentsFailedToInfer = dummy.argumentsFailedToInfer;
+            for (auto& arg : arguments) {
+                vis.preVisitNamedCallArg(this, arg.get(), arg == arguments.back());
+                arg->value = arg->value->visit(vis);
+                arg = vis.visitNamedCallArg(this, arg.get(), arg==arguments.back());
+            }
+            return vis.visit(this);
+        } else {
+            return this;
         }
-        for (auto& arg : arguments) {
-            vis.preVisitNamedCallArg(this, arg.get(), arg == arguments.back());
-            arg->value = arg->value->visit(vis);
-            arg = vis.visitNamedCallArg(this, arg.get(), arg==arguments.back());
-        }
-        return vis.visit(this);
     }
 
     ExpressionPtr ExprNamedCall::clone( const ExpressionPtr & expr ) const {
@@ -2675,34 +2721,38 @@ namespace das {
     }
 
     ExpressionPtr ExprMakeStruct::visit(Visitor & vis) {
-        vis.preVisit(this);
-        if ( makeType ) {
-            vis.preVisit(makeType.get());
-            makeType = makeType->visit(vis);
-            makeType = vis.visit(makeType.get());
-        }
-        if ( vis.canVisitMakeStructureBody(this) ) {
-            for ( int index=0; index != int(structs.size()); ++index ) {
-                vis.preVisitMakeStructureIndex(this, index, index==int(structs.size()-1));
-                auto & fields = structs[index];
-                for ( auto it = fields->begin(); it != fields->end(); ) {
-                    auto & field = *it;
-                    vis.preVisitMakeStructureField(this, index, field.get(), field==fields->back());
-                    field->value = field->value->visit(vis);
-                    if ( field ) {
-                        field = vis.visitMakeStructureField(this, index, field.get(), field==fields->back());
-                    }
-                    if ( field ) ++it; else it = fields->erase(it);
-                }
-                vis.visitMakeStructureIndex(this, index, index==int(structs.size()-1));
+        if ( vis.canVisitMakeStructure(this) ) {
+            vis.preVisit(this);
+            if ( makeType ) {
+                vis.preVisit(makeType.get());
+                makeType = makeType->visit(vis);
+                makeType = vis.visit(makeType.get());
             }
+            if ( vis.canVisitMakeStructureBody(this) ) {
+                for ( int index=0; index != int(structs.size()); ++index ) {
+                    vis.preVisitMakeStructureIndex(this, index, index==int(structs.size()-1));
+                    auto & fields = structs[index];
+                    for ( auto it = fields->begin(); it != fields->end(); ) {
+                        auto & field = *it;
+                        vis.preVisitMakeStructureField(this, index, field.get(), field==fields->back());
+                        field->value = field->value->visit(vis);
+                        if ( field ) {
+                            field = vis.visitMakeStructureField(this, index, field.get(), field==fields->back());
+                        }
+                        if ( field ) ++it; else it = fields->erase(it);
+                    }
+                    vis.visitMakeStructureIndex(this, index, index==int(structs.size()-1));
+                }
+            }
+            if ( block && vis.canVisitMakeStructureBlock(this, block.get()) ) {
+                vis.preVisitMakeStructureBlock(this, block.get());
+                block = block->visit(vis);
+                if ( block ) block = vis.visitMakeStructureBlock(this, block.get());
+            }
+            return vis.visit(this);
+        } else {
+            return this;
         }
-        if ( block && vis.canVisitMakeStructureBlock(this, block.get()) ) {
-            vis.preVisitMakeStructureBlock(this, block.get());
-            block = block->visit(vis);
-            if ( block ) block = vis.visitMakeStructureBlock(this, block.get());
-        }
-        return vis.visit(this);
     }
 
     void ExprMakeStruct::markNoDiscard() {
@@ -3231,13 +3281,82 @@ namespace das {
         vis.visitProgram(this);
     }
 
-    void Program::visit(Visitor & vis, bool visitGenerics ) {
+    void Program::visit(Visitor & vis, bool visitGenerics, bool sortStructures ) {
         vis.preVisitProgram(this);
-        visitModule(vis, thisModule.get(), visitGenerics);
+        visitModule(vis, thisModule.get(), visitGenerics, sortStructures);
         vis.visitProgram(this);
     }
 
-    void Program::visitModule(Visitor & vis, Module * thatModule, bool visitGenerics) {
+    static void collectStructDeps ( const TypeDeclPtr & type, Structure * owner, das_hash_set<Structure *> & deps ) {
+        if ( !type ) return;
+        if ( type->baseType == Type::tStructure && type->structType && type->structType != owner ) {
+            if ( type->isPointer() ) return;   // pointers don't need full definition
+            if ( !deps.insert(type->structType).second ) return;   // already visited
+            // recurse into the struct's own fields
+            for ( auto & field : type->structType->fields ) {
+                collectStructDeps(field.type, owner, deps);
+            }
+        }
+        // recurse into firstType / secondType for containers
+        if ( type->firstType ) collectStructDeps(type->firstType, owner, deps);
+        if ( type->secondType ) collectStructDeps(type->secondType, owner, deps);
+        // recurse into argTypes (e.g. tuple, variant element types)
+        for ( auto & argType : type->argTypes ) {
+            collectStructDeps(argType, owner, deps);
+        }
+    }
+
+    static void topoSortStructures ( vector<StructurePtr> & structs ) {
+        if ( structs.size() <= 1 ) return;
+        // build adjacency: struct -> set of structs it depends on (by value)
+        das_hash_map<Structure *, das_hash_set<Structure *>> deps;
+        das_hash_set<Structure *> allSet;
+        for ( auto & sp : structs ) {
+            allSet.insert(sp.get());
+        }
+        for ( auto & sp : structs ) {
+            auto & d = deps[sp.get()];
+            for ( auto & field : sp->fields ) {
+                collectStructDeps(field.type, sp.get(), d);
+            }
+            // only keep deps that are in our set
+            das_hash_set<Structure *> filtered;
+            for ( auto dep : d ) {
+                if ( allSet.count(dep) ) filtered.insert(dep);
+            }
+            d = das::move(filtered);
+        }
+        // Kahn's algorithm using vector as queue
+        das_hash_map<Structure *, int> inDegree;
+        for ( auto & [s, dd] : deps ) {
+            inDegree[s] = (int)dd.size();
+        }
+        vector<Structure *> sorted;
+        sorted.reserve(structs.size());
+        // seed with zero-dependency structs
+        for ( auto & sp : structs ) {
+            if ( inDegree[sp.get()] == 0 ) sorted.push_back(sp.get());
+        }
+        // process in FIFO order
+        for ( size_t qi = 0; qi < sorted.size(); qi++ ) {
+            auto s = sorted[qi];
+            for ( auto & [other, dd] : deps ) {
+                if ( dd.erase(s) ) {
+                    inDegree[other]--;
+                    if ( inDegree[other] == 0 ) sorted.push_back(other);
+                }
+            }
+        }
+        if ( sorted.size() != structs.size() ) return; // cycle - keep original order
+        // reorder structs to match sorted order
+        das_hash_map<Structure *, StructurePtr> byPtr;
+        for ( auto & sp : structs ) byPtr[sp.get()] = sp;
+        for ( size_t i = 0; i < sorted.size(); i++ ) {
+            structs[i] = byPtr[sorted[i]];
+        }
+    }
+
+    void Program::visitModule(Visitor & vis, Module * thatModule, bool visitGenerics, bool sortStructures) {
         vis.preVisitModule(thatModule);
         // enumerations
         thatModule->enumerations.foreach([&](auto & penum){
@@ -3250,16 +3369,34 @@ namespace das {
             }
         });
         // structures
-        thatModule->structures.foreach([&](auto & spst){
-            Structure * pst = spst.get();
-            if ( vis.canVisitStructure(pst) ) {
+        if ( sortStructures ) {
+            // collect, topologically sort, then visit
+            vector<StructurePtr> allStructs;
+            thatModule->structures.foreach([&](auto & spst){
+                if ( vis.canVisitStructure(spst.get()) ) {
+                    allStructs.push_back(spst);
+                }
+            });
+            topoSortStructures(allStructs);
+            for ( auto & spst : allStructs ) {
+                Structure * pst = spst.get();
                 StructurePtr pstn = visitStructure(vis, pst);
                 if ( pstn.get() != pst ) {
                     thatModule->structures.replace(pst->name, pstn);
-                    spst = pstn;
                 }
             }
-        });
+        } else {
+            thatModule->structures.foreach([&](auto & spst){
+                Structure * pst = spst.get();
+                if ( vis.canVisitStructure(pst) ) {
+                    StructurePtr pstn = visitStructure(vis, pst);
+                    if ( pstn.get() != pst ) {
+                        thatModule->structures.replace(pst->name, pstn);
+                        spst = pstn;
+                    }
+                }
+            });
+        }
         // aliases
         thatModule->aliasTypes.foreach([&](auto & alsv){
             vis.preVisitAlias(alsv.get(), alsv->alias);
@@ -3348,24 +3485,25 @@ namespace das {
         bool logPass = options.getBoolOption("log_optimization_passes",false);
         bool log = logOpt || logPass;
         bool any, last;
+        int optimizationRound = 1;
         if (log) {
             logs << *this << "\n";
         }
         do {
-            if ( log ) logs << "OPTIMIZE:\n"; if ( logPass ) logs << *this;
+            if ( log ) logs << "OPTIMIZE " << optimizationRound << ":\n"; if ( logPass ) logs << *this;
             any = false;
-            last = optimizationRefFolding();    if ( failed() ) break;  any |= last;
+            last = optimizationRefFolding(optimizationRound);    if ( failed() ) break;  any |= last;
             if ( log ) logs << "REF FOLDING: " << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
-            last = optimizationUnused(logs);    if ( failed() ) break;  any |= last;
+            last = optimizationUnused(logs, optimizationRound);    if ( failed() ) break;  any |= last;
             if ( log ) logs << "REMOVE UNUSED:" << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
-            last = optimizationConstFolding();  if ( failed() ) break;  any |= last;
+            last = optimizationConstFolding(optimizationRound);  if ( failed() ) break;  any |= last;
             if ( log ) logs << "CONST FOLDING:" << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
-            last = optimizationCondFolding();  if ( failed() ) break;  any |= last;
+            last = optimizationCondFolding(optimizationRound);  if ( failed() ) break;  any |= last;
             if ( log ) logs << "COND FOLDING:" << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
-            last = optimizationBlockFolding();  if ( failed() ) break;  any |= last;
+            last = optimizationBlockFolding(optimizationRound);  if ( failed() ) break;  any |= last;
             if ( log ) logs << "BLOCK FOLDING:" << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
             // this is here again for a reason
-            last = optimizationUnused(logs);    if ( failed() ) break;  any |= last;
+            last = optimizationUnused(logs, optimizationRound);    if ( failed() ) break;  any |= last;
             if ( log ) logs << "REMOVE UNUSED:" << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
             // now, user macros
             last = false;
@@ -3388,6 +3526,7 @@ namespace das {
             if ( failed() ) break;
             any |= last;
             if ( log ) logs << "MACROS:" << (last ? "optimized" : "nothing") << "\n"; if ( logPass ) logs << *this;
+            optimizationRound++;
         } while ( any );
     }
 }

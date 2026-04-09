@@ -5,6 +5,14 @@ namespace das
 {
     inline DAS_THREAD_LOCAL(unsigned) ModuleKarma;
     class Module;
+
+    // This function registers all builtin modules.
+    // Builtin modules are modules listed in /src/builtin/
+    // Note: this is similar to NEED_ALL_DEFAULT_MODULES
+    // but more safe, since it allows such modules to be
+    // already registered.
+    DAS_API void register_builtin_modules();
+
 };
 
 #define NEED_MODULE(ClassName) \
@@ -14,7 +22,6 @@ namespace das
 #define NEED_ALL_DEFAULT_MODULES \
     NEED_MODULE(Module_BuiltIn); \
     NEED_MODULE(Module_Math); \
-    NEED_MODULE(Module_Raster); \
     NEED_MODULE(Module_Strings); \
     NEED_MODULE(Module_Rtti); \
     NEED_MODULE(Module_Ast); \
@@ -51,7 +58,6 @@ namespace das
 #define DECLARE_ALL_DEFAULT_MODULES \
     DECLARE_MODULE(Module_BuiltIn); \
     DECLARE_MODULE(Module_Math); \
-    DECLARE_MODULE(Module_Raster); \
     DECLARE_MODULE(Module_Strings); \
     DECLARE_MODULE(Module_Rtti); \
     DECLARE_MODULE(Module_Ast); \
@@ -64,7 +70,6 @@ namespace das
 #define PULL_ALL_DEFAULT_MODULES \
     PULL_MODULE(Module_BuiltIn); \
     PULL_MODULE(Module_Math); \
-    PULL_MODULE(Module_Raster); \
     PULL_MODULE(Module_Strings); \
     PULL_MODULE(Module_Rtti); \
     PULL_MODULE(Module_Ast); \
