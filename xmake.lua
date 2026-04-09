@@ -97,5 +97,5 @@ includes("dascript/xmake.lua")
 
 target("das-example")
     add_rules("example_base")
-    add_files("examples/dascript/main.cpp")
+    add_files("examples/dascript/*.cpp")
     add_deps("libDaScript")

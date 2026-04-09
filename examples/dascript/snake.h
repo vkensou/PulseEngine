@@ -1,0 +1,128 @@
+#pragma once
+
+#include "predefine_components.h"
+#include "ecsext.hpp"
+#include <SDL3/SDL.h>
+#include <vector>
+
+enum class Direction4W
+{
+	Right,
+	Up,
+	Left,
+	Down,
+};
+
+PULSE_ECS_COMPONENT
+struct Facing4W
+{
+	Direction4W value;
+};
+
+PULSE_ECS_COMPONENT
+struct SnakeMove
+{
+	float interval;
+	float lastTime;
+};
+
+PULSE_ECS_SINGLETON_COMPONENT
+struct SnakeGame
+{
+	bool playing;
+};
+
+PULSE_ECS_SINGLETON_COMPONENT
+struct Border
+{
+	int up, bottom, left, right;
+};
+
+PULSE_ECS_SINGLETON_COMPONENT
+struct Score
+{
+	int value;
+};
+
+PULSE_ECS_COMPONENT
+struct SnakeInput
+{
+	SDL_Scancode rightKey, upKey, leftKey, downKey;
+};
+
+struct SnakeBody
+{
+	HMM_Vec3 position;
+	flecs::entity entity;
+};
+
+PULSE_ECS_COMPONENT
+struct SnakeBodies
+{
+	std::vector<SnakeBody> bodies;
+};
+
+PULSE_ECS_TAG
+struct IsApple {};
+
+PULSE_ECS_EVENT
+struct AppleEatenEvent
+{
+	flecs::entity apple;
+};
+
+PULSE_ECS_EVENT
+struct SnakeMoveIntentEvent
+{
+	HMM_Vec3 delta;
+};
+
+PULSE_ECS_EVENT
+struct GameOverEvent {};
+
+PULSE_ECS_SINGLETON_COMPONENT
+struct SnakeResources
+{
+	int quad;
+	int appleMat, snakeHeadMat, snakeBodyMat;
+	int boardMat;
+};
+
+PULSE_ECS_EVENT
+struct RestartEvent {};
+
+PULSE_ECS_SYSTEM(PHASE=INIT,IMMEDIATE)
+void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse::command_buffer& command_buffer);
+
+PULSE_ECS_SYSTEM(PHASE=INIT,IMMEDIATE)
+void initSnakeGameSystem(pulse::command_buffer& command_buffer, pulse::singleton_query<const SnakeResources> resources);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void handleSnakeInputSystem(pulse::res<const KeyboardState> keyboardState, const SnakeInput& input, Facing4W& direction, SnakeMove& move);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void scheduleSnakeMoveSystem(pulse::res<const UpdateContext> context, pulse::event_writer<SnakeMoveIntentEvent> snakeMoveIntentEvent, flecs::entity entity, const Facing4W& direction, SnakeMove& move);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, pulse::command_buffer& command_buffer, flecs::query<const IsApple, const Position>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEatenEvent> appleEatenEvent, pulse::event_writer<GameOverEvent> gameOverEvent, SnakeBodies& snake);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void syncSnakeBodyPositionSystem(SnakeBodies& snake);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void eatAppleSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, pulse::command_buffer& command_buffer);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void increaseScoreSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, Score& score);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, pulse::command_buffer& command_buffer, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources);
+
+PULSE_ECS_SYSTEM(PHASE=UPDATE)
+void onGameOverSystem(pulse::event_reader<GameOverEvent> gameOverEvent, pulse::command_buffer& command_buffer, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery);
+
+PULSE_ECS_SYSTEM(PHASE=IMGUI,IMMEDIATE)
+void onImguiSystem(const SnakeGame& snakeGame, const Score& score, pulse::event_writer<RestartEvent> restartEvent);
+
+PULSE_ECS_SYSTEM(PHASE=IMGUI)
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);
