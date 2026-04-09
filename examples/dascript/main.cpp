@@ -12,6 +12,7 @@
 #include <SDL3/SDL.h>
 #include "predefine_components.h"
 #include "snake_module.h"
+#include "daScript/daScript.h"
 
 constexpr ecs_entity_t kNullEntity = 0;
 
@@ -353,6 +354,30 @@ struct FrameRenderPacket
 	}
 };
 
+class DasSDLTextPrinter : public das::TextWriter {
+public:
+	DasSDLTextPrinter() {}
+	virtual void output() override
+	{
+		std::lock_guard<std::mutex> guard(pmut);
+		uint64_t newPos = tellp();
+		if (newPos != pos) {
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION,
+				SDL_LOG_PRIORITY_INFO,
+				"%.*s",
+				(int)(newPos - pos),
+				data() + pos);
+			fflush(stdout);
+			pos = newPos;
+		}
+	}
+protected:
+	uint64_t pos = 0;
+	static std::mutex pmut;
+};
+
+std::mutex DasSDLTextPrinter::pmut;
+
 struct Application
 {
 	std::unique_ptr<oval_device_t, decltype(&oval_free_device)> device;
@@ -373,6 +398,9 @@ struct Application
 
 	pulse::EventCenter eventCenter;
 
+	std::unique_ptr<das::ModuleGroup> dummyLibGroup;
+	das::ProgramPtr program;
+
 	Application()
 		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
 	{
@@ -381,6 +409,41 @@ struct Application
 		frameRenderPackets[0].memory_resource->deallocate(buffer, 1024 * 1024, 8);
 		buffer = frameRenderPackets[1].memory_resource->allocate(1024 * 1024, 8);
 		frameRenderPackets[1].memory_resource->deallocate(buffer, 1024 * 1024, 8);
+	}
+
+	~Application()
+	{
+		program.reset();
+		dummyLibGroup.reset();
+		das::Module::Shutdown();
+	}
+
+	bool loadProgram(const std::string& scriptName)
+	{
+		using namespace das;
+
+		dummyLibGroup = std::make_unique<ModuleGroup>();
+
+		DasSDLTextPrinter tout;
+		auto fAccess = make_smart<FsFileAccess>();
+
+		// --- Step 2: compile the script ---
+		//
+		// compileDaScript reads the .das file, parses it, type-checks it,
+		// and returns a Program.  getDasRoot() returns the project root so
+		// that we can build a full path to the script file.
+		program = compileDaScript(getDasRoot() + scriptName,
+			fAccess, tout, *dummyLibGroup);
+		if (program->failed()) {
+			tout << "Compilation failed:";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			return false;
+		}
+
+		return true;
 	}
 };
 
@@ -747,6 +810,11 @@ void on_post_update(oval_device_t* device, oval_update_context update_context)
 {
 }
 
+void need_das_modules()
+{
+    NEED_ALL_DEFAULT_MODULES;
+}
+
 extern "C"
 int SDL_main(int argc, char *argv[])
 {
@@ -773,6 +841,15 @@ int SDL_main(int argc, char *argv[])
 
 	if (!app.device)
 		return -1;
+
+	need_das_modules();
+
+	das::Module::Initialize();
+
+	if (!app.loadProgram("/01_hello_world.das"))
+	{
+		return -1;
+	}
 
 	oval_window_descriptor window_descriptor = {
 		.width = width,
