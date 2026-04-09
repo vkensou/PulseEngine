@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "daScript/misc/platform.h" // DAS_THREAD_LOCAL
 
 namespace das

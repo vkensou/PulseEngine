@@ -8,10 +8,10 @@ using namespace das;
 void tutorial() {
     // --- Step 1: set up compilation infrastructure ---
     //
-    // TextPrinter  — sends compiler/runtime messages to stdout.
+    // TextPrinter  - sends compiler/runtime messages to stdout.
     //                (Use TextWriter for an in-memory string buffer instead.)
-    // ModuleGroup  — holds modules visible during compilation.
-    // FsFileAccess — provides disk-based file I/O to the compiler.
+    // ModuleGroup  - holds modules visible during compilation.
+    // FsFileAccess - provides disk-based file I/O to the compiler.
     TextPrinter tout;
     ModuleGroup dummyLibGroup;
     auto fAccess = make_smart<FsFileAccess>();
@@ -59,7 +59,7 @@ void tutorial() {
 
     // Optional: verify the function signature at runtime.
     // verifyCall<ReturnType, ArgTypes...> checks debug info against the
-    // expected prototype.  This is slow, so only do it once — not on
+    // expected prototype.  This is slow, so only do it once - not on
     // every call in a hot loop.
     if (!verifyCall<void>(fnTest->debugInfo, dummyLibGroup)) {
         tout << "Function 'test' has wrong signature; "
@@ -82,7 +82,7 @@ int main()
 {
     // Request all default built-in modules (math, strings, etc.).
     NEED_ALL_DEFAULT_MODULES;
-    // Initialize the module registry — must be called once, before
+    // Initialize the module registry - must be called once, before
     // any compilation.
     Module::Initialize();
 
