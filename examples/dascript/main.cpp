@@ -356,66 +356,31 @@ struct FrameRenderPacket
 };
 
 MAKE_TYPE_FACTORY(World, World);
-//struct WorldAnnotation final : das::ManagedValueAnnotation<World>
-//{
-//	WorldAnnotation(das::ModuleLibrary& ml)
-//		: ManagedValueAnnotation(ml, "World", "World")
-//	{
-//	}
-//	virtual void walk(das::DataWalker& walker, void* data) override {
-//		if (!walker.reading) {
-//			const World* t = (World*)data;
-//			int32_t eidV = t->a;
-//			walker.Int(eidV);
-//		}
-//	}
-//	virtual bool isLocal() const override { return true; }
-//	virtual bool hasNonTrivialCtor() const override { return false; }
-//	virtual bool canBePlacedInContainer() const override { return true; }
-//};
+struct WorldAnnotation final : das::ManagedStructureAnnotation<World>
+{
+	WorldAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("World", ml, "World")
+	{
+	}
+};
 
 MAKE_TYPE_FACTORY(Entity, Entity);
-//struct EntityAnnotation final : das::ManagedValueAnnotation<Entity>
-//{
-//	EntityAnnotation(das::ModuleLibrary& ml)
-//		: ManagedValueAnnotation(ml, "Entity", "Entity")
-//	{
-//	}
-//	virtual void walk(das::DataWalker& walker, void* data) override {
-//		if (!walker.reading) {
-//			const Entity* t = (Entity*)data;
-//			int32_t eidV = t->b;
-//			walker.Int(eidV);
-//		}
-//	}
-//	virtual bool isLocal() const override { return true; }
-//	virtual bool hasNonTrivialCtor() const override { return false; }
-//	virtual bool canBePlacedInContainer() const override { return true; }
-//};
+struct EntityAnnotation final : das::ManagedValueAnnotation<Entity>
+{
+	EntityAnnotation(das::ModuleLibrary& ml)
+		: ManagedValueAnnotation(ml, "Entity", "Entity")
+	{
+	}
+};
 
 namespace das
 {
-	//template <>
-	//struct cast<World> {
-	//	static __forceinline World to(vec4f x) { return { v_extract_xi(v_cast_vec4i(x)) }; }
-	//	static __forceinline vec4f from(World x) { return v_cast_vec4f(v_seti_x(x.a)); }
-	//};
-	//template <> struct WrapType<World> { enum { value = true }; typedef int type; typedef int rettype; };
-
-	//template <>
-	//struct cast_arg<World> {
-	//	static __forceinline World& to(Context& ctx, SimNode* node) {
-	//		vec4f res = node->eval(ctx);
-	//		return *cast<World*>::to(res);
-	//	}
-	//};
-
-	//template <>
-	//struct cast<Entity> {
-	//	static __forceinline Entity to(vec4f x) { return { v_extract_xi(v_cast_vec4i(x)) }; }
-	//	static __forceinline vec4f from(Entity x) { return v_cast_vec4f(v_seti_x(x.b)); }
-	//};
-	//template <> struct WrapType<Entity> { enum { value = true }; typedef int type; typedef int rettype; };
+	template <>
+	struct cast<Entity> {
+		static __forceinline Entity to(vec4f x) { return Entity{ cast<int>::to(x) }; }
+		static __forceinline vec4f from(Entity x) { return cast<int>::from(x.b); }
+	};
+	template <> struct WrapType<Entity> { enum { value = true }; typedef int type; typedef int rettype; };
 }
 
 class ModuleFlecs : public das::Module
@@ -429,10 +394,10 @@ public:
 		lib.addBuiltInModule();
 		addBuiltinDependency(lib, Module::require("math"));
 
-		addAnnotation(make_smart<ManagedStructureAnnotation<World>>("World", lib));
-		addAnnotation(make_smart<ManagedStructureAnnotation<Entity>>("Entity", lib));
+		addAnnotation(make_smart<WorldAnnotation>(lib));
+		addAnnotation(make_smart<EntityAnnotation>(lib));
 
-		addExtern<DAS_BIND_FUN(create_entity), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
+		addExtern<DAS_BIND_FUN(create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 	}
