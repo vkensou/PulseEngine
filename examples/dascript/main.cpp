@@ -13,6 +13,7 @@
 #include "predefine_components.h"
 #include "snake_module.h"
 #include "daScript/daScript.h"
+#include "dasFlecs.h"
 
 constexpr ecs_entity_t kNullEntity = 0;
 
@@ -354,6 +355,91 @@ struct FrameRenderPacket
 	}
 };
 
+MAKE_TYPE_FACTORY(World, World);
+//struct WorldAnnotation final : das::ManagedValueAnnotation<World>
+//{
+//	WorldAnnotation(das::ModuleLibrary& ml)
+//		: ManagedValueAnnotation(ml, "World", "World")
+//	{
+//	}
+//	virtual void walk(das::DataWalker& walker, void* data) override {
+//		if (!walker.reading) {
+//			const World* t = (World*)data;
+//			int32_t eidV = t->a;
+//			walker.Int(eidV);
+//		}
+//	}
+//	virtual bool isLocal() const override { return true; }
+//	virtual bool hasNonTrivialCtor() const override { return false; }
+//	virtual bool canBePlacedInContainer() const override { return true; }
+//};
+
+MAKE_TYPE_FACTORY(Entity, Entity);
+//struct EntityAnnotation final : das::ManagedValueAnnotation<Entity>
+//{
+//	EntityAnnotation(das::ModuleLibrary& ml)
+//		: ManagedValueAnnotation(ml, "Entity", "Entity")
+//	{
+//	}
+//	virtual void walk(das::DataWalker& walker, void* data) override {
+//		if (!walker.reading) {
+//			const Entity* t = (Entity*)data;
+//			int32_t eidV = t->b;
+//			walker.Int(eidV);
+//		}
+//	}
+//	virtual bool isLocal() const override { return true; }
+//	virtual bool hasNonTrivialCtor() const override { return false; }
+//	virtual bool canBePlacedInContainer() const override { return true; }
+//};
+
+namespace das
+{
+	//template <>
+	//struct cast<World> {
+	//	static __forceinline World to(vec4f x) { return { v_extract_xi(v_cast_vec4i(x)) }; }
+	//	static __forceinline vec4f from(World x) { return v_cast_vec4f(v_seti_x(x.a)); }
+	//};
+	//template <> struct WrapType<World> { enum { value = true }; typedef int type; typedef int rettype; };
+
+	//template <>
+	//struct cast_arg<World> {
+	//	static __forceinline World& to(Context& ctx, SimNode* node) {
+	//		vec4f res = node->eval(ctx);
+	//		return *cast<World*>::to(res);
+	//	}
+	//};
+
+	//template <>
+	//struct cast<Entity> {
+	//	static __forceinline Entity to(vec4f x) { return { v_extract_xi(v_cast_vec4i(x)) }; }
+	//	static __forceinline vec4f from(Entity x) { return v_cast_vec4f(v_seti_x(x.b)); }
+	//};
+	//template <> struct WrapType<Entity> { enum { value = true }; typedef int type; typedef int rettype; };
+}
+
+class ModuleFlecs : public das::Module
+{
+public:
+	ModuleFlecs() : Module("flecs")
+	{
+		using namespace das;
+
+		ModuleLibrary lib(this);
+		lib.addBuiltInModule();
+		addBuiltinDependency(lib, Module::require("math"));
+
+		addAnnotation(make_smart<ManagedStructureAnnotation<World>>("World", lib));
+		addAnnotation(make_smart<ManagedStructureAnnotation<Entity>>("Entity", lib));
+
+		addExtern<DAS_BIND_FUN(create_entity), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
+	}
+};
+
+REGISTER_MODULE(ModuleFlecs);
+
 class DasSDLTextPrinter : public das::TextWriter {
 public:
 	DasSDLTextPrinter() {}
@@ -400,6 +486,7 @@ struct Application
 
 	std::unique_ptr<das::ModuleGroup> dummyLibGroup;
 	das::ProgramPtr program;
+	std::unique_ptr<das::Context> ctx;
 
 	Application()
 		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
@@ -427,12 +514,7 @@ struct Application
 		DasSDLTextPrinter tout;
 		auto fAccess = make_smart<FsFileAccess>();
 
-		// --- Step 2: compile the script ---
-		//
-		// compileDaScript reads the .das file, parses it, type-checks it,
-		// and returns a Program.  getDasRoot() returns the project root so
-		// that we can build a full path to the script file.
-		program = compileDaScript(getDasRoot() + scriptName,
+		program = compileDaScript(getDasRoot() + "/" + scriptName,
 			fAccess, tout, *dummyLibGroup);
 		if (program->failed()) {
 			tout << "Compilation failed:";
@@ -440,6 +522,48 @@ struct Application
 				tout << reportError(err.at, err.what, err.extra,
 					err.fixme, err.cerr);
 			}
+			return false;
+		}
+
+		ctx = std::make_unique<Context>(program->getContextStackSize());
+		if (!program->simulate(*ctx, tout)) {
+			tout << "Simulation failed:\n";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+	bool importDasModule()
+	{
+		using namespace das;
+
+		DasSDLTextPrinter tout;
+
+		auto fnImportModule = ctx->findFunction("importModule");
+		if (!fnImportModule) { tout << "'importModule' not found"; return false; }
+
+		if (!verifyCall<void,World&>(fnImportModule->debugInfo, *dummyLibGroup))
+		{
+			tout << "Function has wrong signature:";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			return false;
+		}
+
+		World world = { 2 };
+		vec4f args[1];
+		args[0] = cast<World&>::from(world);
+
+		vec4f ret = ctx->evalWithCatch(fnImportModule, args);
+		if (auto ex = ctx->getException()) {
+			tout << "exception in importModule: " << ex << "\n";
 			return false;
 		}
 
@@ -568,7 +692,8 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.imguiPipeline = app.imguiPipelineId,
 		.eventManager = &app.eventCenter,
 	};
-	importModule(&moduleContext);
+	//importModule(&moduleContext);
+	app.importDasModule();
 
 	world.run_pipeline(app.initPipeline);
 }
@@ -813,6 +938,7 @@ void on_post_update(oval_device_t* device, oval_update_context update_context)
 void need_das_modules()
 {
     NEED_ALL_DEFAULT_MODULES;
+	NEED_MODULE(ModuleFlecs);
 }
 
 extern "C"
@@ -835,7 +961,7 @@ int SDL_main(int argc, char *argv[])
 		.target_fps = 100,
 		.enable_capture = false,
 		.enable_profile = false,
-		.enable_gpu_validation = true,
+		.enable_gpu_validation = false,
 	};
 	app.device.reset(oval_create_device(&device_descriptor));
 
@@ -846,7 +972,7 @@ int SDL_main(int argc, char *argv[])
 
 	das::Module::Initialize();
 
-	if (!app.loadProgram("/01_hello_world.das"))
+	if (!app.loadProgram("snake_module.das"))
 	{
 		return -1;
 	}
