@@ -355,29 +355,21 @@ struct FrameRenderPacket
 	}
 };
 
-MAKE_TYPE_FACTORY(World, World);
-struct WorldAnnotation final : das::ManagedStructureAnnotation<World>
+static void callDasSystem1(das::Context& ctx, das::SimFunction* fn, Position& position)
 {
-	WorldAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("World", ml, "World")
-	{
-	}
-};
-
-MAKE_TYPE_FACTORY(Entity, Entity);
-struct EntityAnnotation final : das::ManagedValueAnnotation<Entity>
-{
-	EntityAnnotation(das::ModuleLibrary& ml)
-		: ManagedValueAnnotation(ml, "Entity", "Entity")
-	{
-	}
-};
+	using namespace das;
+	if (!fn)
+		return;
+	vec4f args[1];
+	args[0] = cast<Position&>::from(position);
+	ctx.evalWithCatch(fn, args);
+}
 
 MAKE_TYPE_FACTORY(ModuleContext, pulse::ModuleContext);
 struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<pulse::ModuleContext>
 {
 	ModuleContextAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("ModuleContext", ml, "ModuleContext")
+		: ManagedStructureAnnotation("ModuleContext", ml, "pulse::ModuleContext")
 	{
 	}
 };
@@ -391,49 +383,22 @@ struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
 	}
 };
 
-static void callDasSystem1(das::Context& ctx, das::SimFunction* fn, Position& position)
-{
-	using namespace das;
-	if (!fn)
-		return;
-	vec4f args[1];
-	args[0] = cast<Position&>::from(position);
-	ctx.evalWithCatch(fn, args);
-}
-
-namespace das
-{
-	template <>
-	struct cast<Entity> {
-		static __forceinline Entity to(vec4f x) { return Entity{ cast<int>::to(x) }; }
-		static __forceinline vec4f from(Entity x) { return cast<int>::from(x.b); }
-	};
-	template <> struct WrapType<Entity> { enum { value = true }; typedef int type; typedef int rettype; };
-}
-
-class ModuleFlecs : public das::Module
+class ModulePulseECS : public das::Module
 {
 public:
-	ModuleFlecs() : Module("flecs")
+	ModulePulseECS() : Module("pulse_ecs")
 	{
 		using namespace das;
 
 		ModuleLibrary lib(this);
 		lib.addBuiltInModule();
-		addBuiltinDependency(lib, Module::require("math"));
 
-		addAnnotation(make_smart<WorldAnnotation>(lib));
-		addAnnotation(make_smart<EntityAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 		addAnnotation(make_smart<PositionAnnotation>(lib));
-
-		addExtern<DAS_BIND_FUN(create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
-		addExtern<DAS_BIND_FUN(dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
-		addExtern<DAS_BIND_FUN(dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 	}
 };
 
-REGISTER_MODULE(ModuleFlecs);
+REGISTER_MODULE(ModulePulseECS);
 
 class DasSDLTextPrinter : public das::TextWriter {
 public:
@@ -963,6 +928,7 @@ void need_das_modules()
 {
     NEED_ALL_DEFAULT_MODULES;
 	NEED_MODULE(ModuleFlecs);
+	NEED_MODULE(ModulePulseECS);
 }
 
 extern "C"

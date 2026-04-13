@@ -1,6 +1,7 @@
 options gen2
 
 require flecs
+require pulse_ecs
 
 [export]
 def system1(var position:Position) {

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <flecs.h>
+#include "daScript/daScript.h"
+#include "module_importer.h"
+#include "predefine_components.h"
 
 struct World
 {
@@ -15,19 +18,14 @@ struct Entity
 	operator int () const { return b; }
 };
 
-Entity create_entity(World& world)
-{
-	auto id_ = world.a++;
-	Entity entity = { id_ };
-	return entity;
-}
+Entity create_entity(World& world);
 
-void dump_world(const World& world)
-{
-	printf("%d\n", world.a);
-}
+void dump_world(const World& world);
 
-void dump_entity(Entity entity)
+void dump_entity(Entity entity);
+
+class ModuleFlecs : public das::Module
 {
-	printf("%d\n", entity.b);
-}
+public:
+	ModuleFlecs();
+};
