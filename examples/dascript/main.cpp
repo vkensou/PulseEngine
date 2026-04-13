@@ -373,6 +373,15 @@ struct EntityAnnotation final : das::ManagedValueAnnotation<Entity>
 	}
 };
 
+MAKE_TYPE_FACTORY(ModuleContext, pulse::ModuleContext);
+struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<pulse::ModuleContext>
+{
+	ModuleContextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ModuleContext", ml, "ModuleContext")
+	{
+	}
+};
+
 namespace das
 {
 	template <>
@@ -396,6 +405,7 @@ public:
 
 		addAnnotation(make_smart<WorldAnnotation>(lib));
 		addAnnotation(make_smart<EntityAnnotation>(lib));
+		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
@@ -503,7 +513,7 @@ struct Application
 		return true;
 	}
 
-	bool importDasModule()
+	bool importDasModule(pulse::ModuleContext& moduleContext)
 	{
 		using namespace das;
 
@@ -512,7 +522,7 @@ struct Application
 		auto fnImportModule = ctx->findFunction("importModule");
 		if (!fnImportModule) { tout << "'importModule' not found"; return false; }
 
-		if (!verifyCall<void,World&>(fnImportModule->debugInfo, *dummyLibGroup))
+		if (!verifyCall<void, pulse::ModuleContext&>(fnImportModule->debugInfo, *dummyLibGroup))
 		{
 			tout << "Function has wrong signature:";
 			for (auto& err : program->errors) {
@@ -522,9 +532,8 @@ struct Application
 			return false;
 		}
 
-		World world = { 2 };
 		vec4f args[1];
-		args[0] = cast<World&>::from(world);
+		args[0] = cast<pulse::ModuleContext&>::from(moduleContext);
 
 		vec4f ret = ctx->evalWithCatch(fnImportModule, args);
 		if (auto ex = ctx->getException()) {
@@ -658,7 +667,7 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.eventManager = &app.eventCenter,
 	};
 	//importModule(&moduleContext);
-	app.importDasModule();
+	app.importDasModule(moduleContext);
 
 	world.run_pipeline(app.initPipeline);
 }
