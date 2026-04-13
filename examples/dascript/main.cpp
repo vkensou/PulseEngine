@@ -355,12 +355,25 @@ struct FrameRenderPacket
 	}
 };
 
+MAKE_TYPE_FACTORY(HMM_Vec3, HMM_Vec3);
+struct HMM_Vec3Annotation final : das::ManagedStructureAnnotation<HMM_Vec3>
+{
+	HMM_Vec3Annotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Vec3", ml, "HMM_Vec3")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
+		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
+		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
+		}
+};
+
 MAKE_TYPE_FACTORY(Position, Position);
 struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
 {
 	PositionAnnotation(das::ModuleLibrary& ml)
 		: ManagedStructureAnnotation("Position", ml, "Position")
 	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
 	}
 };
 
@@ -374,6 +387,7 @@ public:
 		ModuleLibrary lib(this);
 		lib.addBuiltInModule();
 
+		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
 		addAnnotation(make_smart<PositionAnnotation>(lib));
 	}
 };
@@ -653,13 +667,14 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.imguiPipeline = app.imguiPipelineId,
 		//.eventManager = &app.eventCenter,
 	};
+
+	auto en = world.entity();
+	en.set<Position>({ .value = HMM_V3(1,2,3)});
+
 	//importModule(&moduleContext);
 	app.importDasModule(moduleContext);
 
 	world.run_pipeline(app.initPipeline);
-
-	auto en = world.entity();
-	en.add<Position>();
 }
 
 static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)

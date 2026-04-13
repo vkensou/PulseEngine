@@ -17,4 +17,15 @@ def importModule(var ctx:ModuleContext) {
     dump_world(ctx.world)
 
     var query = build_query(ctx.world, "Position")
+    var iter = query_iter(query)
+    while (query_next(iter)) {
+        print("query iter:{iter.count}\n")
+        unsafe {
+            var positions = reinterpret<Position?>(iter_field(iter, typeinfo sizeof(type<Position>), 0))
+            for (i in 0..iter.count) {
+                print("{i}\n")
+                print("{positions[i].value.X} {positions[i].value.Y} {positions[i].value.Z}\n")
+            }
+        }
+    }
 }

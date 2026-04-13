@@ -27,7 +27,24 @@ namespace dasPulseECS
 	{
 		ecs_query_desc_t desc = { .expr = expr };
 		ecs_query_t* query = ecs_query_init(world.world_, &desc);
+
+		flecs::query<float>;
 		return Query{ query };
+	}
+
+	ecs_iter_t query_iter(const Query& query)
+	{
+		return ecs_query_iter(query.query_->world, query.query_);
+	}
+
+	bool query_next(ecs_iter_t& iter)
+	{
+		return ecs_query_next(&iter);
+	}
+
+	void* iter_field(ecs_iter_t& iter, int size, int index)
+	{
+		return ecs_field_w_size(&iter, size, index);
 	}
 }
 
@@ -55,6 +72,16 @@ struct QueryAnnotation final : das::ManagedValueAnnotation<dasPulseECS::Query>
 	QueryAnnotation(das::ModuleLibrary& ml)
 		: ManagedValueAnnotation(ml, "Query", "dasPulseECS::Query")
 	{
+	}
+};
+
+MAKE_TYPE_FACTORY(Iter, ecs_iter_t);
+struct IterAnnotation final : das::ManagedStructureAnnotation<ecs_iter_t>
+{
+	IterAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("Iter", ml, "ecs_iter_t")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(count)>("count");
 	}
 };
 
@@ -105,12 +132,16 @@ public:
 		addAnnotation(make_smart<WorldAnnotation>(lib));
 		addAnnotation(make_smart<EntityAnnotation>(lib));
 		addAnnotation(make_smart<QueryAnnotation>(lib));
+		addAnnotation(make_smart<IterAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "query_desc" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::query_next)>(*this, lib, "query_next", SideEffects::worstDefault, "query_next")->args({ "iter" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
 	}
 };
 
