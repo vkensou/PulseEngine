@@ -579,6 +579,9 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	pulse::registerResource<UpdateContext>(world, "Update Context");
 	pulse::registerResource<RenderContext>(world, "Render Context");
 
+	ECS_COMPONENT(world, Position);
+	int a = ecs_id(Position);
+
 	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
 		.without<Rotation>()
 		.kind<pulse::PostUpdatePipeline>()

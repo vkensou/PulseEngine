@@ -21,6 +21,14 @@ namespace dasPulseECS
 
 		operator uint64_t() const { return entity_; }
 	};
+	struct Query
+	{
+		ecs_query_t* query_;
+		Query() : query_(nullptr) {}
+		Query(ecs_query_t* q) : query_(q) {}
+
+		operator ecs_query_t* () const { return query_; }
+	};
 
 	struct ModuleContext
 	{

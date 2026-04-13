@@ -15,4 +15,6 @@ def importModule(var ctx:ModuleContext) {
     var ent = create_entity(ctx.world)
     dump_entity(ent)
     dump_world(ctx.world)
+
+    var query = build_query(ctx.world, "Position")
 }
