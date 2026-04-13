@@ -382,6 +382,25 @@ struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<pulse::Mo
 	}
 };
 
+MAKE_TYPE_FACTORY(Position, Position);
+struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
+{
+	PositionAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("Position", ml, "Position")
+	{
+	}
+};
+
+static void callDasSystem1(das::Context& ctx, das::SimFunction* fn, Position& position)
+{
+	using namespace das;
+	if (!fn)
+		return;
+	vec4f args[1];
+	args[0] = cast<Position&>::from(position);
+	ctx.evalWithCatch(fn, args);
+}
+
 namespace das
 {
 	template <>
@@ -406,6 +425,7 @@ public:
 		addAnnotation(make_smart<WorldAnnotation>(lib));
 		addAnnotation(make_smart<EntityAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
+		addAnnotation(make_smart<PositionAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
@@ -462,6 +482,7 @@ struct Application
 	std::unique_ptr<das::ModuleGroup> dummyLibGroup;
 	das::ProgramPtr program;
 	std::unique_ptr<das::Context> ctx;
+	das::SimFunction* fnDasSystem1 = nullptr;
 
 	Application()
 		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
@@ -510,6 +531,7 @@ struct Application
 			return false;
 		}
 
+		fnDasSystem1 = nullptr;
 		return true;
 	}
 
@@ -540,6 +562,31 @@ struct Application
 			tout << "exception in importModule: " << ex << "\n";
 			return false;
 		}
+
+		fnDasSystem1 = ctx->findFunction("system1");
+		if (!fnDasSystem1)
+		{
+			tout << "Das export 'system1' not found; skipping DasScriptSystem1 flecs registration\n";
+			return true;
+		}
+		if (!verifyCall<void, Position&>(fnDasSystem1->debugInfo, *dummyLibGroup))
+		{
+			tout << "Das export 'system1' has wrong signature (expected: [export] def system1(var position:Position))\n";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			fnDasSystem1 = nullptr;
+			return false;
+		}
+
+		moduleContext.world.system<Position>("DasScriptSystem1")
+			.kind<pulse::UpdatePipeline>()
+			.each([this](Position& position) {
+				callDasSystem1(*ctx, fnDasSystem1, position);
+				if (const char* ex = ctx->getException())
+					SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "system1: %s", ex);
+			});
 
 		return true;
 	}
@@ -670,6 +717,9 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	app.importDasModule(moduleContext);
 
 	world.run_pipeline(app.initPipeline);
+
+	auto en = world.entity();
+	en.add<Position>();
 }
 
 static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)
