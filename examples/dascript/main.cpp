@@ -355,25 +355,6 @@ struct FrameRenderPacket
 	}
 };
 
-static void callDasSystem1(das::Context& ctx, das::SimFunction* fn, Position& position)
-{
-	using namespace das;
-	if (!fn)
-		return;
-	vec4f args[1];
-	args[0] = cast<Position&>::from(position);
-	ctx.evalWithCatch(fn, args);
-}
-
-MAKE_TYPE_FACTORY(ModuleContext, pulse::ModuleContext);
-struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<pulse::ModuleContext>
-{
-	ModuleContextAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("ModuleContext", ml, "pulse::ModuleContext")
-	{
-	}
-};
-
 MAKE_TYPE_FACTORY(Position, Position);
 struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
 {
@@ -393,7 +374,6 @@ public:
 		ModuleLibrary lib(this);
 		lib.addBuiltInModule();
 
-		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 		addAnnotation(make_smart<PositionAnnotation>(lib));
 	}
 };
@@ -500,7 +480,7 @@ struct Application
 		return true;
 	}
 
-	bool importDasModule(pulse::ModuleContext& moduleContext)
+	bool importDasModule(dasPulseECS::ModuleContext& moduleContext)
 	{
 		using namespace das;
 
@@ -509,7 +489,7 @@ struct Application
 		auto fnImportModule = ctx->findFunction("importModule");
 		if (!fnImportModule) { tout << "'importModule' not found"; return false; }
 
-		if (!verifyCall<void, pulse::ModuleContext&>(fnImportModule->debugInfo, *dummyLibGroup))
+		if (!verifyCall<void, dasPulseECS::ModuleContext&>(fnImportModule->debugInfo, *dummyLibGroup))
 		{
 			tout << "Function has wrong signature:";
 			for (auto& err : program->errors) {
@@ -520,7 +500,7 @@ struct Application
 		}
 
 		vec4f args[1];
-		args[0] = cast<pulse::ModuleContext&>::from(moduleContext);
+		args[0] = cast<dasPulseECS::ModuleContext&>::from(moduleContext);
 
 		vec4f ret = ctx->evalWithCatch(fnImportModule, args);
 		if (auto ex = ctx->getException()) {
@@ -544,14 +524,6 @@ struct Application
 			fnDasSystem1 = nullptr;
 			return false;
 		}
-
-		moduleContext.world.system<Position>("DasScriptSystem1")
-			.kind<pulse::UpdatePipeline>()
-			.each([this](Position& position) {
-				callDasSystem1(*ctx, fnDasSystem1, position);
-				if (const char* ex = ctx->getException())
-					SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "system1: %s", ex);
-			});
 
 		return true;
 	}
@@ -669,14 +641,14 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.with(app.imguiPipelineId)
 		.build();
 
-	pulse::ModuleContext moduleContext {
-		.world = world,
+	dasPulseECS::ModuleContext moduleContext {
+		.world = {world.world_},
 		.initPipeline = app.initPipelineId,
 		.updatePipeline = app.updatePipelineId,
 		.postUpdatePipeline = app.postUpdatePipelineId,
 		.renderPipeline = app.renderPipelineId,
 		.imguiPipeline = app.imguiPipelineId,
-		.eventManager = &app.eventCenter,
+		//.eventManager = &app.eventCenter,
 	};
 	//importModule(&moduleContext);
 	app.importDasModule(moduleContext);

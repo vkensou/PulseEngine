@@ -2,30 +2,35 @@
 
 #include <flecs.h>
 #include "daScript/daScript.h"
-#include "module_importer.h"
-#include "predefine_components.h"
 
-struct World
+namespace dasPulseECS
 {
-	int a;
-};
+	struct World
+	{
+		ecs_world_t* world_;
+		World() : world_(nullptr) {}
+		World(ecs_world_t* w) : world_(w) {}
 
-struct Entity
-{
-	int b;
-	Entity() : b(0) {}
-	Entity(int b) : b(b) {}
-	operator int () const { return b; }
-};
+		operator ecs_world_t*() const { return world_; }
+	};
+	struct Entity
+	{
+		ecs_entity_t entity_;
+		Entity() : entity_(0) {}
+		Entity(ecs_entity_t b) : entity_(b) {}
 
-Entity create_entity(World& world);
+		operator uint64_t() const { return entity_; }
+	};
 
-void dump_world(const World& world);
-
-void dump_entity(Entity entity);
-
-class ModuleFlecs : public das::Module
-{
-public:
-	ModuleFlecs();
-};
+	struct ModuleContext
+	{
+		World world;
+		Entity initPipeline;
+		Entity updatePipeline;
+		Entity postUpdatePipeline;
+		Entity renderPipeline;
+		Entity imguiPipeline;
+		//pulse::EventCenter* eventManager;
+	};
+}
+MAKE_TYPE_FACTORY(ModuleContext, dasPulseECS::ModuleContext);

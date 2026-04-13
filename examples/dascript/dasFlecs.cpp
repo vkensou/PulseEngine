@@ -1,66 +1,92 @@
 #include "dasFlecs.h"
-#include "module_importer.h"
-#include "predefine_components.h"
 
-MAKE_TYPE_FACTORY(World, World);
-struct WorldAnnotation final : das::ManagedStructureAnnotation<World>
+#include "daScript/daScript.h"
+
+namespace dasPulseECS
+{
+	Entity create_entity(World& world)
+	{
+		ecs_entity_desc_t desc = {};
+		auto id_ = ecs_entity_init(world.world_, &desc);
+		Entity entity = { id_ };
+		return entity;
+	}
+
+	void dump_world(const World& world)
+	{
+		auto info = ecs_get_world_info(world.world_);
+		printf("%lld\n", info->cmd.add_count);
+	}
+
+	void dump_entity(Entity entity)
+	{
+		printf("%lld\n", entity.entity_);
+	}
+}
+
+MAKE_TYPE_FACTORY(World, dasPulseECS::World);
+struct WorldAnnotation final : das::ManagedValueAnnotation<dasPulseECS::World>
 {
 	WorldAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("World", ml, "World")
+		: ManagedValueAnnotation(ml, "World", "dasPulseECS::World")
 	{
 	}
 };
 
-MAKE_TYPE_FACTORY(Entity, Entity);
-struct EntityAnnotation final : das::ManagedValueAnnotation<Entity>
+MAKE_TYPE_FACTORY(Entity, dasPulseECS::Entity);
+struct EntityAnnotation final : das::ManagedValueAnnotation<dasPulseECS::Entity>
 {
 	EntityAnnotation(das::ModuleLibrary& ml)
-		: ManagedValueAnnotation(ml, "Entity", "Entity")
+		: ManagedValueAnnotation(ml, "Entity", "dasPulseECS::Entity")
 	{
+	}
+};
+
+struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::ModuleContext>
+{
+	ModuleContextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ModuleContext", ml, "dasPulseECS::ModuleContext")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(world)>("world");
 	}
 };
 
 namespace das
 {
 	template <>
-	struct cast<Entity> {
-		static __forceinline Entity to(vec4f x) { return Entity{ cast<int>::to(x) }; }
-		static __forceinline vec4f from(Entity x) { return cast<int>::from(x.b); }
+	struct cast<dasPulseECS::World> {
+		static __forceinline dasPulseECS::World to(vec4f x) { return dasPulseECS::World{ cast<ecs_world_t*>::to(x) }; }
+		static __forceinline vec4f from(dasPulseECS::World x) { return cast<ecs_world_t*>::from(x.world_); }
 	};
-	template <> struct WrapType<Entity> { enum { value = true }; typedef int type; typedef int rettype; };
+	template <> struct WrapType<dasPulseECS::World> { enum { value = true }; typedef void* type; typedef void* rettype; };
+
+	template <>
+	struct cast<dasPulseECS::Entity> {
+		static __forceinline dasPulseECS::Entity to(vec4f x) { return dasPulseECS::Entity{ cast<uint64_t>::to(x) }; }
+		static __forceinline vec4f from(dasPulseECS::Entity x) { return cast<uint64_t>::from(x.entity_); }
+	};
+	template <> struct WrapType<dasPulseECS::Entity> { enum { value = true }; typedef uint64_t type; typedef uint64_t rettype; };
 }
 
-Entity create_entity(World& world)
+class ModuleFlecs : public das::Module
 {
-	auto id_ = world.a++;
-	Entity entity = { id_ };
-	return entity;
-}
+public:
+	ModuleFlecs() : Module("flecs")
+	{
+		using namespace das;
 
-void dump_world(const World& world)
-{
-	printf("%d\n", world.a);
-}
+		ModuleLibrary lib(this);
+		lib.addBuiltInModule();
+		addBuiltinDependency(lib, Module::require("math"));
 
-void dump_entity(Entity entity)
-{
-	printf("%d\n", entity.b);
-}
+		addAnnotation(make_smart<WorldAnnotation>(lib));
+		addAnnotation(make_smart<EntityAnnotation>(lib));
+		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 
-inline ModuleFlecs::ModuleFlecs() : Module("flecs")
-{
-	using namespace das;
-
-	ModuleLibrary lib(this);
-	lib.addBuiltInModule();
-	addBuiltinDependency(lib, Module::require("math"));
-
-	addAnnotation(make_smart<WorldAnnotation>(lib));
-	addAnnotation(make_smart<EntityAnnotation>(lib));
-
-	addExtern<DAS_BIND_FUN(create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
-	addExtern<DAS_BIND_FUN(dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
-	addExtern<DAS_BIND_FUN(dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
-}
+		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
+	}
+};
 
 REGISTER_MODULE(ModuleFlecs);
