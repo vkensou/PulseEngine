@@ -367,6 +367,11 @@ struct HMM_Vec3Annotation final : das::ManagedStructureAnnotation<HMM_Vec3>
 		}
 };
 
+HMM_Vec3 make_vec3(float x, float y, float z)
+{
+	return HMM_V3(x, y, z);
+}
+
 MAKE_TYPE_FACTORY(Position, Position);
 struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
 {
@@ -389,6 +394,8 @@ public:
 
 		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
 		addAnnotation(make_smart<PositionAnnotation>(lib));
+
+		addExtern<DAS_BIND_FUN(make_vec3), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
 	}
 };
 
@@ -594,7 +601,6 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	pulse::registerResource<RenderContext>(world, "Render Context");
 
 	ECS_COMPONENT(world, Position);
-	int a = ecs_id(Position);
 
 	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
 		.without<Rotation>()
@@ -667,9 +673,6 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.imguiPipeline = app.imguiPipelineId,
 		//.eventManager = &app.eventCenter,
 	};
-
-	auto en = world.entity();
-	en.set<Position>({ .value = HMM_V3(1,2,3)});
 
 	//importModule(&moduleContext);
 	app.importDasModule(moduleContext);

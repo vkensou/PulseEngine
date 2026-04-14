@@ -47,16 +47,27 @@ namespace dasPulseECS
 		return ecs_field_w_size(&iter, size, index);
 	}
 
+	const char* get_pure_component_name(const char* component_name)
+	{
+		if (component_name == NULL) {
+			return NULL;
+		}
+
+		const char* p = strrchr(component_name, ':');
+		return (p == NULL) ? component_name : (p + 1);
+	}
+
 	ecs_id_t register_component(const World& world, const char* component_name, int size, int alignment)
 	{
 		ecs_entity_t ComponentID_ = 0; 
 		{
+			const char* pure_component_name = get_pure_component_name(component_name);
 			ecs_component_desc_t desc = { 0 }; 
 			ecs_entity_desc_t edesc = { 0 }; 
 			edesc.id = ComponentID_; 
 			edesc.use_low_id = true; 
-			edesc.name = component_name; 
-			edesc.symbol = component_name;
+			edesc.name = pure_component_name;
+			edesc.symbol = pure_component_name;
 			desc.entity = ecs_entity_init(world, &edesc); 
 			desc.type.size = (static_cast<ecs_size_t>(size));
 			desc.type.alignment = static_cast<int64_t>(alignment);
@@ -67,6 +78,11 @@ namespace dasPulseECS
 			return 0;
 		} 
 		return ComponentID_;
+	}
+
+	void set_component(World& world, Entity entity, ecs_id_t component_id, int size, const void* data)
+	{
+		ecs_set_id(world.world_, entity.entity_, component_id, size, data);
 	}
 }
 
@@ -165,6 +181,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_next)>(*this, lib, "query_next", SideEffects::worstDefault, "query_next")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data" });
 	}
 };
 
