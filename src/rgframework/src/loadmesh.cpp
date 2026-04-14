@@ -27,8 +27,8 @@ std::tuple<std::pmr::vector<TexturedVertex>*, std::pmr::vector<uint32_t>*> LoadO
 	vertices = new std::pmr::vector<TexturedVertex>(memory_resource);
 	indices = new std::pmr::vector<uint32_t>(memory_resource);
 
-	std::pmr::vector<HMM_Vec3> coords(memory_resource), normals(memory_resource);
-	std::pmr::vector<HMM_Vec2> texCoords(memory_resource);
+	std::pmr::vector<Vec3> coords(memory_resource), normals(memory_resource);
+	std::pmr::vector<Vec2> texCoords(memory_resource);
 	int rh = right_hand ? -1 : 1;
 
 	coords.reserve(attrib.vertices.size() / 3);
@@ -81,8 +81,8 @@ std::tuple<std::pmr::vector<TexturedVertex>*, std::pmr::vector<uint32_t>*> LoadO
 			else
 			{
 				auto pos = coords[vertex_index];
-				auto normal = normal_index >= 0 ? normals[normal_index] : HMM_Vec3();
-				auto texcoord = texcoord_index >= 0 ? texCoords[texcoord_index] : HMM_Vec2();
+				auto normal = normal_index >= 0 ? normals[normal_index] : Vec3();
+				auto texcoord = texcoord_index >= 0 ? texCoords[texcoord_index] : Vec2();
 				auto iter = vertex_map.insert({ vertex_map_index , (int)vertices->size() });
 				vertices->push_back({ pos, normal, texcoord });
 				indices->push_back(iter.first->second);

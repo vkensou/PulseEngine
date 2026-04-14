@@ -3,7 +3,6 @@
 #include "stdint.h"
 #include "rendergraph.h"
 #include "drawer.h"
-#include "HandmadeMath.h"
 #include <flecs.h>
 
 typedef struct oval_update_context
