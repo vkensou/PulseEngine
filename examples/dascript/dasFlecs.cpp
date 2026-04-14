@@ -46,6 +46,28 @@ namespace dasPulseECS
 	{
 		return ecs_field_w_size(&iter, size, index);
 	}
+
+	ecs_id_t register_component(const World& world, const char* component_name, int size, int alignment)
+	{
+		ecs_entity_t ComponentID_ = 0; 
+		{
+			ecs_component_desc_t desc = { 0 }; 
+			ecs_entity_desc_t edesc = { 0 }; 
+			edesc.id = ComponentID_; 
+			edesc.use_low_id = true; 
+			edesc.name = component_name; 
+			edesc.symbol = component_name;
+			desc.entity = ecs_entity_init(world, &edesc); 
+			desc.type.size = (static_cast<ecs_size_t>(size));
+			desc.type.alignment = static_cast<int64_t>(alignment);
+			ComponentID_ = ecs_component_init(world, &desc);
+		} 
+		if (!(ComponentID_ != 0)) {
+			ecs_assert(ComponentID_ != 0, ECS_INVALID_PARAMETER, "failed to create component %s", component_name);
+			return 0;
+		} 
+		return ComponentID_;
+	}
 }
 
 MAKE_TYPE_FACTORY(World, dasPulseECS::World);
@@ -142,6 +164,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_next)>(*this, lib, "query_next", SideEffects::worstDefault, "query_next")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
 	}
 };
 
