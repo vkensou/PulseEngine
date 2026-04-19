@@ -13,6 +13,10 @@ struct Comp2 {
     X: float
 }
 
+def system1(iter: Iter?) {
+    print("hello system\n")
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -29,6 +33,8 @@ def importModule(var ctx:ModuleContext) {
 
     ecs_entity_set(ctx.world, ent, Position(value=make_vec3(10.0, 20.0, 30.0)))
     ecs_entity_set(ctx.world, ent, Velocity(X=1.0, Y=2.0, Z=3.0))
+
+    build_system_from_query_expr(ctx.world, "move", ctx.updatePipeline, "Position, Velocity", @@system1)
 
     var query = build_query(ctx.world, "Position, Velocity")
     var iter = query_iter(query)

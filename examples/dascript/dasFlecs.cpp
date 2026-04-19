@@ -27,8 +27,6 @@ namespace dasPulseECS
 	{
 		ecs_query_desc_t desc = { .expr = expr };
 		ecs_query_t* query = ecs_query_init(world.world_, &desc);
-
-		flecs::query<float>;
 		return Query{ query };
 	}
 
@@ -84,6 +82,46 @@ namespace dasPulseECS
 	{
 		ecs_set_id(world.world_, entity.entity_, component_id, size, data);
 	}
+
+	struct SystemCallBackContext
+	{
+		das::Func fn;
+		das::Context* context;
+		das::LineInfoArg* at;
+	};
+
+	void das_system_wrapper(ecs_iter_t* it)
+	{
+		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->run_ctx;
+		das::das_invoke_function<ecs_iter_t*>::invoke(callBackContext->context, callBackContext->at, callBackContext->fn, it);
+	}
+
+	void das_system_context_free(void* ctx)
+	{
+		SystemCallBackContext* callBackContext = (SystemCallBackContext*)ctx;
+		delete callBackContext;
+	}
+
+	void build_system_from_query_expr(const World& world, const char* name, Entity dependson, const char* query_expr, das::Func fn, das::Context* context, das::LineInfoArg* at)
+	{
+		ecs_id_t ids[] = { ecs_dependson(dependson.entity_), dependson.entity_, 0 };
+		ecs_entity_desc_t edesc = { .name = name, .add = ids };
+		ecs_entity_t entity = ecs_entity_init(world, &edesc);
+
+		SystemCallBackContext* callBackContext = new SystemCallBackContext();
+		callBackContext->fn = fn;
+		callBackContext->context = context;
+		callBackContext->at = at;
+
+		ecs_system_desc_t sdesc = { 
+			.entity = entity,
+			.query = {.expr = query_expr},
+			.callback = das_system_wrapper,
+			.run_ctx = callBackContext,
+			.run_ctx_free = das_system_context_free,
+		};
+		ecs_entity_t system = ecs_system_init(world, &sdesc);
+	}
 }
 
 MAKE_TYPE_FACTORY(World, dasPulseECS::World);
@@ -129,6 +167,11 @@ struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<dasPulseE
 		: ManagedStructureAnnotation("ModuleContext", ml, "dasPulseECS::ModuleContext")
 	{
 		addField<DAS_BIND_MANAGED_FIELD(world)>("world");
+		addField<DAS_BIND_MANAGED_FIELD(initPipeline)>("initPipeline");
+		addField<DAS_BIND_MANAGED_FIELD(updatePipeline)>("updatePipeline");
+		addField<DAS_BIND_MANAGED_FIELD(postUpdatePipeline)>("postUpdatePipeline");
+		addField<DAS_BIND_MANAGED_FIELD(renderPipeline)>("renderPipeline");
+		addField<DAS_BIND_MANAGED_FIELD(imguiPipeline)>("imguiPipeline");
 	}
 };
 
@@ -182,6 +225,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::build_system_from_query_expr)>(*this, lib, "build_system_from_query_expr", SideEffects::worstDefault, "build_system_from_query_expr")->args({ "world", "name", "dependson", "query_expr", "fn", "context", "at"});
 	}
 };
 

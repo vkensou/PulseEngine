@@ -448,7 +448,6 @@ struct Application
 	std::unique_ptr<das::ModuleGroup> dummyLibGroup;
 	das::ProgramPtr program;
 	std::unique_ptr<das::Context> ctx;
-	das::SimFunction* fnDasSystem1 = nullptr;
 
 	Application()
 		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
@@ -497,7 +496,6 @@ struct Application
 			return false;
 		}
 
-		fnDasSystem1 = nullptr;
 		return true;
 	}
 
@@ -526,23 +524,6 @@ struct Application
 		vec4f ret = ctx->evalWithCatch(fnImportModule, args);
 		if (auto ex = ctx->getException()) {
 			tout << "exception in importModule: " << ex << "\n";
-			return false;
-		}
-
-		fnDasSystem1 = ctx->findFunction("system1");
-		if (!fnDasSystem1)
-		{
-			tout << "Das export 'system1' not found; skipping DasScriptSystem1 flecs registration\n";
-			return true;
-		}
-		if (!verifyCall<void, Position&>(fnDasSystem1->debugInfo, *dummyLibGroup))
-		{
-			tout << "Das export 'system1' has wrong signature (expected: [export] def system1(var position:Position))\n";
-			for (auto& err : program->errors) {
-				tout << reportError(err.at, err.what, err.extra,
-					err.fixme, err.cerr);
-			}
-			fnDasSystem1 = nullptr;
 			return false;
 		}
 
