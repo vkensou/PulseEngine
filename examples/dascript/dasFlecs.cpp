@@ -35,9 +35,9 @@ namespace dasPulseECS
 		return ecs_query_iter(query.query_->world, query.query_);
 	}
 
-	bool query_next(ecs_iter_t& iter)
+	bool iter_next(ecs_iter_t& iter)
 	{
-		return ecs_query_next(&iter);
+		return iter.next(&iter);
 	}
 
 	void* iter_field(ecs_iter_t& iter, int size, int index)
@@ -94,6 +94,7 @@ namespace dasPulseECS
 	{
 		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->run_ctx;
 		das::das_invoke_function<ecs_iter_t*>::invoke(callBackContext->context, callBackContext->at, callBackContext->fn, it);
+		while (it->next(it));
 	}
 
 	void das_system_context_free(void* ctx)
@@ -116,7 +117,7 @@ namespace dasPulseECS
 		ecs_system_desc_t sdesc = { 
 			.entity = entity,
 			.query = {.expr = query_expr},
-			.callback = das_system_wrapper,
+			.run = das_system_wrapper,
 			.run_ctx = callBackContext,
 			.run_ctx_free = das_system_context_free,
 		};
@@ -221,7 +222,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "query_desc" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
-		addExtern<DAS_BIND_FUN(dasPulseECS::query_next)>(*this, lib, "query_next", SideEffects::worstDefault, "query_next")->args({ "iter" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data" });

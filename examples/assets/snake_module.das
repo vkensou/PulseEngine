@@ -13,7 +13,7 @@ struct Comp2 {
     X: float
 }
 
-def system1(iter: Iter?) {
+def system1(var iter: Iter?) {
     print("hello system\n")
 }
 
@@ -38,7 +38,7 @@ def importModule(var ctx:ModuleContext) {
 
     var query = build_query(ctx.world, "Position, Velocity")
     var iter = query_iter(query)
-    while (query_next(iter)) {
+    while (iter_next(iter)) {
         print("query iter:{iter.count}\n")
         unsafe {
             var positions = reinterpret<Position?>(iter_field(iter, typeinfo sizeof(type<Position>), 0))
