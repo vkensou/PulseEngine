@@ -23,7 +23,7 @@ var private run_probe_batches = 0
 var private move_probe_hits = 0
 var private spawned_entity = default<Entity>
 
-[system(phase="update")]
+// [system(phase="update")]
 def run_probe(var iter: Iter?) {
     while (iter_next(iter)) {
         run_probe_batches += 1
@@ -35,7 +35,20 @@ def run_probe(var iter: Iter?) {
     }
 }
 
-[system(phase="update")]
+def move_probe_wrapper(var iter: Iter?) {
+    while (iter_next(iter)) {
+        for (i in 0..iter.count) {
+            unsafe {
+                var entity = iter_entity(iter, i)
+                var positions = reinterpret<Position?>(iter_field(iter, typeinfo sizeof(type<Position>), 0))
+                var velocities = reinterpret<Velocity?>(iter_field(iter, typeinfo sizeof(type<Velocity>), 1))
+                move_probe(entity, positions[i], velocities[i])
+            }
+        }
+    }
+}
+
+// [system(phase="update")]
 def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
     move_probe_hits += 1
     vel.X += 1.0
@@ -85,6 +98,14 @@ def importModule(var ctx:ModuleContext) {
     move_probe_hits = 0
     spawned_entity = ent
 
-    run_probe`register(ctx)
-    move_probe`register(ctx)
+    var sd1 = SystemDesc(name = "run_probe", dependsOn = ctx.updatePipeline)
+    ctx.world |> register_system_wrapper(sd1, @@run_probe)
+
+    var sd2 = SystemDesc(name = "move_probe", dependsOn = ctx.updatePipeline)
+    // sd2.terms[0] = system_term_in(ctx.world, type<Position>)
+    // sd2.terms[1] = system_term_in(ctx.world, type<Velocity>)
+    ctx.world |> register_system_wrapper(sd2, @@move_probe)
+
+    // run_probe`register(ctx)
+    // move_probe`register(ctx)
 }

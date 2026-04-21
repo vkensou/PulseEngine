@@ -486,6 +486,8 @@ struct Application
 			return false;
 		}
 
+		tout << *(program.get()) << "\n";
+
 		ctx = std::make_unique<Context>(program->getContextStackSize());
 		if (!program->simulate(*ctx, tout)) {
 			tout << "Simulation failed:\n";

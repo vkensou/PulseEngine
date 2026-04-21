@@ -8,6 +8,7 @@ module flecs_systems private
 
 require daslib/ast_boost
 require daslib/templates_boost
+require daslib/macro_boost
 
 [function_macro(name="system")]
 class FlecsSystemMacro : AstFunctionAnnotation {
@@ -196,5 +197,104 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         }
         helper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
         return compiling_module() |> add_function(helper_fn)
+    }
+}
+
+[call_macro(name="register_system_wrapper")]
+class FlecsRegisterSystemMacro : AstCallMacro {
+    def override visit(prog : ProgramPtr; mod : Module?; var expr : smart_ptr<ExprCallMacro>) : ExpressionPtr {
+        macro_verify(length(expr.arguments) == 3, prog, expr.at,
+            "register_system_wrapper requires 3 argument")
+        macro_verify(expr.arguments[2] is ExprAddr, prog, expr.at,
+            "third argument must an addr of function, not {expr.arguments[2].__rtti}")
+
+        let addrOfFunc = expr.arguments[2] as ExprAddr
+        let func = addrOfFunc.func
+
+        if (length(func.arguments) == 1 && is_run_iter_signature(func.arguments[0]._type)) {
+            assume world = expr.arguments[0]
+            assume desc = expr.arguments[1]
+            assume adfunc = expr.arguments[2]
+            return <- qmacro(register_system($e(world), $e(desc), $e(adfunc)))
+        }
+
+        let is_entity = is_entity_type(func.arguments[0]._type)
+        print("{is_entity}\n")
+        for (arg, arg_index in func.arguments, count()) {
+            print("{describe(arg._type)}\n")
+        }
+        
+        let wrapper_name = "{func.name}`wrapper"
+        let add_ok = add_each_wrapper(func, wrapper_name)
+        print("add each: {add_ok}\n")
+        // let funcType = addrOfFunc.func.arguments
+        // print({addrOfFunc.target})
+        assume world = expr.arguments[0]
+        assume desc = expr.arguments[1]
+        assume adfunc = expr.arguments[2]
+        return <- qmacro(register_system($e(world), $e(desc), @@$c(wrapper_name)))
+    }
+
+    def is_run_iter_signature(arg_type : TypeDeclPtr) : bool {
+        let type_name = string(describe(arg_type))
+        return type_name == "flecs::Iter? -const" || type_name == "Iter? -const"
+    }
+
+    def is_entity_type(arg_type : TypeDeclPtr) : bool {
+        let type_name = string(describe(arg_type))
+        return type_name == "flecs::Entity const" || type_name == "flecs::Entity"
+    }
+
+    def add_each_wrapper(func : Function?; wrapper_name : string) : bool {
+        var inscope batch_exprs : array<ExpressionPtr>
+        var inscope call_args : array<ExpressionPtr>
+        // Entity comes from iter.entities, so only component arguments advance the query term index.
+        var term_index = 0
+
+        for (arg, arg_index in func.arguments, count()) {
+            if (is_entity_type(arg._type)) {
+                call_args |> emplace_new <| qmacro(iter_entity(iter, i))
+                continue
+            }
+
+            let field_name = "__field_{arg_index}"
+            if (true) {
+                var inscope component_type <- make_component_type(arg._type)
+                var inscope pointer_type <- make_pointer_type(component_type)
+                batch_exprs |> emplace_new <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                call_args |> emplace_new <| qmacro($i(field_name)[i])
+                term_index += 1
+            }
+        }
+
+        batch_exprs |> emplace_new <| qmacro_block() {
+            for (i in 0..iter.count) {
+                $c("_::{func.name}")($a(call_args))
+            }
+        }
+
+        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
+            unsafe {
+                while (iter_next(iter)) {
+                    $b(batch_exprs)
+                }
+            }
+        }
+        wrapper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
+        return compiling_module() |> add_function(wrapper_fn)
+    }
+
+    def make_component_type(arg_type : TypeDeclPtr) : TypeDeclPtr {
+        var inscope component_type <- clone_type(arg_type)
+        component_type.flags &= ~TypeDeclFlags.constant
+        component_type.flags &= ~TypeDeclFlags.ref
+        return <- component_type
+    }
+
+    def make_pointer_type(component_type : TypeDeclPtr) : TypeDeclPtr {
+        return <- new TypeDecl(at = component_type.at,
+            baseType = Type.tPointer,
+            firstType <- clone_type(component_type)
+        )
     }
 }
