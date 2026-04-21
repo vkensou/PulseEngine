@@ -6,7 +6,6 @@ options strict_smart_pointers = true
 
 module flecs_systems private
 
-require flecs_boost public
 require daslib/ast_boost
 require daslib/templates_boost
 
@@ -134,7 +133,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
         for (arg, arg_index in func.arguments, count()) {
             if (is_entity_type(arg._type)) {
-                call_args |> emplace_new <| qmacro(iter_entity(it, i))
+                call_args |> emplace_new <| qmacro(iter_entity(iter, i))
                 continue
             }
 
@@ -142,22 +141,21 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (true) {
                 var inscope component_type <- make_component_type(arg._type)
                 var inscope pointer_type <- make_pointer_type(component_type)
-                batch_exprs |> emplace_new <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(it, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                batch_exprs |> emplace_new <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
                 call_args |> emplace_new <| qmacro($i(field_name)[i])
                 term_index += 1
             }
         }
 
         batch_exprs |> emplace_new <| qmacro_block() {
-            for (i in 0..it.count) {
+            for (i in 0..iter.count) {
                 $c("_::{func.name}")($a(call_args))
             }
         }
 
         var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
             unsafe {
-                var it = *iter
-                while (iter_next(it)) {
+                while (iter_next(iter)) {
                     $b(batch_exprs)
                 }
             }
