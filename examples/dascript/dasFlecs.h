@@ -30,6 +30,14 @@ namespace dasPulseECS
 		operator ecs_query_t* () const { return query_; }
 	};
 
+	struct SystemDesc
+	{
+		const char* name = nullptr;
+		Entity dependsOn;
+		bool immediate = false;
+		ecs_term_t terms[FLECS_TERM_COUNT_MAX] = {};
+	};
+
 	struct ModuleContext
 	{
 		World world;
@@ -41,4 +49,5 @@ namespace dasPulseECS
 		//pulse::EventCenter* eventManager;
 	};
 }
+MAKE_TYPE_FACTORY(SystemDesc, dasPulseECS::SystemDesc);
 MAKE_TYPE_FACTORY(ModuleContext, dasPulseECS::ModuleContext);
