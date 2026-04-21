@@ -11,7 +11,7 @@
 #include <cassert>
 #include <SDL3/SDL.h>
 #include "predefine_components.h"
-#include "snake_module.h"
+// #include "snake_module.h"
 #include "daScript/daScript.h"
 #include "dasFlecs.h"
 
