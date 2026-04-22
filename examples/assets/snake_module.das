@@ -136,4 +136,11 @@ def importModule(var ctx:ModuleContext) {
     print("{r2.value}\n")
     a = 32
     print("{r2.value}\n")
+
+    unsafe {
+        var cmd = CommandBuffer(world = ctx.world)
+        var ent2 = cmd.entity()
+        dump_entity(ent2)
+        cmd.destruct(ent2)
+    }
 }

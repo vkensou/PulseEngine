@@ -12,6 +12,11 @@ namespace dasPulseECS
 		return entity;
 	}
 
+	void destruct_entity(World& world, Entity entity)
+	{
+		ecs_delete(world.world_, entity.entity_);
+	}
+
 	void dump_world(const World& world)
 	{
 		auto info = ecs_get_world_info(world.world_);
@@ -310,6 +315,7 @@ public:
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::destruct_entity)>(*this, lib, "destruct_entity", SideEffects::worstDefault, "destruct_entity")->args({ "world", "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "query_desc" });

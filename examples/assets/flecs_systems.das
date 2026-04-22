@@ -50,7 +50,6 @@ class FlecsRegisterSystemMacro : AstCallMacro {
         var inscope steps : array<ExpressionPtr>
 
         let term_alias = "term`{int(expr.at.line)}"
-        print(term_alias)
         steps |> emplace_new <| qmacro_expr(${ var $i(term_alias) = $e(desc); })
 
         var term_index = 0
