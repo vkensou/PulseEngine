@@ -2,6 +2,7 @@ options gen2
 
 require flecs_boost
 require pulse_ecs
+require res_type_macro_mod
 
 struct Velocity {
     X: float
@@ -59,6 +60,20 @@ def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
     }
 }
 
+def get(r : res(type<auto(T)>)) : T {
+    return r.value
+}
+
+def set(var r : res(type<auto(T)>); v : T){
+    r.value = v
+}
+
+def make_res(var v : auto(T)) : res(type<T>){
+    var r : res(type<T>)
+    r.value = v
+    return r
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -103,4 +118,22 @@ def importModule(var ctx:ModuleContext) {
 
     var sd2 = SystemDesc(name = "move_probe", dependsOn = ctx.updatePipeline)
     ctx.world |> register_system(sd2, @@move_probe)
+
+    var a = 10
+    var r = make_res(a)
+    // var r: res(type<int>)
+    // r.value = 0
+
+    print("r = {get(r)}\n")
+
+    set(r, 42)
+    // r.value = 42
+    print("r = {get(r)}\n")
+
+    typedef ResInt = res(type<int?>)
+    var r2: ResInt = ResInt(value = unsafe(addr(a)))
+
+    print("{r2.value}\n")
+    a = 32
+    print("{r2.value}\n")
 }
