@@ -99,13 +99,8 @@ def importModule(var ctx:ModuleContext) {
     spawned_entity = ent
 
     var sd1 = SystemDesc(name = "run_probe", dependsOn = ctx.updatePipeline)
-    ctx.world |> register_system_wrapper(sd1, @@run_probe)
+    ctx.world |> register_system(sd1, @@run_probe)
 
     var sd2 = SystemDesc(name = "move_probe", dependsOn = ctx.updatePipeline)
-    // sd2.terms[0] = system_term_in(ctx.world, type<Position>)
-    // sd2.terms[1] = system_term_in(ctx.world, type<Velocity>)
-    ctx.world |> register_system_wrapper(sd2, @@move_probe)
-
-    // run_probe`register(ctx)
-    // move_probe`register(ctx)
+    ctx.world |> register_system(sd2, @@move_probe)
 }
