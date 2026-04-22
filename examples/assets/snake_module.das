@@ -2,7 +2,7 @@ options gen2
 
 require flecs_boost
 require pulse_ecs
-require res_type_macro_mod
+require res_define
 
 struct Velocity {
     X: float
@@ -60,16 +60,16 @@ def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
     }
 }
 
-def get(r : res(type<auto(T)>)) : T {
+def get(r : $Res<auto(T)>) : T {
     return r.value
 }
 
-def set(var r : res(type<auto(T)>); v : T){
+def set(var r : $Res<auto(T)>; v : T){
     r.value = v
 }
 
-def make_res(var v : auto(T)) : res(type<T>){
-    var r : res(type<T>)
+def make_res(var v : auto(T)) : $Res<T>{
+    var r : $Res<T>
     r.value = v
     return r
 }
@@ -122,15 +122,15 @@ def importModule(var ctx:ModuleContext) {
     var a = 10
     var r = make_res(a)
     // var r: res(type<int>)
-    // r.value = 0
+    r.value = 0
 
     print("r = {get(r)}\n")
 
     set(r, 42)
-    // r.value = 42
+    r.value = 42
     print("r = {get(r)}\n")
 
-    typedef ResInt = res(type<int?>)
+    typedef ResInt = $Res<int?>
     var r2: ResInt = ResInt(value = unsafe(addr(a)))
 
     print("{r2.value}\n")
