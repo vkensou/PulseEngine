@@ -1,6 +1,7 @@
 #include "dasFlecs.h"
 
 #include "daScript/daScript.h"
+#include "ecsext.hpp"
 
 namespace dasPulseECS
 {
@@ -26,6 +27,11 @@ namespace dasPulseECS
 	void dump_entity(Entity entity)
 	{
 		printf("%lld\n", entity.entity_);
+	}
+
+	Entity get_single_holder(const World& world)
+	{
+		return flecs::_::type<pulse::SingleHolder>::id(world.world_);
 	}
 
 	Query build_query(const World& world, const char* expr)
@@ -93,6 +99,11 @@ namespace dasPulseECS
 	void set_component(World& world, Entity entity, ecs_id_t component_id, int size, const void* data)
 	{
 		ecs_set_id(world.world_, entity.entity_, component_id, size, data);
+	}
+
+	const void* get_component(const World& world, Entity entity, ecs_id_t component_id)
+	{
+		return ecs_get_id(world.world_, entity.entity_, component_id);
 	}
 
 	struct SystemCallBackContext
@@ -318,6 +329,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::destruct_entity)>(*this, lib, "destruct_entity", SideEffects::worstDefault, "destruct_entity")->args({ "world", "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_single_holder)>(*this, lib, "get_single_holder", SideEffects::modifyExternal, "get_single_holder")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "query_desc" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
@@ -325,6 +337,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_entity)>(*this, lib, "iter_entity", SideEffects::worstDefault, "iter_entity")->args({ "iter", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_component)>(*this, lib, "get_component", SideEffects::worstDefault, "get_component")->args({ "world", "entity", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_query_expr)>(*this, lib, "register_system_from_query_expr", SideEffects::worstDefault, "register_system_from_query_expr")->args({ "world", "name", "dependson", "query_expr", "fn", "context", "at" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
 	}

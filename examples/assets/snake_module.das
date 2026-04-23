@@ -74,6 +74,11 @@ def make_res(var v : auto(T)) : $Res<T>{
     return r
 }
 
+def show_singleton_position(query: $SingletonQuery<Position>) {
+    let value = query.get()
+    print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -137,10 +142,15 @@ def importModule(var ctx:ModuleContext) {
     a = 32
     print("{r2.value}\n")
 
-    unsafe {
+    {
         var cmd = CommandBuffer(world = ctx.world)
         var ent2 = cmd.entity()
         dump_entity(ent2)
         cmd.destruct(ent2)
+        cmd |> set_singleton(Position(value=make_vec3(1.0, 4.0, 1.0)))
+
+        typedef PositionQuery = $SingletonQuery<Position>
+        let q = PositionQuery(world = ctx.world, singleton_holder = get_single_holder(ctx.world))
+        show_singleton_position(q)
     }
 }
