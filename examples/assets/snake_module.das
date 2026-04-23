@@ -2,7 +2,6 @@ options gen2
 
 require flecs_boost
 require pulse_ecs
-require res_define
 
 struct Velocity {
     X: float
@@ -60,23 +59,14 @@ def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
     }
 }
 
-def get(r : $Res<auto(T)>) : T {
-    return r.value
-}
-
-def set(var r : $Res<auto(T)>; v : T){
-    r.value = v
-}
-
-def make_res(var v : auto(T)) : $Res<T>{
-    var r : $Res<T>
-    r.value = v
-    return r
-}
-
 def show_singleton_position(query: $SingletonQuery<Position>) {
     let value = query.get()
     print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
+}
+
+def show_res(res: $Res<Position>) {
+    let value = res.get()
+    print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
 [export]
@@ -124,24 +114,6 @@ def importModule(var ctx:ModuleContext) {
     var sd2 = SystemDesc(name = "move_probe", dependsOn = ctx.updatePipeline)
     ctx.world |> register_system(sd2, @@move_probe)
 
-    var a = 10
-    var r = make_res(a)
-    // var r: res(type<int>)
-    r.value = 0
-
-    print("r = {get(r)}\n")
-
-    set(r, 42)
-    r.value = 42
-    print("r = {get(r)}\n")
-
-    typedef ResInt = $Res<int?>
-    var r2: ResInt = ResInt(value = unsafe(addr(a)))
-
-    print("{r2.value}\n")
-    a = 32
-    print("{r2.value}\n")
-
     {
         var cmd = CommandBuffer(world = ctx.world)
         var ent2 = cmd.entity()
@@ -152,5 +124,10 @@ def importModule(var ctx:ModuleContext) {
         typedef PositionQuery = $SingletonQuery<Position>
         let q = PositionQuery(world = ctx.world, singleton_holder = get_single_holder(ctx.world))
         show_singleton_position(q)
+
+        var res_ptr = ecs_get_mut_res(ctx.world, type<Position>)
+        typedef PositionRes = $Res<Position>
+        var res = PositionRes(value_ptr = res_ptr)
+        show_res(res)
     }
 }

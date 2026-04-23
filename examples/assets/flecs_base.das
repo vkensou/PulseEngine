@@ -17,3 +17,17 @@ def ecs_entity_set(var world: World, entity: Entity, component: auto(T)) {
         set_component(world, entity, ecs_component(world, component), typeinfo sizeof(type<T>), p)
     }
 }
+
+def ecs_get_res(var world: World; t: type<auto(T)>) : T const? {
+     unsafe {
+        let p = get_res(world, ecs_component(world, type<T>))
+        return reinterpret<T?>(p)
+    }
+}
+
+def ecs_get_mut_res(var world: World; var t: type<auto(T)>) : T? {
+     unsafe {
+        let p = get_mut_res(world, ecs_component(world, type<T>))
+        return reinterpret<T?>(p)
+    }
+}
