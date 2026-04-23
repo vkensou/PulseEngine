@@ -69,6 +69,10 @@ def show_res(res: $Res<Position>) {
     print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
+struct Event1 {
+
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -129,5 +133,12 @@ def importModule(var ctx:ModuleContext) {
         typedef PositionRes = $Res<Position>
         var res = PositionRes(value_ptr = res_ptr)
         show_res(res)
+
+        typedef Event1Writer = $EventWriter<Event1>
+        var eventWriter = Event1Writer(world = ctx.world, 
+            singleton_holder = get_single_holder(ctx.world),
+            event_id = ecs_component(ctx.world, type<Event1>))
+        eventWriter.broadcast()
+        eventWriter.broadcast(default<Event1>)
     }
 }

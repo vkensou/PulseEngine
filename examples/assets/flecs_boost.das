@@ -5,6 +5,7 @@ require flecs_base public
 require flecs_systems public
 require flecs_singleton_query public
 require flecs_res public
+require flecs_event_writer public
 require daslib/class_boost
 
 def system_desc(name : string; dependsOn : Entity; immediate : bool = false) {

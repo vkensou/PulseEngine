@@ -34,6 +34,11 @@ namespace dasPulseECS
 		return flecs::_::type<pulse::SingleHolder>::id(world.world_);
 	}
 
+	Entity get_event_tag(const World& world)
+	{
+		return flecs::_::type<pulse::EventTag>::id(world.world_);
+	}
+
 	Query build_query(const World& world, const char* expr)
 	{
 		ecs_query_desc_t desc = { .expr = expr };
@@ -86,7 +91,7 @@ namespace dasPulseECS
 			edesc.symbol = pure_component_name;
 			desc.entity = ecs_entity_init(world, &edesc);
 			desc.type.size = (static_cast<ecs_size_t>(size));
-			desc.type.alignment = static_cast<int64_t>(alignment);
+			desc.type.alignment = static_cast<int64_t>(size > 0 ? alignment : 0);
 			ComponentID_ = ecs_component_init(world, &desc);
 		}
 		if (!(ComponentID_ != 0)) {
@@ -214,6 +219,25 @@ namespace dasPulseECS
 			context->throw_error_at(at, "failed to register flecs system '%s'", desc.name ? desc.name : "<unnamed>");
 		}
 	}
+
+	void broadcast(const World& world, ecs_id_t event_id)
+	{
+		flecs::world fworld(world.world_);
+		fworld.event(event_id)
+			.id<pulse::EventTag>()
+			.entity(fworld.singleton<pulse::SingleHolder>())
+			.enqueue();
+	}
+
+	void broadcast_with_payload(const World& world, ecs_id_t event_id, const void* data)
+	{
+		flecs::world fworld(world.world_);
+		fworld.event(event_id)
+			.id<pulse::EventTag>()
+			.entity(fworld.singleton<pulse::SingleHolder>())
+			.ctx(data)
+			.enqueue();
+	}
 }
 
 MAKE_TYPE_FACTORY(World, dasPulseECS::World);
@@ -340,6 +364,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_single_holder)>(*this, lib, "get_single_holder", SideEffects::modifyExternal, "get_single_holder")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_event_tag)>(*this, lib, "get_event_tag", SideEffects::modifyExternal, "get_event_tag")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "query_desc" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
@@ -352,6 +377,8 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_res)>(*this, lib, "get_mut_res", SideEffects::worstDefault, "get_mut_res")->args({ "world", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_query_expr)>(*this, lib, "register_system_from_query_expr", SideEffects::worstDefault, "register_system_from_query_expr")->args({ "world", "name", "dependson", "query_expr", "fn", "context", "at" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
+		addExtern<DAS_BIND_FUN(dasPulseECS::broadcast)>(*this, lib, "broadcast", SideEffects::worstDefault, "broadcast")->args({ "world", "event_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::broadcast_with_payload)>(*this, lib, "broadcast_with_payload", SideEffects::worstDefault, "broadcast_with_payload")->args({ "world", "event_id", "data" });
 	}
 };
 
