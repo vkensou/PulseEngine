@@ -53,6 +53,8 @@ namespace dasPulseECS
 
 	bool iter_next(ecs_iter_t* iter)
 	{
+		if (!iter->next)
+			return false;
 		return iter->next(iter);
 	}
 
@@ -238,6 +240,51 @@ namespace dasPulseECS
 			.ctx(data)
 			.enqueue();
 	}
+
+	void das_event_wrapper(ecs_iter_t* it)
+	{
+		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->callback_ctx;
+		das::das_invoke_function<ecs_iter_t*>::invoke(callBackContext->context, &callBackContext->at, callBackContext->fn, it);
+	}
+
+	void observe(const World& world, das::Func fn, ecs_id_t event_id, const char* query_expr, das::Context* context, das::LineInfoArg* at)
+	{
+		SystemCallBackContext* callBackContext = new SystemCallBackContext();
+		callBackContext->fn = fn;
+		callBackContext->context = context;
+		if (at) {
+			callBackContext->at = *at;
+		}
+
+		ecs_observer_desc_t desc = { 0 };
+		desc.callback = das_event_wrapper;
+		desc.callback_ctx = callBackContext;
+		desc.callback_ctx_free = das_system_context_free;
+		desc.query.expr = query_expr;
+		desc.events[0] = event_id;
+		ecs_observer_init(world.world_, &desc);
+	}
+
+	void emit(const World& world, const EventDesc& desc)
+	{
+		ecs_type_t ids;
+		ids.array = (ecs_id_t*)desc.terms;
+		ids.count = 0;
+		for (int i = 0; i < FLECS_TERM_COUNT_MAX; ++i) {
+			if (desc.terms[i] == 0) {
+				break;
+			}
+			ids.count++;
+		}
+		ecs_event_desc_t edesc = {
+			.event = desc.event,
+			.ids = &ids, // 1 id
+			.entity = desc.entity != 0 ? desc.entity.entity_ : get_single_holder(world).entity_,
+			.observable = world.world_,
+		};
+
+		ecs_enqueue(world.world_, &edesc);
+	}
 }
 
 MAKE_TYPE_FACTORY(World, dasPulseECS::World);
@@ -302,6 +349,19 @@ struct SystemDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS:
 	virtual bool isLocal() const override { return true; }
 };
 
+struct EventDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::EventDesc>
+{
+	EventDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventDesc", ml, "dasPulseECS::EventDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(event)>("event");
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
+		addField<DAS_BIND_MANAGED_FIELD(entity)>("entity");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
 struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::ModuleContext>
 {
 	ModuleContextAnnotation(das::ModuleLibrary& ml)
@@ -357,6 +417,7 @@ public:
 		addAnnotation(make_smart<IterAnnotation>(lib));
 		addAnnotation(make_smart<TermAnnotation>(lib));
 		addAnnotation(make_smart<SystemDescAnnotation>(lib));
+		addAnnotation(make_smart<EventDescAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
@@ -379,6 +440,8 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::broadcast)>(*this, lib, "broadcast", SideEffects::worstDefault, "broadcast")->args({ "world", "event_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::broadcast_with_payload)>(*this, lib, "broadcast_with_payload", SideEffects::worstDefault, "broadcast_with_payload")->args({ "world", "event_id", "data" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::observe)>(*this, lib, "observe", SideEffects::worstDefault, "observe")->args({ "world", "fn", "event_id", "query_expr", "context", "at" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::emit)>(*this, lib, "emit", SideEffects::worstDefault, "emit")->args({ "world", "desc" });
 	}
 };
 

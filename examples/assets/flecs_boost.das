@@ -6,6 +6,7 @@ require flecs_systems public
 require flecs_singleton_query public
 require flecs_res public
 require flecs_event_writer public
+require flecs_event_reader public
 require daslib/class_boost
 
 def system_desc(name : string; dependsOn : Entity; immediate : bool = false) {
@@ -36,4 +37,8 @@ struct CommandBuffer {
 
 def set_singleton(self: CommandBuffer; component: auto(T)) {
     ecs_entity_set(self.world, get_single_holder(self.world), component)
+}
+
+def ecs_observe(var world: World, callback: function<(var iter: Iter?):void>, eventType: type<auto(EventType)>, expr: string) {
+    observe(world, callback, ecs_component(world, eventType), expr)
 }

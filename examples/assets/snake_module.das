@@ -69,8 +69,17 @@ def show_res(res: $Res<Position>) {
     print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
+def read_event(reader: $EventReader<int>) {
+    let e = reader.read()
+    print("{e}\n")
+}
+
 struct Event1 {
 
+}
+
+def event_listener(var iter: Iter?) {
+    print("receive event!\n")
 }
 
 [export]
@@ -139,6 +148,21 @@ def importModule(var ctx:ModuleContext) {
             singleton_holder = get_single_holder(ctx.world),
             event_id = ecs_component(ctx.world, type<Event1>))
         eventWriter.broadcast()
-        eventWriter.broadcast(default<Event1>)
+        //eventWriter.broadcast(default<Event1>)
+
+        ctx.world |> ecs_observe(@@event_listener, default<Event1>, "Position")
+
+        typedef IntReader = $EventReader<int>
+        let i1 = 24
+        var intReader = IntReader(value = i1)
+        read_event(intReader)
+
+        var terms : uint64[32]
+        for (i in 0..32) {
+            terms[i] = 0ul
+        }
+        terms[0] = ecs_component(ctx.world, default<Position>)
+        let edesc = EventDesc(event = ecs_component(ctx.world, default<Event1>), terms = terms)
+        ctx.world |> emit(edesc)
     }
 }
