@@ -23,7 +23,6 @@ var private run_probe_batches = 0
 var private move_probe_hits = 0
 var private spawned_entity = default<Entity>
 
-// [system(phase="update")]
 def run_probe(var iter: Iter?) {
     while (iter_next(iter)) {
         run_probe_batches += 1
@@ -31,19 +30,6 @@ def run_probe(var iter: Iter?) {
             print("spawned_entity_id=")
             dump_entity(spawned_entity)
             print("run_probe batch={iter.count} tick={run_probe_batches}\n")
-        }
-    }
-}
-
-def move_probe_wrapper(var iter: Iter?) {
-    while (iter_next(iter)) {
-        for (i in 0..iter.count) {
-            unsafe {
-                var entity = iter_entity(iter, i)
-                var positions = reinterpret<Position?>(iter_field(iter, typeinfo sizeof(type<Position>), 0))
-                var velocities = reinterpret<Velocity?>(iter_field(iter, typeinfo sizeof(type<Velocity>), 1))
-                move_probe(entity, positions[i], velocities[i])
-            }
         }
     }
 }
@@ -57,6 +43,25 @@ def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
         dump_entity(e)
         print("move_probe pos={pos.value.X} vel={vel.X} {vel.Y} {vel.Z}\n")
     }
+}
+
+def system2(var cmd: CommandBuffer; position : Position) {
+    print("system2\n")
+    let e2 = cmd.entity()
+    dump_entity(e2)
+}
+
+def system2_wrapper(var iter: Iter?) {
+        var cmd_:flecs_boost::CommandBuffer = struct<flecs_boost::CommandBuffer>(uninitialized world = get_world(iter));
+        unsafe {
+            while ( iter_next(iter) ) {
+                    var field_1:pulse_ecs::Position? = reinterpret<pulse_ecs::Position?> iter_field(iter,12,0);
+                    for ( i in interval(0,iter.count) ) {
+                            _::system2(cmd_,field_1[i]);
+                    }
+            }
+
+        }
 }
 
 def show_singleton_position(query: $SingletonQuery<Position>) {
@@ -122,10 +127,13 @@ def importModule(var ctx:ModuleContext) {
     spawned_entity = ent
 
     var sd1 = SystemDesc(name = "run_probe", dependsOn = ctx.updatePipeline)
-    ctx.world |> register_system(sd1, @@run_probe)
+    ctx.world |> register_system_ex(sd1, @@run_probe)
 
     var sd2 = SystemDesc(name = "move_probe", dependsOn = ctx.updatePipeline)
-    ctx.world |> register_system(sd2, @@move_probe)
+    ctx.world |> register_system_ex(sd2, @@move_probe)
+
+    var sd3 = SystemDesc(name = "system2", dependsOn = ctx.initPipeline)
+    ctx.world |> register_system_ex(sd3, @@system2)
 
     {
         var cmd = CommandBuffer(world = ctx.world)

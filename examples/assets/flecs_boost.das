@@ -1,8 +1,11 @@
 options gen2
 
+module flecs_boost
+
 require flecs public
 require flecs_base public
 require flecs_systems public
+require flecs_systems_ex public
 require flecs_singleton_query public
 require flecs_res public
 require flecs_event_writer public

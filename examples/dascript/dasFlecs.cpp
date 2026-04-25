@@ -70,6 +70,11 @@ namespace dasPulseECS
 		return Entity{ iter->entities[index] };
 	}
 
+	World get_world(ecs_iter_t* iter)
+	{
+		return World(iter->world);
+	}
+
 	const char* get_pure_component_name(const char* component_name)
 	{
 		if (component_name == NULL) {
@@ -431,6 +436,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_entity)>(*this, lib, "iter_entity", SideEffects::worstDefault, "iter_entity")->args({ "iter", "index" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_world)>(*this, lib, "get_world", SideEffects::worstDefault, "get_world")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_component)>(*this, lib, "get_component", SideEffects::worstDefault, "get_component")->args({ "world", "entity", "component_id" });
