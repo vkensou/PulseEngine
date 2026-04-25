@@ -38,21 +38,25 @@ class FlecsRegisterSystemMacro : AstCallMacro {
         var inscope batch_exprs : array<ExpressionPtr>
         var inscope call_args : array<ExpressionPtr>
         var inscope steps : array<ExpressionPtr>
+        var inscope wrapper_fn_body : array<ExpressionPtr>
 
         let term_alias = "term`{int(expr.at.line)}"
         steps |> emplace_new <| qmacro_expr(${ var $i(term_alias) = $e(desc); })
 
-        print("compiling system:{func.name}\n")
         var term_index = 0
         for (arg, arg_index in func.arguments, count()) {
-            print("{describe(arg._type)}\n")
             if (is_entity_type(arg._type)) {
                 call_args |> emplace_new <| qmacro(iter_entity(iter, i))
                 continue
             }
 
             if (is_command_buffer_type(arg._type)) {
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var cmd = CommandBuffer(world = get_world(iter)); })
                 call_args |> emplace_new <| qmacro(cmd)
+                continue
+            }
+
+            if (is_res_type(arg._type)) {
                 continue
             }
 
@@ -78,13 +82,16 @@ class FlecsRegisterSystemMacro : AstCallMacro {
             }
         }
 
-        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
-            var cmd = CommandBuffer(world = get_world(iter));
+        wrapper_fn_body |> emplace_new <| qmacro_block() {
             unsafe {
                 while (iter_next(iter)) {
                     $b(batch_exprs)
                 }
             }
+        }
+
+        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
+            $b(wrapper_fn_body)
         }
         wrapper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
         compiling_module() |> add_function(wrapper_fn)
@@ -107,6 +114,11 @@ class FlecsRegisterSystemMacro : AstCallMacro {
     def is_command_buffer_type(arg_type : TypeDeclPtr) : bool {
         let type_name = string(describe(arg_type))
         return type_name == "flecs_boost::CommandBuffer const" || type_name == "flecs_boost::CommandBuffer" || type_name == "flecs_boost::CommandBuffer -const"
+    }
+
+    def is_res_type(arg_type : TypeDeclPtr) : bool {
+        let type_name = string(describe(arg_type))
+        return type_name == "flecs_boost::res" || type_name == "flecs_boost::Res" || type_name == "flecs_boost::res -const"
     }
 
     def make_component_type(arg_type : TypeDeclPtr) : TypeDeclPtr {
