@@ -22,12 +22,90 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return add_register_helper(func, string(func.name), phase_field)
         }
 
-        if (!validate_each_signature(func, errors)) {
-            return false
+        return generate_functions(func, phase_field)
+    }
+
+    def generate_functions(var func : FunctionPtr; phase_field : string)  : bool {
+        let wrapper_name = "{func.name}`system_wrapper"
+
+        var inscope wrapper_fn_batch_exprs : array<ExpressionPtr>
+        var inscope wrapper_fn_call_args : array<ExpressionPtr>
+        var inscope wrapper_fn_body : array<ExpressionPtr>
+        let register_fn_name = "{func.name}`register"
+        var inscope register_fn_body_exprs : array<ExpressionPtr>
+        let desc_name = "__system_desc"
+        register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
+
+        var term_index = 0
+        for (arg, arg_index in func.arguments, count()) {
+            print("{describe(arg._type)}\n")
+            if (is_entity_type(arg._type)) {
+                wrapper_fn_call_args |> emplace_new <| qmacro(iter_entity(iter, i))
+                continue
+            }
+
+            if (is_command_buffer_type(arg._type)) {
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var cmd = CommandBuffer(world = get_world(iter)); })
+                wrapper_fn_call_args |> emplace_new <| qmacro(cmd)
+                continue
+            }
+
+            if (is_res_type(arg._type)) {
+                // var res_ptr = ecs_get_mut_res(ctx.world, type<Position>)
+                // typedef PositionRes = $Res<Position>
+                // var res = PositionRes(value_ptr = res_ptr)
+                // wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res_ptr = ecs_get_mut_res(ctx.world, type<Position>); })
+                // wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res = $e(arg._type)(value_ptr = res_ptr); })
+                // wrapper_fn_call_args |> emplace_new <| qmacro(res)
+                continue
+            }
+
+            if (true) {
+                let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
+                var inscope component_type <- make_component_type(arg._type)
+
+                let field_name = "__field_{arg_index}"
+                var inscope pointer_type <- make_pointer_type(component_type)
+                wrapper_fn_batch_exprs |> emplace_new <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                wrapper_fn_call_args |> emplace_new <| qmacro($i(field_name)[i])
+
+                register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
+
+                term_index += 1
+            }
         }
 
-        let wrapper_name = "{func.name}`generated"
-        return add_each_wrapper(func, wrapper_name) && add_register_helper(func, wrapper_name, phase_field)
+        wrapper_fn_batch_exprs |> emplace_new <| qmacro_block() {
+            for (i in 0..iter.count) {
+                $c("_::{func.name}")($a(wrapper_fn_call_args))
+            }
+        }
+
+        wrapper_fn_body |> emplace_new <| qmacro_block() {
+            unsafe {
+                while (iter_next(iter)) {
+                    $b(wrapper_fn_batch_exprs)
+                }
+            }
+        }
+
+        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
+            $b(wrapper_fn_body)
+        }
+        wrapper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
+
+        let add_ok = compiling_module() |> add_function(wrapper_fn)
+
+        register_fn_body_exprs |> emplace_new <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
+        var inscope register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
+            unsafe {
+                $b(register_fn_body_exprs)
+            }
+        }
+        register_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
+        let add_ok2 = compiling_module() |> add_function(register_fn)
+
+        return add_ok && add_ok2
     }
 
     def resolve_phase_field(args : AnnotationArgumentList; var errors : das_string) {
@@ -57,34 +135,20 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return type_name == "flecs::Iter? -const" || type_name == "Iter? -const"
     }
 
-    def validate_each_signature(func : FunctionPtr; var errors : das_string) : bool {
-        for (arg, arg_index in func.arguments, count()) {
-            if (is_entity_type(arg._type)) {
-                if (arg_index != 0 || !is_value_entity_argument(arg._type)) {
-                    errors := "unsupported each-mode signature: first-pass each mode allows an optional Entity only as the first argument by value, followed by component arguments as T const or var T"
-                    return false
-                }
-                continue
-            }
-
-            if (is_iter_type(arg._type)) {
-                errors := "Iter is only supported in run mode"
-                return false
-            }
-
-            if (!is_supported_component_argument(arg._type)) {
-                errors := "unsupported each-mode argument {describe(arg._type)}; first-pass each mode allows an optional Entity first by value, followed by component arguments as T const or var T"
-                return false
-            }
-        }
-
-        return true
-    }
-
     def is_entity_type(arg_type : TypeDeclPtr) : bool {
         var inscope base_type <- make_component_type(arg_type)
         let type_name = string(describe(base_type))
         return type_name == "flecs::Entity" || type_name == "Entity"
+    }
+
+    def is_command_buffer_type(arg_type : TypeDeclPtr) : bool {
+        let type_name = string(describe(arg_type))
+        return type_name == "flecs_boost::CommandBuffer const" || type_name == "flecs_boost::CommandBuffer" || type_name == "flecs_boost::CommandBuffer -const"
+    }
+
+    def is_res_type(arg_type : TypeDeclPtr) : bool {
+        let type_name = string(describe(arg_type))
+        return type_name == "flecs_boost::res" || type_name == "flecs_boost::Res" || type_name == "flecs_boost::res -const"
     }
 
     def is_iter_type(arg_type : TypeDeclPtr) : bool {
@@ -94,18 +158,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         var inscope base_type <- make_component_type(arg_type)
         let type_name = string(describe(base_type))
         return type_name == "flecs::Iter?" || type_name == "Iter?"
-    }
-
-    def is_value_entity_argument(arg_type : TypeDeclPtr) : bool {
-        return !arg_type.isRefType && !arg_type.flags.ref
-    }
-
-    def is_supported_component_argument(arg_type : TypeDeclPtr) : bool {
-        var inscope base_type <- make_component_type(arg_type)
-        if (length(base_type.dim) != 0) {
-            return false
-        }
-        return arg_type.flags.constant || is_inout_argument(arg_type)
     }
 
     def is_inout_argument(arg_type : TypeDeclPtr) : bool {
@@ -124,45 +176,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             baseType = Type.tPointer,
             firstType <- clone_type(component_type)
         )
-    }
-
-    def add_each_wrapper(func : FunctionPtr; wrapper_name : string) : bool {
-        var inscope batch_exprs : array<ExpressionPtr>
-        var inscope call_args : array<ExpressionPtr>
-        // Entity comes from iter.entities, so only component arguments advance the query term index.
-        var term_index = 0
-
-        for (arg, arg_index in func.arguments, count()) {
-            if (is_entity_type(arg._type)) {
-                call_args |> emplace_new <| qmacro(iter_entity(iter, i))
-                continue
-            }
-
-            let field_name = "__field_{arg_index}"
-            if (true) {
-                var inscope component_type <- make_component_type(arg._type)
-                var inscope pointer_type <- make_pointer_type(component_type)
-                batch_exprs |> emplace_new <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
-                call_args |> emplace_new <| qmacro($i(field_name)[i])
-                term_index += 1
-            }
-        }
-
-        batch_exprs |> emplace_new <| qmacro_block() {
-            for (i in 0..iter.count) {
-                $c("_::{func.name}")($a(call_args))
-            }
-        }
-
-        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
-            unsafe {
-                while (iter_next(iter)) {
-                    $b(batch_exprs)
-                }
-            }
-        }
-        wrapper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
-        return compiling_module() |> add_function(wrapper_fn)
     }
 
     def add_register_helper(func : FunctionPtr; callback_name : string; phase_field : string) : bool {

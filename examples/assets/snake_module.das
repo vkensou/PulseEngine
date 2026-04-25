@@ -46,13 +46,14 @@ def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
     }
 }
 
+[system(phase="init")]
 def system2(var cmd: CommandBuffer; position : Position) {
     print("system2\n")
     let e2 = cmd.entity()
     dump_entity(e2)
 }
 
-[system(phase="update")]
+[system(phase="init")]
 def system3(var cmd: CommandBuffer; res: $Res<Velocity>; position : Position) {
     print("system3\n")
     let e2 = cmd.entity()
@@ -138,8 +139,9 @@ def importModule(var ctx:ModuleContext) {
 
     ctx |> register_system(@@move_probe)
 
-    var sd3 = SystemDesc(name = "system2", dependsOn = ctx.initPipeline)
-    ctx.world |> register_system_ex(sd3, @@system2)
+    ctx |> register_system(@@system2)
+
+    ctx |> register_system(@@system3)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
