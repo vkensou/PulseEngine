@@ -10,67 +10,46 @@ require daslib/ast_boost
 require daslib/templates_boost
 require daslib/macro_boost
 
-[call_macro(name="register_system")]
-class FlecsRegisterSystemMacro : AstCallMacro {
-    def override visit(prog : ProgramPtr; mod : Module?; var expr : smart_ptr<ExprCallMacro>) : ExpressionPtr {
-        macro_verify(length(expr.arguments) == 3, prog, expr.at,
-            "register_system requires 3 argument")
-        macro_verify(expr.arguments[2] is ExprAddr, prog, expr.at,
-            "third argument must an addr of function, not {expr.arguments[2].__rtti}")
-
-        assume addrOfFunc = expr.arguments[2] as ExprAddr
-        assume func = addrOfFunc.func
-
-        if (length(func.arguments) == 1 && is_run_iter_signature(func.arguments[0]._type)) {
-            assume world = expr.arguments[0]
-            assume desc = expr.arguments[1]
-            assume adfunc = expr.arguments[2]
-            return <- qmacro(register_system_from_desc($e(world), $e(desc), $e(adfunc)))
+[function_macro(name="system")]
+class FlecsSystemMacro : AstFunctionAnnotation {
+    def override apply(var func : FunctionPtr; var group : ModuleGroup; args : AnnotationArgumentList; var errors : das_string) : bool {
+        let phase_field = resolve_phase_field(args, errors)
+        if (phase_field == "") {
+            return false
         }
 
-        macro_verify(length(func.arguments) > 0, prog, expr.at,
-            "system function({func.name}) must have at least one argument")
-
-        var term_count = 0
-        for (arg, arg_index in func.arguments, count()) {
-             if (!is_entity_type(arg._type)) {
-                term_count += 1
-             }
+        if (is_run_mode(func)) {
+            return add_register_helper(func, string(func.name), phase_field)
         }
 
-        macro_verify(term_count < 32, prog, expr.at,
-            "system function({func.name})'s component arguments must have less than 32 arguments")
-
-        let wrapper_name = "{func.name}`system_wrapper"
-        add_each_wrapper(func, wrapper_name)
-
-        assume world = expr.arguments[0]
-        assume desc = expr.arguments[1]
-
-        var inscope steps : array<ExpressionPtr>
-
-        let term_alias = "term`{int(expr.at.line)}"
-        steps |> emplace_new <| qmacro_expr(${ var $i(term_alias) = $e(desc); })
-
-        var term_index = 0
-        for (arg, arg_index in func.arguments, count()) {
-             if (is_entity_type(arg._type)) {
-                continue
-             }
-
-             if (true) {
-                let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
-                var inscope component_type <- make_component_type(arg._type)
-                steps |> emplace_new <| qmacro_expr(${ $i(term_alias).terms[$v(term_index)] = $c(term_fn)($e(world), type<$t(component_type)>); })
-                term_index += 1
-            }
+        if (!validate_each_signature(func, errors)) {
+            return false
         }
 
-        steps |> emplace_new <| qmacro(register_system_from_desc($e(world), $i(term_alias), @@$c(wrapper_name)))
+        let wrapper_name = "{func.name}`generated"
+        return add_each_wrapper(func, wrapper_name) && add_register_helper(func, wrapper_name, phase_field)
+    }
 
-        return <- qmacro_block() {
-            $b(steps)
+    def resolve_phase_field(args : AnnotationArgumentList; var errors : das_string) {
+        let phase = find_arg(args, "phase")
+        if (!(phase is tString)) {
+            errors := "system phase must be one of: init, update, postUpdate, render, imgui"
+            return ""
         }
+
+        let phase_name = phase as tString
+        if (phase_name == "init") return "initPipeline"
+        if (phase_name == "update") return "updatePipeline"
+        if (phase_name == "postUpdate") return "postUpdatePipeline"
+        if (phase_name == "render") return "renderPipeline"
+        if (phase_name == "imgui") return "imguiPipeline"
+
+        errors := "unsupported system phase '{phase_name}'; expected one of: init, update, postUpdate, render, imgui"
+        return ""
+    }
+
+    def is_run_mode(func : FunctionPtr) : bool {
+        return length(func.arguments) == 1 && is_run_iter_signature(func.arguments[0]._type)
     }
 
     def is_run_iter_signature(arg_type : TypeDeclPtr) : bool {
@@ -78,12 +57,76 @@ class FlecsRegisterSystemMacro : AstCallMacro {
         return type_name == "flecs::Iter? -const" || type_name == "Iter? -const"
     }
 
-    def is_entity_type(arg_type : TypeDeclPtr) : bool {
-        let type_name = string(describe(arg_type))
-        return type_name == "flecs::Entity const" || type_name == "flecs::Entity"
+    def validate_each_signature(func : FunctionPtr; var errors : das_string) : bool {
+        for (arg, arg_index in func.arguments, count()) {
+            if (is_entity_type(arg._type)) {
+                if (arg_index != 0 || !is_value_entity_argument(arg._type)) {
+                    errors := "unsupported each-mode signature: first-pass each mode allows an optional Entity only as the first argument by value, followed by component arguments as T const or var T"
+                    return false
+                }
+                continue
+            }
+
+            if (is_iter_type(arg._type)) {
+                errors := "Iter is only supported in run mode"
+                return false
+            }
+
+            if (!is_supported_component_argument(arg._type)) {
+                errors := "unsupported each-mode argument {describe(arg._type)}; first-pass each mode allows an optional Entity first by value, followed by component arguments as T const or var T"
+                return false
+            }
+        }
+
+        return true
     }
 
-    def add_each_wrapper(func : Function?; wrapper_name : string) : bool {
+    def is_entity_type(arg_type : TypeDeclPtr) : bool {
+        var inscope base_type <- make_component_type(arg_type)
+        let type_name = string(describe(base_type))
+        return type_name == "flecs::Entity" || type_name == "Entity"
+    }
+
+    def is_iter_type(arg_type : TypeDeclPtr) : bool {
+        if (is_run_iter_signature(arg_type)) {
+            return true
+        }
+        var inscope base_type <- make_component_type(arg_type)
+        let type_name = string(describe(base_type))
+        return type_name == "flecs::Iter?" || type_name == "Iter?"
+    }
+
+    def is_value_entity_argument(arg_type : TypeDeclPtr) : bool {
+        return !arg_type.isRefType && !arg_type.flags.ref
+    }
+
+    def is_supported_component_argument(arg_type : TypeDeclPtr) : bool {
+        var inscope base_type <- make_component_type(arg_type)
+        if (length(base_type.dim) != 0) {
+            return false
+        }
+        return arg_type.flags.constant || is_inout_argument(arg_type)
+    }
+
+    def is_inout_argument(arg_type : TypeDeclPtr) : bool {
+        return arg_type.isRefType && !arg_type.flags.constant
+    }
+
+    def make_component_type(arg_type : TypeDeclPtr) : TypeDeclPtr {
+        var inscope component_type <- clone_type(arg_type)
+        component_type.flags &= ~TypeDeclFlags.constant
+        component_type.flags &= ~TypeDeclFlags.ref
+        return <- component_type
+    }
+
+    def make_pointer_type(component_type : TypeDeclPtr) : TypeDeclPtr {
+        return <- new TypeDecl(at = component_type.at,
+            baseType = Type.tPointer,
+            firstType <- clone_type(component_type)
+        )
+    }
+
+    def add_each_wrapper(func : FunctionPtr; wrapper_name : string) : bool {
         var inscope batch_exprs : array<ExpressionPtr>
         var inscope call_args : array<ExpressionPtr>
         // Entity comes from iter.entities, so only component arguments advance the query term index.
@@ -122,21 +165,53 @@ class FlecsRegisterSystemMacro : AstCallMacro {
         return compiling_module() |> add_function(wrapper_fn)
     }
 
-    def make_component_type(arg_type : TypeDeclPtr) : TypeDeclPtr {
-        var inscope component_type <- clone_type(arg_type)
-        component_type.flags &= ~TypeDeclFlags.constant
-        component_type.flags &= ~TypeDeclFlags.ref
-        return <- component_type
-    }
+    def add_register_helper(func : FunctionPtr; callback_name : string; phase_field : string) : bool {
+        let helper_name = "{func.name}`register"
+        let desc_name = "__system_desc"
+        var inscope body_exprs : array<ExpressionPtr>
+        body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
 
-    def make_pointer_type(component_type : TypeDeclPtr) : TypeDeclPtr {
-        return <- new TypeDecl(at = component_type.at,
-            baseType = Type.tPointer,
-            firstType <- clone_type(component_type)
-        )
-    }
+        if (!is_run_mode(func)) {
+            // register_system copies desc.terms until the first zeroed slot, so generated terms must stay dense.
+            var term_index = 0
+            for (arg in func.arguments) {
+                if (is_entity_type(arg._type)) {
+                    continue
+                }
 
-    def is_inout_argument(arg_type : TypeDeclPtr) : bool {
-        return arg_type.isRefType && !arg_type.flags.constant
+                if (true) {
+                    var inscope component_type <- make_component_type(arg._type)
+                    let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
+                    body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
+                    term_index += 1
+                }
+            }
+        }
+
+        body_exprs |> emplace_new <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(callback_name)))
+
+        var inscope helper_fn <- qmacro_function(helper_name) $(ctx : ModuleContext) : void {
+            unsafe {
+                $b(body_exprs)
+            }
+        }
+        helper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
+        return compiling_module() |> add_function(helper_fn)
+    }
+}
+
+[call_macro(name="register_system")]
+class FlecsRegisterSystemMacro : AstCallMacro {
+    def override visit(prog : ProgramPtr; mod : Module?; var expr : smart_ptr<ExprCallMacro>) : ExpressionPtr {
+        macro_verify(length(expr.arguments) == 2, prog, expr.at,
+            "register_system requires 2 argument")
+        macro_verify(expr.arguments[1] is ExprAddr, prog, expr.at,
+            "third argument must an addr of function, not {expr.arguments[1].__rtti}")
+
+        assume ctx = expr.arguments[0]        
+        assume addrOfFunc = expr.arguments[1] as ExprAddr
+        assume target = addrOfFunc.target
+        let registerfunc = "{target}`register"
+        return <- qmacro($c(registerfunc)($e(ctx)))
     }
 }

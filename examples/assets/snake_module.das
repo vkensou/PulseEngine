@@ -23,6 +23,7 @@ var private run_probe_batches = 0
 var private move_probe_hits = 0
 var private spawned_entity = default<Entity>
 
+[system(phase="update")]
 def run_probe(var iter: Iter?) {
     while (iter_next(iter)) {
         run_probe_batches += 1
@@ -34,7 +35,7 @@ def run_probe(var iter: Iter?) {
     }
 }
 
-// [system(phase="update")]
+[system(phase="update")]
 def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
     move_probe_hits += 1
     vel.X += 1.0
@@ -47,6 +48,13 @@ def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
 
 def system2(var cmd: CommandBuffer; position : Position) {
     print("system2\n")
+    let e2 = cmd.entity()
+    dump_entity(e2)
+}
+
+[system(phase="update")]
+def system3(var cmd: CommandBuffer; res: $Res<Velocity>; position : Position) {
+    print("system3\n")
     let e2 = cmd.entity()
     dump_entity(e2)
 }
@@ -126,11 +134,9 @@ def importModule(var ctx:ModuleContext) {
     move_probe_hits = 0
     spawned_entity = ent
 
-    var sd1 = SystemDesc(name = "run_probe", dependsOn = ctx.updatePipeline)
-    ctx.world |> register_system_ex(sd1, @@run_probe)
+    ctx |> register_system(@@run_probe)
 
-    var sd2 = SystemDesc(name = "move_probe", dependsOn = ctx.updatePipeline)
-    ctx.world |> register_system_ex(sd2, @@move_probe)
+    ctx |> register_system(@@move_probe)
 
     var sd3 = SystemDesc(name = "system2", dependsOn = ctx.initPipeline)
     ctx.world |> register_system_ex(sd3, @@system2)
