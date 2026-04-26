@@ -9,6 +9,7 @@ module flecs_systems private
 require daslib/ast_boost
 require daslib/templates_boost
 require daslib/macro_boost
+require daslib/strings_boost
 
 [function_macro(name="system")]
 class FlecsSystemMacro : AstFunctionAnnotation {
@@ -36,27 +37,26 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         let desc_name = "__system_desc"
         register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
 
+        wrapper_fn_body |> emplace_new <| qmacro_expr(${ var world = get_world(iter); })
         var term_index = 0
         for (arg, arg_index in func.arguments, count()) {
-            print("{describe(arg._type)}\n")
             if (is_entity_type(arg._type)) {
                 wrapper_fn_call_args |> emplace_new <| qmacro(iter_entity(iter, i))
                 continue
             }
 
             if (is_command_buffer_type(arg._type)) {
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var cmd = CommandBuffer(world = get_world(iter)); })
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var cmd = CommandBuffer(world = world); })                                                                                                                                                              
                 wrapper_fn_call_args |> emplace_new <| qmacro(cmd)
                 continue
             }
 
-            if (is_res_type(arg._type)) {
-                // var res_ptr = ecs_get_mut_res(ctx.world, type<Position>)
-                // typedef PositionRes = $Res<Position>
-                // var res = PositionRes(value_ptr = res_ptr)
-                // wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res_ptr = ecs_get_mut_res(ctx.world, type<Position>); })
-                // wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res = $e(arg._type)(value_ptr = res_ptr); })
-                // wrapper_fn_call_args |> emplace_new <| qmacro(res)
+            let (res_result, res_type) = is_res_type(arg._type)
+            if (res_result) {
+                var inscope resT <- new TypeDecl(baseType = Type.alias, alias := res_type)
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res_ptr = ecs_get_mut_res(world, type<$t(resT)>); })
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res = struct<$t(arg._type)>(value_ptr = res_ptr); })
+                wrapper_fn_call_args |> emplace_new <| qmacro(res)
                 continue
             }
 
@@ -146,9 +146,30 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return type_name == "flecs_boost::CommandBuffer const" || type_name == "flecs_boost::CommandBuffer" || type_name == "flecs_boost::CommandBuffer -const"
     }
 
-    def is_res_type(arg_type : TypeDeclPtr) : bool {
+    def is_res_type(arg_type : TypeDeclPtr) {
         let type_name = string(describe(arg_type))
-        return type_name == "flecs_boost::res" || type_name == "flecs_boost::Res" || type_name == "flecs_boost::res -const"
+        let i1 = find(type_name, "$Res(type<")
+        if (i1 != 0) {
+            return (false, "");
+        }
+        let len = length(type_name)
+
+        let i2 = last_index_of(type_name, ">) const")
+        if (i2 + 8 == len) {
+            return (true, slice(type_name, 9 + 1, i2))
+        }
+
+        let i3 = last_index_of(type_name, ">) -const")
+        if (i3 + 9 == len) {
+            return (true, slice(type_name, 9 + 1, i3))
+        }
+
+        let i4 = last_index_of(type_name, ">)")
+        if (i4 + 2 == len) {
+            return (true, slice(type_name, 9 + 1, i4))
+        }
+
+        return (false, "");
     }
 
     def is_iter_type(arg_type : TypeDeclPtr) : bool {

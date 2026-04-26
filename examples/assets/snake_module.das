@@ -3,6 +3,11 @@ options gen2
 require flecs_boost
 require pulse_ecs
 
+[cpp_layout]
+struct Position {
+    value : HMM_Vec3
+}
+
 struct Velocity {
     X: float
     Y: float
@@ -54,23 +59,10 @@ def system2(var cmd: CommandBuffer; position : Position) {
 }
 
 [system(phase="init")]
-def system3(var cmd: CommandBuffer; res: $Res<Velocity>; position : Position) {
+def system3(var cmd: CommandBuffer; var res: $Res<Position>; position : Position) {
     print("system3\n")
     let e2 = cmd.entity()
     dump_entity(e2)
-}
-
-def system2_wrapper(var iter: Iter?) {
-        var cmd_:flecs_boost::CommandBuffer = struct<flecs_boost::CommandBuffer>(uninitialized world = get_world(iter));
-        unsafe {
-            while ( iter_next(iter) ) {
-                    var field_1:pulse_ecs::Position? = reinterpret<pulse_ecs::Position?> iter_field(iter,12,0);
-                    for ( i in interval(0,iter.count) ) {
-                            _::system2(cmd_,field_1[i]);
-                    }
-            }
-
-        }
 }
 
 def show_singleton_position(query: $SingletonQuery<Position>) {
@@ -153,11 +145,6 @@ def importModule(var ctx:ModuleContext) {
         typedef PositionQuery = $SingletonQuery<Position>
         let q = PositionQuery(world = ctx.world, singleton_holder = get_single_holder(ctx.world))
         show_singleton_position(q)
-
-        var res_ptr = ecs_get_mut_res(ctx.world, type<Position>)
-        typedef PositionRes = $Res<Position>
-        var res = PositionRes(value_ptr = res_ptr)
-        show_res(res)
 
         typedef Event1Writer = $EventWriter<Event1>
         var eventWriter = Event1Writer(world = ctx.world, 

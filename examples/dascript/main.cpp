@@ -372,15 +372,15 @@ HMM_Vec3 make_vec3(float x, float y, float z)
 	return HMM_V3(x, y, z);
 }
 
-MAKE_TYPE_FACTORY(Position, Position);
-struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
-{
-	PositionAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("Position", ml, "Position")
-	{
-		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
-	}
-};
+//MAKE_TYPE_FACTORY(Position, Position);
+//struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
+//{
+//	PositionAnnotation(das::ModuleLibrary& ml)
+//		: ManagedStructureAnnotation("Position", ml, "Position")
+//	{
+//		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+//	}
+//};
 
 class ModulePulseECS : public das::Module
 {
@@ -393,7 +393,7 @@ public:
 		lib.addBuiltInModule();
 
 		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
-		addAnnotation(make_smart<PositionAnnotation>(lib));
+		//addAnnotation(make_smart<PositionAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(make_vec3), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
 	}
