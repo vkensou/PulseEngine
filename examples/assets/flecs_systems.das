@@ -51,12 +51,19 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let (res_result, res_type) = is_res_type(arg._type)
+            let (res_result, res_generic_type) = is_res_type(arg._type)
             if (res_result) {
-                var inscope resT <- new TypeDecl(baseType = Type.alias, alias := res_type)
+                var inscope resT <- new TypeDecl(baseType = Type.alias, alias := res_generic_type)
                 wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res_ptr = ecs_get_mut_res(world, type<$t(resT)>); })
                 wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res = struct<$t(arg._type)>(value_ptr = res_ptr); })
                 wrapper_fn_call_args |> emplace_new <| qmacro(res)
+                continue
+            }
+
+            let (single_query_result, single_query_generic_type) = is_single_query_type(arg._type)
+            if (single_query_result) {
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var single_query = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
+                wrapper_fn_call_args |> emplace_new <| qmacro(single_query)
                 continue
             }
 
@@ -149,6 +156,32 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     def is_res_type(arg_type : TypeDeclPtr) {
         let type_name = string(describe(arg_type))
         let i1 = find(type_name, "$Res(type<")
+        if (i1 != 0) {
+            return (false, "");
+        }
+        let len = length(type_name)
+
+        let i2 = last_index_of(type_name, ">) const")
+        if (i2 + 8 == len) {
+            return (true, slice(type_name, 9 + 1, i2))
+        }
+
+        let i3 = last_index_of(type_name, ">) -const")
+        if (i3 + 9 == len) {
+            return (true, slice(type_name, 9 + 1, i3))
+        }
+
+        let i4 = last_index_of(type_name, ">)")
+        if (i4 + 2 == len) {
+            return (true, slice(type_name, 9 + 1, i4))
+        }
+
+        return (false, "");
+    }
+
+    def is_single_query_type(arg_type : TypeDeclPtr) {
+        let type_name = string(describe(arg_type))
+        let i1 = find(type_name, "$SingletonQuery(type<")
         if (i1 != 0) {
             return (false, "");
         }

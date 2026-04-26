@@ -59,10 +59,17 @@ def system2(var cmd: CommandBuffer; position : Position) {
 }
 
 [system(phase="init")]
-def system3(var cmd: CommandBuffer; var res: $Res<Position>; position : Position) {
+def system3(var res: $Res<Position>; position : Position) {
     print("system3\n")
-    let e2 = cmd.entity()
-    dump_entity(e2)
+    let value = res.get()
+    print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
+}
+
+[system(phase="init")]
+def system4(var query: $SingletonQuery<Position>; position : Position) {
+    print("system4\n")
+    let value = query.get()
+    print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
 def show_singleton_position(query: $SingletonQuery<Position>) {
@@ -134,6 +141,8 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@system2)
 
     ctx |> register_system(@@system3)
+
+    ctx |> register_system(@@system4)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
