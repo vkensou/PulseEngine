@@ -67,6 +67,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
+            let (event_writer_result, event_writer_generic_type) = is_event_writer_type(arg._type)
+            if (event_writer_result) {
+                var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var event_writer = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>)); })
+                wrapper_fn_call_args |> emplace_new <| qmacro(event_writer)
+                continue
+            }
+
             if (true) {
                 let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
                 var inscope component_type <- make_component_type(arg._type)
@@ -189,17 +197,43 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
         let i2 = last_index_of(type_name, ">) const")
         if (i2 + 8 == len) {
-            return (true, slice(type_name, 9 + 1, i2))
+            return (true, slice(type_name, 20, i2))
         }
 
         let i3 = last_index_of(type_name, ">) -const")
         if (i3 + 9 == len) {
-            return (true, slice(type_name, 9 + 1, i3))
+            return (true, slice(type_name, 20, i3))
         }
 
         let i4 = last_index_of(type_name, ">)")
         if (i4 + 2 == len) {
-            return (true, slice(type_name, 9 + 1, i4))
+            return (true, slice(type_name, 20, i4))
+        }
+
+        return (false, "");
+    }
+
+    def is_event_writer_type(arg_type : TypeDeclPtr) {
+        let type_name = string(describe(arg_type))
+        let i1 = find(type_name, "$EventWriter(type<")
+        if (i1 != 0) {
+            return (false, "");
+        }
+        let len = length(type_name)
+
+        let i2 = last_index_of(type_name, ">) const")
+        if (i2 + 8 == len) {
+            return (true, slice(type_name, 18, i2))
+        }
+
+        let i3 = last_index_of(type_name, ">) -const")
+        if (i3 + 9 == len) {
+            return (true, slice(type_name, 18, i3))
+        }
+
+        let i4 = last_index_of(type_name, ">)")
+        if (i4 + 2 == len) {
+            return (true, slice(type_name, 18, i4))
         }
 
         return (false, "");

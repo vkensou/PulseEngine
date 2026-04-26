@@ -72,6 +72,12 @@ def system4(var query: $SingletonQuery<Position>; position : Position) {
     print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
+[system(phase="init")]
+def system5(var event_writer: $EventWriter<Event1>; position : Position) {
+    print("system5\n")
+    event_writer.broadcast()
+}
+
 def show_singleton_position(query: $SingletonQuery<Position>) {
     let value = query.get()
     print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
@@ -144,6 +150,8 @@ def importModule(var ctx:ModuleContext) {
 
     ctx |> register_system(@@system4)
 
+    ctx |> register_system(@@system5)
+
     {
         var cmd = CommandBuffer(world = ctx.world)
         var ent2 = cmd.entity()
@@ -151,30 +159,11 @@ def importModule(var ctx:ModuleContext) {
         cmd.destruct(ent2)
         cmd |> set_singleton(Position(value=make_vec3(1.0, 4.0, 1.0)))
 
-        typedef PositionQuery = $SingletonQuery<Position>
-        let q = PositionQuery(world = ctx.world, singleton_holder = get_single_holder(ctx.world))
-        show_singleton_position(q)
-
-        typedef Event1Writer = $EventWriter<Event1>
-        var eventWriter = Event1Writer(world = ctx.world, 
-            singleton_holder = get_single_holder(ctx.world),
-            event_id = ecs_component(ctx.world, type<Event1>))
-        eventWriter.broadcast()
-        //eventWriter.broadcast(default<Event1>)
-
-        ctx.world |> ecs_observe(@@event_listener, default<Event1>, "Position")
+        ctx.world |> ecs_observe(@@event_listener, default<Event1>)
 
         typedef IntReader = $EventReader<int>
         let i1 = 24
         var intReader = IntReader(value = i1)
         read_event(intReader)
-
-        var terms : uint64[32]
-        for (i in 0..32) {
-            terms[i] = 0ul
-        }
-        terms[0] = ecs_component(ctx.world, default<Position>)
-        let edesc = EventDesc(event = ecs_component(ctx.world, default<Event1>), terms = terms)
-        ctx.world |> emit(edesc)
     }
 }
