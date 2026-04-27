@@ -372,11 +372,11 @@ HMM_Vec3 make_vec3(float x, float y, float z)
 	return HMM_V3(x, y, z);
 }
 
-MAKE_TYPE_FACTORY(ResourceManager, ResourceManager);
-struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<ResourceManager>
+MAKE_TYPE_FACTORY(ResourceManager, pulse::ResourceManager);
+struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::ResourceManager>
 {
 	ResourceManagerAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("ResourceManager", ml, "ResourceManager")
+		: ManagedStructureAnnotation("ResourceManager", ml, "pulse::ResourceManager")
 	{
 	}
 };
@@ -394,7 +394,7 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<Resourc
 class ModulePulseECS : public das::Module
 {
 public:
-	ModulePulseECS() : Module("pulse_ecs")
+	ModulePulseECS() : Module("pulse")
 	{
 		using namespace das;
 
@@ -583,11 +583,11 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 	pulse::registerResource<KeyboardState>(world, "Keyboard State", std::move(keyboardState));
 
-	ResourceManager resourceManager = {};
+	pulse::ResourceManager resourceManager = {};
 	resourceManager.device = app.device.get();
 	resourceManager.meshes.clear();
 	resourceManager.materials.clear();
-	pulse::registerResource<ResourceManager>(world, "Resource Manager", std::move(resourceManager));
+	pulse::registerResource<pulse::ResourceManager>(world, "Resource Manager", std::move(resourceManager));
 
 	pulse::registerResource<UpdateContext>(world, "Update Context");
 	pulse::registerResource<RenderContext>(world, "Render Context");
@@ -822,7 +822,7 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 
 		struct MainPassPassData
 		{
-			const ResourceManager* resourceManager;
+			const pulse::ResourceManager* resourceManager;
 			ViewRenderPacket* view;
 			HGEGraphics::buffer_handle_t pass_ubo_handle;
 			HGEGraphics::buffer_handle_t object_ubo_handle;
@@ -840,7 +840,7 @@ void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_dev
 				}
 			}, sizeof(MainPassPassData), (void**)&passdata);
 		flecs::world world = flecs::world(oval_get_world(device));
-		passdata->resourceManager = &world.get<ResourceManager>();
+		passdata->resourceManager = &world.get<pulse::ResourceManager>();
 		passdata->view = &view;
 		passdata->pass_ubo_handle = pass_ubo_handle;
 		passdata->object_ubo_handle = object_ubo_handle;

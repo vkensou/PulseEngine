@@ -6,13 +6,16 @@
 #include <vector>
 #include <memory>
 
-PULSE_ECS_RESOURCE
-struct ResourceManager
+namespace pulse
 {
-	oval_device_t* device;
-	std::vector<HGEGraphics::Mesh*> meshes;
-	std::vector<HGEGraphics::Material*> materials;
-};
+	PULSE_ECS_RESOURCE
+	struct ResourceManager
+	{
+		oval_device_t* device;
+		std::vector<HGEGraphics::Mesh*> meshes;
+		std::vector<HGEGraphics::Material*> materials;
+	};
+}
 
 PULSE_ECS_RESOURCE
 struct KeyboardState

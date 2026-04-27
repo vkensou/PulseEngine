@@ -1,7 +1,7 @@
 options gen2
 
 require flecs_boost
-require pulse_ecs
+require pulse
 
 [cpp_layout]
 struct Position {
@@ -94,7 +94,7 @@ struct Event1 {
 
 [system(phase="init")]
 def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
-
+    print("load resource!\n")
 }
 
 [export]

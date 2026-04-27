@@ -75,27 +75,18 @@ namespace dasPulseECS
 		return World(iter->world);
 	}
 
-	const char* get_pure_component_name(const char* component_name)
-	{
-		if (component_name == NULL) {
-			return NULL;
-		}
-
-		const char* p = strrchr(component_name, ':');
-		return (p == NULL) ? component_name : (p + 1);
-	}
-
 	ecs_id_t register_component(const World& world, const char* component_name, int size, int alignment)
 	{
 		ecs_entity_t ComponentID_ = 0;
 		{
-			const char* pure_component_name = get_pure_component_name(component_name);
 			ecs_component_desc_t desc = { 0 };
 			ecs_entity_desc_t edesc = { 0 };
 			edesc.id = ComponentID_;
 			edesc.use_low_id = true;
-			edesc.name = pure_component_name;
-			edesc.symbol = pure_component_name;
+			edesc.name = component_name;
+			edesc.sep = "::";
+			edesc.root_sep = "::";
+			edesc.symbol = component_name;
 			desc.entity = ecs_entity_init(world, &edesc);
 			desc.type.size = (static_cast<ecs_size_t>(size));
 			desc.type.alignment = static_cast<int64_t>(size > 0 ? alignment : 0);
