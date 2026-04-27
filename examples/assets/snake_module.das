@@ -78,6 +78,21 @@ def system5(var event_writer: $EventWriter<Event1>; position : Position) {
     event_writer.broadcast()
 }
 
+[system(phase="init")]
+def system6(var event_reader: $EventReader<Event1>) {
+    print("system receive event!\n")
+}
+
+// def system6`system_wrapper(var iter: Iter?) {
+//     typedef Reader = $EventReader<Event1>
+//     var reader = Reader(value = default<Event1>)
+//     system6(reader)
+// }
+
+// def system6`register(var ctx:ModuleContext) {
+//     ctx.world |> ecs_observe(@@system6`system_wrapper, default<Event1>)
+// }
+
 def show_singleton_position(query: $SingletonQuery<Position>) {
     let value = query.get()
     print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
@@ -95,10 +110,6 @@ def read_event(reader: $EventReader<int>) {
 
 struct Event1 {
 
-}
-
-def event_listener(var iter: Iter?) {
-    print("receive event!\n")
 }
 
 [export]
@@ -152,18 +163,13 @@ def importModule(var ctx:ModuleContext) {
 
     ctx |> register_system(@@system5)
 
+    ctx |> register_system(@@system6)
+
     {
         var cmd = CommandBuffer(world = ctx.world)
         var ent2 = cmd.entity()
         dump_entity(ent2)
         cmd.destruct(ent2)
         cmd |> set_singleton(Position(value=make_vec3(1.0, 4.0, 1.0)))
-
-        ctx.world |> ecs_observe(@@event_listener, default<Event1>)
-
-        typedef IntReader = $EventReader<int>
-        let i1 = 24
-        var intReader = IntReader(value = i1)
-        read_event(intReader)
     }
 }

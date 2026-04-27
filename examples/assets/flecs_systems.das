@@ -34,14 +34,18 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         var inscope wrapper_fn_body : array<ExpressionPtr>
         let register_fn_name = "{func.name}`register"
         var inscope register_fn_body_exprs : array<ExpressionPtr>
+        var inscope event_register_fn_body_exprs : array<ExpressionPtr>
         let desc_name = "__system_desc"
         register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
 
         wrapper_fn_body |> emplace_new <| qmacro_expr(${ var world = get_world(iter); })
+        var is_event_system = false
+        var is_entity_system = false
         var term_index = 0
         for (arg, arg_index in func.arguments, count()) {
             if (is_entity_type(arg._type)) {
                 wrapper_fn_call_args |> emplace_new <| qmacro(iter_entity(iter, i))
+                is_entity_system = true
                 continue
             }
 
@@ -75,7 +79,18 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
+            let (event_reader_result, event_reader_generic_type) = is_event_reader_type(arg._type)
+            if (event_reader_result) {
+                is_event_system = true
+                var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_reader_generic_type)
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = default<$t(eventT)>); })
+                wrapper_fn_call_args |> emplace_new <| qmacro(event_reader)
+                event_register_fn_body_exprs |> emplace_new <| qmacro(ecs_observe(ctx.world, @@$c(wrapper_name), default<$t(eventT)>))
+                continue
+            }
+
             if (true) {
+                is_entity_system = true
                 let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
                 var inscope component_type <- make_component_type(arg._type)
 
@@ -96,11 +111,17 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             }
         }
 
-        wrapper_fn_body |> emplace_new <| qmacro_block() {
-            unsafe {
-                while (iter_next(iter)) {
-                    $b(wrapper_fn_batch_exprs)
+        if (is_entity_system) {
+            wrapper_fn_body |> emplace_new <| qmacro_block() {
+                unsafe {
+                    while (iter_next(iter)) {
+                        $b(wrapper_fn_batch_exprs)
+                    }
                 }
+            }
+        } else {
+            wrapper_fn_body |> emplace_new <| qmacro_block() {
+                $c("_::{func.name}")($a(wrapper_fn_call_args))
             }
         }
 
@@ -118,7 +139,12 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             }
         }
         register_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
-        let add_ok2 = compiling_module() |> add_function(register_fn)
+
+        var inscope event_register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
+            $b(event_register_fn_body_exprs)
+        }
+
+        let add_ok2 = compiling_module() |> add_function(is_event_system ? event_register_fn : register_fn)
 
         return add_ok && add_ok2
     }
@@ -216,6 +242,32 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     def is_event_writer_type(arg_type : TypeDeclPtr) {
         let type_name = string(describe(arg_type))
         let i1 = find(type_name, "$EventWriter(type<")
+        if (i1 != 0) {
+            return (false, "");
+        }
+        let len = length(type_name)
+
+        let i2 = last_index_of(type_name, ">) const")
+        if (i2 + 8 == len) {
+            return (true, slice(type_name, 18, i2))
+        }
+
+        let i3 = last_index_of(type_name, ">) -const")
+        if (i3 + 9 == len) {
+            return (true, slice(type_name, 18, i3))
+        }
+
+        let i4 = last_index_of(type_name, ">)")
+        if (i4 + 2 == len) {
+            return (true, slice(type_name, 18, i4))
+        }
+
+        return (false, "");
+    }
+
+    def is_event_reader_type(arg_type : TypeDeclPtr) {
+        let type_name = string(describe(arg_type))
+        let i1 = find(type_name, "$EventReader(type<")
         if (i1 != 0) {
             return (false, "");
         }
