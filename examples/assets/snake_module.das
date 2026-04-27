@@ -78,20 +78,10 @@ def system5(var event_writer: $EventWriter<Event1>; position : Position) {
     event_writer.broadcast()
 }
 
-[system(phase="init")]
+[system]
 def system6(var event_reader: $EventReader<Event1>) {
     print("system receive event!\n")
 }
-
-// def system6`system_wrapper(var iter: Iter?) {
-//     typedef Reader = $EventReader<Event1>
-//     var reader = Reader(value = default<Event1>)
-//     system6(reader)
-// }
-
-// def system6`register(var ctx:ModuleContext) {
-//     ctx.world |> ecs_observe(@@system6`system_wrapper, default<Event1>)
-// }
 
 def show_singleton_position(query: $SingletonQuery<Position>) {
     let value = query.get()

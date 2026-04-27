@@ -15,18 +15,15 @@ require daslib/strings_boost
 class FlecsSystemMacro : AstFunctionAnnotation {
     def override apply(var func : FunctionPtr; var group : ModuleGroup; args : AnnotationArgumentList; var errors : das_string) : bool {
         let phase_field = resolve_phase_field(args, errors)
-        if (phase_field == "") {
-            return false
-        }
 
         if (is_run_mode(func)) {
             return add_register_helper(func, string(func.name), phase_field)
         }
 
-        return generate_functions(func, phase_field)
+        return generate_functions(func, phase_field, errors)
     }
 
-    def generate_functions(var func : FunctionPtr; phase_field : string)  : bool {
+    def generate_functions(var func : FunctionPtr; phase_field : string; var errors : das_string)  : bool {
         let wrapper_name = "{func.name}`system_wrapper"
 
         var inscope wrapper_fn_batch_exprs : array<ExpressionPtr>
@@ -103,6 +100,13 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
                 term_index += 1
             }
+        }
+
+        if (!is_event_system && phase_field == "") {
+            return false
+        } elif (is_event_system && phase_field != "") {
+            errors := "event system no need set phase_field"
+            return false
         }
 
         wrapper_fn_batch_exprs |> emplace_new <| qmacro_block() {
