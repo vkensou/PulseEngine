@@ -372,6 +372,15 @@ HMM_Vec3 make_vec3(float x, float y, float z)
 	return HMM_V3(x, y, z);
 }
 
+MAKE_TYPE_FACTORY(ResourceManager, ResourceManager);
+struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<ResourceManager>
+{
+	ResourceManagerAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ResourceManager", ml, "ResourceManager")
+	{
+	}
+};
+
 //MAKE_TYPE_FACTORY(Position, Position);
 //struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
 //{
@@ -393,7 +402,7 @@ public:
 		lib.addBuiltInModule();
 
 		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
-		//addAnnotation(make_smart<PositionAnnotation>(lib));
+		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(make_vec3), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
 	}
@@ -656,6 +665,8 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.imguiPipeline = app.imguiPipelineId,
 		//.eventManager = &app.eventCenter,
 	};
+
+	world.set<Position>({ .value = HMM_V3(13, 24, 35) });
 
 	//importModule(&moduleContext);
 	app.importDasModule(moduleContext);

@@ -88,17 +88,12 @@ def show_singleton_position(query: $SingletonQuery<Position>) {
     print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
-def show_res(res: $Res<Position>) {
-    let value = res.get()
-    print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
-}
-
-def read_event(reader: $EventReader<int>) {
-    let e = reader.read()
-    print("{e}\n")
-}
-
 struct Event1 {
+
+}
+
+[system(phase="init")]
+def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
 
 }
 
@@ -154,6 +149,8 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@system5)
 
     ctx |> register_system(@@system6)
+
+    ctx |> register_system(@@loadSnakeResources)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
