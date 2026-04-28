@@ -2,6 +2,7 @@ options gen2
 
 require flecs_boost
 require pulse
+require cgpu
 
 [cpp_layout]
 struct Position {
@@ -95,6 +96,39 @@ struct Event1 {
 [system(phase="init")]
 def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
     print("load resource!\n")
+
+	var blend_attachments = CGPUBlendAttachmentState(
+		enable = false,
+		src_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ONE,
+		dst_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ZERO,
+		src_alpha_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ONE,
+		dst_alpha_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ZERO,
+		blend_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
+		blend_alpha_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
+		color_mask = uint(ECGPUColorMaskFlagBits.CGPU_COLOR_MASK_RGBA),
+	);
+	let  blend_desc = CGPUBlendStateDescriptor(
+		attachment_count = 1u,
+		p_attachments = unsafe(addr(blend_attachments)),
+		alpha_to_coverage = false,
+		independent_blend = false,
+	);
+	let  depth_desc = CGPUDepthStateDescriptor(
+		depth_test = true,
+		depth_write = true,
+		depth_op = ECGPUCompareOp.CGPU_COMPARE_OP_GREATER_EQUAL,
+		stencil_test = false,
+	);
+	let  rasterizer_state = CGPURasterizerStateDescriptor(
+		cull_mode = uint(ECGPUCullModeFlagBits.CGPU_CULL_MODE_BACK),
+		front_face	= ECGPUFrontFace.CGPU_FRONT_FACE_CLOCK_WISE,
+	);
+
+    let shader_index = create_shader(res.get(), "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state)
+
+
+
+
 }
 
 [export]

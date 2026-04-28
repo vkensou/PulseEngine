@@ -14,6 +14,8 @@
 // #include "snake_module.h"
 #include "daScript/daScript.h"
 #include "dasFlecs.h"
+#include "dasCGPU/need_dasCGPU.h"
+#include "dasCGPU/dasCGPU.h"
 
 constexpr ecs_entity_t kNullEntity = 0;
 
@@ -381,6 +383,29 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::
 	}
 };
 
+HGEGraphics::Shader* get_shader(pulse::ResourceManager* resourceManager, int index, das::Context* context, das::LineInfoArg* at)
+{
+	if (index < 0 || index >= resourceManager->shaders.size())
+		context->throw_error_at(at, "register_system requires a valid callback function");
+
+	return resourceManager->shaders[index];
+}
+
+size_t create_shader(pulse::ResourceManager* resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+{
+	auto shader = oval_create_shader(resourceManager->device, vertPath, fragPath, blend_desc, depth_desc, rasterizer_state);
+	resourceManager->shaders.push_back(shader);
+	return resourceManager->shaders.size() - 1;
+}
+
+size_t test(CGPUBlendStateDescriptor* blend_desc)
+{
+	return 42;
+}
+
+MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
+IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
+
 //MAKE_TYPE_FACTORY(Position, Position);
 //struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
 //{
@@ -396,16 +421,29 @@ class ModulePulseECS : public das::Module
 public:
 	ModulePulseECS() : Module("pulse")
 	{
-		using namespace das;
+	}
+	bool initDependencies() {
+		if (initialized) return true;
+		initialized = true;
 
-		ModuleLibrary lib(this);
+		lib.addModule(this);
 		lib.addBuiltInModule();
+		lib.addModule(Module::require("cgpu"));
 
 		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
 		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
+		//addAnnotation(make_smart<DummyTypeAnnotation>("HGEGraphics::Shader", "HGEGraphics::Shader", 1, 1));
+		addExtern<DAS_BIND_FUN(make_vec3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", das::SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
+		//addExtern<DAS_BIND_FUN(get_shader), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "get_shader", SideEffects::none, "get_shader")->args({ "resourceManager", "index", "context", "at" });
+		addExtern<DAS_BIND_FUN(create_shader)>(*this, lib, "create_shader", das::SideEffects::worstDefault, "create_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
+		//addExtern<DAS_BIND_FUN(test)>(*this, lib, "test", das::SideEffects::worstDefault, "test")->args({ "blend_desc" });
 
-		addExtern<DAS_BIND_FUN(make_vec3), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
+
+		return true;
 	}
+private:
+	das::ModuleLibrary lib;
+	bool initialized = false;
 };
 
 REGISTER_MODULE(ModulePulseECS);
@@ -914,8 +952,9 @@ void on_post_update(oval_device_t* device, oval_update_context update_context)
 void need_das_modules()
 {
     NEED_ALL_DEFAULT_MODULES;
-	NEED_MODULE(ModuleFlecs);
 	NEED_MODULE(ModulePulseECS);
+	NEED_MODULE(ModuleFlecs);
+	NEED_MODULE(Module_dasCGPU);
 }
 
 extern "C"

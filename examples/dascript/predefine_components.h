@@ -12,6 +12,7 @@ namespace pulse
 	struct ResourceManager
 	{
 		oval_device_t* device;
+		std::vector<HGEGraphics::Shader*> shaders;
 		std::vector<HGEGraphics::Mesh*> meshes;
 		std::vector<HGEGraphics::Material*> materials;
 	};
