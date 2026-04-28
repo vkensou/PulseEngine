@@ -79,14 +79,22 @@ namespace dasPulseECS
 	{
 		ecs_entity_t ComponentID_ = 0;
 		{
+			ecs_size_t len = ecs_os_strlen(component_name);
+			char* symbol_name = ecs_os_alloca_n(char, len + 1);
+			const char* cpp_symbol = ecs_cpp_get_symbol_name(symbol_name, component_name, len);
+
+			auto exist = ecs_lookup_path_w_sep(world, 0, component_name, "::", "::", false);
+			if (exist != 0)
+				return exist;
+
 			ecs_component_desc_t desc = { 0 };
 			ecs_entity_desc_t edesc = { 0 };
 			edesc.id = ComponentID_;
 			edesc.use_low_id = true;
-			edesc.name = component_name;
+			edesc.name = ecs_cpp_trim_module(world.world_, component_name);
 			edesc.sep = "::";
 			edesc.root_sep = "::";
-			edesc.symbol = component_name;
+			edesc.symbol = cpp_symbol;
 			desc.entity = ecs_entity_init(world, &edesc);
 			desc.type.size = (static_cast<ecs_size_t>(size));
 			desc.type.alignment = static_cast<int64_t>(size > 0 ? alignment : 0);

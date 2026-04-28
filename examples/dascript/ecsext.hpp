@@ -338,18 +338,18 @@ namespace pulse
 	};
 
 	template<typename T>
-	void registerResource(flecs::world& world, const char* name)
+	void registerResource(flecs::world& world)
 	{
-		auto keyboardState = flecs::component<T>(world, name, false);
+		auto keyboardState = flecs::component<T>(world, flecs::_::type_name<T>(), false);
 		keyboardState.add(flecs::Sparse);
 		keyboardState.add(flecs::Singleton);
 		world.set<T>({});
 	}
 
 	template<typename T>
-	void registerResource(flecs::world& world, const char* name, T&& value)
+	void registerResource(flecs::world& world, T&& value)
 	{
-		auto keyboardState = flecs::component<T>(world, name, false);
+		auto keyboardState = flecs::component<T>(world, flecs::_::type_name<T>(), false);
 		keyboardState.add(flecs::Sparse);
 		keyboardState.add(flecs::Singleton);
 		world.set<T>(value);

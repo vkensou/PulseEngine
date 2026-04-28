@@ -398,23 +398,8 @@ size_t create_shader(pulse::ResourceManager* resourceManager, const char* vertPa
 	return resourceManager->shaders.size() - 1;
 }
 
-size_t test(CGPUBlendStateDescriptor* blend_desc)
-{
-	return 42;
-}
-
 MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
 IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
-
-//MAKE_TYPE_FACTORY(Position, Position);
-//struct PositionAnnotation final : das::ManagedStructureAnnotation<Position>
-//{
-//	PositionAnnotation(das::ModuleLibrary& ml)
-//		: ManagedStructureAnnotation("Position", ml, "Position")
-//	{
-//		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
-//	}
-//};
 
 class ModulePulseECS : public das::Module
 {
@@ -432,12 +417,11 @@ public:
 
 		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
 		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
-		//addAnnotation(make_smart<DummyTypeAnnotation>("HGEGraphics::Shader", "HGEGraphics::Shader", 1, 1));
-		addExtern<DAS_BIND_FUN(make_vec3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", das::SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
-		//addExtern<DAS_BIND_FUN(get_shader), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "get_shader", SideEffects::none, "get_shader")->args({ "resourceManager", "index", "context", "at" });
-		addExtern<DAS_BIND_FUN(create_shader)>(*this, lib, "create_shader", das::SideEffects::worstDefault, "create_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
-		//addExtern<DAS_BIND_FUN(test)>(*this, lib, "test", das::SideEffects::worstDefault, "test")->args({ "blend_desc" });
+		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
 
+		addExtern<DAS_BIND_FUN(make_vec3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", das::SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
+		addExtern<DAS_BIND_FUN(get_shader)>(*this, lib, "get_shader", das::SideEffects::worstDefault, "get_shader")->args({ "resourceManager", "index", "context", "at" });
+		addExtern<DAS_BIND_FUN(create_shader)>(*this, lib, "create_shader", das::SideEffects::worstDefault, "create_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
 
 		return true;
 	}
@@ -619,16 +603,16 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	keyboardState.currentKeys.resize(numKeys);
 	std::fill(keyboardState.lastKeys.begin(), keyboardState.lastKeys.end(), 0);
 	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
-	pulse::registerResource<KeyboardState>(world, "Keyboard State", std::move(keyboardState));
+	pulse::registerResource<KeyboardState>(world, std::move(keyboardState));
 
 	pulse::ResourceManager resourceManager = {};
 	resourceManager.device = app.device.get();
 	resourceManager.meshes.clear();
 	resourceManager.materials.clear();
-	pulse::registerResource<pulse::ResourceManager>(world, "Resource Manager", std::move(resourceManager));
+	pulse::registerResource<pulse::ResourceManager>(world, std::move(resourceManager));
 
-	pulse::registerResource<UpdateContext>(world, "Update Context");
-	pulse::registerResource<RenderContext>(world, "Render Context");
+	pulse::registerResource<UpdateContext>(world);
+	pulse::registerResource<RenderContext>(world);
 
 	ECS_COMPONENT(world, Position);
 
