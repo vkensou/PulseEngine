@@ -13,14 +13,7 @@ namespace dasPulseECS
 
 		operator ecs_world_t*() const { return world_; }
 	};
-	struct Entity
-	{
-		ecs_entity_t entity_;
-		Entity() : entity_(0) {}
-		Entity(ecs_entity_t b) : entity_(b) {}
 
-		operator uint64_t() const { return entity_; }
-	};
 	struct Query
 	{
 		ecs_query_t* query_;
@@ -33,7 +26,7 @@ namespace dasPulseECS
 	struct SystemDesc
 	{
 		const char* name = nullptr;
-		Entity dependsOn;
+		ecs_entity_t dependsOn;
 		bool immediate = false;
 		ecs_term_t terms[FLECS_TERM_COUNT_MAX] = {};
 	};
@@ -42,17 +35,17 @@ namespace dasPulseECS
 	{
 		uint64_t event;
 		uint64_t terms[FLECS_TERM_COUNT_MAX] = {};
-		Entity entity;
+		ecs_entity_t entity;
 	};
 
 	struct ModuleContext
 	{
 		World world;
-		Entity initPipeline;
-		Entity updatePipeline;
-		Entity postUpdatePipeline;
-		Entity renderPipeline;
-		Entity imguiPipeline;
+		ecs_entity_t initPipeline;
+		ecs_entity_t updatePipeline;
+		ecs_entity_t postUpdatePipeline;
+		ecs_entity_t renderPipeline;
+		ecs_entity_t imguiPipeline;
 		//pulse::EventCenter* eventManager;
 	};
 }

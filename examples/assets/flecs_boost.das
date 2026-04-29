@@ -12,6 +12,8 @@ require flecs_event_writer public
 require flecs_event_reader public
 require daslib/class_boost
 
+typedef Entity = uint64
+
 def system_desc(name : string; dependsOn : Entity; immediate : bool = false) {
     return SystemDesc(name = name, dependsOn = dependsOn, immediate = immediate)
 }

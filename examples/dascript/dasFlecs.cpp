@@ -5,17 +5,16 @@
 
 namespace dasPulseECS
 {
-	Entity create_entity(World& world)
+	ecs_entity_t create_entity(World& world)
 	{
 		ecs_entity_desc_t desc = {};
 		auto id_ = ecs_entity_init(world.world_, &desc);
-		Entity entity = { id_ };
-		return entity;
+		return id_;
 	}
 
-	void destruct_entity(World& world, Entity entity)
+	void destruct_entity(World& world, ecs_entity_t entity)
 	{
-		ecs_delete(world.world_, entity.entity_);
+		ecs_delete(world.world_, entity);
 	}
 
 	void dump_world(const World& world)
@@ -24,17 +23,17 @@ namespace dasPulseECS
 		printf("%lld\n", info->cmd.add_count);
 	}
 
-	void dump_entity(Entity entity)
+	void dump_entity(ecs_entity_t entity)
 	{
-		printf("%lld\n", entity.entity_);
+		printf("%lld\n", entity);
 	}
 
-	Entity get_single_holder(const World& world)
+	ecs_entity_t get_single_holder(const World& world)
 	{
 		return flecs::_::type<pulse::SingleHolder>::id(world.world_);
 	}
 
-	Entity get_event_tag(const World& world)
+	ecs_entity_t get_event_tag(const World& world)
 	{
 		return flecs::_::type<pulse::EventTag>::id(world.world_);
 	}
@@ -63,11 +62,11 @@ namespace dasPulseECS
 		return ecs_field_w_size(iter, size, index);
 	}
 
-	Entity iter_entity(ecs_iter_t* iter, int index)
+	ecs_entity_t iter_entity(ecs_iter_t* iter, int index)
 	{
 		ecs_assert(iter->entities != nullptr, ECS_INVALID_PARAMETER, "iterator has no entity array");
 		ecs_assert(index >= 0 && index < iter->count, ECS_INVALID_PARAMETER, "iterator entity index %d out of range %d", index, iter->count);
-		return Entity{ iter->entities[index] };
+		return ecs_entity_t{ iter->entities[index] };
 	}
 
 	World get_world(ecs_iter_t* iter)
@@ -107,14 +106,14 @@ namespace dasPulseECS
 		return ComponentID_;
 	}
 
-	void set_component(World& world, Entity entity, ecs_id_t component_id, int size, const void* data)
+	void set_component(World& world, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data)
 	{
-		ecs_set_id(world.world_, entity.entity_, component_id, size, data);
+		ecs_set_id(world.world_, entity, component_id, size, data);
 	}
 
-	const void* get_component(const World& world, Entity entity, ecs_id_t component_id)
+	const void* get_component(const World& world, ecs_entity_t entity, ecs_id_t component_id)
 	{
-		return ecs_get_id(world.world_, entity.entity_, component_id);
+		return ecs_get_id(world.world_, entity, component_id);
 	}
 
 	const void* get_res(const World& world, ecs_id_t component_id)
@@ -146,7 +145,7 @@ namespace dasPulseECS
 		delete callBackContext;
 	}
 
-	void register_system_from_query_expr(const World& world, const char* name, Entity dependson, const char* query_expr, das::Func fn, das::Context* context, das::LineInfoArg* at)
+	void register_system_from_query_expr(const World& world, const char* name, ecs_entity_t dependson, const char* query_expr, das::Func fn, das::Context* context, das::LineInfoArg* at)
 	{
 		if (!context) {
 			return;
@@ -155,8 +154,8 @@ namespace dasPulseECS
 			context->throw_error_at(at, "register_system requires a valid callback function");
 		}
 
-		ecs_id_t ids[] = { ecs_dependson(dependson.entity_), dependson.entity_, 0 };
-		ecs_entity_desc_t edesc = { .name = name, .add = dependson.entity_ != 0 ? ids : nullptr };
+		ecs_id_t ids[] = { ecs_dependson(dependson), dependson, 0 };
+		ecs_entity_desc_t edesc = { .name = name, .add = dependson != 0 ? ids : nullptr };
 		ecs_entity_t entity = ecs_entity_init(world, &edesc);
 
 		if (!entity) {
@@ -193,8 +192,8 @@ namespace dasPulseECS
 			context->throw_error_at(at, "register_system requires a valid callback function");
 		}
 
-		ecs_id_t ids[] = { ecs_dependson(desc.dependsOn.entity_), desc.dependsOn.entity_, 0 };
-		ecs_entity_desc_t edesc = { .name = desc.name, .add = desc.dependsOn.entity_ != 0 ? ids : nullptr };
+		ecs_id_t ids[] = { ecs_dependson(desc.dependsOn), desc.dependsOn, 0 };
+		ecs_entity_desc_t edesc = { .name = desc.name, .add = desc.dependsOn != 0 ? ids : nullptr };
 
 		ecs_entity_t entity = ecs_entity_init(world, &edesc);
 		if (!entity) {
@@ -283,7 +282,7 @@ namespace dasPulseECS
 		ecs_event_desc_t edesc = {
 			.event = desc.event,
 			.ids = &ids, // 1 id
-			.entity = desc.entity != 0 ? desc.entity.entity_ : get_single_holder(world).entity_,
+			.entity = desc.entity != 0 ? desc.entity : get_single_holder(world),
 			.observable = world.world_,
 		};
 
@@ -296,15 +295,6 @@ struct WorldAnnotation final : das::ManagedValueAnnotation<dasPulseECS::World>
 {
 	WorldAnnotation(das::ModuleLibrary& ml)
 		: ManagedValueAnnotation(ml, "World", "dasPulseECS::World")
-	{
-	}
-};
-
-MAKE_TYPE_FACTORY(Entity, dasPulseECS::Entity);
-struct EntityAnnotation final : das::ManagedValueAnnotation<dasPulseECS::Entity>
-{
-	EntityAnnotation(das::ModuleLibrary& ml)
-		: ManagedValueAnnotation(ml, "Entity", "dasPulseECS::Entity")
 	{
 	}
 };
@@ -390,13 +380,6 @@ namespace das
 	template <> struct WrapType<dasPulseECS::World> { enum { value = true }; typedef void* type; typedef void* rettype; };
 
 	template <>
-	struct cast<dasPulseECS::Entity> {
-		static __forceinline dasPulseECS::Entity to(vec4f x) { return dasPulseECS::Entity{ cast<uint64_t>::to(x) }; }
-		static __forceinline vec4f from(dasPulseECS::Entity x) { return cast<uint64_t>::from(x.entity_); }
-	};
-	template <> struct WrapType<dasPulseECS::Entity> { enum { value = true }; typedef uint64_t type; typedef uint64_t rettype; };
-
-	template <>
 	struct cast<dasPulseECS::Query> {
 		static __forceinline dasPulseECS::Query to(vec4f x) { return dasPulseECS::Query{ cast<ecs_query_t*>::to(x) }; }
 		static __forceinline vec4f from(dasPulseECS::Query x) { return cast<ecs_query_t*>::from(x.query_); }
@@ -416,7 +399,6 @@ public:
 		addBuiltinDependency(lib, Module::require("math"));
 
 		addAnnotation(make_smart<WorldAnnotation>(lib));
-		addAnnotation(make_smart<EntityAnnotation>(lib));
 		addAnnotation(make_smart<QueryAnnotation>(lib));
 		addAnnotation(make_smart<IterAnnotation>(lib));
 		addAnnotation(make_smart<TermAnnotation>(lib));
