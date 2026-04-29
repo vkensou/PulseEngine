@@ -93,6 +93,23 @@ struct Event1 {
 
 }
 
+struct MaterialData
+{
+    albedo: float4;
+};
+
+struct SnakeResources
+{
+	quad: uint64;
+	appleMat, snakeHeadMat, snakeBodyMat: uint64;
+	boardMat: uint64;
+};
+
+def pulse_material_bind_buffer(var resourceManager: ResourceManager?, material: uint64, set: int, bind: int, buffer: auto(T))
+{
+    material_bind_buffer(resourceManager, material, set, bind, typeinfo sizeof(type<T>), unsafe(addr(buffer)))
+}
+
 [system(phase="init")]
 def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
     print("load resource!\n")
@@ -107,27 +124,59 @@ def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
 		blend_alpha_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
 		color_mask = uint(ECGPUColorMaskFlagBits.CGPU_COLOR_MASK_RGBA),
 	);
-	let  blend_desc = CGPUBlendStateDescriptor(
+	let blend_desc = CGPUBlendStateDescriptor(
 		attachment_count = 1u,
 		p_attachments = unsafe(addr(blend_attachments)),
 		alpha_to_coverage = false,
 		independent_blend = false,
 	);
-	let  depth_desc = CGPUDepthStateDescriptor(
+	let depth_desc = CGPUDepthStateDescriptor(
 		depth_test = true,
 		depth_write = true,
 		depth_op = ECGPUCompareOp.CGPU_COMPARE_OP_GREATER_EQUAL,
 		stencil_test = false,
 	);
-	let  rasterizer_state = CGPURasterizerStateDescriptor(
+	let rasterizer_state = CGPURasterizerStateDescriptor(
 		cull_mode = uint(ECGPUCullModeFlagBits.CGPU_CULL_MODE_BACK),
 		front_face	= ECGPUFrontFace.CGPU_FRONT_FACE_CLOCK_WISE,
 	);
 
-    let shader_index = create_shader(res.get(), "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state)
+    var resMan = res.get()
+    let shader = load_shader(resMan, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state)
 
+	let quad = load_mesh(resMan, "media/models/Quad.obj");
 
+    let boardMat = create_material(resMan, shader)
+    let appleMat = create_material(resMan, shader)
+    let snakeHeadMat = create_material(resMan, shader)
+    let snakeBodyMat = create_material(resMan, shader)
+    
+    {
+        let materialData = MaterialData(albedo = float4(1, 1, 1, 1))
+        pulse_material_bind_buffer(resMan, boardMat, 1, 0, materialData)
+    }
+    
+    {
+        let materialData = MaterialData(albedo = float4(1, 0, 0, 0))
+        pulse_material_bind_buffer(resMan, appleMat, 1, 0, materialData)
+    }
+    
+    {
+        let materialData = MaterialData(albedo = float4(1, 1, 0, 1))
+        pulse_material_bind_buffer(resMan, snakeHeadMat, 1, 0, materialData)
+    }
+    
+    {
+        let materialData = MaterialData(albedo = float4(0, 1, 0, 1))
+        pulse_material_bind_buffer(resMan, snakeBodyMat, 1, 0, materialData)
+    }
 
+    cmd |> set_singleton(SnakeResources(quad = quad, boardMat = boardMat, appleMat = appleMat, snakeHeadMat = snakeHeadMat, snakeBodyMat = snakeBodyMat))
+}
+
+[system(phase="init")]
+def initSnakeGameSystem(var cmd: CommandBuffer, resources: $SingletonQuery<SnakeResources>) {
+    print("resource loaded!\n")
 
 }
 
@@ -185,6 +234,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@system6)
 
     ctx |> register_system(@@loadSnakeResources)
+    ctx |> register_system(@@initSnakeGameSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)

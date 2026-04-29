@@ -383,19 +383,41 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::
 	}
 };
 
-HGEGraphics::Shader* get_shader(pulse::ResourceManager* resourceManager, int index, das::Context* context, das::LineInfoArg* at)
-{
-	if (index < 0 || index >= resourceManager->shaders.size())
-		context->throw_error_at(at, "register_system requires a valid callback function");
-
-	return resourceManager->shaders[index];
-}
-
-size_t create_shader(pulse::ResourceManager* resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+size_t load_shader(pulse::ResourceManager* resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 {
 	auto shader = oval_create_shader(resourceManager->device, vertPath, fragPath, blend_desc, depth_desc, rasterizer_state);
+	auto index = resourceManager->shaders.size();
 	resourceManager->shaders.push_back(shader);
-	return resourceManager->shaders.size() - 1;
+	return index;
+}
+
+size_t load_mesh(pulse::ResourceManager* resourceManager, const char* path)
+{
+	auto mesh = oval_load_mesh(resourceManager->device, path);
+	int index = resourceManager->meshes.size();
+	resourceManager->meshes.push_back(mesh);
+	return index;
+}
+
+size_t create_material(pulse::ResourceManager* resourceManager, size_t shaderIndex, das::Context* context, das::LineInfoArg* at)
+{
+	if (shaderIndex >= resourceManager->shaders.size())
+		context->throw_error_at(at, "shader index(%lld) out of range", shaderIndex);
+
+	auto shader = resourceManager->shaders[shaderIndex];
+	auto material = oval_create_material(resourceManager->device, shader);
+	int index = resourceManager->materials.size();
+	resourceManager->materials.push_back(material);
+	return index;
+}
+
+void material_bind_buffer(pulse::ResourceManager* resourceManager, size_t materialIndex, int set, int bind, int size, void* ptr, das::Context* context, das::LineInfoArg* at)
+{
+	if (materialIndex >= resourceManager->materials.size())
+		context->throw_error_at(at, "material index(%lld) out of range", materialIndex);
+
+	auto material = resourceManager->materials[materialIndex];
+	material->bindBuffer(set, bind, size, ptr);
 }
 
 MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
@@ -420,8 +442,10 @@ public:
 		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
 
 		addExtern<DAS_BIND_FUN(make_vec3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", das::SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
-		addExtern<DAS_BIND_FUN(get_shader)>(*this, lib, "get_shader", das::SideEffects::worstDefault, "get_shader")->args({ "resourceManager", "index", "context", "at" });
-		addExtern<DAS_BIND_FUN(create_shader)>(*this, lib, "create_shader", das::SideEffects::worstDefault, "create_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
+		addExtern<DAS_BIND_FUN(load_shader)>(*this, lib, "load_shader", das::SideEffects::worstDefault, "load_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
+		addExtern<DAS_BIND_FUN(load_mesh)>(*this, lib, "load_mesh", das::SideEffects::worstDefault, "load_mesh")->args({ "resourceManager", "path" });
+		addExtern<DAS_BIND_FUN(create_material)>(*this, lib, "create_material", das::SideEffects::worstDefault, "create_material")->args({ "resourceManager", "shaderIndex", "context", "at" });
+		addExtern<DAS_BIND_FUN(material_bind_buffer)>(*this, lib, "material_bind_buffer", das::SideEffects::worstDefault, "material_bind_buffer")->args({ "resourceManager", "materialIndex", "set", "bind", "size", "ptr", "context", "at" });
 
 		return true;
 	}
