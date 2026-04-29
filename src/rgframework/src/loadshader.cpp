@@ -1,9 +1,9 @@
 #include "cgpu_device.h"
 
-HGEGraphics::Shader* oval_create_shader(oval_device_t* device, const std::string& vertPath, const std::string& fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+HGEGraphics::Shader* oval_create_shader(oval_device_t* device, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 {
-	auto vertShaderCode = readfile((const char*)vertPath.c_str());
-	auto fragShaderCode = readfile((const char*)fragPath.c_str());
+	auto vertShaderCode = readfile(vertPath);
+	auto fragShaderCode = readfile(fragPath);
 	return oval_create_shader(device, reinterpret_cast<const uint8_t*>(vertShaderCode.data()), (uint32_t)vertShaderCode.size(), reinterpret_cast<const uint8_t*>(fragShaderCode.data()), (uint32_t)fragShaderCode.size(),
 		blend_desc, depth_desc, rasterizer_state);
 }
