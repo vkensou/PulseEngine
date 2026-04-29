@@ -240,25 +240,25 @@ struct ViewRenderPacket
 	std::pmr::vector<ObjectData> renderData;
 };
 
-void updateMatrixPositionOnly(const Position& position, LocalTransform& matrix)
+void updateMatrixPositionOnly(const pulse::Position& position, pulse::LocalTransform& matrix)
 {
 	matrix.model = HMM_Translate(position.value);
 }
 
-void updateMatrixRotationOnly(const Rotation& rotation, LocalTransform& matrix)
+void updateMatrixRotationOnly(const pulse::Rotation& rotation, pulse::LocalTransform& matrix)
 {
 	matrix.model = HMM_QToM4(rotation.value);
 }
 
-void updateMatrixPositionAndRotation(const Position& position, const Rotation& rotation, LocalTransform& matrix)
+void updateMatrixPositionAndRotation(const pulse::Position& position, const pulse::Rotation& rotation, pulse::LocalTransform& matrix)
 {
 	matrix.model = HMM_TRS(position.value, rotation.value, HMM_V3_One);
 }
 
 void updateTreeTransform(flecs::world world, flecs::entity entity, const Tree& entityTree, HMM_Mat4 parentTransform)
 {
-	auto local = entity.try_get<LocalTransform>();
-	auto worldTr = entity.try_get_mut<WorldTransform>();
+	auto local = entity.try_get<pulse::LocalTransform>();
+	auto worldTr = entity.try_get_mut<pulse::WorldTransform>();
 	HMM_Mat4 selfWorldTransform;
 	if (worldTr && local)
 	{
@@ -289,7 +289,7 @@ void updateHierarchyTransform(flecs::iter& it, size_t i, const Tree& entityTree)
 	updateTreeTransform(it.world(), it.entity(i), entityTree, HMM_M4_Identity);
 }
 
-void updateNonHierarchyTrasform(const LocalTransform& local, WorldTransform& world)
+void updateNonHierarchyTrasform(const pulse::LocalTransform& local, pulse::WorldTransform& world)
 {
 	world.value = local.model;
 }
@@ -297,7 +297,7 @@ void updateNonHierarchyTrasform(const LocalTransform& local, WorldTransform& wor
 void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
 {
 	auto world = it.world();
-	auto& renderContextQuery = world.get<RenderContext>();
+	auto& renderContextQuery = world.get<pulse::RenderContext>();
 	const oval_render_context& context = renderContextQuery.value;
 	auto pos1 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
 	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.render_interpolation_time)) + simpleHarmonic.base;
@@ -307,24 +307,24 @@ void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& si
 void updateRotateInterpolation(flecs::iter& it, size_t i, const Rotate& rotate, RotateInterpolation& rotateInterp)
 {
 	auto world = it.world();
-	auto& renderContextQuery = world.get<RenderContext>();
+	auto& renderContextQuery = world.get<pulse::RenderContext>();
 	const oval_render_context& context = renderContextQuery.value;
 	auto rot1 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
 	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.render_interpolation_time) * rotate.speed);
 	rotateInterp.value = HMM_MulQ(HMM_InvQ(rot2), rot1);
 }
 
-void updateShowMatrixStatic(const WorldTransform& matrix, ShowMatrix& showMatrix)
+void updateShowMatrixStatic(const pulse::WorldTransform& matrix, pulse::ShowMatrix& showMatrix)
 {
 	showMatrix.model = matrix.value;
 }
 
-void updateShowMatrixMoveOnly(const WorldTransform& matrix, const MoveInterpolation& moveInterp, ShowMatrix& showMatrix)
+void updateShowMatrixMoveOnly(const pulse::WorldTransform& matrix, const MoveInterpolation& moveInterp, pulse::ShowMatrix& showMatrix)
 {
 	showMatrix.model = HMM_MulM4(matrix.value, HMM_Translate(moveInterp.value));
 }
 
-void updateShowMatrixRotateOnly(const WorldTransform& matrix, const RotateInterpolation& rotateInterp, ShowMatrix& showMatrix)
+void updateShowMatrixRotateOnly(const pulse::WorldTransform& matrix, const RotateInterpolation& rotateInterp, pulse::ShowMatrix& showMatrix)
 {
 	auto oriPosition = HMM_M4GetTranslate(matrix.value);
 	auto oriRotation = HMM_M4ToQ_LH(matrix.value);
@@ -332,7 +332,7 @@ void updateShowMatrixRotateOnly(const WorldTransform& matrix, const RotateInterp
 	showMatrix.model = HMM_TRS(oriPosition, newRotation, HMM_V3_One);
 }
 
-void updateShowMatrixMoveAndRotate(const WorldTransform& matrix, const MoveInterpolation& moveInterp, const RotateInterpolation& rotateInterp, ShowMatrix& showMatrix)
+void updateShowMatrixMoveAndRotate(const pulse::WorldTransform& matrix, const MoveInterpolation& moveInterp, const RotateInterpolation& rotateInterp, pulse::ShowMatrix& showMatrix)
 {
 	auto oriPosition = HMM_M4GetTranslate(matrix.value);
 	auto oriRotation = HMM_M4ToQ_LH(matrix.value);
@@ -366,13 +366,56 @@ struct HMM_Vec3Annotation final : das::ManagedStructureAnnotation<HMM_Vec3>
 		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
 		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
 		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
-		}
+	}
+
+	virtual bool isLocal() const override { return true; }
 };
 
-HMM_Vec3 make_vec3(float x, float y, float z)
+MAKE_TYPE_FACTORY(HMM_Vec4, HMM_Vec4);
+struct HMM_Vec4Annotation final : das::ManagedStructureAnnotation<HMM_Vec4>
 {
-	return HMM_V3(x, y, z);
+	HMM_Vec4Annotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Vec4", ml, "HMM_Vec4")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
+		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
+		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
+		addField<DAS_BIND_MANAGED_FIELD(W)>("W");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(HMM_Mat4, HMM_Mat4);
+struct HMM_Mat4Annotation final : das::ManagedStructureAnnotation<HMM_Mat4>
+{
+	HMM_Mat4Annotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Mat4", ml, "HMM_Mat4")
+	{
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+static inline void TRS(const HMM_Vec3& Translate, const HMM_Quat& Rotation, const HMM_Vec3& Scale, HMM_Mat4& OutMatrix)
+{
+	OutMatrix = HMM_TRS(Translate, Rotation, Scale);
 }
+
+MAKE_TYPE_FACTORY(HMM_Quat, HMM_Quat);
+struct HMM_QuatAnnotation final : das::ManagedStructureAnnotation<HMM_Quat>
+{
+	HMM_QuatAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Quat", ml, "HMM_Quat")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
+		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
+		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
+		addField<DAS_BIND_MANAGED_FIELD(W)>("W");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
 
 MAKE_TYPE_FACTORY(ResourceManager, pulse::ResourceManager);
 struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::ResourceManager>
@@ -382,6 +425,53 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::
 	{
 	}
 };
+
+MAKE_TYPE_FACTORY(WorldTransform, pulse::WorldTransform);
+struct WorldTransformAnnotation final : das::ManagedStructureAnnotation<pulse::WorldTransform>
+{
+	WorldTransformAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("WorldTransform", ml, "pulse::WorldTransform")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(Rendable, pulse::Rendable);
+struct RendableAnnotation final : das::ManagedStructureAnnotation<pulse::Rendable>
+{
+	RendableAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("Rendable", ml, "pulse::Rendable")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(material)>("material");
+		addField<DAS_BIND_MANAGED_FIELD(mesh)>("mesh");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(ShowMatrix, pulse::ShowMatrix);
+struct ShowMatrixAnnotation final : das::ManagedStructureAnnotation<pulse::ShowMatrix>
+{
+	ShowMatrixAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ShowMatrix", ml, "pulse::ShowMatrix")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(model)>("model");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+namespace das
+{
+	template <>
+	struct cast<HMM_Quat> {
+		static __forceinline HMM_Quat to(vec4f x) { return HMM_Q(v_extract_x(x), v_extract_y(x), v_extract_z(x), v_extract_w(x)); }
+		static __forceinline vec4f from(HMM_Quat x) { return v_make_vec4f(x.X, x.Y, x.Z, x.W); }
+	};
+	template <> struct WrapType<HMM_Quat> { enum { value = true }; typedef HMM_Quat type; typedef HMM_Quat rettype; };
+}
 
 size_t load_shader(pulse::ResourceManager* resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 {
@@ -438,10 +528,18 @@ public:
 		lib.addModule(Module::require("cgpu"));
 
 		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
+		addAnnotation(make_smart<HMM_Vec4Annotation>(lib));
+		addAnnotation(make_smart<HMM_Mat4Annotation>(lib));
+		addAnnotation(make_smart<HMM_QuatAnnotation>(lib));
 		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
 		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
+		addAnnotation(make_smart<WorldTransformAnnotation>(lib));
+		addAnnotation(make_smart<RendableAnnotation>(lib));
+		addAnnotation(make_smart<ShowMatrixAnnotation>(lib));
 
-		addExtern<DAS_BIND_FUN(make_vec3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "make_vec3", das::SideEffects::none, "make_vec3")->args({ "x", "y", "z" });
+		addExtern<DAS_BIND_FUN(HMM_V3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V3", das::SideEffects::none, "HMM_V3")->args({ "x", "y", "z" });
+		addExtern<DAS_BIND_FUN(HMM_V4), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V4", das::SideEffects::none, "HMM_V4")->args({ "x", "y", "z", "w" });
+		addExtern<DAS_BIND_FUN(TRS)>(*this, lib, "HMM_TRS", das::SideEffects::modifyArgument, "HMM_TRS")->args({ "translation", "rotation", "scale", "out" });
 		addExtern<DAS_BIND_FUN(load_shader)>(*this, lib, "load_shader", das::SideEffects::worstDefault, "load_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
 		addExtern<DAS_BIND_FUN(load_mesh)>(*this, lib, "load_mesh", das::SideEffects::worstDefault, "load_mesh")->args({ "resourceManager", "path" });
 		addExtern<DAS_BIND_FUN(create_material)>(*this, lib, "create_material", das::SideEffects::worstDefault, "create_material")->args({ "resourceManager", "shaderIndex", "context", "at" });
@@ -597,10 +695,10 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	auto cameraParentMat = HMM_M4_Identity;
 	auto cameraLocalMat = HMM_Translate(HMM_V3(0 + 0.5, 0 + 0.5, -38));
 	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
-	cam.add<WorldTransform>()
-		.add<Camera>();
-	cam.set<WorldTransform>({ .value = cameraWMat })
-		.set<Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
+	cam.add<pulse::WorldTransform>()
+		.add<pulse::Camera>();
+	cam.set<pulse::WorldTransform>({ .value = cameraWMat })
+		.set<pulse::Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
 
 	app.initPipelineId = flecs::_::type<pulse::InitPipeline>::id(world);
 	app.initPipeline = world.pipeline()
@@ -622,12 +720,12 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	KeyboardState keyboardState = {};
+	pulse::KeyboardState keyboardState = {};
 	keyboardState.lastKeys.resize(numKeys);
 	keyboardState.currentKeys.resize(numKeys);
 	std::fill(keyboardState.lastKeys.begin(), keyboardState.lastKeys.end(), 0);
 	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
-	pulse::registerResource<KeyboardState>(world, std::move(keyboardState));
+	pulse::registerResource<pulse::KeyboardState>(world, std::move(keyboardState));
 
 	pulse::ResourceManager resourceManager = {};
 	resourceManager.device = app.device.get();
@@ -635,22 +733,20 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 	resourceManager.materials.clear();
 	pulse::registerResource<pulse::ResourceManager>(world, std::move(resourceManager));
 
-	pulse::registerResource<UpdateContext>(world);
-	pulse::registerResource<RenderContext>(world);
+	pulse::registerResource<pulse::UpdateContext>(world);
+	pulse::registerResource<pulse::RenderContext>(world);
 
-	ECS_COMPONENT(world, Position);
-
-	world.system<const Position, LocalTransform>("UpdateMatrixPositionOnly")
-		.without<Rotation>()
+	world.system<const pulse::Position, pulse::LocalTransform>("UpdateMatrixPositionOnly")
+		.without<pulse::Rotation>()
 		.kind<pulse::PostUpdatePipeline>()
 		.each(updateMatrixPositionOnly);
 
-	world.system<const Rotation, LocalTransform>("UpdateMatrixRotationOnly")
-		.without<Position>()
+	world.system<const pulse::Rotation, pulse::LocalTransform>("UpdateMatrixRotationOnly")
+		.without<pulse::Position>()
 		.kind<pulse::PostUpdatePipeline>()
 		.each(updateMatrixRotationOnly);
 
-	world.system<const Position, const Rotation, LocalTransform>("UpdateMatrixPositionAndRotation")
+	world.system<const pulse::Position, const pulse::Rotation, pulse::LocalTransform>("UpdateMatrixPositionAndRotation")
 		.kind<pulse::PostUpdatePipeline>()
 		.each(updateMatrixPositionAndRotation);
 
@@ -658,7 +754,7 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.kind<pulse::PostUpdatePipeline>()
 		.each(updateHierarchyTransform);
 
-	world.system<const LocalTransform, WorldTransform>("UpdateNonHierarchyTrasform")
+	world.system<const pulse::LocalTransform, pulse::WorldTransform>("UpdateNonHierarchyTrasform")
 		.without<Tree>()
 		.kind<pulse::PostUpdatePipeline>()
 		.each(updateNonHierarchyTrasform);
@@ -677,22 +773,22 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		.kind<pulse::RenderPipeline>()
 		.each(updateRotateInterpolation);
 
-	world.system<const WorldTransform, ShowMatrix>("ShowMatrixStatic")
+	world.system<const pulse::WorldTransform, pulse::ShowMatrix>("ShowMatrixStatic")
 		.without<MoveInterpolation, RotateInterpolation>()
 		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixStatic);
 
-	world.system<const WorldTransform, const MoveInterpolation, ShowMatrix>("ShowMatrixMoveOnly")
+	world.system<const pulse::WorldTransform, const MoveInterpolation, pulse::ShowMatrix>("ShowMatrixMoveOnly")
 		.without<RotateInterpolation>()
 		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixMoveOnly);
 
-	world.system<const WorldTransform, const RotateInterpolation, ShowMatrix>("ShowMatrixRotateOnly")
+	world.system<const pulse::WorldTransform, const RotateInterpolation, pulse::ShowMatrix>("ShowMatrixRotateOnly")
 		.without<MoveInterpolation>()
 		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixRotateOnly);
 
-	world.system<const WorldTransform, const MoveInterpolation, const RotateInterpolation, ShowMatrix>("ShowMatrixMoveAndRotate")
+	world.system<const pulse::WorldTransform, const MoveInterpolation, const RotateInterpolation, pulse::ShowMatrix>("ShowMatrixMoveAndRotate")
 		.kind<pulse::RenderPipeline>()
 		.each(updateShowMatrixMoveAndRotate);
 
@@ -712,7 +808,11 @@ void _init_world(Application& app, flecs::world& world, ecs_entity_t window_enti
 		//.eventManager = &app.eventCenter,
 	};
 
-	world.set<Position>({ .value = HMM_V3(13, 24, 35) });
+	world.set<pulse::Position>({ .value = HMM_V3(13, 24, 35) });
+
+	auto ent = world.entity();
+	ent.set<pulse::Position>({ .value = HMM_V3(1, 2, 3) });
+	auto pos = ent.get<pulse::Position>();
 
 	//importModule(&moduleContext);
 	app.importDasModule(moduleContext);
@@ -724,21 +824,21 @@ static void simulate(Application& app, flecs::world world, const oval_update_con
 {
 	int numKeys;
 	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
-	auto& keyboardState = world.get_mut<KeyboardState>();
+	auto& keyboardState = world.get_mut<pulse::KeyboardState>();
 	assert(numKeys == keyboardState.lastKeys.size());
 	assert(numKeys == keyboardState.currentKeys.size());
 	memcpy(keyboardState.lastKeys.data(), keyboardState.currentKeys.data(), numKeys);
 	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
 
-	world.set<UpdateContext>(UpdateContext{ .value = update_context });
+	world.set<pulse::UpdateContext>(pulse::UpdateContext{ .value = update_context });
 	world.run_pipeline(app.updatePipeline, update_context.delta_time);
 	world.run_pipeline(app.postUpdatePipeline, update_context.delta_time);
 }
 
-std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
+std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const pulse::Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
 {
 	std::pmr::vector<ecs_entity_t> visibles(memory_resource);
-	world.each([&](flecs::entity e, const ShowMatrix& matrix, const Rendable& rendable) {
+	world.each([&](flecs::entity e, const pulse::ShowMatrix& matrix, const pulse::Rendable& rendable) {
 		(void)matrix; (void)rendable;
 		bool visible = true;
 		if (visible)
@@ -754,8 +854,8 @@ std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, st
 	for (auto entity_id : visibles)
 	{
 		auto entity = flecs::entity(world, entity_id);
-		auto matrix = entity.try_get<ShowMatrix>();
-		auto rendable = entity.try_get<Rendable>();
+		auto matrix = entity.try_get<pulse::ShowMatrix>();
+		auto rendable = entity.try_get<pulse::Rendable>();
 		if (!matrix || !rendable) continue;
 		RenderObject robj = {
 			.material = rendable->material,
@@ -769,7 +869,7 @@ std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, st
 
 void interpolate(Application& app, flecs::world& world, const oval_render_context& render_context)
 {
-	world.set<RenderContext>(RenderContext{ .value = render_context });
+	world.set<pulse::RenderContext>(pulse::RenderContext{ .value = render_context });
 	world.run_pipeline(app.renderPipeline, render_context.delta_time);
 }
 
@@ -777,7 +877,7 @@ void enumViews(Application& app, flecs::world& world, FrameRenderPacket& current
 {
 	auto lightDir = HMM_Norm(HMM_V3(0, -1, 0));
 	bool firstLight = true;
-	world.each([&](flecs::entity e, Light& light, const WorldTransform& transform) {
+	world.each([&](flecs::entity e, pulse::Light& light, const pulse::WorldTransform& transform) {
 		(void)e; (void)light;
 		if (firstLight) {
 			lightDir = HMM_M4GetForward(transform.value);
@@ -786,7 +886,7 @@ void enumViews(Application& app, flecs::world& world, FrameRenderPacket& current
 	});
 
 	currentFramePack.clear();
-	world.each([&](flecs::entity e, Camera& camera, const WorldTransform& transform) {
+	world.each([&](flecs::entity e, pulse::Camera& camera, const pulse::WorldTransform& transform) {
 		(void)e;
 		auto cameraMat = transform.value;
 
@@ -936,7 +1036,7 @@ void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context r
 
 	Application& app = *(Application*)device->descriptor.userdata;
 	flecs::world world = flecs::world(oval_get_world(device));
-	world.set<RenderContext>(RenderContext{ .value = render_context });
+	world.set<pulse::RenderContext>(pulse::RenderContext{ .value = render_context });
 	world.run_pipeline(app.imguiPipeline);
 }
 

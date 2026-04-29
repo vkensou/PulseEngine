@@ -213,7 +213,7 @@ namespace dasPulseECS
 			.run = das_system_wrapper,
 			.run_ctx = callBackContext,
 			.run_ctx_free = das_system_context_free,
-			.immediate = desc.immediate,
+			.immediate = true,
 		};
 
 		memcpy(sdesc.query.terms, desc.terms, sizeof(SystemDesc::terms));

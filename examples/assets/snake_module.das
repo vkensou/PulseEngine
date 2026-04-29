@@ -63,7 +63,7 @@ def system2(var cmd: CommandBuffer; position : Position) {
 def system3(var res: $Res<Position>; position : Position) {
     print("system3\n")
     let value = res.get()
-    print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
+    // print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
 }
 
 [system(phase="init")]
@@ -105,9 +105,44 @@ struct SnakeResources
 	boardMat: uint64;
 };
 
+struct Border
+{
+	up, bottom, left, right: int;
+};
+
 def pulse_material_bind_buffer(var resourceManager: ResourceManager?, material: uint64, set: int, bind: int, buffer: auto(T))
 {
     material_bind_buffer(resourceManager, material, set, bind, typeinfo sizeof(type<T>), unsafe(addr(buffer)))
+}
+
+def createBoard(var cmd: CommandBuffer, matrix: HMM_Mat4, mat: uint64, mesh: uint64) {
+	let ent = cmd.entity();
+    cmd |> set_entity_component(ent, WorldTransform(value = matrix))
+    cmd |> set_entity_component(ent, Rendable(material = int(mat), mesh = int(mesh)))
+    cmd |> set_entity_component(ent, ShowMatrix(model = matrix))
+}
+
+let HMM_Q_Identity = HMM_Quat(X = 0.0, Y = 0.0, Z = 0.0, W = 1.0)
+
+def TRS(Translate: HMM_Vec3, Rotation: HMM_Quat, Scale: HMM_Vec3) {
+    var mat: HMM_Mat4
+    HMM_TRS(Translate, Rotation, Scale, mat)
+    return mat
+}
+
+def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: int, bottom: int, left: int, right: int) {
+	let centerX = float(left + right) / 2.0;
+	let centerY = float(up + bottom) / 2.0;
+	let width = float(right - left) + 1.0;
+	let height = float(up - bottom) + 1.0;
+	createBoard(cmd, TRS(HMM_V3(float(right), centerY, 0.0), HMM_Q_Identity, HMM_V3(1.0, height, 1.0)), borderMat, quad);
+	createBoard(cmd, TRS(HMM_V3(float(left), centerY, 0.0), HMM_Q_Identity, HMM_V3(1.0, height, 1.0)), borderMat, quad);
+	createBoard(cmd, TRS(HMM_V3(centerX, float(up), 0.0), HMM_Q_Identity, HMM_V3(width, 1.0, 1.0)), borderMat, quad);
+	createBoard(cmd, TRS(HMM_V3(centerX, float(bottom), 0.0), HMM_Q_Identity, HMM_V3(width, 1.0, 1.0)), borderMat, quad);
+
+	let border = Border(up = up, bottom = bottom, left = left,  right = right);
+	cmd |> set_singleton(border);
+	return border;
 }
 
 [system(phase="init")]
@@ -175,9 +210,15 @@ def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
 }
 
 [system(phase="init")]
-def initSnakeGameSystem(var cmd: CommandBuffer, resources: $SingletonQuery<SnakeResources>) {
+def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: $SingletonQuery<SnakeResources>) {
     print("resource loaded!\n")
+    let resources = resources_query.get()
+    let up: int = 16
+	let bottom: int = -15
+	let left: int = -20
+	let right: int = 21
 
+	let border = createBorder(cmd, resources.quad, resources.boardMat, up, bottom, left, right);
 }
 
 [export]
@@ -193,9 +234,6 @@ def importModule(var ctx:ModuleContext) {
     print("{ecs_component(ctx.world, type<Position>)}\n")
     print("{ecs_component(ctx.world, type<Velocity>)}\n")
     print("{ecs_component(ctx.world, type<Comp2>)}\n")
-
-    ecs_entity_set(ctx.world, ent, Position(value=make_vec3(10.0, 20.0, 30.0)))
-    ecs_entity_set(ctx.world, ent, Velocity(X=1.0, Y=2.0, Z=3.0))
 
     register_system_from_query_expr(ctx.world, "move", ctx.initPipeline, "Position, Velocity", @@system1)
 
@@ -241,6 +279,6 @@ def importModule(var ctx:ModuleContext) {
         var ent2 = cmd.entity()
         dump_entity(ent2)
         cmd.destruct(ent2)
-        cmd |> set_singleton(Position(value=make_vec3(1.0, 4.0, 1.0)))
+        cmd |> set_singleton(Position(value=HMM_V3(1.0, 4.0, 1.0)))
     }
 }

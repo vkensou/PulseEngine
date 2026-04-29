@@ -44,6 +44,10 @@ def set_singleton(self: CommandBuffer; component: auto(T)) {
     ecs_entity_set(self.world, get_single_holder(self.world), component)
 }
 
+def set_entity_component(self: CommandBuffer; entity: Entity; component: auto(T)) {
+    ecs_entity_set(self.world, entity, component)
+}
+
 def ecs_observe(var world: World, callback: function<(var iter: Iter?):void>, eventType: type<auto(EventType)>) {
     observe(world, callback, ecs_component(world, eventType), "pulse.EventTag")
 }
