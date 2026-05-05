@@ -4,9 +4,25 @@ require flecs_boost
 require pulse
 require cgpu
 
-[cpp_layout]
-struct Position {
-    value : HMM_Vec3
+enum Direction4W {
+	Right
+	Up
+	Left
+	Down
+}
+
+struct Facing4W {
+	value: Direction4W
+}
+
+struct SnakeMove {
+	interval: float
+	lastTime: float
+}
+
+struct SnakeInput
+{
+	rightKey, upKey, leftKey, downKey: int
 }
 
 struct Velocity {
@@ -17,6 +33,23 @@ struct Velocity {
 
 struct Comp2 {
     X: float
+}
+
+struct SnakeBody {
+	position: HMM_Vec3
+	entity: Entity
+}
+
+struct SnakeBodies {
+	bodies: array<SnakeBody>
+}
+
+struct SnakeGame {
+	playing: bool
+}
+
+struct Score {
+	value: int
 }
 
 def system1(var iter: Iter?) {
@@ -123,11 +156,57 @@ def createBoard(var cmd: CommandBuffer, matrix: HMM_Mat4, mat: uint64, mesh: uin
 }
 
 let HMM_Q_Identity = HMM_Quat(X = 0.0, Y = 0.0, Z = 0.0, W = 1.0)
+let HMM_M4_Identity = HMM_Mat4(Columns = fixed_array<HMM_Vec4>(HMM_V4(1.0, 0.0, 0.0, 0.0), HMM_V4(0.0, 1.0, 0.0, 0.0), HMM_V4(0.0, 0.0, 1.0, 0.0), HMM_V4(0.0, 0.0, 0.0, 1.0)))
 
 def TRS(Translate: HMM_Vec3, Rotation: HMM_Quat, Scale: HMM_Vec3) {
     var mat: HMM_Mat4
     HMM_TRS(Translate, Rotation, Scale, mat)
     return mat
+}
+
+def createRenderable(var cmd: CommandBuffer, position: HMM_Vec3, mat: uint64, mesh: uint64) {
+	let ent = cmd.entity();
+    cmd |> set_entity_component(ent, LocalTransform(model = HMM_M4_Identity))
+    cmd |> set_entity_component(ent, WorldTransform(value = HMM_M4_Identity))
+    cmd |> set_entity_component(ent, Position(value = position))
+    cmd |> set_entity_component(ent, Rendable(material = int(mat), mesh = int(mesh)))
+    cmd |> set_entity_component(ent, ShowMatrix(model = HMM_M4_Identity))
+	return ent;
+}
+
+def createSnake(var cmd: CommandBuffer, quad: uint64, headMat: uint64, bodyMat: uint64, initPos: HMM_Vec3) {
+	let snakeInitLength = 3;
+
+	let head = createRenderable(cmd, initPos, headMat, quad);
+
+	var bodies: array<SnakeBody>;
+	bodies |> push(SnakeBody(position = initPos, entity = head));
+	for (i in 0..snakeInitLength)
+	{
+		let bodyPos = HMM_V3(initPos.X - 1.0 - float(i), initPos.Y, initPos.Z);
+		let newBody = createRenderable(cmd, bodyPos, bodyMat, quad);
+		bodies |> push(SnakeBody(position = bodyPos, entity = newBody), 0);
+	}
+
+	let snake = cmd.entity();
+    cmd |> set_entity_component(snake, SnakeBodies(bodies <- bodies))
+    cmd |> set_entity_component(snake, Facing4W(value = Direction4W.Right))
+    cmd |> set_entity_component(snake, SnakeInput(rightKey = 0, upKey = 0, leftKey = 0, downKey = 0))
+    cmd |> set_entity_component(snake, SnakeMove(interval = 1.0, lastTime = 0.0))
+
+	// snake
+	// 	.set<SnakeBodies>({ .bodies = std::move(bodies) })
+	// 	.set<Facing4W>({ .value = Direction4W::Right } )
+	// 	.set<SnakeInput>({ .rightKey = SDL_SCANCODE_RIGHT, .upKey = SDL_SCANCODE_UP, .leftKey = SDL_SCANCODE_LEFT, .downKey = SDL_SCANCODE_DOWN })
+	// 	.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
+	return snake;
+}
+
+def createEntities(var cmd: CommandBuffer, border: Border, resources: SnakeResources) {
+    cmd |> set_singleton(SnakeGame(playing = true))
+	cmd |> set_singleton(Score(value = 0))
+	let snake = createSnake(cmd, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0.0, 0.0, 0.0));
+	// auto apple = createApple(command_buffer, snake.get<SnakeBodies>(), border, resources.quad, resources.appleMat);
 }
 
 def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: int, bottom: int, left: int, right: int) {
@@ -219,6 +298,7 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: $SingletonQuery
 	let right: int = 21
 
 	let border = createBorder(cmd, resources.quad, resources.boardMat, up, bottom, left, right);
+    createEntities(cmd, border, resources)
 }
 
 [export]
@@ -235,9 +315,9 @@ def importModule(var ctx:ModuleContext) {
     print("{ecs_component(ctx.world, type<Velocity>)}\n")
     print("{ecs_component(ctx.world, type<Comp2>)}\n")
 
-    register_system_from_query_expr(ctx.world, "move", ctx.initPipeline, "Position, Velocity", @@system1)
+    register_system_from_query_expr(ctx.world, "move", ctx.initPipeline, "pulse.Position, Velocity", @@system1)
 
-    var query = build_query(ctx.world, "Position, Velocity")
+    var query = build_query(ctx.world, "pulse.Position, Velocity")
     var query_iter = query_iter(query)
     var iter = unsafe(addr(query_iter))
     while (iter_next(iter)) {

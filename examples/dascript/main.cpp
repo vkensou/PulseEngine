@@ -392,6 +392,7 @@ struct HMM_Mat4Annotation final : das::ManagedStructureAnnotation<HMM_Mat4>
 	HMM_Mat4Annotation(das::ModuleLibrary& ml)
 		: ManagedStructureAnnotation("HMM_Mat4", ml, "HMM_Mat4")
 	{
+		addField<DAS_BIND_MANAGED_FIELD(Columns)>("Columns");
 	}
 
 	virtual bool isLocal() const override { return true; }
@@ -424,6 +425,30 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::
 		: ManagedStructureAnnotation("ResourceManager", ml, "pulse::ResourceManager")
 	{
 	}
+};
+
+MAKE_TYPE_FACTORY(Position, pulse::Position);
+struct PositionAnnotation final : das::ManagedStructureAnnotation<pulse::Position>
+{
+	PositionAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("Position", ml, "pulse::Position")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(LocalTransform, pulse::LocalTransform);
+struct LocalTransformAnnotation final : das::ManagedStructureAnnotation<pulse::LocalTransform>
+{
+	LocalTransformAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("LocalTransform", ml, "pulse::LocalTransform")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(model)>("model");
+	}
+
+	virtual bool isLocal() const override { return true; }
 };
 
 MAKE_TYPE_FACTORY(WorldTransform, pulse::WorldTransform);
@@ -533,6 +558,8 @@ public:
 		addAnnotation(make_smart<HMM_QuatAnnotation>(lib));
 		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
 		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
+		addAnnotation(make_smart<PositionAnnotation>(lib));
+		addAnnotation(make_smart<LocalTransformAnnotation>(lib));
 		addAnnotation(make_smart<WorldTransformAnnotation>(lib));
 		addAnnotation(make_smart<RendableAnnotation>(lib));
 		addAnnotation(make_smart<ShowMatrixAnnotation>(lib));
