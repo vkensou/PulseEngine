@@ -427,6 +427,17 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::
 	}
 };
 
+MAKE_TYPE_FACTORY(KeyboardState, pulse::KeyboardState);
+struct KeyboardStateAnnotation final : das::ManagedStructureAnnotation<pulse::KeyboardState>
+{
+	KeyboardStateAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("KeyboardState", ml, "pulse::KeyboardState")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(lastKeys)>("lastKeys");
+		addField<DAS_BIND_MANAGED_FIELD(currentKeys)>("currentKeys");
+	}
+};
+
 MAKE_TYPE_FACTORY(Position, pulse::Position);
 struct PositionAnnotation final : das::ManagedStructureAnnotation<pulse::Position>
 {
@@ -557,6 +568,7 @@ public:
 		addAnnotation(make_smart<HMM_Mat4Annotation>(lib));
 		addAnnotation(make_smart<HMM_QuatAnnotation>(lib));
 		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
+		addAnnotation(make_smart<KeyboardStateAnnotation>(lib));
 		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
 		addAnnotation(make_smart<PositionAnnotation>(lib));
 		addAnnotation(make_smart<LocalTransformAnnotation>(lib));

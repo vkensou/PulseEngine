@@ -4,12 +4,44 @@ require flecs_boost
 require pulse
 require cgpu
 require daslib/random
+require daslib/match
 
 enum Direction4W {
 	Right
 	Up
 	Left
 	Down
+}
+
+def toDelta(direction: Direction4W)
+{
+	match (direction) {
+        if (Direction4W.Right) {
+            return HMM_V3(1.0, 0.0, 0.0);
+        }
+        if (Direction4W.Up) {
+            return HMM_V3(0.0, 1.0, 0.0);
+        }
+        if (Direction4W.Left) {
+            return HMM_V3(-1.0, 0.0, 0.0);
+        }
+        if (Direction4W.Down) {
+            return HMM_V3(0.0, -1.0, 0.0);
+        }
+        if (_) {
+            return HMM_V3(0.0, 0.0, 0.0);
+        }
+	}
+}
+
+def isParallel(left: Direction4W, right: Direction4W)
+{
+	return ((int(left) % 2) == (int(right) % 2));
+}
+
+def isOpposite(left: Direction4W, right: Direction4W)
+{
+	return (left != right) && isParallel(left, right);
 }
 
 struct Facing4W {
@@ -203,7 +235,7 @@ def createSnake(var cmd: CommandBuffer, quad: uint64, headMat: uint64, bodyMat: 
 	let snake = cmd.entity();
     cmd |> set_entity_component(snake, SnakeBodies(bodies <- bodies))
     cmd |> set_entity_component(snake, Facing4W(value = Direction4W.Right))
-    cmd |> set_entity_component(snake, SnakeInput(rightKey = 0, upKey = 0, leftKey = 0, downKey = 0))
+    cmd |> set_entity_component(snake, SnakeInput(rightKey = 79, upKey = 82, leftKey = 80, downKey = 81))
     cmd |> set_entity_component(snake, SnakeMove(interval = 1.0, lastTime = 0.0))
 	return (snake, <- poses);
 }
@@ -298,6 +330,40 @@ def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: in
 	return border;
 }
 
+variant NullableDirection4W {
+    empty : int
+    value : Direction4W
+}
+
+def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&)
+{
+	let lastRight = keyboardState.lastKeys[input.rightKey] != uint8(0)
+	let lastUp = keyboardState.lastKeys[input.upKey] != uint8(0)
+	let lastLeft = keyboardState.lastKeys[input.leftKey] != uint8(0)
+	let lastDown = keyboardState.lastKeys[input.downKey] != uint8(0)
+
+	let right = keyboardState.currentKeys[input.rightKey] != uint8(0)
+	let up = keyboardState.currentKeys[input.upKey] != uint8(0)
+	let left = keyboardState.currentKeys[input.leftKey] != uint8(0)
+	let down = keyboardState.currentKeys[input.downKey] != uint8(0)
+
+	if (!lastRight && right) {
+        return NullableDirection4W(value = Direction4W.Right)
+    }
+	elif (!lastUp && up) {
+        return NullableDirection4W(value = Direction4W.Up)
+    }
+	elif (!lastLeft && left) {
+        return NullableDirection4W(value = Direction4W.Left)
+    }
+	elif (!lastDown && down) {
+        return NullableDirection4W(value = Direction4W.Down)
+    }
+	else {
+        return NullableDirection4W(empty = 0)
+    }
+}
+
 [system(phase="init")]
 def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
     print("load resource!\n")
@@ -375,6 +441,20 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: $SingletonQuery
     createEntities(cmd, border, resources)
 }
 
+[system(phase="update")]
+def handleSnakeInputSystem(var resKeyboardState: $Res<KeyboardState>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
+    let keyInput = getInputDirection(input, deref(resKeyboardState.get()))
+    match (keyInput) {
+        if ($v(value) as value) {
+            print("keydown:{value}\n")
+            if (!isOpposite(direction.value, value)) {
+                direction.value = value
+                move.lastTime = move.interval;
+            }
+        }
+    }
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -427,6 +507,7 @@ def importModule(var ctx:ModuleContext) {
 
     ctx |> register_system(@@loadSnakeResources)
     ctx |> register_system(@@initSnakeGameSystem)
+    ctx |> register_system(@@handleSnakeInputSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
