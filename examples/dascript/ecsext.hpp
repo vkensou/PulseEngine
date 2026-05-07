@@ -44,7 +44,7 @@ namespace pulse
 	struct SingleHolder {};
 
 	PULSE_ECS_TAG
-		struct EventTag {};
+	struct EventTag {};
 
 	template<typename T>
 	struct singleton_query

@@ -3,6 +3,7 @@ options gen2
 require flecs_boost
 require pulse
 require cgpu
+require daslib/random
 
 enum Direction4W {
 	Right
@@ -23,6 +24,10 @@ struct SnakeMove {
 struct SnakeInput
 {
 	rightKey, upKey, leftKey, downKey: int
+}
+
+struct IsApple
+{
 }
 
 struct Velocity {
@@ -164,6 +169,10 @@ def TRS(Translate: HMM_Vec3, Rotation: HMM_Quat, Scale: HMM_Vec3) {
     return mat
 }
 
+def operator ==(a, b : HMM_Vec3) {
+    return a.X == b.X && a.Y == b.Y && a.Z == b.Z
+}
+
 def createRenderable(var cmd: CommandBuffer, position: HMM_Vec3, mat: uint64, mesh: uint64) {
 	let ent = cmd.entity();
     cmd |> set_entity_component(ent, LocalTransform(model = HMM_M4_Identity))
@@ -180,12 +189,15 @@ def createSnake(var cmd: CommandBuffer, quad: uint64, headMat: uint64, bodyMat: 
 	let head = createRenderable(cmd, initPos, headMat, quad);
 
 	var bodies: array<SnakeBody>;
+    var poses: array<HMM_Vec3>;
 	bodies |> push(SnakeBody(position = initPos, entity = head));
+    poses |> push(initPos)
 	for (i in 0..snakeInitLength)
 	{
 		let bodyPos = HMM_V3(initPos.X - 1.0 - float(i), initPos.Y, initPos.Z);
 		let newBody = createRenderable(cmd, bodyPos, bodyMat, quad);
 		bodies |> push(SnakeBody(position = bodyPos, entity = newBody), 0);
+        poses |> push(bodyPos)
 	}
 
 	let snake = cmd.entity();
@@ -193,20 +205,82 @@ def createSnake(var cmd: CommandBuffer, quad: uint64, headMat: uint64, bodyMat: 
     cmd |> set_entity_component(snake, Facing4W(value = Direction4W.Right))
     cmd |> set_entity_component(snake, SnakeInput(rightKey = 0, upKey = 0, leftKey = 0, downKey = 0))
     cmd |> set_entity_component(snake, SnakeMove(interval = 1.0, lastTime = 0.0))
+	return (snake, <- poses);
+}
 
-	// snake
-	// 	.set<SnakeBodies>({ .bodies = std::move(bodies) })
-	// 	.set<Facing4W>({ .value = Direction4W::Right } )
-	// 	.set<SnakeInput>({ .rightKey = SDL_SCANCODE_RIGHT, .upKey = SDL_SCANCODE_UP, .leftKey = SDL_SCANCODE_LEFT, .downKey = SDL_SCANCODE_DOWN })
-	// 	.set<SnakeMove>({ .interval = 1, .lastTime = 0 });
-	return snake;
+variant NullableVec3 {
+    empty : int
+    value : HMM_Vec3
+}
+
+def random_range(var seed : int4&, min: int, max: int) {
+    var value = random_int(seed)
+    value %= (max - min)
+    value += min
+    return value
+}
+
+def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
+	let left = border.left;
+	let right = border.right;
+	let bottom = border.bottom;
+	let up = border.up;
+
+	let maxCount = (right - left - 1) * (up - bottom - 1)
+
+	if (length(snakeBodyPoses) >= maxCount) {
+		return NullableVec3(empty = 0)
+	}
+
+    var s1 = random_seed(13141516)
+
+	var used: array<HMM_Vec3>
+    for (i in 0..length(snakeBodyPoses)) {
+		used |> push(snakeBodyPoses[i])
+	}
+
+	while (true) {
+		let x = random_range(s1, left + 1, right - 1)
+		let y = random_range(s1, bottom + 1, up - 1)
+		let newPos = HMM_V3(float(x), float(y), 0.0)
+
+		if (!(left < x && x < right && bottom < y && y < up)) {
+			continue
+        }
+
+		var bodyOverlaped = false;
+		for (i in 0..length(used)) {
+			if (used[i] == newPos) {
+				bodyOverlaped = true
+				continue
+			}
+		}
+
+		if (!bodyOverlaped) {
+			return NullableVec3(value = newPos)
+        }
+	}
+
+	return NullableVec3(empty = 0)
+}
+
+def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border, quad: uint64, appleMat: uint64) {
+	let newPos = getNewApplePosition(snakeBodyPoses, border);
+    if (newPos is empty) {
+        return default<Entity>;
+    }
+
+	let apple = createRenderable(cmd, newPos as value, appleMat, quad);
+    cmd |> set_entity_component(apple, IsApple())
+    cmd |> set_entity_component(apple, EventTag())
+	return apple;
 }
 
 def createEntities(var cmd: CommandBuffer, border: Border, resources: SnakeResources) {
     cmd |> set_singleton(SnakeGame(playing = true))
 	cmd |> set_singleton(Score(value = 0))
-	let snake = createSnake(cmd, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0.0, 0.0, 0.0));
-	// auto apple = createApple(command_buffer, snake.get<SnakeBodies>(), border, resources.quad, resources.appleMat);
+	let (snake, poses) = createSnake(cmd, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0.0, 0.0, 0.0));
+	let apple = createApple(cmd, poses, border, resources.quad, resources.appleMat);
 }
 
 def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: int, bottom: int, left: int, right: int) {

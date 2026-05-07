@@ -108,7 +108,10 @@ namespace dasPulseECS
 
 	void set_component(World& world, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data)
 	{
-		ecs_set_id(world.world_, entity, component_id, size, data);
+		if (size > 0)
+			ecs_set_id(world.world_, entity, component_id, size, data);
+		else
+			ecs_add_id(world.world_, entity, component_id);
 	}
 
 	const void* get_component(const World& world, ecs_entity_t entity, ecs_id_t component_id)
@@ -370,6 +373,15 @@ struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<dasPulseE
 	}
 };
 
+MAKE_TYPE_FACTORY(EventTag, pulse::EventTag);
+struct EventTagAnnotation final : das::ManagedStructureAnnotation<pulse::EventTag>
+{
+	EventTagAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventTag", ml, "pulse::EventTag")
+	{
+	}
+};
+
 namespace das
 {
 	template <>
@@ -405,6 +417,7 @@ public:
 		addAnnotation(make_smart<SystemDescAnnotation>(lib));
 		addAnnotation(make_smart<EventDescAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
+		addAnnotation(make_smart<EventTagAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::destruct_entity)>(*this, lib, "destruct_entity", SideEffects::worstDefault, "destruct_entity")->args({ "world", "entity" });
