@@ -150,7 +150,7 @@ def system4(var query: $SingletonQuery<Position>; position : Position) {
 [system(phase="init")]
 def system5(var event_writer: $EventWriter<Event1>; position : Position) {
     print("system5\n")
-    event_writer.broadcast()
+    event_writer |> broadcast(Event1())
 }
 
 [system]
@@ -471,7 +471,7 @@ def scheduleSnakeMoveSystem(var context: $Res<UpdateContext>, var snakeMoveWrite
     }
 
 	let delta = toDelta(direction.value)
-	snakeMoveWriter |> send(entity, type<SnakeBodies>)
+	snakeMoveWriter |> send(type<SnakeBodies>, entity, SnakeMoveIntentEvent(delta = delta))
 }
 
 [export]

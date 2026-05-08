@@ -12,17 +12,14 @@ struct template EventWriter {
     @safe_when_uninitialized singleton_holder : Entity
     @safe_when_uninitialized event_id : uint64
     @safe_when_uninitialized event_tag : Entity
-
-    [class_method]
-    def static const broadcast() {
-        broadcast(world, event_id)
-    }
 }
 
-def send(var writer: $EventWriter<auto(E)>, entity: Entity, component1: type<auto(T1)>) {
-    send1(writer.world, writer.event_id, entity, ecs_component(writer.world, type<T1>))
+def broadcast(var writer: $EventWriter<auto(E)>, event: auto(E)) {
+    let ptr = typeinfo sizeof(type<E>) > 0 ? unsafe(addr(event)) : null
+    broadcast_with_payload(writer.world, writer.event_id, ptr)
 }
 
-def send(var writer: $EventWriter<auto(E)>, entity: Entity, component1: type<auto(T1)>, component2: type<auto(T2)>) {
-    send2(writer.world, writer.event_id, entity, ecs_component(writer.world, type<T1>), ecs_component(writer.world, type<T2>))
+def send(var writer: $EventWriter<auto(E)>, component1: type<auto(T1)>, entity: Entity, event: auto(E)) {
+    let ptr = typeinfo sizeof(type<E>) > 0 ? unsafe(addr(event)) : null
+    send1_with_payload(writer.world, writer.event_id, ptr, entity, ecs_component(writer.world, type<T1>))
 }
