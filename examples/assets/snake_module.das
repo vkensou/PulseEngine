@@ -89,6 +89,10 @@ struct Score {
 	value: int
 }
 
+struct SnakeMoveIntentEvent {
+	delta: HMM_Vec3
+}
+
 def system1(var iter: Iter?) {
     print("hello system\n")
     while (iter_next(iter)) {
@@ -455,6 +459,21 @@ def handleSnakeInputSystem(var resKeyboardState: $Res<KeyboardState>; input: Sna
     }
 }
 
+[system(phase="update")]
+def scheduleSnakeMoveSystem(var context: $Res<UpdateContext>, var snakeMoveWriter: $EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
+	move.lastTime += context.get().value.delta_time
+	if (move.lastTime < move.interval) {
+        return
+    }
+
+	while (move.lastTime > move.interval) {
+        move.lastTime -= move.interval
+    }
+
+	let delta = toDelta(direction.value)
+	snakeMoveWriter |> send(entity, type<SnakeBodies>)
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -508,6 +527,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@loadSnakeResources)
     ctx |> register_system(@@initSnakeGameSystem)
     ctx |> register_system(@@handleSnakeInputSystem)
+    ctx |> register_system(@@scheduleSnakeMoveSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)

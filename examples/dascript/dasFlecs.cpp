@@ -247,6 +247,24 @@ namespace dasPulseECS
 			.enqueue();
 	}
 
+	void send1(const World& world, ecs_id_t event_id, ecs_id_t entity, ecs_id_t component1)
+	{
+		flecs::world fworld(world.world_);
+		fworld.event(event_id)
+			.id(component1)
+			.entity(entity)
+			.enqueue();
+	}
+
+	void send2(const World& world, ecs_id_t event_id, ecs_id_t entity, ecs_id_t component1, ecs_id_t component2)
+	{
+		flecs::world fworld(world.world_);
+		fworld.event(event_id)
+			.id(component1, component2)
+			.entity(entity)
+			.enqueue();
+	}
+
 	void das_event_wrapper(ecs_iter_t* it)
 	{
 		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->callback_ctx;
@@ -440,6 +458,8 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::broadcast)>(*this, lib, "broadcast", SideEffects::worstDefault, "broadcast")->args({ "world", "event_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::broadcast_with_payload)>(*this, lib, "broadcast_with_payload", SideEffects::worstDefault, "broadcast_with_payload")->args({ "world", "event_id", "data" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::send1)>(*this, lib, "send1", SideEffects::worstDefault, "send1")->args({ "world", "event_id", "entity", "component1" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::send2)>(*this, lib, "send2", SideEffects::worstDefault, "send2")->args({ "world", "event_id", "entity", "component1", "component2" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::observe)>(*this, lib, "observe", SideEffects::worstDefault, "observe")->args({ "world", "fn", "event_id", "query_expr", "context", "at" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::emit)>(*this, lib, "emit", SideEffects::worstDefault, "emit")->args({ "world", "desc" });
 	}

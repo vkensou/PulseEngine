@@ -438,6 +438,27 @@ struct KeyboardStateAnnotation final : das::ManagedStructureAnnotation<pulse::Ke
 	}
 };
 
+MAKE_TYPE_FACTORY(UpdateContext, pulse::UpdateContext);
+struct UpdateContextAnnotation final : das::ManagedStructureAnnotation<pulse::UpdateContext>
+{
+	UpdateContextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("UpdateContext", ml, "pulse::UpdateContext")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+	}
+};
+
+MAKE_TYPE_FACTORY(oval_update_context, oval_update_context);
+struct oval_update_contextAnnotation final : das::ManagedStructureAnnotation<oval_update_context>
+{
+	oval_update_contextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("oval_update_context", ml, "oval_update_context")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(delta_time)>("delta_time");
+		addField<DAS_BIND_MANAGED_FIELD(time_since_startup)>("time_since_startup");
+	}
+};
+
 MAKE_TYPE_FACTORY(Position, pulse::Position);
 struct PositionAnnotation final : das::ManagedStructureAnnotation<pulse::Position>
 {
@@ -569,6 +590,8 @@ public:
 		addAnnotation(make_smart<HMM_QuatAnnotation>(lib));
 		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
 		addAnnotation(make_smart<KeyboardStateAnnotation>(lib));
+		addAnnotation(make_smart<oval_update_contextAnnotation>(lib));
+		addAnnotation(make_smart<UpdateContextAnnotation>(lib));
 		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
 		addAnnotation(make_smart<PositionAnnotation>(lib));
 		addAnnotation(make_smart<LocalTransformAnnotation>(lib));

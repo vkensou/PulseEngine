@@ -183,7 +183,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     def is_entity_type(arg_type : TypeDeclPtr) : bool {
         var inscope base_type <- make_component_type(arg_type)
         let type_name = string(describe(base_type))
-        return type_name == "flecs::Entity" || type_name == "Entity"
+        return type_name == "uint64 aka Entity"
     }
 
     def is_command_buffer_type(arg_type : TypeDeclPtr) : bool {
