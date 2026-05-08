@@ -93,6 +93,13 @@ struct SnakeMoveIntentEvent {
 	delta: HMM_Vec3
 }
 
+struct AppleEatenEvent
+{
+    apple: Entity
+}
+
+struct GameOverEvent {}
+
 def system1(var iter: Iter?) {
     print("hello system\n")
     while (iter_next(iter)) {
@@ -474,6 +481,11 @@ def scheduleSnakeMoveSystem(var context: $Res<UpdateContext>, var snakeMoveWrite
 	snakeMoveWriter |> send(type<SnakeBodies>, entity, SnakeMoveIntentEvent(delta = delta))
 }
 
+[system]
+def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, borderQuery: $SingletonQuery<Border>, resources: $SingletonQuery<SnakeResources>, gameOverEvent: $EventWriter<GameOverEvent>, appleEatenEvent: $EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
+    print("snake move\n")
+}
+
 [export]
 def importModule(var ctx:ModuleContext) {
     print("importModule(ModuleContext) from dascript\n")
@@ -528,6 +540,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@initSnakeGameSystem)
     ctx |> register_system(@@handleSnakeInputSystem)
     ctx |> register_system(@@scheduleSnakeMoveSystem)
+    ctx |> register_system(@@executeSnakeMoveSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)

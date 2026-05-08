@@ -54,25 +54,29 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
             let (res_result, res_generic_type) = is_res_type(arg._type)
             if (res_result) {
+                let res_ptr_name = "res_ptr{arg_index}"
+                let res_name = "res{arg_index}"
                 var inscope resT <- new TypeDecl(baseType = Type.alias, alias := res_generic_type)
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res_ptr = ecs_get_mut_res(world, type<$t(resT)>); })
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var res = struct<$t(arg._type)>(value_ptr = res_ptr); })
-                wrapper_fn_call_args |> emplace_new <| qmacro(res)
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(resT)>); })
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(res_name) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
+                wrapper_fn_call_args |> emplace_new <| qmacro($i(res_name))
                 continue
             }
 
             let (single_query_result, single_query_generic_type) = is_single_query_type(arg._type)
             if (single_query_result) {
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var single_query = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
-                wrapper_fn_call_args |> emplace_new <| qmacro(single_query)
+                let single_query_name = "single_query{arg_index}"
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
+                wrapper_fn_call_args |> emplace_new <| qmacro($i(single_query_name))
                 continue
             }
 
             let (event_writer_result, event_writer_generic_type) = is_event_writer_type(arg._type)
             if (event_writer_result) {
+                let event_writer_name = "event_writer{arg_index}"
                 var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var event_writer = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>)); })
-                wrapper_fn_call_args |> emplace_new <| qmacro(event_writer)
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>)); })
+                wrapper_fn_call_args |> emplace_new <| qmacro($i(event_writer_name))
                 continue
             }
 
