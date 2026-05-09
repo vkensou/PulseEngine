@@ -118,7 +118,6 @@ flecs::entity createApple(pulse::command_buffer& command_buffer, const SnakeBodi
 
 	auto apple = createRenderable(command_buffer, newPos.value(), appleMat, quad);
 	apple.add<IsApple>();
-	apple.add<pulse::EventTag>();
 	return apple;
 }
 

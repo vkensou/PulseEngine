@@ -106,12 +106,17 @@ namespace dasPulseECS
 		return ComponentID_;
 	}
 
-	void set_component(World& world, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data)
+	void set_component(World& world, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data, das::Context* context, das::LineInfoArg* at)
 	{
-		if (size > 0)
-			ecs_set_id(world.world_, entity, component_id, size, data);
-		else
+		if (size == 0)
 			ecs_add_id(world.world_, entity, component_id);
+		else
+		{
+			auto type_info = ecs_get_type_info(world.world_, component_id);
+			if (type_info->size != size)
+				context->throw_error_at(at, "set component size different!");
+			ecs_set_id(world.world_, entity, component_id, size, data);
+		}
 	}
 
 	const void* get_component(const World& world, ecs_entity_t entity, ecs_id_t component_id)
@@ -351,15 +356,6 @@ struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<dasPulseE
 	}
 };
 
-MAKE_TYPE_FACTORY(EventTag, pulse::EventTag);
-struct EventTagAnnotation final : das::ManagedStructureAnnotation<pulse::EventTag>
-{
-	EventTagAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("EventTag", ml, "pulse::EventTag")
-	{
-	}
-};
-
 namespace das
 {
 	template <>
@@ -395,7 +391,6 @@ public:
 		addAnnotation(make_smart<SystemDescAnnotation>(lib));
 		addAnnotation(make_smart<EventDescAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
-		addAnnotation(make_smart<EventTagAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::destruct_entity)>(*this, lib, "destruct_entity", SideEffects::worstDefault, "destruct_entity")->args({ "world", "entity" });
@@ -410,7 +405,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_entity)>(*this, lib, "iter_entity", SideEffects::worstDefault, "iter_entity")->args({ "iter", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_world)>(*this, lib, "get_world", SideEffects::worstDefault, "get_world")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
-		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_component)>(*this, lib, "get_component", SideEffects::worstDefault, "get_component")->args({ "world", "entity", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_res)>(*this, lib, "get_res", SideEffects::worstDefault, "get_res")->args({ "world", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_res)>(*this, lib, "get_mut_res", SideEffects::worstDefault, "get_mut_res")->args({ "world", "component_id" });

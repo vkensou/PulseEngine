@@ -315,7 +315,6 @@ def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border:
 
 	let apple = createRenderable(cmd, newPos as value, appleMat, quad);
     cmd |> set_entity_component(apple, IsApple())
-    cmd |> set_entity_component(apple, EventTag())
 	return apple;
 }
 
