@@ -267,11 +267,11 @@ struct QueryAnnotation final : das::ManagedValueAnnotation<dasPulseECS::Query>
 	}
 };
 
-MAKE_TYPE_FACTORY(Iter, ecs_iter_t);
-struct IterAnnotation final : das::ManagedStructureAnnotation<ecs_iter_t>
+MAKE_TYPE_FACTORY(ecs_iter_t, ecs_iter_t);
+struct ecs_iter_tAnnotation final : das::ManagedStructureAnnotation<ecs_iter_t>
 {
-	IterAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("Iter", ml, "ecs_iter_t")
+	ecs_iter_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_iter_t", ml, "ecs_iter_t")
 	{
 		addField<DAS_BIND_MANAGED_FIELD(count)>("count");
 	}
@@ -373,7 +373,7 @@ public:
 
 		addAnnotation(make_smart<WorldAnnotation>(lib));
 		addAnnotation(make_smart<QueryAnnotation>(lib));
-		addAnnotation(make_smart<IterAnnotation>(lib));
+		addAnnotation(make_smart<ecs_iter_tAnnotation>(lib));
 		addAnnotation(make_smart<TermAnnotation>(lib));
 		addAnnotation(make_smart<SystemDescAnnotation>(lib));
 		addAnnotation(make_smart<EventSystemDescAnnotation>(lib));

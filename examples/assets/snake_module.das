@@ -105,7 +105,7 @@ var private move_probe_hits = 0
 var private spawned_entity = default<Entity>
 
 [system(phase="update")]
-def run_probe(var iter: Iter?) {
+def run_probe(var iter: ecs_iter_t?) {
     while (iter_next(iter)) {
         run_probe_batches += 1
         if (run_probe_batches == 1) {

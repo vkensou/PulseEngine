@@ -146,7 +146,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             }
         }
 
-        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : Iter?) : void {
+        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : ecs_iter_t?) : void {
             $b(wrapper_fn_body)
         }
         wrapper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
@@ -195,7 +195,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
     def is_run_iter_signature(arg_type : TypeDeclPtr) : bool {
         let type_name = string(describe(arg_type))
-        return type_name == "flecs::Iter? -const" || type_name == "Iter? -const"
+        return type_name == "flecs::ecs_iter_t? -const" || type_name == "ecs_iter_t? -const"
     }
 
     def is_entity_type(arg_type : TypeDeclPtr) : bool {
@@ -319,7 +319,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         }
         var inscope base_type <- make_component_type(arg_type)
         let type_name = string(describe(base_type))
-        return type_name == "flecs::Iter?" || type_name == "Iter?"
+        return type_name == "flecs::ecs_iter_t?" || type_name == "ecs_iter_t?"
     }
 
     def is_inout_argument(arg_type : TypeDeclPtr) : bool {
