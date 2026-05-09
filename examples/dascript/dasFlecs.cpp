@@ -38,22 +38,15 @@ namespace dasPulseECS
 		return flecs::_::type<pulse::EventTag>::id(world.world_);
 	}
 
-	Query build_query(const World& world, const char* expr)
-	{
-		ecs_query_desc_t desc = { .expr = expr };
-		ecs_query_t* query = ecs_query_init(world.world_, &desc);
-		return Query{ query };
-	}
-
 	ecs_query_t* build_query_from_desc(const World& world, const ecs_query_desc_t& desc)
 	{
 		ecs_query_t* query = ecs_query_init(world.world_, &desc);
 		return query;
 	}
 
-	ecs_iter_t query_iter(const Query& query)
+	ecs_iter_t query_iter(ecs_query_t* query)
 	{
-		return ecs_query_iter(query.query_->world, query.query_);
+		return ecs_query_iter(query->world, query);
 	}
 
 	bool iter_next(ecs_iter_t* iter)
@@ -413,7 +406,6 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_single_holder)>(*this, lib, "get_single_holder", SideEffects::modifyExternal, "get_single_holder")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_event_tag)>(*this, lib, "get_event_tag", SideEffects::modifyExternal, "get_event_tag")->args({ "world" });
-		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "expr" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query_from_desc)>(*this, lib, "build_query_from_desc", SideEffects::worstDefault, "build_query_from_desc")->args({ "world", "desc" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });

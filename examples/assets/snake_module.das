@@ -493,23 +493,11 @@ def importModule(var ctx:ModuleContext) {
     print("{ecs_component(ctx.world, type<Velocity>)}\n")
     print("{ecs_component(ctx.world, type<Comp2>)}\n")
 
-    var query = build_query(ctx.world, "pulse.Position, Velocity")
-    var query_iter = query_iter(query)
-    var iter = unsafe(addr(query_iter))
-    while (iter_next(iter)) {
-        print("query iter:{iter.count}\n")
-        unsafe {
-            var positions = reinterpret<Position?>(iter_field(iter, typeinfo sizeof(type<Position>), 0))
-            var velocities = reinterpret<Velocity?>(iter_field(iter, typeinfo sizeof(type<Velocity>), 1))
-            for (i in 0..iter.count) {
-                print("{i}\n")
-                print("{positions[i].value.X} {positions[i].value.Y} {positions[i].value.Z}\n")
-                print("{velocities[i].X} {velocities[i].Y} {velocities[i].Z}\n")
-            }
-        }
-    }
-
     var query1 = ctx.world |> query(type<Position>)
+    print("query for_each\n")
+    query1 |> for_each() <| $(pos) {
+        print("{pos.value.X} {pos.value.Y} {pos.value.Z}\n")
+    }
 
     run_probe_batches = 0
     move_probe_hits = 0
