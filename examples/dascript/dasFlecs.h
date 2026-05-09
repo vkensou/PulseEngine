@@ -34,8 +34,10 @@ namespace dasPulseECS
 	struct EventDesc
 	{
 		uint64_t event;
+		int termCount = 0;
 		uint64_t terms[FLECS_TERM_COUNT_MAX] = {};
 		ecs_entity_t entity;
+		const void* payload = nullptr;
 	};
 
 	struct ModuleContext

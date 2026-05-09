@@ -75,7 +75,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (event_writer_result) {
                 let event_writer_name = "event_writer{arg_index}"
                 var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>)); })
+                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>), event_tag = get_event_tag(world)); })
                 wrapper_fn_call_args |> emplace_new <| qmacro($i(event_writer_name))
                 continue
             }
