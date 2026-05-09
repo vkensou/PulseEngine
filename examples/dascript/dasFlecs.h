@@ -31,6 +31,12 @@ namespace dasPulseECS
 		ecs_term_t terms[FLECS_TERM_COUNT_MAX] = {};
 	};
 
+	struct EventSystemDesc
+	{
+		ecs_id_t event_id;
+		ecs_term_t terms[FLECS_TERM_COUNT_MAX] = {};
+	};
+
 	struct EventDesc
 	{
 		uint64_t event;
@@ -52,5 +58,6 @@ namespace dasPulseECS
 	};
 }
 MAKE_TYPE_FACTORY(SystemDesc, dasPulseECS::SystemDesc);
+MAKE_TYPE_FACTORY(EventSystemDesc, dasPulseECS::EventSystemDesc);
 MAKE_TYPE_FACTORY(EventDesc, dasPulseECS::EventDesc);
 MAKE_TYPE_FACTORY(ModuleContext, dasPulseECS::ModuleContext);

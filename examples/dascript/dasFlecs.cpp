@@ -239,8 +239,15 @@ namespace dasPulseECS
 		das::das_invoke_function<ecs_iter_t*>::invoke(callBackContext->context, &callBackContext->at, callBackContext->fn, it);
 	}
 
-	void observe(const World& world, das::Func fn, ecs_id_t event_id, const char* query_expr, das::Context* context, das::LineInfoArg* at)
+	void observe_from_desc(const World& world, const EventSystemDesc& desc, das::Func fn, das::Context* context, das::LineInfoArg* at)
 	{
+		if (!context) {
+			return;
+		}
+		if (!fn) {
+			context->throw_error_at(at, "register_system requires a valid callback function");
+		}
+
 		SystemCallBackContext* callBackContext = new SystemCallBackContext();
 		callBackContext->fn = fn;
 		callBackContext->context = context;
@@ -248,13 +255,19 @@ namespace dasPulseECS
 			callBackContext->at = *at;
 		}
 
-		ecs_observer_desc_t desc = { 0 };
-		desc.callback = das_event_wrapper;
-		desc.callback_ctx = callBackContext;
-		desc.callback_ctx_free = das_system_context_free;
-		desc.query.expr = query_expr;
-		desc.events[0] = event_id;
-		ecs_observer_init(world.world_, &desc);
+		ecs_observer_desc_t odesc = { 0 };
+		odesc.callback = das_event_wrapper;
+		odesc.callback_ctx = callBackContext;
+		odesc.callback_ctx_free = das_system_context_free;
+		odesc.query = {};
+		odesc.events[0] = desc.event_id;
+
+		memcpy(odesc.query.terms, desc.terms, sizeof(EventSystemDesc::terms));
+
+		ecs_entity_t eventSystem = ecs_observer_init(world.world_, &odesc);
+		if (!eventSystem) {
+			context->throw_error_at(at, "failed to register flecs event system for event '%lld'", desc.event_id);
+		}
 	}
 
 	void emit(const World& world, const EventDesc& desc)
@@ -327,6 +340,18 @@ struct SystemDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS:
 	virtual bool isLocal() const override { return true; }
 };
 
+struct EventSystemDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::EventSystemDesc>
+{
+	EventSystemDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventSystemDesc", ml, "dasPulseECS::EventSystemDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(event_id)>("event_id");
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
 struct EventDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::EventDesc>
 {
 	EventDescAnnotation(das::ModuleLibrary& ml)
@@ -389,6 +414,7 @@ public:
 		addAnnotation(make_smart<IterAnnotation>(lib));
 		addAnnotation(make_smart<TermAnnotation>(lib));
 		addAnnotation(make_smart<SystemDescAnnotation>(lib));
+		addAnnotation(make_smart<EventSystemDescAnnotation>(lib));
 		addAnnotation(make_smart<EventDescAnnotation>(lib));
 		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
 
@@ -411,7 +437,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_res)>(*this, lib, "get_mut_res", SideEffects::worstDefault, "get_mut_res")->args({ "world", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_query_expr)>(*this, lib, "register_system_from_query_expr", SideEffects::worstDefault, "register_system_from_query_expr")->args({ "world", "name", "dependson", "query_expr", "fn", "context", "at" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
-		addExtern<DAS_BIND_FUN(dasPulseECS::observe)>(*this, lib, "observe", SideEffects::worstDefault, "observe")->args({ "world", "fn", "event_id", "query_expr", "context", "at" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::observe_from_desc)>(*this, lib, "observe_from_desc", SideEffects::worstDefault, "observe_from_desc")->args({ "world", "desc", "fn", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::emit)>(*this, lib, "emit", SideEffects::worstDefault, "emit")->args({ "world", "desc" });
 	}
 };

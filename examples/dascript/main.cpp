@@ -520,6 +520,15 @@ struct ShowMatrixAnnotation final : das::ManagedStructureAnnotation<pulse::ShowM
 	virtual bool isLocal() const override { return true; }
 };
 
+MAKE_TYPE_FACTORY(EventTag, pulse::EventTag);
+struct EventTagAnnotation final : das::ManagedStructureAnnotation<pulse::EventTag>
+{
+	EventTagAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventTag", ml, "pulse::EventTag")
+	{
+	}
+};
+
 namespace das
 {
 	template <>
@@ -598,6 +607,7 @@ public:
 		addAnnotation(make_smart<WorldTransformAnnotation>(lib));
 		addAnnotation(make_smart<RendableAnnotation>(lib));
 		addAnnotation(make_smart<ShowMatrixAnnotation>(lib));
+		addAnnotation(make_smart<EventTagAnnotation>(lib));
 
 		addExtern<DAS_BIND_FUN(HMM_V3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V3", das::SideEffects::none, "HMM_V3")->args({ "x", "y", "z" });
 		addExtern<DAS_BIND_FUN(HMM_V4), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V4", das::SideEffects::none, "HMM_V4")->args({ "x", "y", "z", "w" });

@@ -34,6 +34,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         var inscope event_register_fn_body_exprs : array<ExpressionPtr>
         let desc_name = "__system_desc"
         register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
+        event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = EventSystemDesc(); })
 
         wrapper_fn_body |> emplace_new <| qmacro_expr(${ var world = get_world(iter); })
         var is_event_system = false
@@ -86,7 +87,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_reader_generic_type)
                 wrapper_fn_body |> emplace_new <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = default<$t(eventT)>); })
                 wrapper_fn_call_args |> emplace_new <| qmacro(event_reader)
-                event_register_fn_body_exprs |> emplace_new <| qmacro(ecs_observe(ctx.world, @@$c(wrapper_name), default<$t(eventT)>))
+                event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).event_id = ecs_component(ctx.world, type<$t(eventT)>); })
                 continue
             }
 
@@ -101,9 +102,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 wrapper_fn_call_args |> emplace_new <| qmacro($i(field_name)[i])
 
                 register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
+                event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
 
                 term_index += 1
             }
+        }
+
+        if (is_event_system && !is_entity_system) {
+            event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = system_term_in(ctx.world, type<pulse::EventTag>); })
         }
 
         if (!is_event_system && phase_field == "") {
@@ -113,18 +119,25 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return false
         }
 
-        wrapper_fn_batch_exprs |> emplace_new <| qmacro_block() {
-            for (i in 0..iter.count) {
-                $c("_::{func.name}")($a(wrapper_fn_call_args))
+        if (is_entity_system && !is_event_system) {
+            wrapper_fn_batch_exprs |> emplace_new <| qmacro_block() {
+                for (i in 0..iter.count) {
+                    $c("_::{func.name}")($a(wrapper_fn_call_args))
+                }
             }
-        }
-
-        if (is_entity_system) {
             wrapper_fn_body |> emplace_new <| qmacro_block() {
                 unsafe {
                     while (iter_next(iter)) {
                         $b(wrapper_fn_batch_exprs)
                     }
+                }
+            }
+        } elif (is_entity_system && is_event_system) {
+            wrapper_fn_batch_exprs |> emplace_new <| qmacro_expr(${let i = 0;})
+            wrapper_fn_batch_exprs |> emplace_new <| qmacro($c("_::{func.name}")($a(wrapper_fn_call_args)))
+            wrapper_fn_body |> emplace_new <| qmacro_block() {
+                unsafe {
+                    $b(wrapper_fn_batch_exprs)
                 }
             }
         } else {
@@ -148,6 +161,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         }
         register_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
 
+        event_register_fn_body_exprs |> emplace_new <| qmacro(observe_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
         var inscope event_register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
             $b(event_register_fn_body_exprs)
         }
