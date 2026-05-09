@@ -45,6 +45,12 @@ namespace dasPulseECS
 		return Query{ query };
 	}
 
+	ecs_query_t* build_query_from_desc(const World& world, const ecs_query_desc_t& desc)
+	{
+		ecs_query_t* query = ecs_query_init(world.world_, &desc);
+		return query;
+	}
+
 	ecs_iter_t query_iter(const Query& query)
 	{
 		return ecs_query_iter(query.query_->world, query.query_);
@@ -258,12 +264,31 @@ struct WorldAnnotation final : das::ManagedValueAnnotation<dasPulseECS::World>
 	}
 };
 
-MAKE_TYPE_FACTORY(Query, dasPulseECS::Query);
+MAKE_TYPE_FACTORY(_Query, dasPulseECS::Query);
 struct QueryAnnotation final : das::ManagedValueAnnotation<dasPulseECS::Query>
 {
 	QueryAnnotation(das::ModuleLibrary& ml)
-		: ManagedValueAnnotation(ml, "Query", "dasPulseECS::Query")
+		: ManagedValueAnnotation(ml, "_Query", "dasPulseECS::Query")
 	{
+	}
+};
+
+MAKE_TYPE_FACTORY(ecs_query_t, ecs_query_t);
+struct ecs_query_tAnnotation final : das::ManagedStructureAnnotation<ecs_query_t>
+{
+	ecs_query_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_query_t", ml, "ecs_query_t")
+	{
+	}
+};
+
+MAKE_TYPE_FACTORY(ecs_query_desc_t, ecs_query_desc_t);
+struct ecs_query_desc_tAnnotation final : das::ManagedStructureAnnotation<ecs_query_desc_t>
+{
+	ecs_query_desc_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_query_desc_t", ml, "ecs_query_desc_t")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
 	}
 };
 
@@ -277,11 +302,11 @@ struct ecs_iter_tAnnotation final : das::ManagedStructureAnnotation<ecs_iter_t>
 	}
 };
 
-MAKE_TYPE_FACTORY(Term, ecs_term_t);
-struct TermAnnotation final : das::ManagedStructureAnnotation<ecs_term_t>
+MAKE_TYPE_FACTORY(ecs_term_t, ecs_term_t);
+struct ecs_term_tAnnotation final : das::ManagedStructureAnnotation<ecs_term_t>
 {
-	TermAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("Term", ml, "ecs_term_t")
+	ecs_term_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_term_t", ml, "ecs_term_t")
 	{
 		addField<DAS_BIND_MANAGED_FIELD(id)>("id");
 		addField<DAS_BIND_MANAGED_FIELD(inout)>("inout");
@@ -374,7 +399,9 @@ public:
 		addAnnotation(make_smart<WorldAnnotation>(lib));
 		addAnnotation(make_smart<QueryAnnotation>(lib));
 		addAnnotation(make_smart<ecs_iter_tAnnotation>(lib));
-		addAnnotation(make_smart<TermAnnotation>(lib));
+		addAnnotation(make_smart<ecs_term_tAnnotation>(lib));
+		addAnnotation(make_smart<ecs_query_tAnnotation>(lib));
+		addAnnotation(make_smart<ecs_query_desc_tAnnotation>(lib));
 		addAnnotation(make_smart<SystemDescAnnotation>(lib));
 		addAnnotation(make_smart<EventSystemDescAnnotation>(lib));
 		addAnnotation(make_smart<EventDescAnnotation>(lib));
@@ -386,7 +413,8 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_single_holder)>(*this, lib, "get_single_holder", SideEffects::modifyExternal, "get_single_holder")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_event_tag)>(*this, lib, "get_event_tag", SideEffects::modifyExternal, "get_event_tag")->args({ "world" });
-		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "query_desc" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::build_query)>(*this, lib, "build_query", SideEffects::worstDefault, "build_query")->args({ "world", "expr" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::build_query_from_desc)>(*this, lib, "build_query_from_desc", SideEffects::worstDefault, "build_query_from_desc")->args({ "world", "desc" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });

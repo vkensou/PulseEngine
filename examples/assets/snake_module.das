@@ -509,6 +509,8 @@ def importModule(var ctx:ModuleContext) {
         }
     }
 
+    var query1 = ctx.world |> query(type<Position>)
+
     run_probe_batches = 0
     move_probe_hits = 0
     spawned_entity = ent

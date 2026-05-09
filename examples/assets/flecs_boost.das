@@ -10,6 +10,7 @@ require flecs_singleton_query public
 require flecs_res public
 require flecs_event_writer public
 require flecs_event_reader public
+require flecs_query public
 require daslib/class_boost
 
 typedef Entity = uint64
@@ -19,11 +20,11 @@ def system_desc(name : string; dependsOn : Entity; immediate : bool = false) {
 }
 
 def system_term_in(var world : World; t : type<auto(T)>) {
-    return Term(id = ecs_component(world, type<T>), inout = int16(1)) // EcsIn
+    return ecs_term_t(id = ecs_component(world, type<T>), inout = int16(1)) // EcsIn
 }
 
 def system_term_inout(var world : World; t : type<auto(T)>) {
-    return Term(id = ecs_component(world, type<T>), inout = int16(0)) // EcsInOutDefault
+    return ecs_term_t(id = ecs_component(world, type<T>), inout = int16(0)) // EcsInOutDefault
 }
 
 struct CommandBuffer {
