@@ -153,44 +153,6 @@ namespace dasPulseECS
 		delete callBackContext;
 	}
 
-	void register_system_from_query_expr(const World& world, const char* name, ecs_entity_t dependson, const char* query_expr, das::Func fn, das::Context* context, das::LineInfoArg* at)
-	{
-		if (!context) {
-			return;
-		}
-		if (!fn) {
-			context->throw_error_at(at, "register_system requires a valid callback function");
-		}
-
-		ecs_id_t ids[] = { ecs_dependson(dependson), dependson, 0 };
-		ecs_entity_desc_t edesc = { .name = name, .add = dependson != 0 ? ids : nullptr };
-		ecs_entity_t entity = ecs_entity_init(world, &edesc);
-
-		if (!entity) {
-			context->throw_error_at(at, "failed to create flecs system entity '%s'", name ? name : "<unnamed>");
-		}
-
-		SystemCallBackContext* callBackContext = new SystemCallBackContext();
-		callBackContext->fn = fn;
-		callBackContext->context = context;
-		if (at) {
-			callBackContext->at = *at;
-		}
-
-		ecs_system_desc_t sdesc = {
-			.entity = entity,
-			.query = {.expr = query_expr},
-			.run = das_system_wrapper,
-			.run_ctx = callBackContext,
-			.run_ctx_free = das_system_context_free,
-		};
-		ecs_entity_t system = ecs_system_init(world, &sdesc);
-		if (!system) {
-			ecs_delete(world, entity);
-			context->throw_error_at(at, "failed to register flecs system '%s'", name ? name : "<unnamed>");
-		}
-	}
-
 	void register_system_from_desc(const World& world, const SystemDesc& desc, das::Func fn, das::Context* context, das::LineInfoArg* at)
 	{
 		if (!context) {
@@ -435,7 +397,6 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_component)>(*this, lib, "get_component", SideEffects::worstDefault, "get_component")->args({ "world", "entity", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_res)>(*this, lib, "get_res", SideEffects::worstDefault, "get_res")->args({ "world", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_res)>(*this, lib, "get_mut_res", SideEffects::worstDefault, "get_mut_res")->args({ "world", "component_id" });
-		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_query_expr)>(*this, lib, "register_system_from_query_expr", SideEffects::worstDefault, "register_system_from_query_expr")->args({ "world", "name", "dependson", "query_expr", "fn", "context", "at" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::observe_from_desc)>(*this, lib, "observe_from_desc", SideEffects::worstDefault, "observe_from_desc")->args({ "world", "desc", "fn", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::emit)>(*this, lib, "emit", SideEffects::worstDefault, "emit")->args({ "world", "desc" });

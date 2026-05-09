@@ -100,12 +100,6 @@ struct AppleEatenEvent
 
 struct GameOverEvent {}
 
-def system1(var iter: Iter?) {
-    print("hello system\n")
-    while (iter_next(iter)) {
-    }
-}
-
 var private run_probe_batches = 0
 var private move_probe_hits = 0
 var private spawned_entity = default<Entity>
@@ -498,8 +492,6 @@ def importModule(var ctx:ModuleContext) {
     print("{ecs_component(ctx.world, type<Position>)}\n")
     print("{ecs_component(ctx.world, type<Velocity>)}\n")
     print("{ecs_component(ctx.world, type<Comp2>)}\n")
-
-    register_system_from_query_expr(ctx.world, "move", ctx.initPipeline, "pulse.Position, Velocity", @@system1)
 
     var query = build_query(ctx.world, "pulse.Position, Velocity")
     var query_iter = query_iter(query)
