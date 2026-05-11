@@ -494,9 +494,12 @@ def importModule(var ctx:ModuleContext) {
     print("{ecs_component(ctx.world, type<Comp2>)}\n")
 
     var query1 = ctx.world |> query(type<Position>)
+    let (first_of_query1_entity, first_of_query1_pos) = query1 |> first()
+    print("query1 first: {first_of_query1_entity}, pos: {first_of_query1_pos.value}\n")
+
     print("query for_each\n")
-    query1 |> for_each() <| $(pos) {
-        print("{pos.value.X} {pos.value.Y} {pos.value.Z}\n")
+    query1 |> for_each() <| $(entity, pos) {
+        print("{entity}: {pos.value.X} {pos.value.Y} {pos.value.Z}\n")
     }
 
     run_probe_batches = 0
