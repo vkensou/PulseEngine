@@ -1,3 +1,4 @@
+#include "daScript/ast/ast_simulate.h"
 #include "daScript/misc/platform.h"
 
 #include "module_builtin_rtti.h"
@@ -9,6 +10,8 @@
 #include "daScript/simulate/simulate_visit_op.h"
 
 #include "daScript/misc/performance_time.h"
+#include "daScript/ast/ast_serializer.h"
+#include "daScript/misc/gc_node.h"
 
 using namespace das;
 
@@ -38,140 +41,273 @@ IMPLEMENT_EXTERNAL_TYPE_FACTORY(Context,Context)
 IMPLEMENT_EXTERNAL_TYPE_FACTORY(SimFunction,SimFunction)
 IMPLEMENT_EXTERNAL_TYPE_FACTORY(CodeOfPolicies,CodeOfPolicies)
 IMPLEMENT_EXTERNAL_TYPE_FACTORY(recursive_mutex,das::recursive_mutex)
+IMPLEMENT_EXTERNAL_TYPE_FACTORY(AstSerializer,das::AstSerializerState)
 
-DAS_BASE_BIND_ENUM(das::CompilationError, CompilationError,
-        unspecified
-// lexer errors
-    ,   mismatching_parentheses
-    ,   mismatching_curly_bracers
-    ,   string_constant_exceeds_file
-    ,   string_constant_exceeds_line
-    ,   unexpected_close_comment
-    ,   integer_constant_out_of_range
-    ,   comment_contains_eof
-    ,   invalid_escape_sequence
-    ,   invalid_line_directive
-// parser errors
-    ,   syntax_error
-    ,   malformed_ast
-// semantic erros
-    ,   invalid_type
-    ,   invalid_return_type
-    ,   invalid_argument_type
-    ,   invalid_structure_field_type
-    ,   invalid_array_type
-    ,   invalid_table_type
-    ,   invalid_argument_count
-    ,   invalid_variable_type
-    ,   invalid_new_type
-    ,   invalid_index_type
-    ,   invalid_annotation
-    ,   invalid_swizzle_mask
-    ,   invalid_initialization_type
-    ,   invalid_with_type
-    ,   invalid_override
-    ,   invalid_name
-    ,   invalid_array_dimension
-    ,   invalid_iteration_source
-    ,   invalid_loop
-    ,   invalid_label
-    ,   invalid_enumeration
-    ,   invalid_option
-    ,   invalid_member_function
-
-    ,   function_already_declared
-    ,   argument_already_declared
-    ,   local_variable_already_declared
-    ,   global_variable_already_declared
-    ,   structure_field_already_declared
-    ,   structure_already_declared
-    ,   structure_already_has_initializer
-    ,   enumeration_already_declared
-    ,   enumeration_value_already_declared
-    ,   type_alias_already_declared
-    ,   field_already_initialized
-
-    ,   type_not_found
-    ,   structure_not_found
-    ,   operator_not_found
-    ,   function_not_found
-    ,   variable_not_found
-    ,   handle_not_found
-    ,   annotation_not_found
-    ,   enumeration_not_found
-    ,   enumeration_value_not_found
-    ,   type_alias_not_found
-    ,   bitfield_not_found
-
-    ,   cant_initialize
-
-    ,   cant_dereference
-    ,   cant_index
-    ,   cant_get_field
-    ,   cant_write_to_const
-    ,   cant_move_to_const
-    ,   cant_write_to_non_reference
-    ,   cant_copy
-    ,   cant_move
-    ,   cant_pass_temporary
-
-    ,   condition_must_be_bool
-    ,   condition_must_be_static
-
-    ,   cant_pipe
-
-    ,   invalid_block
-    ,   return_or_break_in_finally
-
-    ,   module_not_found
-    ,   module_already_has_a_name
-
-    ,   cant_new_handle
-    ,   bad_delete
-
-    ,   cant_infer_generic
-    ,   cant_infer_missing_initializer
-    ,   cant_infer_mismatching_restrictions
-
-    ,   invalid_cast
-    ,   incompatible_cast
-    ,   unsafe
-
-    ,   index_out_of_range
-
-    ,   expecting_return_value
-    ,   not_expecting_return_value
-    ,   invalid_return_semantics
-    ,   invalid_yield
-
-    ,   typeinfo_reference
-    ,   typeinfo_auto
-    ,   typeinfo_undefined
-    ,   typeinfo_dim
-    ,   typeinfo_macro_error
-// logic errors
-    ,   static_assert_failed
-    ,   run_failed
-    ,   annotation_failed
-    ,   concept_failed
-
-    ,   not_all_paths_return_value
-    ,   assert_with_side_effects
-    ,   only_fast_aot_no_cpp_name
-    ,   aot_side_effects
-    ,   no_global_heap
-    ,   no_global_variables
-    ,   unused_function_argument
-    ,   unsafe_function
-
-    ,   performance_lint
-
-    ,   too_many_infer_passes
-
-// integration errors
-
-    ,   missing_node
-    )
+class EnumerationCompilationError : public das::Enumeration {
+private:
+    inline static const char *enumArrayName[] = {
+    "unspecified", "invalid_line", "invalid_string", "mismatching_curly_bracers", "mismatching_module_name", "mismatching_parens",
+    "exceeds_constant", "exceeds_file", "invalid_aka", "invalid_capture", "invalid_escape", "invalid_field",
+    "invalid_field_static", "invalid_function", "invalid_function_annotation", "invalid_function_static", "invalid_global_aka", "invalid_macro",
+    "invalid_module", "invalid_module_require", "invalid_name", "invalid_type_aka", "invalid_type_alias", "missing_module_name",
+    "exceeds_bitfield", "ambiguous_function_argument_type", "already_declared_enumeration", "already_declared_enumerator", "already_declared_field", "already_declared_field_static",
+    "already_declared_function_argument", "already_declared_global", "already_declared_global_bitfield", "already_declared_local", "already_declared_module", "already_declared_module_name",
+    "already_declared_structure", "already_declared_type_alias", "lookup_annotation", "lookup_enumeration", "lookup_file", "lookup_module",
+    "lookup_structure", "cant_structure", "runtime_annotation", "internal_module", "invalid_annotation", "invalid_annotation_field",
+    "invalid_annotation_macro", "invalid_annotation_type", "invalid_argument", "invalid_argument_global", "invalid_argument_name", "invalid_argument_type",
+    "invalid_array", "invalid_array_dimension", "invalid_array_dimension_type", "invalid_array_element_type", "invalid_array_type", "invalid_as",
+    "invalid_ascend_array_handle_type", "invalid_ascend_handle_type", "invalid_assert_argument_count", "invalid_assert_comment_type", "invalid_assert_condition_type", "invalid_bitfield",
+    "invalid_bitfield_cast_argument_count", "invalid_block_argument", "invalid_block_argument_count", "invalid_block_argument_init_type", "invalid_block_argument_type", "invalid_block_break",
+    "invalid_block_continue", "invalid_block_finally", "invalid_break", "invalid_capture_variable", "invalid_cast_function", "invalid_cast_structure",
+    "invalid_cast_structure_pointer", "invalid_cast_type", "invalid_class", "invalid_class_local", "invalid_class_tuple", "invalid_class_variant",
+    "invalid_clone_smart_pointer_type", "invalid_comprehension_element_type", "invalid_continue", "invalid_debug_argument_count", "invalid_debug_comment_type", "invalid_delete_size_type",
+    "invalid_delete_super_self_type", "invalid_enumeration", "invalid_enumeration_name", "invalid_enumerator", "invalid_enumerator_name", "invalid_enumerator_type",
+    "invalid_erase_argument_count", "invalid_expression", "invalid_field_name", "invalid_field_syntax", "invalid_field_type", "invalid_finally_in_generator_if",
+    "invalid_find_argument_count", "invalid_for_iterator_count", "invalid_for_iterator_tuple", "invalid_function_argument", "invalid_function_argument_count", "invalid_function_argument_type",
+    "invalid_function_argument_type_block", "invalid_function_name", "invalid_function_options", "invalid_function_result", "invalid_function_result_discarded", "invalid_function_result_type",
+    "invalid_function_type", "invalid_generator", "invalid_generator_argument_count", "invalid_generator_argument_type", "invalid_generator_result_type", "invalid_global",
+    "invalid_global_init_options", "invalid_global_init_type", "invalid_global_options", "invalid_global_self_init", "invalid_global_shared", "invalid_global_type",
+    "invalid_global_type_shared", "invalid_handle_index_type", "invalid_handle_safe_index_type", "invalid_if_condition_type", "invalid_index_type", "invalid_insert_argument_count",
+    "invalid_invoke_argument_count", "invalid_invoke_argument_type", "invalid_invoke_method_syntax", "invalid_invoke_target_type", "invalid_is", "invalid_is_expression",
+    "invalid_iteration_source_type", "invalid_key_exists_argument_count", "invalid_label_type", "invalid_local_in_scope", "invalid_local_in_scope_finally", "invalid_local_init",
+    "invalid_local_init_block", "invalid_local_init_constructor", "invalid_local_init_type", "invalid_local_tuple_expansion", "invalid_local_type", "invalid_macro_context",
+    "invalid_macro_read", "invalid_macro_tag", "invalid_macro_type", "invalid_memzero_argument", "invalid_memzero_argument_count", "invalid_memzero_argument_type",
+    "invalid_module_name", "invalid_new_class_syntax", "invalid_new_initializer_result_type", "invalid_new_initializer_type", "invalid_new_type", "invalid_null_coalescing_type",
+    "invalid_op3_expression", "invalid_pointer_arithmetic", "invalid_quote_argument_count", "invalid_result", "invalid_result_type", "invalid_return_semantics",
+    "invalid_safe_as", "invalid_safe_dereference_type", "invalid_safe_field_type", "invalid_static_assert_argument_count", "invalid_static_assert_comment_type", "invalid_static_assert_condition_type",
+    "invalid_static_if_condition", "invalid_storage_type_op", "invalid_string_builder_argument", "invalid_structure", "invalid_structure_annotation", "invalid_structure_array",
+    "invalid_structure_block_pipe", "invalid_structure_field_init", "invalid_structure_field_type", "invalid_structure_initializer_required", "invalid_structure_local", "invalid_structure_name",
+    "invalid_structure_template", "invalid_structure_tuple", "invalid_structure_type", "invalid_structure_variant", "invalid_super_call", "invalid_swizzle_mask",
+    "invalid_swizzle_type", "invalid_table", "invalid_table_argument_type", "invalid_table_expression", "invalid_table_index_type", "invalid_table_key_type",
+    "invalid_table_safe_index_type", "invalid_table_type", "invalid_tuple", "invalid_tuple_argument_type", "invalid_tuple_block", "invalid_tuple_key",
+    "invalid_tuple_key_type", "invalid_tuple_type", "invalid_tuple_variant", "invalid_type", "invalid_type_dimension", "invalid_type_expression",
+    "invalid_typeinfo", "invalid_typeinfo_annotation", "invalid_typeinfo_annotation_argument_type", "invalid_typeinfo_dim", "invalid_typeinfo_dim_table", "invalid_typeinfo_dim_table_type",
+    "invalid_typeinfo_function", "invalid_typeinfo_has_field_type", "invalid_typeinfo_mangled_subexpression", "invalid_typeinfo_module_subexpression", "invalid_typeinfo_offsetof_type", "invalid_typeinfo_struct_get_annotation_argument_type",
+    "invalid_typeinfo_struct_has_annotation_argument_type", "invalid_typeinfo_struct_has_annotation_type", "invalid_typeinfo_struct_modulename", "invalid_typeinfo_struct_name", "invalid_typeinfo_variant_index_type", "invalid_variable_name",
+    "invalid_variable_private", "invalid_variant", "invalid_variant_array", "invalid_variant_block", "invalid_variant_initializer_count", "invalid_variant_tuple",
+    "invalid_variant_type", "invalid_variant_unique", "invalid_while_condition_type", "invalid_with_array_type", "invalid_with_type", "invalid_yield",
+    "invalid_yield_in_block", "missing_annotation", "missing_assume_type", "missing_bitfield_init", "missing_block_argument_init", "missing_block_result",
+    "missing_enumeration_zero", "missing_finalizer", "missing_for_iterator", "missing_function_body", "missing_function_name", "missing_function_result",
+    "missing_global", "missing_global_init", "missing_global_shared_init", "missing_local", "missing_local_block_init", "missing_local_init",
+    "missing_local_reference_init", "missing_new_default_initializer", "missing_result", "missing_structure_field", "missing_typeinfo_subexpression", "mismatching_array_dimension",
+    "mismatching_array_element_type", "mismatching_block_argument_type", "mismatching_clone_type", "mismatching_function_argument", "mismatching_function_argument_count", "mismatching_numeric_type",
+    "mismatching_result_type", "mismatching_structure_dimension", "mismatching_tuple_argument_count", "mismatching_tuple_field_names", "mismatching_type", "mismatching_variant_dimension",
+    "exceeds_argument", "exceeds_array_index", "exceeds_call_depth", "exceeds_expression_recursion", "exceeds_function_argument", "exceeds_infer_passes",
+    "exceeds_local", "exceeds_new_argument", "exceeds_structure", "exceeds_tuple_index", "exceeds_type", "exceeds_type_alias",
+    "exceeds_typeinfo_sizeof", "ambiguous_annotation", "ambiguous_bitfield", "ambiguous_call_macro", "ambiguous_enumeration", "ambiguous_field",
+    "ambiguous_field_lookup", "ambiguous_finalizer", "ambiguous_function", "ambiguous_macro", "ambiguous_structure", "ambiguous_super_call",
+    "ambiguous_super_constructor", "ambiguous_type", "ambiguous_type_alias", "ambiguous_typeinfo_macro", "ambiguous_variable", "already_declared_assume_alias",
+    "already_declared_block_argument", "already_declared_function", "already_declared_label", "already_declared_local_variable", "already_declared_structure_field_init", "already_declared_table",
+    "already_declared_tuple_field", "already_declared_variable", "already_declared_with_shadow", "lookup_annotation_field", "lookup_argument_type", "lookup_bitfield",
+    "lookup_block_argument_type", "lookup_block_result_type", "lookup_cast_type", "lookup_constructor", "lookup_expression_type", "lookup_field",
+    "lookup_field_type", "lookup_function", "lookup_function_address_type", "lookup_function_argument_type", "lookup_function_mangled_name", "lookup_function_result_type",
+    "lookup_function_type", "lookup_generator_type", "lookup_global_type", "lookup_is_expression_type", "lookup_label", "lookup_local_type",
+    "lookup_macro", "lookup_method", "lookup_new_type", "lookup_safe_field_type", "lookup_structure_field", "lookup_structure_field_type",
+    "lookup_super_class", "lookup_super_constructor", "lookup_super_finalizer", "lookup_super_method", "lookup_tuple_field", "lookup_type",
+    "lookup_typeinfo_annotation", "lookup_typeinfo_annotation_argument", "lookup_typeinfo_macro", "lookup_typeinfo_offsetof_type", "lookup_typeinfo_type", "lookup_variable",
+    "lookup_variant_field", "lookup_variant_type", "cant_access_private_field", "cant_access_private_structure", "cant_address_function", "cant_address_template_function",
+    "cant_annotation_field", "cant_apply_op", "cant_argument", "cant_argument_structure", "cant_array_element", "cant_ascend",
+    "cant_assign_op", "cant_block", "cant_capture_variable", "cant_clone", "cant_clone_type", "cant_copy",
+    "cant_create_structure_annotation", "cant_delete", "cant_delete_local", "cant_delete_smart_pointer", "cant_delete_super", "cant_dereference",
+    "cant_expression", "cant_field_class", "cant_finalize_block_annotation", "cant_finalize_function_annotation", "cant_finalize_structure_annotation", "cant_function",
+    "cant_get_field", "cant_get_field_pointer", "cant_global", "cant_index", "cant_index_key", "cant_index_pointer",
+    "cant_index_table", "cant_initialize_array_element", "cant_initialize_private_field", "cant_initialize_structure_field", "cant_initialize_variant_field", "cant_iterate_iterator",
+    "cant_local", "cant_move", "cant_pointer", "cant_result", "cant_safe_get_field", "cant_safe_index",
+    "cant_safe_index_table", "cant_structure_field", "cant_take_pointer", "cant_tuple", "cant_type", "cant_variant_field",
+    "cant_write", "unsafe_address", "unsafe_argument", "unsafe_array_safe_index", "unsafe_capture_variable", "unsafe_cast",
+    "unsafe_class", "unsafe_class_initializer", "unsafe_class_local", "unsafe_class_stack_construction", "unsafe_delete", "unsafe_delete_pointer",
+    "unsafe_fixed_array_safe_index", "unsafe_function", "unsafe_function_call", "unsafe_global", "unsafe_global_pointer", "unsafe_local",
+    "unsafe_local_class", "unsafe_local_in_scope_required", "unsafe_local_reference", "unsafe_local_type", "unsafe_move", "unsafe_operator",
+    "unsafe_pointer_index", "unsafe_pointer_safe_index", "unsafe_return_block", "unsafe_return_function", "unsafe_return_reference", "unsafe_return_smart_pointer",
+    "unsafe_smart_pointer", "unsafe_structure_field", "unsafe_structure_uninitialized", "unsafe_structure_visibility", "unsafe_table_index", "unsafe_table_safe_index",
+    "unsafe_variant_field", "unsafe_variant_safe_as", "recursion_argument", "recursion_assume_alias", "recursion_function", "recursion_function_argument",
+    "recursion_global", "recursion_structure", "recursion_type_alias", "runtime_annotation_transform", "runtime_call_macro", "runtime_expression",
+    "runtime_macro_exception", "runtime_macro_infer", "runtime_macro_performance", "runtime_macro_style", "runtime_structure_annotation", "runtime_typeinfo_macro",
+    "not_resolved_yet_argument_type", "not_resolved_yet_array_dimension", "not_resolved_yet_array_type", "not_resolved_yet_bitfield_type", "not_resolved_yet_block", "not_resolved_yet_block_argument",
+    "not_resolved_yet_block_argument_init", "not_resolved_yet_class_type", "not_resolved_yet_comprehension_type", "not_resolved_yet_delete_size_type", "not_resolved_yet_dereference_type", "not_resolved_yet_enumerator",
+    "not_resolved_yet_expression_type", "not_resolved_yet_function", "not_resolved_yet_function_block", "not_resolved_yet_generator_block", "not_resolved_yet_index_type", "not_resolved_yet_invoke_argument_type",
+    "not_resolved_yet_is_expression_type", "not_resolved_yet_label_type", "not_resolved_yet_lambda_block", "not_resolved_yet_local_type", "not_resolved_yet_method_call", "not_resolved_yet_new_type",
+    "not_resolved_yet_null_coalescing_type", "not_resolved_yet_structure", "not_resolved_yet_structure_field", "not_resolved_yet_structure_type", "not_resolved_yet_table_type", "not_resolved_yet_tuple_type",
+    "not_resolved_yet_type", "not_resolved_yet_type_alias", "not_resolved_yet_typeinfo", "not_resolved_yet_typeinfo_alignof", "not_resolved_yet_typeinfo_dim", "not_resolved_yet_typeinfo_dim_table",
+    "not_resolved_yet_typeinfo_sizeof", "concept_failed", "condition_must_be_bool", "not_expecting_result", "static_assert_failed", "invalid_options",
+    "mismatching_runtime_type", "mismatching_runtime_type_hash", "exceeds_array", "exceeds_global", "exceeds_runtime_buffer", "cant_hash_block",
+    "cant_hash_context", "cant_hash_iterator", "cant_serialize_block", "cant_serialize_iterator", "cant_serialize_null_pointer", "cant_serialize_pointer",
+    "cant_serialize_table", "runtime_function", "runtime_function_annotation", "runtime_global", "runtime_macro", "internal_annotation",
+    "internal_array", "internal_array_type", "internal_block", "internal_block_missing_return_type", "internal_class", "internal_enumeration",
+    "internal_expression", "internal_field", "internal_function", "internal_function_annotation", "internal_function_changed", "internal_function_name",
+    "internal_function_not_resolved_yet", "internal_function_refresh", "internal_generator", "internal_generator_finalizer", "internal_generator_finalizer_multiple", "internal_generator_finalizer_name",
+    "internal_generator_function_name", "internal_generator_structure_name", "internal_global", "internal_label", "internal_lambda_finalizer_name", "internal_lambda_function_name",
+    "internal_lambda_in_scope_conversion", "internal_lambda_structure_name", "internal_macro", "internal_name", "internal_options", "internal_pod_analysis_infer",
+    "internal_relocate_infer", "internal_structure", "internal_structure_block", "internal_table", "internal_tuple", "internal_tuple_type",
+    "internal_type", "internal_type_alias", "internal_typeinfo_macro", "internal_variable", "missing_aot", "syntax_error",
+    "function_not_found", "function_already_declared", "invalid_return_type", "invalid_initialization_type", "invalid_private", "invalid_static",
+    "aot_side_effects", "cant_pipe", "enumeration_value_already_declared", "invalid_escape_sequence", "invalid_option", "module_already_has_a_name",
+    "type_alias_already_declared", "unsupported_read_macro"
+    };
+public:
+    EnumerationCompilationError() : das::Enumeration("CompilationError") {
+        external = true;
+        cppName = "das::CompilationError";
+        baseType = (das::Type) das::ToBasicType< das::underlying_type< das::CompilationError >::type >::type;
+        das::CompilationError enumArray[] = {
+    das::CompilationError::unspecified, das::CompilationError::invalid_line, das::CompilationError::invalid_string, das::CompilationError::mismatching_curly_bracers,
+    das::CompilationError::mismatching_module_name, das::CompilationError::mismatching_parens, das::CompilationError::exceeds_constant, das::CompilationError::exceeds_file,
+    das::CompilationError::invalid_aka, das::CompilationError::invalid_capture, das::CompilationError::invalid_escape, das::CompilationError::invalid_field,
+    das::CompilationError::invalid_field_static, das::CompilationError::invalid_function, das::CompilationError::invalid_function_annotation, das::CompilationError::invalid_function_static,
+    das::CompilationError::invalid_global_aka, das::CompilationError::invalid_macro, das::CompilationError::invalid_module, das::CompilationError::invalid_module_require,
+    das::CompilationError::invalid_name, das::CompilationError::invalid_type_aka, das::CompilationError::invalid_type_alias, das::CompilationError::missing_module_name,
+    das::CompilationError::exceeds_bitfield, das::CompilationError::ambiguous_function_argument_type, das::CompilationError::already_declared_enumeration, das::CompilationError::already_declared_enumerator,
+    das::CompilationError::already_declared_field, das::CompilationError::already_declared_field_static, das::CompilationError::already_declared_function_argument, das::CompilationError::already_declared_global,
+    das::CompilationError::already_declared_global_bitfield, das::CompilationError::already_declared_local, das::CompilationError::already_declared_module, das::CompilationError::already_declared_module_name,
+    das::CompilationError::already_declared_structure, das::CompilationError::already_declared_type_alias, das::CompilationError::lookup_annotation, das::CompilationError::lookup_enumeration,
+    das::CompilationError::lookup_file, das::CompilationError::lookup_module, das::CompilationError::lookup_structure, das::CompilationError::cant_structure,
+    das::CompilationError::runtime_annotation, das::CompilationError::internal_module, das::CompilationError::invalid_annotation, das::CompilationError::invalid_annotation_field,
+    das::CompilationError::invalid_annotation_macro, das::CompilationError::invalid_annotation_type, das::CompilationError::invalid_argument, das::CompilationError::invalid_argument_global,
+    das::CompilationError::invalid_argument_name, das::CompilationError::invalid_argument_type, das::CompilationError::invalid_array, das::CompilationError::invalid_array_dimension,
+    das::CompilationError::invalid_array_dimension_type, das::CompilationError::invalid_array_element_type, das::CompilationError::invalid_array_type, das::CompilationError::invalid_as,
+    das::CompilationError::invalid_ascend_array_handle_type, das::CompilationError::invalid_ascend_handle_type, das::CompilationError::invalid_assert_argument_count, das::CompilationError::invalid_assert_comment_type,
+    das::CompilationError::invalid_assert_condition_type, das::CompilationError::invalid_bitfield, das::CompilationError::invalid_bitfield_cast_argument_count, das::CompilationError::invalid_block_argument,
+    das::CompilationError::invalid_block_argument_count, das::CompilationError::invalid_block_argument_init_type, das::CompilationError::invalid_block_argument_type, das::CompilationError::invalid_block_break,
+    das::CompilationError::invalid_block_continue, das::CompilationError::invalid_block_finally, das::CompilationError::invalid_break, das::CompilationError::invalid_capture_variable,
+    das::CompilationError::invalid_cast_function, das::CompilationError::invalid_cast_structure, das::CompilationError::invalid_cast_structure_pointer, das::CompilationError::invalid_cast_type,
+    das::CompilationError::invalid_class, das::CompilationError::invalid_class_local, das::CompilationError::invalid_class_tuple, das::CompilationError::invalid_class_variant,
+    das::CompilationError::invalid_clone_smart_pointer_type, das::CompilationError::invalid_comprehension_element_type, das::CompilationError::invalid_continue, das::CompilationError::invalid_debug_argument_count,
+    das::CompilationError::invalid_debug_comment_type, das::CompilationError::invalid_delete_size_type, das::CompilationError::invalid_delete_super_self_type, das::CompilationError::invalid_enumeration,
+    das::CompilationError::invalid_enumeration_name, das::CompilationError::invalid_enumerator, das::CompilationError::invalid_enumerator_name, das::CompilationError::invalid_enumerator_type,
+    das::CompilationError::invalid_erase_argument_count, das::CompilationError::invalid_expression, das::CompilationError::invalid_field_name, das::CompilationError::invalid_field_syntax,
+    das::CompilationError::invalid_field_type, das::CompilationError::invalid_finally_in_generator_if, das::CompilationError::invalid_find_argument_count, das::CompilationError::invalid_for_iterator_count,
+    das::CompilationError::invalid_for_iterator_tuple, das::CompilationError::invalid_function_argument, das::CompilationError::invalid_function_argument_count, das::CompilationError::invalid_function_argument_type,
+    das::CompilationError::invalid_function_argument_type_block, das::CompilationError::invalid_function_name, das::CompilationError::invalid_function_options, das::CompilationError::invalid_function_result,
+    das::CompilationError::invalid_function_result_discarded, das::CompilationError::invalid_function_result_type, das::CompilationError::invalid_function_type, das::CompilationError::invalid_generator,
+    das::CompilationError::invalid_generator_argument_count, das::CompilationError::invalid_generator_argument_type, das::CompilationError::invalid_generator_result_type, das::CompilationError::invalid_global,
+    das::CompilationError::invalid_global_init_options, das::CompilationError::invalid_global_init_type, das::CompilationError::invalid_global_options, das::CompilationError::invalid_global_self_init,
+    das::CompilationError::invalid_global_shared, das::CompilationError::invalid_global_type, das::CompilationError::invalid_global_type_shared, das::CompilationError::invalid_handle_index_type,
+    das::CompilationError::invalid_handle_safe_index_type, das::CompilationError::invalid_if_condition_type, das::CompilationError::invalid_index_type, das::CompilationError::invalid_insert_argument_count,
+    das::CompilationError::invalid_invoke_argument_count, das::CompilationError::invalid_invoke_argument_type, das::CompilationError::invalid_invoke_method_syntax, das::CompilationError::invalid_invoke_target_type,
+    das::CompilationError::invalid_is, das::CompilationError::invalid_is_expression, das::CompilationError::invalid_iteration_source_type, das::CompilationError::invalid_key_exists_argument_count,
+    das::CompilationError::invalid_label_type, das::CompilationError::invalid_local_in_scope, das::CompilationError::invalid_local_in_scope_finally, das::CompilationError::invalid_local_init,
+    das::CompilationError::invalid_local_init_block, das::CompilationError::invalid_local_init_constructor, das::CompilationError::invalid_local_init_type, das::CompilationError::invalid_local_tuple_expansion,
+    das::CompilationError::invalid_local_type, das::CompilationError::invalid_macro_context, das::CompilationError::invalid_macro_read, das::CompilationError::invalid_macro_tag,
+    das::CompilationError::invalid_macro_type, das::CompilationError::invalid_memzero_argument, das::CompilationError::invalid_memzero_argument_count, das::CompilationError::invalid_memzero_argument_type,
+    das::CompilationError::invalid_module_name, das::CompilationError::invalid_new_class_syntax, das::CompilationError::invalid_new_initializer_result_type, das::CompilationError::invalid_new_initializer_type,
+    das::CompilationError::invalid_new_type, das::CompilationError::invalid_null_coalescing_type, das::CompilationError::invalid_op3_expression, das::CompilationError::invalid_pointer_arithmetic,
+    das::CompilationError::invalid_quote_argument_count, das::CompilationError::invalid_result, das::CompilationError::invalid_result_type, das::CompilationError::invalid_return_semantics,
+    das::CompilationError::invalid_safe_as, das::CompilationError::invalid_safe_dereference_type, das::CompilationError::invalid_safe_field_type, das::CompilationError::invalid_static_assert_argument_count,
+    das::CompilationError::invalid_static_assert_comment_type, das::CompilationError::invalid_static_assert_condition_type, das::CompilationError::invalid_static_if_condition, das::CompilationError::invalid_storage_type_op,
+    das::CompilationError::invalid_string_builder_argument, das::CompilationError::invalid_structure, das::CompilationError::invalid_structure_annotation, das::CompilationError::invalid_structure_array,
+    das::CompilationError::invalid_structure_block_pipe, das::CompilationError::invalid_structure_field_init, das::CompilationError::invalid_structure_field_type, das::CompilationError::invalid_structure_initializer_required,
+    das::CompilationError::invalid_structure_local, das::CompilationError::invalid_structure_name, das::CompilationError::invalid_structure_template, das::CompilationError::invalid_structure_tuple,
+    das::CompilationError::invalid_structure_type, das::CompilationError::invalid_structure_variant, das::CompilationError::invalid_super_call, das::CompilationError::invalid_swizzle_mask,
+    das::CompilationError::invalid_swizzle_type, das::CompilationError::invalid_table, das::CompilationError::invalid_table_argument_type, das::CompilationError::invalid_table_expression,
+    das::CompilationError::invalid_table_index_type, das::CompilationError::invalid_table_key_type, das::CompilationError::invalid_table_safe_index_type, das::CompilationError::invalid_table_type,
+    das::CompilationError::invalid_tuple, das::CompilationError::invalid_tuple_argument_type, das::CompilationError::invalid_tuple_block, das::CompilationError::invalid_tuple_key,
+    das::CompilationError::invalid_tuple_key_type, das::CompilationError::invalid_tuple_type, das::CompilationError::invalid_tuple_variant, das::CompilationError::invalid_type,
+    das::CompilationError::invalid_type_dimension, das::CompilationError::invalid_type_expression, das::CompilationError::invalid_typeinfo, das::CompilationError::invalid_typeinfo_annotation,
+    das::CompilationError::invalid_typeinfo_annotation_argument_type, das::CompilationError::invalid_typeinfo_dim, das::CompilationError::invalid_typeinfo_dim_table, das::CompilationError::invalid_typeinfo_dim_table_type,
+    das::CompilationError::invalid_typeinfo_function, das::CompilationError::invalid_typeinfo_has_field_type, das::CompilationError::invalid_typeinfo_mangled_subexpression, das::CompilationError::invalid_typeinfo_module_subexpression,
+    das::CompilationError::invalid_typeinfo_offsetof_type, das::CompilationError::invalid_typeinfo_struct_get_annotation_argument_type, das::CompilationError::invalid_typeinfo_struct_has_annotation_argument_type, das::CompilationError::invalid_typeinfo_struct_has_annotation_type,
+    das::CompilationError::invalid_typeinfo_struct_modulename, das::CompilationError::invalid_typeinfo_struct_name, das::CompilationError::invalid_typeinfo_variant_index_type, das::CompilationError::invalid_variable_name,
+    das::CompilationError::invalid_variable_private, das::CompilationError::invalid_variant, das::CompilationError::invalid_variant_array, das::CompilationError::invalid_variant_block,
+    das::CompilationError::invalid_variant_initializer_count, das::CompilationError::invalid_variant_tuple, das::CompilationError::invalid_variant_type, das::CompilationError::invalid_variant_unique,
+    das::CompilationError::invalid_while_condition_type, das::CompilationError::invalid_with_array_type, das::CompilationError::invalid_with_type, das::CompilationError::invalid_yield,
+    das::CompilationError::invalid_yield_in_block, das::CompilationError::missing_annotation, das::CompilationError::missing_assume_type, das::CompilationError::missing_bitfield_init,
+    das::CompilationError::missing_block_argument_init, das::CompilationError::missing_block_result, das::CompilationError::missing_enumeration_zero, das::CompilationError::missing_finalizer,
+    das::CompilationError::missing_for_iterator, das::CompilationError::missing_function_body, das::CompilationError::missing_function_name, das::CompilationError::missing_function_result,
+    das::CompilationError::missing_global, das::CompilationError::missing_global_init, das::CompilationError::missing_global_shared_init, das::CompilationError::missing_local,
+    das::CompilationError::missing_local_block_init, das::CompilationError::missing_local_init, das::CompilationError::missing_local_reference_init, das::CompilationError::missing_new_default_initializer,
+    das::CompilationError::missing_result, das::CompilationError::missing_structure_field, das::CompilationError::missing_typeinfo_subexpression, das::CompilationError::mismatching_array_dimension,
+    das::CompilationError::mismatching_array_element_type, das::CompilationError::mismatching_block_argument_type, das::CompilationError::mismatching_clone_type, das::CompilationError::mismatching_function_argument,
+    das::CompilationError::mismatching_function_argument_count, das::CompilationError::mismatching_numeric_type, das::CompilationError::mismatching_result_type, das::CompilationError::mismatching_structure_dimension,
+    das::CompilationError::mismatching_tuple_argument_count, das::CompilationError::mismatching_tuple_field_names, das::CompilationError::mismatching_type, das::CompilationError::mismatching_variant_dimension,
+    das::CompilationError::exceeds_argument, das::CompilationError::exceeds_array_index, das::CompilationError::exceeds_call_depth, das::CompilationError::exceeds_expression_recursion,
+    das::CompilationError::exceeds_function_argument, das::CompilationError::exceeds_infer_passes, das::CompilationError::exceeds_local, das::CompilationError::exceeds_new_argument,
+    das::CompilationError::exceeds_structure, das::CompilationError::exceeds_tuple_index, das::CompilationError::exceeds_type, das::CompilationError::exceeds_type_alias,
+    das::CompilationError::exceeds_typeinfo_sizeof, das::CompilationError::ambiguous_annotation, das::CompilationError::ambiguous_bitfield, das::CompilationError::ambiguous_call_macro,
+    das::CompilationError::ambiguous_enumeration, das::CompilationError::ambiguous_field, das::CompilationError::ambiguous_field_lookup, das::CompilationError::ambiguous_finalizer,
+    das::CompilationError::ambiguous_function, das::CompilationError::ambiguous_macro, das::CompilationError::ambiguous_structure, das::CompilationError::ambiguous_super_call,
+    das::CompilationError::ambiguous_super_constructor, das::CompilationError::ambiguous_type, das::CompilationError::ambiguous_type_alias, das::CompilationError::ambiguous_typeinfo_macro,
+    das::CompilationError::ambiguous_variable, das::CompilationError::already_declared_assume_alias, das::CompilationError::already_declared_block_argument, das::CompilationError::already_declared_function,
+    das::CompilationError::already_declared_label, das::CompilationError::already_declared_local_variable, das::CompilationError::already_declared_structure_field_init, das::CompilationError::already_declared_table,
+    das::CompilationError::already_declared_tuple_field, das::CompilationError::already_declared_variable, das::CompilationError::already_declared_with_shadow, das::CompilationError::lookup_annotation_field,
+    das::CompilationError::lookup_argument_type, das::CompilationError::lookup_bitfield, das::CompilationError::lookup_block_argument_type, das::CompilationError::lookup_block_result_type,
+    das::CompilationError::lookup_cast_type, das::CompilationError::lookup_constructor, das::CompilationError::lookup_expression_type, das::CompilationError::lookup_field,
+    das::CompilationError::lookup_field_type, das::CompilationError::lookup_function, das::CompilationError::lookup_function_address_type, das::CompilationError::lookup_function_argument_type,
+    das::CompilationError::lookup_function_mangled_name, das::CompilationError::lookup_function_result_type, das::CompilationError::lookup_function_type, das::CompilationError::lookup_generator_type,
+    das::CompilationError::lookup_global_type, das::CompilationError::lookup_is_expression_type, das::CompilationError::lookup_label, das::CompilationError::lookup_local_type,
+    das::CompilationError::lookup_macro, das::CompilationError::lookup_method, das::CompilationError::lookup_new_type, das::CompilationError::lookup_safe_field_type,
+    das::CompilationError::lookup_structure_field, das::CompilationError::lookup_structure_field_type, das::CompilationError::lookup_super_class, das::CompilationError::lookup_super_constructor,
+    das::CompilationError::lookup_super_finalizer, das::CompilationError::lookup_super_method, das::CompilationError::lookup_tuple_field, das::CompilationError::lookup_type,
+    das::CompilationError::lookup_typeinfo_annotation, das::CompilationError::lookup_typeinfo_annotation_argument, das::CompilationError::lookup_typeinfo_macro, das::CompilationError::lookup_typeinfo_offsetof_type,
+    das::CompilationError::lookup_typeinfo_type, das::CompilationError::lookup_variable, das::CompilationError::lookup_variant_field, das::CompilationError::lookup_variant_type,
+    das::CompilationError::cant_access_private_field, das::CompilationError::cant_access_private_structure, das::CompilationError::cant_address_function, das::CompilationError::cant_address_template_function,
+    das::CompilationError::cant_annotation_field, das::CompilationError::cant_apply_op, das::CompilationError::cant_argument, das::CompilationError::cant_argument_structure,
+    das::CompilationError::cant_array_element, das::CompilationError::cant_ascend, das::CompilationError::cant_assign_op, das::CompilationError::cant_block,
+    das::CompilationError::cant_capture_variable, das::CompilationError::cant_clone, das::CompilationError::cant_clone_type, das::CompilationError::cant_copy,
+    das::CompilationError::cant_create_structure_annotation, das::CompilationError::cant_delete, das::CompilationError::cant_delete_local, das::CompilationError::cant_delete_smart_pointer,
+    das::CompilationError::cant_delete_super, das::CompilationError::cant_dereference, das::CompilationError::cant_expression, das::CompilationError::cant_field_class,
+    das::CompilationError::cant_finalize_block_annotation, das::CompilationError::cant_finalize_function_annotation, das::CompilationError::cant_finalize_structure_annotation, das::CompilationError::cant_function,
+    das::CompilationError::cant_get_field, das::CompilationError::cant_get_field_pointer, das::CompilationError::cant_global, das::CompilationError::cant_index,
+    das::CompilationError::cant_index_key, das::CompilationError::cant_index_pointer, das::CompilationError::cant_index_table, das::CompilationError::cant_initialize_array_element,
+    das::CompilationError::cant_initialize_private_field, das::CompilationError::cant_initialize_structure_field, das::CompilationError::cant_initialize_variant_field, das::CompilationError::cant_iterate_iterator,
+    das::CompilationError::cant_local, das::CompilationError::cant_move, das::CompilationError::cant_pointer, das::CompilationError::cant_result,
+    das::CompilationError::cant_safe_get_field, das::CompilationError::cant_safe_index, das::CompilationError::cant_safe_index_table, das::CompilationError::cant_structure_field,
+    das::CompilationError::cant_take_pointer, das::CompilationError::cant_tuple, das::CompilationError::cant_type, das::CompilationError::cant_variant_field,
+    das::CompilationError::cant_write, das::CompilationError::unsafe_address, das::CompilationError::unsafe_argument, das::CompilationError::unsafe_array_safe_index,
+    das::CompilationError::unsafe_capture_variable, das::CompilationError::unsafe_cast, das::CompilationError::unsafe_class, das::CompilationError::unsafe_class_initializer,
+    das::CompilationError::unsafe_class_local, das::CompilationError::unsafe_class_stack_construction, das::CompilationError::unsafe_delete, das::CompilationError::unsafe_delete_pointer,
+    das::CompilationError::unsafe_fixed_array_safe_index, das::CompilationError::unsafe_function, das::CompilationError::unsafe_function_call, das::CompilationError::unsafe_global,
+    das::CompilationError::unsafe_global_pointer, das::CompilationError::unsafe_local, das::CompilationError::unsafe_local_class, das::CompilationError::unsafe_local_in_scope_required,
+    das::CompilationError::unsafe_local_reference, das::CompilationError::unsafe_local_type, das::CompilationError::unsafe_move, das::CompilationError::unsafe_operator,
+    das::CompilationError::unsafe_pointer_index, das::CompilationError::unsafe_pointer_safe_index, das::CompilationError::unsafe_return_block, das::CompilationError::unsafe_return_function,
+    das::CompilationError::unsafe_return_reference, das::CompilationError::unsafe_return_smart_pointer, das::CompilationError::unsafe_smart_pointer, das::CompilationError::unsafe_structure_field,
+    das::CompilationError::unsafe_structure_uninitialized, das::CompilationError::unsafe_structure_visibility, das::CompilationError::unsafe_table_index, das::CompilationError::unsafe_table_safe_index,
+    das::CompilationError::unsafe_variant_field, das::CompilationError::unsafe_variant_safe_as, das::CompilationError::recursion_argument, das::CompilationError::recursion_assume_alias,
+    das::CompilationError::recursion_function, das::CompilationError::recursion_function_argument, das::CompilationError::recursion_global, das::CompilationError::recursion_structure,
+    das::CompilationError::recursion_type_alias, das::CompilationError::runtime_annotation_transform, das::CompilationError::runtime_call_macro, das::CompilationError::runtime_expression,
+    das::CompilationError::runtime_macro_exception, das::CompilationError::runtime_macro_infer, das::CompilationError::runtime_macro_performance, das::CompilationError::runtime_macro_style,
+    das::CompilationError::runtime_structure_annotation, das::CompilationError::runtime_typeinfo_macro, das::CompilationError::not_resolved_yet_argument_type, das::CompilationError::not_resolved_yet_array_dimension,
+    das::CompilationError::not_resolved_yet_array_type, das::CompilationError::not_resolved_yet_bitfield_type, das::CompilationError::not_resolved_yet_block, das::CompilationError::not_resolved_yet_block_argument,
+    das::CompilationError::not_resolved_yet_block_argument_init, das::CompilationError::not_resolved_yet_class_type, das::CompilationError::not_resolved_yet_comprehension_type, das::CompilationError::not_resolved_yet_delete_size_type,
+    das::CompilationError::not_resolved_yet_dereference_type, das::CompilationError::not_resolved_yet_enumerator, das::CompilationError::not_resolved_yet_expression_type, das::CompilationError::not_resolved_yet_function,
+    das::CompilationError::not_resolved_yet_function_block, das::CompilationError::not_resolved_yet_generator_block, das::CompilationError::not_resolved_yet_index_type, das::CompilationError::not_resolved_yet_invoke_argument_type,
+    das::CompilationError::not_resolved_yet_is_expression_type, das::CompilationError::not_resolved_yet_label_type, das::CompilationError::not_resolved_yet_lambda_block, das::CompilationError::not_resolved_yet_local_type,
+    das::CompilationError::not_resolved_yet_method_call, das::CompilationError::not_resolved_yet_new_type, das::CompilationError::not_resolved_yet_null_coalescing_type, das::CompilationError::not_resolved_yet_structure,
+    das::CompilationError::not_resolved_yet_structure_field, das::CompilationError::not_resolved_yet_structure_type, das::CompilationError::not_resolved_yet_table_type, das::CompilationError::not_resolved_yet_tuple_type,
+    das::CompilationError::not_resolved_yet_type, das::CompilationError::not_resolved_yet_type_alias, das::CompilationError::not_resolved_yet_typeinfo, das::CompilationError::not_resolved_yet_typeinfo_alignof,
+    das::CompilationError::not_resolved_yet_typeinfo_dim, das::CompilationError::not_resolved_yet_typeinfo_dim_table, das::CompilationError::not_resolved_yet_typeinfo_sizeof, das::CompilationError::concept_failed,
+    das::CompilationError::condition_must_be_bool, das::CompilationError::not_expecting_result, das::CompilationError::static_assert_failed, das::CompilationError::invalid_options,
+    das::CompilationError::mismatching_runtime_type, das::CompilationError::mismatching_runtime_type_hash, das::CompilationError::exceeds_array, das::CompilationError::exceeds_global,
+    das::CompilationError::exceeds_runtime_buffer, das::CompilationError::cant_hash_block, das::CompilationError::cant_hash_context, das::CompilationError::cant_hash_iterator,
+    das::CompilationError::cant_serialize_block, das::CompilationError::cant_serialize_iterator, das::CompilationError::cant_serialize_null_pointer, das::CompilationError::cant_serialize_pointer,
+    das::CompilationError::cant_serialize_table, das::CompilationError::runtime_function, das::CompilationError::runtime_function_annotation, das::CompilationError::runtime_global,
+    das::CompilationError::runtime_macro, das::CompilationError::internal_annotation, das::CompilationError::internal_array, das::CompilationError::internal_array_type,
+    das::CompilationError::internal_block, das::CompilationError::internal_block_missing_return_type, das::CompilationError::internal_class, das::CompilationError::internal_enumeration,
+    das::CompilationError::internal_expression, das::CompilationError::internal_field, das::CompilationError::internal_function, das::CompilationError::internal_function_annotation,
+    das::CompilationError::internal_function_changed, das::CompilationError::internal_function_name, das::CompilationError::internal_function_not_resolved_yet, das::CompilationError::internal_function_refresh,
+    das::CompilationError::internal_generator, das::CompilationError::internal_generator_finalizer, das::CompilationError::internal_generator_finalizer_multiple, das::CompilationError::internal_generator_finalizer_name,
+    das::CompilationError::internal_generator_function_name, das::CompilationError::internal_generator_structure_name, das::CompilationError::internal_global, das::CompilationError::internal_label,
+    das::CompilationError::internal_lambda_finalizer_name, das::CompilationError::internal_lambda_function_name, das::CompilationError::internal_lambda_in_scope_conversion, das::CompilationError::internal_lambda_structure_name,
+    das::CompilationError::internal_macro, das::CompilationError::internal_name, das::CompilationError::internal_options, das::CompilationError::internal_pod_analysis_infer,
+    das::CompilationError::internal_relocate_infer, das::CompilationError::internal_structure, das::CompilationError::internal_structure_block, das::CompilationError::internal_table,
+    das::CompilationError::internal_tuple, das::CompilationError::internal_tuple_type, das::CompilationError::internal_type, das::CompilationError::internal_type_alias,
+    das::CompilationError::internal_typeinfo_macro, das::CompilationError::internal_variable, das::CompilationError::missing_aot, das::CompilationError::syntax_error,
+    das::CompilationError::function_not_found, das::CompilationError::function_already_declared, das::CompilationError::invalid_return_type, das::CompilationError::invalid_initialization_type,
+    das::CompilationError::invalid_private, das::CompilationError::invalid_static, das::CompilationError::aot_side_effects, das::CompilationError::cant_pipe,
+    das::CompilationError::enumeration_value_already_declared, das::CompilationError::invalid_escape_sequence, das::CompilationError::invalid_option, das::CompilationError::module_already_has_a_name,
+    das::CompilationError::type_alias_already_declared, das::CompilationError::unsupported_read_macro
+        };
+        for (uint32_t i = 0; i < sizeof(enumArray)/sizeof(enumArray[0]); ++i)
+            addI(enumArrayName[i], int64_t(enumArray[i]), das::LineInfo());
+    }
+};
+namespace das {
+    template <>
+    struct typeFactory< das::CompilationError > {
+        static TypeDeclPtr make(const ModuleLibrary & library ) {
+            return library.makeEnumType("CompilationError");
+        }
+    };
+}
 
 das::FileAccessPtr get_file_access( char * pak );//link time resolved dependencies
 das::Context * get_context ( int stackSize=0 );//link time resolved dependencies
@@ -200,7 +336,7 @@ namespace das {
     template <>
     struct typeFactory<RttiValue> {
         static TypeDeclPtr make(const ModuleLibrary & library ) {
-            auto vtype = make_smart<TypeDecl>(Type::tVariant);
+            auto vtype = new TypeDecl(Type::tVariant);
             vtype->alias = "RttiValue";
             vtype->aotAlias = false;
             vtype->addVariant("tBool",   typeFactory<RttiValue::NthType<RttiBool>>::make(library));
@@ -220,7 +356,7 @@ namespace das {
     };
 
     TypeDeclPtr makeModuleFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "ModuleFlags";
         ft->argNames = {
             "builtIn", "promoted", "isPublic", "isModule", "isSolidContext",
@@ -233,6 +369,7 @@ namespace das {
     struct ModuleAnnotation : ManagedStructureAnnotation<Module,false> {
         ModuleAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("Module", ml) {
             addField<DAS_BIND_MANAGED_FIELD(name)>("name");
+            addField<DAS_BIND_MANAGED_FIELD(cppClassName)>("cppClassName");
             addField<DAS_BIND_MANAGED_FIELD(fileName)>("fileName");
             addFieldEx ( "moduleFlags", "moduleFlags", offsetof(Module, moduleFlags), makeModuleFlags() );
         }
@@ -241,6 +378,12 @@ namespace das {
     struct AstModuleGroupAnnotation : ManagedStructureAnnotation<ModuleGroup, true, true> {
         AstModuleGroupAnnotation(ModuleLibrary & ml)
             : ManagedStructureAnnotation ("ModuleGroup", ml) {
+        }
+    };
+
+    struct AstSerializerAnnotation : ManagedStructureAnnotation<AstSerializerState, false, false> {
+        AstSerializerAnnotation(ModuleLibrary & ml)
+            : ManagedStructureAnnotation ("AstSerializer", ml) {
         }
     };
 
@@ -270,7 +413,7 @@ namespace das {
     };
 
     TypeDeclPtr makeContextCategoryFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "context_category_flags";
         ft->argNames = { "dead", "debug_context", "thread_clone", "job_clone", "opengl",
             "debugger_tick", "debugger_attached", "macro_context", "folding_context", "audio" };
@@ -295,8 +438,6 @@ namespace das {
             addField<DAS_BIND_MANAGED_FIELD(last_exception)>("last_exception");
             addField<DAS_BIND_MANAGED_FIELD(exceptionAt)>("exceptionAt");
             addField<DAS_BIND_MANAGED_FIELD(contextMutex)>("contextMutex");
-            addProperty<DAS_BIND_MANAGED_PROP(getInitSemanticHash)>("getInitSemanticHash",
-                                                                  "getInitSemanticHash");
             addProperty<DAS_BIND_MANAGED_PROP(getTotalFunctions)>("totalFunctions",
                 "getTotalFunctions");
             addProperty<DAS_BIND_MANAGED_PROP(getTotalVariables)>("totalVariables",
@@ -318,7 +459,7 @@ namespace das {
     };
 
     TypeDeclPtr makeSimFunctionFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "SimFunctionFlags";
         ft->argNames = { "aot", "fastcall", "builtin", "jit", "unsafe", "cmres", "pinvoke" };
         return ft;
@@ -348,7 +489,7 @@ namespace das {
     };
 
     TypeDeclPtr makeProgramFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "ProgramFlags";
         ft->argNames = { "failToCompile", "_unsafe", "isCompiling", "isSimulating",
             "isCompilingMacros", "needMacroModule", "promoteToBuiltin",
@@ -387,7 +528,7 @@ namespace das {
     };
 
     TypeDeclPtr makeAnnotationDeclarationFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "AnnotationDeclarationFlags";
         ft->argNames = { "inherited" };
         return ft;
@@ -518,27 +659,35 @@ namespace das {
         virtual bool isIndexable ( const TypeDeclPtr & indexType ) const override {
             return indexType->isIndex();
         }
-        virtual TypeDeclPtr makeIndexType ( const ExpressionPtr &, const ExpressionPtr & ) const override {
-            return make_smart<TypeDecl>(*fieldType);
+        virtual TypeDeclPtr makeIndexType ( ExpressionPtr, ExpressionPtr ) const override {
+            return new TypeDecl(*fieldType);
         }
         virtual SimNode * simulateGetAt ( Context & context, const LineInfo & at, const TypeDeclPtr &,
-                                         const ExpressionPtr & rv, const ExpressionPtr & idx, uint32_t ofs ) const override {
+                                         ExpressionPtr rv, ExpressionPtr idx, uint32_t ofs ) const override {
             return context.code->makeNode<SimNode_DebugInfoAtField<ST>>(at,
-                                                                                rv->simulate(context),
-                                                                                idx->simulate(context),
-                                                                                ofs);
+                                                                        simulateExpression(context, rv),
+                                                                        simulateExpression(context, idx),
+                                                                        ofs);
         }
         virtual bool isIterable ( ) const override {
             return true;
         }
-        virtual TypeDeclPtr makeIteratorType ( const ExpressionPtr & ) const override {
-            return make_smart<TypeDecl>(*fieldType);
+        virtual TypeDeclPtr makeIteratorType ( ExpressionPtr ) const override {
+            return new TypeDecl(*fieldType);
         }
-        virtual SimNode * simulateGetIterator ( Context & context, const LineInfo & at, const ExpressionPtr & src ) const override {
-            auto rv = src->simulate(context);
+        virtual SimNode * simulateGetIterator ( Context & context, const LineInfo & at, ExpressionPtr src ) const override {
+            auto rv = simulateExpression(context, src);
             return context.code->makeNode<SimNode_AnyIterator<ST,DebugInfoIterator<VT,ST>>>(at, rv);
         }
-        TypeDeclPtr fieldType;
+        virtual void gc_collect ( gc_root * target, gc_root * from ) override {
+            ManagedStructureAnnotation<ST,false>::gc_collect(target, from);
+            if ( fieldType ) fieldType->gc_collect(target, from);
+        }
+        virtual void visitTypeDecls ( const function<void(TypeDecl *)> & callback ) override {
+            ManagedStructureAnnotation<ST,false>::visitTypeDecls(callback);
+            if ( fieldType ) callback(fieldType);
+        }
+        TypeDeclPtr fieldType = nullptr;
     };
 
     template <typename ST, typename VT>
@@ -570,7 +719,7 @@ namespace das {
 
 
     TypeDeclPtr makeStructInfoFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "StructInfoFlags";
         ft->argNames = { "_class", "_lambda", "heapGC", "stringHeapGC" };
         return ft;
@@ -602,7 +751,7 @@ namespace das {
     }
 
     TypeDeclPtr makeTypeInfoFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "TypeInfoFlags";
         ft->argNames = { "ref", "refType", "canCopy", "isPod", "isRawPod", "isConst", "isTemp", "isImplicit",
             "refValue", "hasInitValue", "isSmartPtr", "isSmartPtrNative", "isHandled",
@@ -670,7 +819,7 @@ namespace das {
     };
 
     TypeDeclPtr makeLocalVariableInfoFlagsFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "LocalVariableInfoFlags";
         ft->argNames = { "cmres" };
         return ft;
@@ -719,12 +868,14 @@ namespace das {
             addField<DAS_BIND_MANAGED_FIELD(aot)>("aot");
             addField<DAS_BIND_MANAGED_FIELD(aot_lib)>("aot_lib");
             addField<DAS_BIND_MANAGED_FIELD(paranoid_validation)>("paranoid_validation");
+            addField<DAS_BIND_MANAGED_FIELD(validate_ast)>("validate_ast");
             addField<DAS_BIND_MANAGED_FIELD(cross_platform)>("cross_platform");
             addField<DAS_BIND_MANAGED_FIELD(standalone_context)>("standalone_context");
             addField<DAS_BIND_MANAGED_FIELD(aot_module)>("aot_module");
             addField<DAS_BIND_MANAGED_FIELD(aot_macros)>("aot_macros");
             addField<DAS_BIND_MANAGED_FIELD(aot_result)>("aot_result");
             addField<DAS_BIND_MANAGED_FIELD(completion)>("completion");
+            addField<DAS_BIND_MANAGED_FIELD(lint_check)>("lint_check");
             addField<DAS_BIND_MANAGED_FIELD(export_all)>("export_all");
             addField<DAS_BIND_MANAGED_FIELD(serialize_main_module)>("serialize_main_module");
             addField<DAS_BIND_MANAGED_FIELD(keep_alive)>("keep_alive");
@@ -747,6 +898,7 @@ namespace das {
             addField<DAS_BIND_MANAGED_FIELD(max_static_variables_size)>("max_static_variables_size");
             addField<DAS_BIND_MANAGED_FIELD(max_heap_allocated)>("max_heap_allocated");
             addField<DAS_BIND_MANAGED_FIELD(max_string_heap_allocated)>("max_string_heap_allocated");
+            addField<DAS_BIND_MANAGED_FIELD(track_allocations)>("track_allocations");
         // rtti
             addField<DAS_BIND_MANAGED_FIELD(rtti)>("rtti");
         // language
@@ -817,7 +969,7 @@ namespace das {
         vector<pair<string,Type>> options;
         Module dummyMod;
         ModuleLibrary dummy(&dummyMod);
-        auto cop = make_smart<CodeOfPoliciesAnnotation>(dummy);
+        auto cop = new CodeOfPoliciesAnnotation(dummy);
         for ( auto & f : cop->fields ) {
             if ( f.second.decl->isWorkhorseType() ) {
                 auto bT = f.second.decl->baseType;
@@ -1073,7 +1225,7 @@ namespace das {
             auto al = (const AnnotationList *) info.annotation_list;
             for ( const auto & adp : *al ) {
                 vec4f args[2] = {
-                    cast<Annotation *>::from(adp->annotation.get()),
+                    cast<Annotation *>::from(adp->annotation),
                     cast<AnnotationArgumentList *>::from(&adp->arguments)
                 };
                 context->invoke(block, args, nullptr, at);
@@ -1119,12 +1271,12 @@ namespace das {
     }
 
     void rtti_builtin_module_for_each_annotation ( Module * module, const TBlock<void,const Annotation> & block, Context * context, LineInfoArg * at ) {
-        module->handleTypes.foreach([&](auto annotationPtr){
+        for ( auto & [key, annotationPtr] : module->handleTypes ) {
             vec4f args[1] = {
-                cast<Annotation*>::from(annotationPtr.get())
+                cast<Annotation*>::from(annotationPtr)
             };
             context->invoke(block, args, nullptr, at);
-        });
+        }
     }
 
     void rtti_builtin_basic_struct_for_each_parent ( const BasicStructureAnnotation & ann, const TBlock<void,Annotation *> & block, Context * context, LineInfoArg * at ) {
@@ -1241,9 +1393,9 @@ namespace das {
 
     struct SimNode_RttiGetTypeDecl : SimNode_CallBase {
         DAS_PTR_NODE;
-        SimNode_RttiGetTypeDecl ( const LineInfo & at, const ExpressionPtr & d )
+        SimNode_RttiGetTypeDecl ( const LineInfo & at, ExpressionPtr d )
             : SimNode_CallBase(at,"") {
-            typeExpr = d->type.get();
+            typeExpr = d->type;
         }
         virtual SimNode * visit ( SimVisitor & vis ) override {
             V_BEGIN();
@@ -1260,15 +1412,15 @@ namespace das {
 
     struct RttiTypeInfoMacro : TypeInfoMacro {
         RttiTypeInfoMacro() : TypeInfoMacro("rtti_typeinfo") {}
-        virtual TypeDeclPtr getAstType ( ModuleLibrary & lib, const ExpressionPtr &, string & ) override {
+        virtual TypeDeclPtr getAstType ( ModuleLibrary & lib, ExpressionPtr, string & ) override {
             return typeFactory<const TypeInfo>::make(lib);
         }
-        virtual SimNode * simluate ( Context * context, const ExpressionPtr & expr, string & ) override {
-            auto exprTypeInfo = static_pointer_cast<ExprTypeInfo>(expr);
+        virtual SimNode * simluate ( Context * context, ExpressionPtr expr, string & ) override {
+            auto exprTypeInfo = static_cast<ExprTypeInfo*>(expr);
             TypeInfo * typeInfo = context->thisHelper->makeTypeInfo(nullptr, exprTypeInfo->typeexpr);
             return context->code->makeNode<SimNode_TypeInfo>(expr->at, typeInfo);
         }
-        virtual bool aotNeedTypeInfo ( const ExpressionPtr & ) const override {
+        virtual bool aotNeedTypeInfo ( ExpressionPtr ) const override {
             return true;
         }
     };
@@ -1454,7 +1606,7 @@ namespace das {
     public:
         template <typename RecAnn>
         void addRecAnnotation ( ModuleLibrary & lib ) {
-            auto rec = make_smart<RecAnn>(lib);
+            auto rec = new RecAnn(lib);
             addAnnotation(rec);
             initRecAnnotation(rec, lib);
         }
@@ -1472,47 +1624,48 @@ namespace das {
             addAlias(makeSimFunctionFlags());
             addAlias(makeLocalVariableInfoFlagsFlags());
             // CodeOfPolicies
-            addAnnotation(make_smart<CodeOfPoliciesAnnotation>(lib));
+            addAnnotation(new CodeOfPoliciesAnnotation(lib));
             addCtorAndUsing<CodeOfPolicies>(*this,lib,"CodeOfPolicies","CodeOfPolicies");
             // enums
-            addEnumeration(make_smart<EnumerationCompilationError>());
+            addEnumeration(new EnumerationCompilationError());
             // type annotations
-            addAnnotation(make_smart<FileInfoAnnotation>(lib));
-            addAnnotation(make_smart<LineInfoAnnotation>(lib));
+            addAnnotation(new FileInfoAnnotation(lib));
+            addAnnotation(new LineInfoAnnotation(lib));
                 addCtor<LineInfo>(*this,lib,"LineInfo","LineInfo");
                 addCtor<LineInfo,FileInfo *,int,int,int,int>(*this,lib,"LineInfo","LineInfo");
-            addAnnotation(make_smart<DummyTypeAnnotation>("recursive_mutex","recursive_mutex",sizeof(recursive_mutex),alignof(recursive_mutex)));
+            addAnnotation(new DummyTypeAnnotation("recursive_mutex","recursive_mutex",sizeof(recursive_mutex),alignof(recursive_mutex)));
             addUsing<recursive_mutex>(*this, lib, "das::recursive_mutex");
-            addAnnotation(make_smart<ContextAnnotation>(lib));
-            addAnnotation(make_smart<ErrorAnnotation>(lib));
-            addAnnotation(make_smart<FileAccessAnnotation>(lib));
-            addAnnotation(make_smart<ModuleAnnotation>(lib));
-            addAnnotation(make_smart<AstModuleGroupAnnotation>(lib));
-            addEnumeration(make_smart<EnumerationType>());
-            addAnnotation(make_smart<AnnotationArgumentAnnotation>(lib));
+            addAnnotation(new ContextAnnotation(lib));
+            addAnnotation(new ErrorAnnotation(lib));
+            addAnnotation(new FileAccessAnnotation(lib));
+            addAnnotation(new ModuleAnnotation(lib));
+            addAnnotation(new AstModuleGroupAnnotation(lib));
+            addAnnotation(new AstSerializerAnnotation(lib));
+            addEnumeration(new EnumerationType());
+            addAnnotation(new AnnotationArgumentAnnotation(lib));
             addVectorAnnotation<AnnotationArguments>(this,lib,"AnnotationArguments");
             addVectorAnnotation<AnnotationArgumentList>(this,lib,"AnnotationArgumentList");
-            addAnnotation(make_smart<ProgramAnnotation>(lib));
-            addAnnotation(make_smart<AnnotationAnnotation>(lib));
-            addAnnotation(make_smart<AnnotationDeclarationAnnotation>(lib));
+            addAnnotation(new ProgramAnnotation(lib));
+            addAnnotation(new AnnotationAnnotation(lib));
+            addAnnotation(new AnnotationDeclarationAnnotation(lib));
             addVectorAnnotation<AnnotationList>(this,lib,"AnnotationList");
-            addAnnotation(make_smart<TypeAnnotationAnnotation>(lib));
-            addAnnotation(make_smart<BasicStructureAnnotationAnnotation>(lib));
-            addAnnotation(make_smart<EnumValueInfoAnnotation>(lib));
-            addAnnotation(make_smart<EnumInfoAnnotation>(lib));
-            addEnumeration(make_smart<EnumerationRefMatters>());
-            addEnumeration(make_smart<EnumerationConstMatters>());
-            addEnumeration(make_smart<EnumerationTemporaryMatters>());
-            auto sia = make_smart<StructInfoAnnotation>(lib);              // this is type forward decl
+            addAnnotation(new TypeAnnotationAnnotation(lib));
+            addAnnotation(new BasicStructureAnnotationAnnotation(lib));
+            addAnnotation(new EnumValueInfoAnnotation(lib));
+            addAnnotation(new EnumInfoAnnotation(lib));
+            addEnumeration(new EnumerationRefMatters());
+            addEnumeration(new EnumerationConstMatters());
+            addEnumeration(new EnumerationTemporaryMatters());
+            auto sia = new StructInfoAnnotation(lib);              // this is type forward decl
             addAnnotation(sia);
             addRecAnnotation<TypeInfoAnnotation>(lib);
             addRecAnnotation<VarInfoAnnotation>(lib);
             addRecAnnotation<LocalVariableInfoAnnotation>(lib);
             initRecAnnotation(sia, lib);
-            addAnnotation(make_smart<FuncInfoAnnotation>(lib));
-            addAnnotation(make_smart<SimFunctionAnnotation>(lib));
+            addAnnotation(new FuncInfoAnnotation(lib));
+            addAnnotation(new SimFunctionAnnotation(lib));
             // DebugInfoHelper
-            addAnnotation(make_smart<DebugInfoHelperAnnotation>(lib));
+            addAnnotation(new DebugInfoHelperAnnotation(lib));
             // RttiValue
             addAlias(typeFactory<RttiValue>::make(lib));
             // func info flags
@@ -1522,7 +1675,7 @@ namespace das {
             addConstant<uint32_t>(*this, "FUNCINFO_SHUTDOWN", uint32_t(FuncInfo::flag_shutdown));
             addConstant<uint32_t>(*this, "FUNCINFO_LATE_INIT", uint32_t(FuncInfo::flag_late_init));
             // macros
-            addTypeInfoMacro(make_smart<RttiTypeInfoMacro>());
+            addTypeInfoMacro(new RttiTypeInfoMacro());
             // ctors
             addUsing<ModuleGroup>(*this, lib, "ModuleGroup");
             // functions
@@ -1573,6 +1726,23 @@ namespace das {
             addExtern<DAS_BIND_FUN(rtti_builtin_simulate)>(*this, lib, "simulate",
                 SideEffects::modifyExternal, "rtti_builtin_simulate")
                     ->args({"program","block","context","line"});
+            addExtern<DAS_BIND_FUN(rtti_create_ast_serializer)>(*this, lib, "create_ast_serializer",
+                SideEffects::modifyExternal, "rtti_create_ast_serializer");
+            addExtern<DAS_BIND_FUN(rtti_create_ast_deserializer)>(*this, lib, "create_ast_deserializer",
+                SideEffects::modifyExternal, "rtti_create_ast_deserializer")
+                    ->args({"data"});
+            addExtern<DAS_BIND_FUN(rtti_delete_ast_serializer)>(*this, lib, "delete_ast_serializer",
+                SideEffects::modifyExternal, "rtti_delete_ast_serializer")
+                    ->args({"serializer"});
+            addExtern<DAS_BIND_FUN(rtti_ast_serializer_serialize_program)>(*this, lib, "serialize_program",
+                SideEffects::modifyExternal, "rtti_ast_serializer_serialize_program")
+                    ->args({"serializer","program"});
+            addExtern<DAS_BIND_FUN(rtti_ast_serializer_deserialize_program)>(*this, lib, "deserialize_program",
+                SideEffects::modifyExternal, "rtti_ast_serializer_deserialize_program")
+                    ->args({"serializer","block","context","line"});
+            addExtern<DAS_BIND_FUN(rtti_ast_serializer_get_data)>(*this, lib, "ast_serializer_get_data",
+                SideEffects::modifyExternal, "rtti_ast_serializer_get_data")
+                    ->args({"serializer","block","context","line"});
             addExtern<DAS_BIND_FUN(makeFileAccess)>(*this, lib, "make_file_access",
                 SideEffects::modifyExternal, "makeFileAccess")
                     ->args({"project","context","at"});
@@ -1665,7 +1835,7 @@ namespace das {
             auto dl = addExtern<DAS_BIND_FUN(builtin_debug_line)>(*this, lib, "describe",
                 SideEffects::none, "builtin_debug_line")
                     ->args({"lineinfo","fully","context","at"});
-            dl->arguments[1]->init = make_smart<ExprConstBool>(false);
+            dl->arguments[1]->init = new ExprConstBool(false);
             addExtern<DAS_BIND_FUN(builtin_get_typeinfo_mangled_name)>(*this, lib, "get_mangled_name",
                 SideEffects::none, "builtin_get_typeinfo_mangled_name")
                     ->args({"type","context","at"});

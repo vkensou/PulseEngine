@@ -120,13 +120,47 @@
             return GetModuleFileNameA(NULL, pathName, (DWORD)pathNameCapacity);
         }
         void * loadDynamicLibrary ( const char * fileName ) {
-            return LoadLibraryA(fileName);
+            // Bare names (e.g. "msvcrt") need to flow through unchanged so
+            // LOAD_LIBRARY_SEARCH_DEFAULT_DIRS resolves them via system32.
+            // GetFullPathNameA on a bare name produces <CWD>/<name>, an absolute
+            // non-existent path that LoadLibraryEx then refuses to load.
+            const char * loadPath = fileName;
+            char fullPath[MAX_PATH];
+            const bool hasPath = fileName && (strchr(fileName, '/') || strchr(fileName, '\\'));
+            if ( hasPath ) {
+                DWORD got = GetFullPathNameA(fileName, MAX_PATH, fullPath, nullptr);
+                if ( got > 0 && got < MAX_PATH ) loadPath = fullPath;
+            }
+            // LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR  — also search the loaded DLL's own dir
+            //                                     for its imports (lets bundles ship a
+            //                                     module's native deps colocated under
+            //                                     <bundle>/modules/<X>/).
+            // LOAD_LIBRARY_SEARCH_APPLICATION_DIR — preserves the legacy behavior
+            //                                       (deps next to the .exe still resolve).
+            // LOAD_LIBRARY_SEARCH_DEFAULT_DIRS — system32 / safe defaults.
+            return LoadLibraryExA(loadPath, NULL,
+                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR |
+                LOAD_LIBRARY_SEARCH_APPLICATION_DIR |
+                LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
         }
         void * getFunctionAddress ( void * module, const char * func ) {
             return (void*)GetProcAddress(HMODULE(module),func);
         }
         void * getLibraryHandle ( const char * moduleName ) {
             return GetModuleHandleA(moduleName);
+        }
+        string getDynamicLibraryError ( void ) {
+            DWORD err = GetLastError();
+            if ( err == 0 ) return "";
+            LPSTR buf = nullptr;
+            DWORD n = FormatMessageA(
+                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPSTR)&buf, 0, nullptr);
+            string msg = (n && buf) ? string(buf, n) : ("error code " + to_string(err));
+            if ( buf ) LocalFree(buf);
+            while ( !msg.empty() && (msg.back()=='\r' || msg.back()=='\n') ) msg.pop_back();
+            return msg;
         }
         string normalizeFileName ( const char * fileName ) {
             char buffer[MAX_PATH ];
@@ -167,6 +201,10 @@
         }
         void * getLibraryHandle ( const char * lib ) {
             return dlopen(lib,RTLD_LAZY);
+        }
+        string getDynamicLibraryError ( void ) {
+            const char * e = dlerror();
+            return e ? e : "";
         }
         string normalizeFileName ( const char * fileName ) {
             char buffer[PATH_MAX];
@@ -449,6 +487,10 @@
         void * getLibraryHandle ( const char * lib ) {
             return dlopen(lib,RTLD_LAZY);
         }
+        string getDynamicLibraryError ( void ) {
+            const char * e = dlerror();
+            return e ? e : "";
+        }
         string normalizeFileName ( const char * fileName ) {
             char buffer[PATH_MAX];
 
@@ -495,6 +537,10 @@
         void * getLibraryHandle ( const char * lib ) {
             return dlopen(lib,RTLD_LAZY);
         }
+        string getDynamicLibraryError ( void ) {
+            const char * e = dlerror();
+            return e ? e : "";
+        }
         string normalizeFileName ( const char * fileName ) {
             // TODO: implement
             return "";
@@ -528,6 +574,9 @@
         void * getLibraryHandle ( const char *  ) {
             // TODO: implement
             return nullptr;
+        }
+        string getDynamicLibraryError ( void ) {
+            return "";
         }
         string normalizeFileName ( const char * fileName ) {
             // TODO: implement

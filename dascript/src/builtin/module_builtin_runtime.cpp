@@ -17,6 +17,10 @@
 #include "daScript/simulate/interop.h"
 #include "daScript/misc/sysos.h"
 #include "daScript/misc/fpe.h"
+#include "daScript/misc/gc_node.h"
+#include "daScript/ast/ast_typedecl.h"
+#include <inttypes.h>
+#include <filesystem>
 #include "daScript/simulate/debug_print.h"
 #include "../parser/parser_impl.h"
 
@@ -136,9 +140,9 @@ namespace das
 
     FunctionPtr Function::setDeprecated(const string & message) {
         deprecated = true; // this is instead of apply above
-        AnnotationDeclarationPtr decl = make_smart<AnnotationDeclaration>();
+        AnnotationDeclarationPtr decl = new AnnotationDeclaration();
         decl->arguments.push_back(AnnotationArgument("message",message));
-        decl->annotation = make_smart<DeprecatedFunctionAnnotation>();
+        decl->annotation = new DeprecatedFunctionAnnotation();
         annotations.push_back(decl);
         return this;
     }
@@ -181,11 +185,11 @@ namespace das
         MakeFunctionUnsafeCallMacro() : CallMacro("make_function_unsafe") { }
         virtual ExpressionPtr visit (  Program * prog, Module *, ExprCallMacro * call ) override {
             if ( !call->inFunction ) {
-                prog->error("make_function_unsafe can only be used inside a function", "", "", call->at);
+                prog->error("make_function_unsafe can only be used inside a function", "", "", call->at, CompilationError::invalid_macro_context);
                 return nullptr;
             }
             call->inFunction->unsafeOperation = true;
-            return make_smart<ExprConstBool>(call->at, true);
+            return new ExprConstBool(call->at, true);
         }
     };
 
@@ -575,12 +579,12 @@ namespace das
         LogicOpNotAnnotation(const AnnotationDeclarationPtr & decl) : LogicOpAnnotation("!"), subexpr(decl) { }
         virtual bool isCompatible ( const FunctionPtr & fun, const vector<TypeDeclPtr> & types, const AnnotationDeclaration &, string & errors  ) const override  {
             if ( !subexpr ) return false;
-            return !((FunctionAnnotation *)(subexpr->annotation.get()))->isCompatible(fun, types, *subexpr, errors);
+            return !((FunctionAnnotation *)(subexpr->annotation))->isCompatible(fun, types, *subexpr, errors);
         }
         virtual void appendToMangledName( const FunctionPtr & fun, const AnnotationDeclaration &, string & mangledName ) const override {
             if ( !subexpr ) return;
             string mna ;
-            ((FunctionAnnotation *)(subexpr->annotation.get()))->appendToMangledName(fun, *subexpr, mna);
+            ((FunctionAnnotation *)(subexpr->annotation))->appendToMangledName(fun, *subexpr, mna);
             mangledName = "!(" + mna + ")";
         }
         virtual void log ( TextWriter & ss, const AnnotationDeclaration & ) const override {
@@ -592,7 +596,11 @@ namespace das
         virtual void serialize ( AstSerializer & ser ) override {
             ser << subexpr;
         }
-        AnnotationDeclarationPtr subexpr;
+        virtual void gc_collect ( gc_root * target, gc_root * from ) override {
+            Annotation::gc_collect(target, from);
+            if ( subexpr ) subexpr->gc_collect(target, from);
+        }
+        AnnotationDeclarationPtr subexpr = nullptr;
     };
 
     struct LogicOp2Annotation : LogicOpAnnotation {
@@ -603,12 +611,12 @@ namespace das
             if ( !left || !right ) return;
             string mna1, mna2;
             if ( left->annotation ) {
-                ((FunctionAnnotation *)(left->annotation.get()))->appendToMangledName(fun, *left, mna1);
+                ((FunctionAnnotation *)(left->annotation))->appendToMangledName(fun, *left, mna1);
             } else {
                 mna1 = "NULL";
             }
             if ( right->annotation ) {
-                ((FunctionAnnotation *)(right->annotation.get()))->appendToMangledName(fun, *right, mna2);
+                ((FunctionAnnotation *)(right->annotation))->appendToMangledName(fun, *right, mna2);
             } else {
                 mna2 = "NULL";
             }
@@ -633,7 +641,12 @@ namespace das
         virtual void serialize ( AstSerializer & ser ) override {
             ser << left << right;
         }
-        AnnotationDeclarationPtr left, right;
+        virtual void gc_collect ( gc_root * target, gc_root * from ) override {
+            Annotation::gc_collect(target, from);
+            if ( left ) left->gc_collect(target, from);
+            if ( right ) right->gc_collect(target, from);
+        }
+        AnnotationDeclarationPtr left = nullptr, right = nullptr;
     };
 
     struct LogicOpAndAnnotation : LogicOp2Annotation {
@@ -642,8 +655,8 @@ namespace das
             : LogicOp2Annotation("&&",arg0,arg1) { }
         virtual bool isCompatible ( const FunctionPtr & fun, const vector<TypeDeclPtr> & types, const AnnotationDeclaration &, string & errors  ) const override  {
             if ( !left || !right ) return false;
-            return ((FunctionAnnotation *)(left->annotation.get()))->isCompatible(fun, types, *left, errors) &&
-                ((FunctionAnnotation *)(right->annotation.get()))->isCompatible(fun, types, *right, errors);
+            return ((FunctionAnnotation *)(left->annotation))->isCompatible(fun, types, *left, errors) &&
+                ((FunctionAnnotation *)(right->annotation))->isCompatible(fun, types, *right, errors);
         }
     };
 
@@ -653,8 +666,8 @@ namespace das
             : LogicOp2Annotation("||",arg0,arg1) { }
         virtual bool isCompatible ( const FunctionPtr & fun, const vector<TypeDeclPtr> & types, const AnnotationDeclaration &, string & errors  ) const override  {
             if ( !left || !right ) return false;
-            return ((FunctionAnnotation *)(left->annotation.get()))->isCompatible(fun, types, *left, errors) ||
-                ((FunctionAnnotation *)(right->annotation.get()))->isCompatible(fun, types, *right, errors);
+            return ((FunctionAnnotation *)(left->annotation))->isCompatible(fun, types, *left, errors) ||
+                ((FunctionAnnotation *)(right->annotation))->isCompatible(fun, types, *right, errors);
         }
     };
 
@@ -664,27 +677,27 @@ namespace das
             : LogicOp2Annotation("^^",arg0,arg1) { }
         virtual bool isCompatible ( const FunctionPtr & fun, const vector<TypeDeclPtr> & types, const AnnotationDeclaration &, string & errors  ) const override {
             if ( !left || !right ) return false;
-            return ((FunctionAnnotation *)(left->annotation.get()))->isCompatible(fun, types, *left, errors) !=
-                ((FunctionAnnotation *)(right->annotation.get()))->isCompatible(fun, types, *right, errors);
+            return ((FunctionAnnotation *)(left->annotation))->isCompatible(fun, types, *left, errors) !=
+                ((FunctionAnnotation *)(right->annotation))->isCompatible(fun, types, *right, errors);
         }
     };
 
     AnnotationPtr newLogicAnnotation ( LogicAnnotationOp op, const AnnotationDeclarationPtr & arg0, const AnnotationDeclarationPtr & arg1 ) {
         switch ( op ) {
-        case LogicAnnotationOp::Not:    return make_smart<LogicOpNotAnnotation>(arg0);
-        case LogicAnnotationOp::And:    return make_smart<LogicOpAndAnnotation>(arg0,arg1);
-        case LogicAnnotationOp::Or:     return make_smart<LogicOpOrAnnotation>(arg0,arg1);
-        case LogicAnnotationOp::Xor:    return make_smart<LogicOpXOrAnnotation>(arg0,arg1);
+        case LogicAnnotationOp::Not:    return new LogicOpNotAnnotation(arg0);
+        case LogicAnnotationOp::And:    return new LogicOpAndAnnotation(arg0,arg1);
+        case LogicAnnotationOp::Or:     return new LogicOpOrAnnotation(arg0,arg1);
+        case LogicAnnotationOp::Xor:    return new LogicOpXOrAnnotation(arg0,arg1);
         }
         return nullptr;
     }
 
     AnnotationPtr newLogicAnnotation ( LogicAnnotationOp op ) {
         switch ( op ) {
-        case LogicAnnotationOp::Not:    return make_smart<LogicOpNotAnnotation>();
-        case LogicAnnotationOp::And:    return make_smart<LogicOpAndAnnotation>();
-        case LogicAnnotationOp::Or:     return make_smart<LogicOpOrAnnotation>();
-        case LogicAnnotationOp::Xor:    return make_smart<LogicOpXOrAnnotation>();
+        case LogicAnnotationOp::Not:    return new LogicOpNotAnnotation();
+        case LogicAnnotationOp::And:    return new LogicOpAndAnnotation();
+        case LogicAnnotationOp::Or:     return new LogicOpOrAnnotation();
+        case LogicAnnotationOp::Xor:    return new LogicOpXOrAnnotation();
         }
         return nullptr;
     }
@@ -873,6 +886,56 @@ namespace das
         return context->stringHeap->isIntern();
     }
 
+    // gc_node root introspection
+    uint64_t gc_thread_root_count() {
+        return gc_root::gc_get_thread_root().gc_count;
+    }
+
+    uint64_t gc_active_root_count() {
+        auto root = gc_root::gc_get_active_root();
+        return root ? root->gc_count : 0;
+    }
+
+    void gc_thread_root_report() {
+        gc_root::gc_get_thread_root().gc_report();
+    }
+
+    uint64_t gc_total_id() {
+        return gc_root::gc_next_id.load(std::memory_order_relaxed);
+    }
+
+    // Detailed report: dumps the LAST N nodes on the thread root as TypeDecl with location info.
+    // New nodes are appended at the tail, so the tail shows the most recently leaked nodes.
+    // Note: leaked nodes may have dangling sub-type pointers, so we only print safe fields.
+    void gc_thread_root_report_detailed( uint64_t max_nodes ) {
+        auto & root = gc_root::gc_get_thread_root();
+        DAS_FATAL_LOG("gc_thread_root: count=%" PRIu64 " (showing last %" PRIu64 ")\n",
+            root.gc_count, max_nodes < root.gc_count ? max_nodes : root.gc_count);
+        auto node = root.gc_last;
+        uint64_t count = 0;
+        gc_node * start = node;
+        while ( start && count < max_nodes ) {
+            start = start->gc_prev;
+            count++;
+        }
+        node = start ? start->gc_next : root.gc_first;
+        uint64_t idx = root.gc_count > max_nodes ? root.gc_count - max_nodes : 0;
+        while ( node ) {
+            auto td = static_cast<TypeDecl *>(node);
+            // Only print safe fields — describe() may crash on dangling sub-type pointers
+            const char * locFile = (td->at.fileInfo) ? td->at.fileInfo->name.c_str() : nullptr;
+            if ( locFile ) {
+                DAS_FATAL_LOG("  [%" PRIu64 "] id=%" PRIu64 " baseType=%d at %s:%" PRIi32 "\n",
+                    idx, td->gc_id, int(td->baseType), locFile, td->at.line);
+            } else {
+                DAS_FATAL_LOG("  [%" PRIu64 "] id=%" PRIu64 " baseType=%d (no location)\n",
+                    idx, td->gc_id, int(td->baseType));
+            }
+            node = node->gc_next;
+            idx++;
+        }
+    }
+
     void heap_collect ( bool sheap, bool validate, Context * context, LineInfoArg * info ) {
         if ( !context->persistent ) {
             context->throw_error_at(info, "heap collection is not allowed in this context, needs 'options persistent'");
@@ -914,6 +977,19 @@ namespace das
 
     void builtin_table_clear_lock ( const Table & arr, Context * ) {
         const_cast<Table&>(arr).hopeless = 0;
+    }
+
+    void builtin_table_tag ( Table & tab, const char * name, Context * context ) {
+        // Debug helper: tag the table's current heap block with `name` so it shows
+        // up in heap reports under that name. Requires `options track_allocations`
+        // (the heap's mark_comment is a no-op otherwise). The tag is preserved
+        // across realloc by TableHash::reserveInternal, which reads the previous
+        // tag before overwriting with the generic "table" default. `name` is
+        // stored as-is in bigStuffComment; the caller owns its lifetime. The
+        // common case is a daslang literal (constStringHeap, never swept);
+        // dynamic daslang strings live in stringHeap, whose GC is skipped while
+        // track_allocations is on (see Context::collectHeap).
+        if ( tab.data && name ) context->heap->mark_comment(tab.data, name);
     }
 
     bool builtin_iterator_first ( Sequence & it, void * data, Context * context, LineInfoArg * at ) {
@@ -1233,21 +1309,21 @@ namespace das
 
     struct ClassInfoMacro : TypeInfoMacro {
         ClassInfoMacro() : TypeInfoMacro("rtti_classinfo") {}
-        virtual TypeDeclPtr getAstType ( ModuleLibrary & lib, const ExpressionPtr &, string & ) override {
+        virtual TypeDeclPtr getAstType ( ModuleLibrary & lib, ExpressionPtr, string & ) override {
             return typeFactory<void *>::make(lib);
         }
-        virtual SimNode * simluate ( Context * context, const ExpressionPtr & expr, string & )  override {
-            auto exprTypeInfo = static_pointer_cast<ExprTypeInfo>(expr);
+        virtual SimNode * simluate ( Context * context, ExpressionPtr expr, string & )  override {
+            auto exprTypeInfo = static_cast<ExprTypeInfo*>(expr);
             TypeInfo * typeInfo = context->thisHelper->makeTypeInfo(nullptr, exprTypeInfo->typeexpr);
             return context->code->makeNode<SimNode_TypeInfo>(expr->at, typeInfo);
         }
-        virtual void aotPrefix ( TextWriter & ss, const ExpressionPtr & ) override {
+        virtual void aotPrefix ( TextWriter & ss, ExpressionPtr ) override {
             ss << "(void *)(&";
         }
-        virtual void aotSuffix ( TextWriter & ss, const ExpressionPtr & ) override {
+        virtual void aotSuffix ( TextWriter & ss, ExpressionPtr ) override {
             ss << ")";
         }
-        virtual bool aotNeedTypeInfo ( const ExpressionPtr & ) const override {
+        virtual bool aotNeedTypeInfo ( ExpressionPtr ) const override {
             return true;
         }
     };
@@ -1258,6 +1334,10 @@ namespace das
         }
         return false;
 
+    }
+
+    bool is_standalone_exe ( ) {
+        return false;
     }
 
     DAS_API uint64_t get_context_share_counter ( Context * context ) {
@@ -1366,7 +1446,7 @@ namespace das
     struct UnescapedStringMacro : public ReaderMacro {
         UnescapedStringMacro ( ) : ReaderMacro("_esc") {}
         virtual ExpressionPtr visit ( Program *, Module *, ExprReader * expr ) override {
-            return make_smart<ExprConstString>(expr->at,expr->sequence);
+            return new ExprConstString(expr->at,expr->sequence);
         }
         virtual bool accept ( Program *, Module *, ExprReader * re, int Ch, const LineInfo & ) override {
             if ( Ch==-1 ) return false;
@@ -1384,7 +1464,7 @@ namespace das
     };
 
     TypeDeclPtr makePrintFlags() {
-        auto ft = make_smart<TypeDecl>(Type::tBitfield);
+        auto ft = new TypeDecl(Type::tBitfield);
         ft->alias = "print_flags";
         ft->argNames = { "escapeString", "namesAndDimensions", "typeQualifiers", "refAddresses", "singleLine", "fixedPoint", "fullTypeInfo" };
         return ft;
@@ -1450,6 +1530,89 @@ namespace das
 
     char * builtin_das_root ( Context * context, LineInfoArg * at ) {
         return context->allocateString(getDasRoot(), at);
+    }
+
+    // 3-tier directory resolver mirroring the shared-module resolution policy
+    // from PR #2579 (module_jit.cpp::resolve_dynamic_module_path), but for
+    // source-side asset directories.  Given a baked source-file path captured
+    // at macro expansion (e.g. ".../modules/das-cards/cards/card_mesh.das"),
+    // returns the directory where that module's runtime assets currently live:
+    //   1. <exe_dir>/<rel>            — daspkg-release standalone bundle
+    //   2. <das_root>/<rel>           — SDK / cmake install layout
+    //   3. dir_name(baked_path)       — dev (interpreted from source tree)
+    // <rel> is the substring of dir_name(baked) starting at the last
+    // "/modules/" segment.  Tiers 1+2 are skipped when baked has no /modules/
+    // segment (e.g. project-local code outside the package layout); when the
+    // baked dir has also gone missing on the target machine (relocated bundle),
+    // tier 3's fallback is <exe_dir> rather than the dead dev path.
+    char * builtin_resolve_this_module_dir ( const char * baked_path, Context * context ) {
+        namespace fs = std::filesystem;
+        if ( !baked_path || !*baked_path ) return context->allocateString("", nullptr);
+        // generic_string() (here and at every other path-to-string conversion
+        // in this function) emits forward-slash separators on every platform,
+        // matching getDasRoot() and the rest of daslang's path conventions.
+        // Without it Windows would return native backslashes that break string
+        // compares against `/`-formed paths from script-side daslang code.
+        fs::path baked(baked_path);
+        fs::path baked_dir = baked.parent_path();
+        std::string baked_dir_str = baked_dir.generic_string();
+        // Find the last "/modules/" boundary; everything from that segment
+        // onward is the bundle/SDK-relative suffix (e.g.
+        // "modules/das-cards/cards"). rfind, not find — for nested layouts
+        // like "<root>/modules/A/modules/B/x.das" the right answer is "B"'s
+        // package, not "A". Mirrors compute_modules_relative_suffix in
+        // modules/dasLLVM/daslib/llvm_exe.das.
+        const std::string sep = "/modules/";
+        std::string canon = baked_dir_str;
+        for ( char & c : canon ) if ( c == '\\' ) c = '/';
+        std::string rel;
+        size_t pos = canon.rfind(sep);
+        if ( pos != std::string::npos ) {
+            rel = canon.substr(pos + 1);  // drop leading '/' to keep it relative
+        }
+        // Tier 1 — exe_dir
+        if ( !rel.empty() ) {
+            das::string exeFile = das::getExecutableFileName();
+            if ( !exeFile.empty() ) {
+                fs::path exeDir = fs::path(exeFile.c_str()).parent_path();
+                if ( exeDir.empty() ) exeDir = ".";
+                fs::path candidate = exeDir / rel;
+                std::error_code ec;
+                if ( fs::is_directory(candidate, ec) ) {
+                    return context->allocateString(candidate.generic_string().c_str(), nullptr);
+                }
+            }
+            // Tier 2 — das_root
+            fs::path candidate = fs::path(das::getDasRoot().c_str()) / rel;
+            std::error_code ec;
+            if ( fs::is_directory(candidate, ec) ) {
+                return context->allocateString(candidate.generic_string().c_str(), nullptr);
+            }
+        }
+        // Tier 3 — baked dir as fallback. Special case: project-local code
+        // (rel empty so tiers 1+2 were skipped) running from a relocated
+        // bundle where the dev-time baked dir no longer exists — fall back
+        // to <exe_dir> so assets shipped next to the exe are findable.
+        if ( rel.empty() ) {
+            std::error_code ec;
+            if ( !fs::is_directory(baked_dir, ec) ) {
+                das::string exeFile = das::getExecutableFileName();
+                if ( !exeFile.empty() ) {
+                    fs::path exeDir = fs::path(exeFile.c_str()).parent_path();
+                    if ( exeDir.empty() ) exeDir = ".";
+                    return context->allocateString(exeDir.generic_string().c_str(), nullptr);
+                }
+            }
+        }
+        return context->allocateString(baked_dir_str.c_str(), nullptr);
+    }
+
+    char * builtin_shared_module_extension ( Context * context, LineInfoArg * at ) {
+#ifdef NDEBUG
+        return context->allocateString(".shared_module", at);
+#else
+        return context->allocateString("_debug.shared_module", at);
+#endif
     }
 
     char * builtin_get_das_version ( Context * context, LineInfoArg * at ) {
@@ -1546,6 +1709,13 @@ namespace das
         return false;
     }
 
+    bool is_in_lint_check ( ) {
+        if ( daScriptEnvironment::getBound() && daScriptEnvironment::getBound()->g_Program ) {
+            return daScriptEnvironment::getBound()->g_Program->policies.lint_check;
+        }
+        return false;
+    }
+
     bool is_folding ( ) {
         if ( daScriptEnvironment::getBound() && daScriptEnvironment::getBound()->g_Program ) {
             return daScriptEnvironment::getBound()->g_Program->folding;
@@ -1562,31 +1732,31 @@ namespace das
     }
 
     const char * get_module_file_name ( const char * name, Context * context ) {
+        // Copy into context string heap so daslang owns the returned pointer.
+        auto allocFromMod = [&](Module * mod) -> const char * {
+            if ( !mod || mod->fileName.empty() ) return nullptr;
+            return context ? context->allocateString(mod->fileName.data(), uint32_t(mod->fileName.size()), nullptr) : nullptr;
+        };
         if ( context && context->thisProgram ) {
             string modName = name ? name : "";
             if ( modName.empty() ) {
                 // return the main module's file name
-                auto mod = context->thisProgram->thisModule.get();
-                if ( mod && !mod->fileName.empty() ) return mod->fileName.c_str();
+                if ( const char * res = allocFromMod(context->thisProgram->thisModule.get()) ) return res;
             } else {
                 // search program's library for named module
-                const char * result = nullptr;
+                Module * found = nullptr;
                 context->thisProgram->library.foreach([&](Module * mod) {
                     if ( mod->name == modName && !mod->fileName.empty() ) {
-                        result = mod->fileName.c_str();
+                        found = mod;
                         return false;
                     }
                     return true;
                 }, modName);
-                if ( result ) return result;
+                if ( const char * res = allocFromMod(found) ) return res;
             }
         }
         // fallback to global module list
-        auto mod = Module::require(name ? name : "");
-        if ( mod && !mod->fileName.empty() ) {
-            return mod->fileName.c_str();
-        }
-        return nullptr;
+        return allocFromMod(Module::require(name ? name : ""));
     }
 
 // remove define to enable emscripten version
@@ -1692,62 +1862,69 @@ namespace das
         // printer flags
         addAlias(makePrintFlags());
         // unescape macro
-        addReaderMacro(make_smart<UnescapedStringMacro>());
+        addReaderMacro(new UnescapedStringMacro());
         // function annotations
-        addAnnotation(make_smart<CommentAnnotation>());
-        addAnnotation(make_smart<NoDefaultCtorAnnotation>());
-        addAnnotation(make_smart<MacroInterfaceAnnotation>());
-        addAnnotation(make_smart<MarkFunctionOrBlockAnnotation>());
-        addAnnotation(make_smart<CppAlignmentAnnotation>());
-        addAnnotation(make_smart<SafeWhenUninitializedAnnotation>());
-        addAnnotation(make_smart<GenericFunctionAnnotation>());
-        addAnnotation(make_smart<MacroFunctionAnnotation>());
-        addAnnotation(make_smart<MacroFnFunctionAnnotation>());
-        addAnnotation(make_smart<HintFunctionAnnotation>());
-        addAnnotation(make_smart<RequestJitFunctionAnnotation>());
-        addAnnotation(make_smart<RequestNoJitFunctionAnnotation>());
-        addAnnotation(make_smart<RequestNoDiscardFunctionAnnotation>());
-        addAnnotation(make_smart<DeprecatedFunctionAnnotation>());
-        addAnnotation(make_smart<AliasCMRESFunctionAnnotation>());
-        addAnnotation(make_smart<NeverAliasCMRESFunctionAnnotation>());
-        addAnnotation(make_smart<ExportFunctionAnnotation>());
-        addAnnotation(make_smart<PInvokeFunctionAnnotation>());
-        addAnnotation(make_smart<NoLintFunctionAnnotation>());
-        addAnnotation(make_smart<SideEffectsFunctionAnnotation>());
-        addAnnotation(make_smart<RunAtCompileTimeFunctionAnnotation>());
-        addAnnotation(make_smart<UnsafeOpFunctionAnnotation>());
-        addAnnotation(make_smart<UnsafeOutsideOfForFunctionAnnotation>());
-        addAnnotation(make_smart<UnsafeWhenNotCloneArray>());
-        addAnnotation(make_smart<NoAotFunctionAnnotation>());
-        addAnnotation(make_smart<InitFunctionAnnotation>());
-        addAnnotation(make_smart<FinalizeFunctionAnnotation>());
-        addAnnotation(make_smart<HybridFunctionAnnotation>());
-        addAnnotation(make_smart<UnsafeDerefFunctionAnnotation>());
-        addAnnotation(make_smart<MarkUsedFunctionAnnotation>());
-        addAnnotation(make_smart<LocalOnlyFunctionAnnotation>());
-        addAnnotation(make_smart<PersistentStructureAnnotation>());
-        addAnnotation(make_smart<IsYetAnotherVectorTemplateAnnotation>());
-        addAnnotation(make_smart<IsDimAnnotation>());
-        addAnnotation(make_smart<IsRefTypeAnnotation>());
-        addAnnotation(make_smart<HashBuilderAnnotation>(lib));
-        addAnnotation(make_smart<TypeFunctionFunctionAnnotation>());
+        addAnnotation(new CommentAnnotation());
+        addAnnotation(new NoDefaultCtorAnnotation());
+        addAnnotation(new MacroInterfaceAnnotation());
+        addAnnotation(new MarkFunctionOrBlockAnnotation());
+        addAnnotation(new CppAlignmentAnnotation());
+        addAnnotation(new SafeWhenUninitializedAnnotation());
+        addAnnotation(new GenericFunctionAnnotation());
+        addAnnotation(new MacroFunctionAnnotation());
+        addAnnotation(new MacroFnFunctionAnnotation());
+        addAnnotation(new HintFunctionAnnotation());
+        addAnnotation(new RequestJitFunctionAnnotation());
+        addAnnotation(new RequestNoJitFunctionAnnotation());
+        addAnnotation(new RequestNoDiscardFunctionAnnotation());
+        addAnnotation(new DeprecatedFunctionAnnotation());
+        addAnnotation(new AliasCMRESFunctionAnnotation());
+        addAnnotation(new NeverAliasCMRESFunctionAnnotation());
+        addAnnotation(new ExportFunctionAnnotation());
+        addAnnotation(new PInvokeFunctionAnnotation());
+        addAnnotation(new NoLintFunctionAnnotation());
+        addAnnotation(new SideEffectsFunctionAnnotation());
+        addAnnotation(new RunAtCompileTimeFunctionAnnotation());
+        addAnnotation(new UnsafeOpFunctionAnnotation());
+        addAnnotation(new UnsafeOutsideOfForFunctionAnnotation());
+        addAnnotation(new UnsafeWhenNotCloneArray());
+        addAnnotation(new NoAotFunctionAnnotation());
+        addAnnotation(new InitFunctionAnnotation());
+        addAnnotation(new FinalizeFunctionAnnotation());
+        addAnnotation(new HybridFunctionAnnotation());
+        addAnnotation(new UnsafeDerefFunctionAnnotation());
+        addAnnotation(new MarkUsedFunctionAnnotation());
+        addAnnotation(new LocalOnlyFunctionAnnotation());
+        addAnnotation(new PersistentStructureAnnotation());
+        addAnnotation(new IsYetAnotherVectorTemplateAnnotation());
+        addAnnotation(new IsDimAnnotation());
+        addAnnotation(new IsRefTypeAnnotation());
+        addAnnotation(new HashBuilderAnnotation(lib));
+        addAnnotation(new TypeFunctionFunctionAnnotation());
         // and call macro
         {
-            CallMacroPtr newM = make_smart<MakeFunctionUnsafeCallMacro>();
+            auto newM = new MakeFunctionUnsafeCallMacro();
+            ownedCallMacros.push_back(unique_ptr<CallMacro>(newM));
             addCallMacro(newM->name, [this, newM](const LineInfo & at) -> ExprLooksLikeCall * {
                 auto ecm = new ExprCallMacro(at, newM->name);
-                ecm->macro = newM.get();
+                ecm->macro = newM;
                 newM->module = this;
                 return ecm;
             });
         }
         // string
-        addAnnotation(make_smart<DasStringTypeAnnotation>());
+        addAnnotation(new DasStringTypeAnnotation());
         // typeinfo macros
-        addTypeInfoMacro(make_smart<ClassInfoMacro>());
+        addTypeInfoMacro(new ClassInfoMacro());
         // command line arguments
         addExtern<DAS_BIND_FUN(builtin_das_root)>(*this, lib, "get_das_root",
             SideEffects::accessExternal,"builtin_das_root")
+                ->args({"context","at"});
+        addExtern<DAS_BIND_FUN(builtin_resolve_this_module_dir)>(*this, lib, "__builtin_resolve_this_module_dir",
+            SideEffects::accessExternal,"builtin_resolve_this_module_dir")
+                ->args({"baked_path","context"});
+        addExtern<DAS_BIND_FUN(builtin_shared_module_extension)>(*this, lib, "shared_module_extension",
+            SideEffects::none,"builtin_shared_module_extension")
                 ->args({"context","at"});
         addExtern<DAS_BIND_FUN(builtin_get_das_version)>(*this, lib, "get_das_version",
             SideEffects::none,"builtin_get_das_version")
@@ -1755,6 +1932,8 @@ namespace das
         addExtern<DAS_BIND_FUN(getCommandLineArguments)>(*this, lib, "builtin_get_command_line_arguments",
             SideEffects::accessExternal,"getCommandLineArguments")
                 ->arg("arguments");
+        addExtern<DAS_BIND_FUN(is_standalone_exe)>(*this, lib, "is_standalone_exe",
+            SideEffects::accessExternal, "is_standalone_exe");
         addExtern<DAS_BIND_FUN(withCommandLineArguments)>(*this, lib,  "with_argv",
             SideEffects::invoke, "withArgv")
                 ->args({"new_arguments", "block","context","line"});
@@ -1794,13 +1973,13 @@ namespace das
         auto fnCount = addExtern<DAS_BIND_FUN(builtin_count),SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "count",
             SideEffects::modifyExternal, "builtin_count")
                 ->args({"start","step","context","at"})->setNoDiscard();
-        fnCount->arguments[0]->init = make_smart<ExprConstInt>(0);  // start=0
-        fnCount->arguments[1]->init = make_smart<ExprConstInt>(1);  // step=0
+        fnCount->arguments[0]->init = new ExprConstInt(0);  // start=0
+        fnCount->arguments[1]->init = new ExprConstInt(1);  // step=0
         auto fnuCount = addExtern<DAS_BIND_FUN(builtin_ucount),SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "ucount",
             SideEffects::none, "builtin_ucount")
                 ->args({"start","step","context","at"})->setNoDiscard();
-        fnuCount->arguments[0]->init = make_smart<ExprConstUInt>(0);  // start=0
-        fnuCount->arguments[1]->init = make_smart<ExprConstUInt>(1);  // step=0
+        fnuCount->arguments[0]->init = new ExprConstUInt(0);  // start=0
+        fnuCount->arguments[1]->init = new ExprConstUInt(1);  // step=0
         // make-iterator functions
         addExtern<DAS_BIND_FUN(builtin_make_good_array_iterator)>(*this, lib,  "_builtin_make_good_array_iterator",
             SideEffects::modifyArgumentAndExternal, "builtin_make_good_array_iterator")
@@ -1862,8 +2041,8 @@ namespace das
         auto fnsw = addExtern<DAS_BIND_FUN(builtin_stackwalk)>(*this, lib, "stackwalk",
             SideEffects::modifyExternal, "builtin_stackwalk")
                 ->args({"args","vars","context","lineinfo"});
-        fnsw->arguments[0]->init = make_smart<ExprConstBool>(true);
-        fnsw->arguments[1]->init = make_smart<ExprConstBool>(true);
+        fnsw->arguments[0]->init = new ExprConstBool(true);
+        fnsw->arguments[1]->init = new ExprConstBool(true);
         // profiler
         addExtern<DAS_BIND_FUN(resetProfiler)>(*this, lib, "reset_profiler",
             SideEffects::modifyExternal, "resetProfiler")
@@ -1879,6 +2058,19 @@ namespace das
         addExtern<DAS_BIND_FUN(set_variant_index)>(*this, lib, "set_variant_index",
             SideEffects::modifyArgument, "set_variant_index")
                 ->args({"variant","index"})->unsafeOperation = true;
+        // gc_node root introspection
+        addExtern<DAS_BIND_FUN(gc_thread_root_count)>(*this, lib, "gc_thread_root_count",
+            SideEffects::accessExternal, "gc_thread_root_count");
+        addExtern<DAS_BIND_FUN(gc_active_root_count)>(*this, lib, "gc_active_root_count",
+            SideEffects::accessExternal, "gc_active_root_count");
+        addExtern<DAS_BIND_FUN(gc_thread_root_report)>(*this, lib, "gc_thread_root_report",
+            SideEffects::modifyExternal, "gc_thread_root_report");
+        auto gcrd = addExtern<DAS_BIND_FUN(gc_thread_root_report_detailed)>(*this, lib, "gc_thread_root_report_detailed",
+            SideEffects::modifyExternal, "gc_thread_root_report_detailed")
+                ->arg("max_nodes");
+        gcrd->arguments[0]->init = new ExprConstUInt64(20);
+        addExtern<DAS_BIND_FUN(gc_total_id)>(*this, lib, "gc_total_id",
+            SideEffects::accessExternal, "gc_total_id");
         // heap
         addExtern<DAS_BIND_FUN(heap_allocation_stats)>(*this, lib, "heap_allocation_stats",
             SideEffects::modifyExternal, "heap_allocation_stats")
@@ -1908,8 +2100,8 @@ namespace das
                 SideEffects::modifyExternal, "heap_collect")
                     ->args({"string_heap","validate","context","at"});
         hcol->unsafeOperation = true;
-        hcol->arguments[0]->init = make_smart<ExprConstBool>(true);
-        hcol->arguments[1]->init = make_smart<ExprConstBool>(false);
+        hcol->arguments[0]->init = new ExprConstBool(true);
+        hcol->arguments[1]->init = new ExprConstBool(false);
         addExtern<DAS_BIND_FUN(string_heap_report)>(*this, lib, "string_heap_report",
             SideEffects::modifyExternal, "string_heap_report")
                 ->args({"context","line"});
@@ -1976,6 +2168,9 @@ namespace das
         addExtern<DAS_BIND_FUN(builtin_table_clear_lock)>(*this, lib, "__builtin_table_clear_lock",
             SideEffects::modifyArgumentAndExternal, "builtin_table_clear_lock")
                 ->args({"table","context"});
+        addExtern<DAS_BIND_FUN(builtin_table_tag)>(*this, lib, "tag_table",
+            SideEffects::modifyExternal, "builtin_table_tag")
+                ->args({"table","name","context"});
         addExtern<DAS_BIND_FUN(builtin_table_keys)>(*this, lib, "__builtin_table_keys",
             SideEffects::modifyArgumentAndExternal, "builtin_table_keys")
                 ->args({"iterator","table","stride","context","at"});
@@ -2172,6 +2367,9 @@ namespace das
         // completion
         addExtern<DAS_BIND_FUN(is_in_completion)>(*this, lib, "is_in_completion",
             SideEffects::worstDefault, "is_in_completion");
+        // lint
+        addExtern<DAS_BIND_FUN(is_in_lint_check)>(*this, lib, "is_in_lint_check",
+            SideEffects::worstDefault, "is_in_lint_check");
         // folding
         addExtern<DAS_BIND_FUN(is_folding)>(*this, lib, "is_folding",
             SideEffects::worstDefault, "is_folding");

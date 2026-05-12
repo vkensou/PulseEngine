@@ -40,7 +40,7 @@ namespace das {
             if (!aT) {
                 auto bT = nameToBasicType(decl->alias);
                 if (bT != Type::none) {
-                    aT = make_smart<TypeDecl>(bT);
+                    aT = new TypeDecl(bT);
                 }
             }
             if (!aT) {
@@ -157,7 +157,7 @@ namespace das {
         }
         rank += int(pFn->arguments.size() - types.size()) * 1000;
         for (const auto &ann : pFn->annotations) {
-            auto fnAnn = static_pointer_cast<FunctionAnnotation>(ann->annotation);
+            auto fnAnn = static_cast<FunctionAnnotation*>(ann->annotation);
             if (fnAnn->isSpecialized()) {
                 string err;
                 if (!fnAnn->isCompatible(pFn, types, *ann, err)) {
@@ -230,7 +230,7 @@ namespace das {
             }
         }
         for (const auto &ann : pFn->annotations) {
-            auto fnAnn = static_pointer_cast<FunctionAnnotation>(ann->annotation);
+            auto fnAnn = static_cast<FunctionAnnotation*>(ann->annotation);
             if (fnAnn->isSpecialized()) {
                 string err;
                 if (!fnAnn->isCompatible(pFn, types, *ann, err)) {
@@ -249,18 +249,18 @@ namespace das {
         }
         auto addr = field->init;
         if (addr->rtti_isCast()) {
-            addr = static_pointer_cast<ExprCast>(addr)->subexpr;
+            addr = static_cast<ExprCast*>(addr)->subexpr;
         }
         if (!addr->rtti_isAddr()) {
             return "function is not inferred yet\n";
         }
-        auto pAddr = static_pointer_cast<ExprAddr>(addr);
+        auto pAddr = static_cast<ExprAddr*>(addr);
         if (!pAddr->func) {
             return "expecting @@ in class member initialization\n";
         }
         vector<TypeDeclPtr> nna = nonNamedArguments;
         if (!methodCall) {
-            nna.insert(nna.begin(), make_smart<TypeDecl>(st));
+            nna.insert(nna.begin(), new TypeDecl(st));
         }
         return describeMismatchingFunction(pAddr->func, nna, arguments, false, false);
     }
@@ -355,7 +355,9 @@ namespace das {
             if (nExtra > 0 && candidateFunctions.size() != 0) {
                 ss << "also " << nExtra << " more candidates\n";
             }
-            error(extra, ss.str(), "", at, cerror);
+            if (verbose) {
+                error(extra, ss.str(), "", at, cerror);
+            }
         } else {
             error(extra, "", "", at, cerror);
         }
@@ -438,7 +440,9 @@ namespace das {
             if (nExtra > 0 && candidateFunctions.size() != 0) {
                 ss << "also " << nExtra << " more candidates\n";
             }
-            error(extra, ss.str(), "", at, cerror);
+            if (verbose) {
+                error(extra, ss.str(), "", at, cerror);
+            }
         } else {
             error(extra, "", "", at, cerror);
         }
@@ -503,7 +507,9 @@ namespace das {
                     ss << "also " << nExtra << " more candidates\n";
                 }
             }
-            error(extra, ss.str(), "", at, cerror);
+            if (verbose) {
+                error(extra, ss.str(), "", at, cerror);
+            }
         } else {
             error(extra, "", "", at, cerror);
         }
@@ -517,9 +523,11 @@ namespace das {
                             ss << "\tcan't clone '" << trait << ": " << describeType(subT) << "'\n";
                         }
                     } });
-            error(message, ss.str(), "", at, CompilationError::cant_copy);
+            if (verbose) {
+                error(message, ss.str(), "", at, CompilationError::cant_clone_type);
+            }
         } else {
-            error(message, "", "", at, CompilationError::cant_copy);
+            error(message, "", "", at, CompilationError::cant_clone_type);
         }
     }
     void InferTypes::reportCantCloneFromConst(const string &errorText, CompilationError errorCode, const TypeDeclPtr &type, const LineInfo &at) const {
@@ -531,7 +539,9 @@ namespace das {
                             ss << "\tcan't assign '" << trait << ": " << describeType(subT) << " = " << describeType(subT) << " const'\n";
                         }
                     } });
-            error(errorText + "; " + describeType(type), ss.str(), "", at, errorCode);
+            if (verbose) {
+                error(errorText + "; " + describeType(type), ss.str(), "", at, errorCode);
+            }
         } else {
             error(errorText, "", "", at, errorCode);
         }
@@ -589,22 +599,22 @@ namespace das {
                     }
                     return true; }, moduleName);
             error("function not found " + expr->target, ss.str(), "",
-                  expr->at, CompilationError::function_not_found);
+              expr->at, CompilationError::lookup_function);
         } else {
             error("function not found " + expr->target, "", "",
-                  expr->at, CompilationError::function_not_found);
+                  expr->at, CompilationError::lookup_function);
         }
     }
     void InferTypes::reportMissingFinalizer(const string &message, const LineInfo &at, const TypeDeclPtr &ftype) {
         if (verbose) {
-            auto fakeCall = make_smart<ExprCall>(at, "_::finalize");
-            auto fakeVar = make_smart<ExprVar>(at, "this");
-            fakeVar->type = make_smart<TypeDecl>(*ftype);
+            auto fakeCall = new ExprCall(at, "_::finalize");
+            auto fakeVar = new ExprVar(at, "this");
+            fakeVar->type = new TypeDecl(*ftype);
             fakeCall->arguments.push_back(fakeVar);
             vector<TypeDeclPtr> fakeTypes = {ftype};
-            reportMissing(fakeCall.get(), fakeTypes, message, true, CompilationError::function_already_declared);
+            reportMissing(fakeCall, fakeTypes, message, true, CompilationError::missing_finalizer);
         } else {
-            error(message, "", "", at, CompilationError::function_already_declared);
+            error(message, "", "", at, CompilationError::missing_finalizer);
         }
     }
     int InferTypes::sortCandidates(RankedMatchingFunctions &ranked, MatchingFunctions &candidates, int nArgs) {
@@ -653,8 +663,8 @@ namespace das {
             auto can2 = findMissingGenericCandidates(expr->name, false);
             can1.reserve(can1.size() + can2.size());
             can1.insert(can1.end(), can2.begin(), can2.end());
-            auto nExtra = prepareCandidates(can1, nonNamedArguments, expr->arguments, true, true);
-            reportFunctionNotFound(expr->name, msg + expr->name, expr->at, can1, nonNamedArguments, expr->arguments, false, true, reportDetails, cerror, nExtra, moreError);
+            auto nExtra = prepareCandidates(can1, nonNamedArguments, *expr->arguments, true, true);
+            reportFunctionNotFound(expr->name, msg + expr->name, expr->at, can1, nonNamedArguments, *expr->arguments, false, true, reportDetails, cerror, nExtra, moreError);
         } else {
             error("no matching functions or generics: " + expr->name, "", "", expr->at, cerror);
         }
@@ -664,7 +674,7 @@ namespace das {
         if (verbose) {
             can1.reserve(can1.size() + can2.size());
             can1.insert(can1.end(), can2.begin(), can2.end());
-            reportFunctionNotFound(expr->name, msg + expr->name, expr->at, can1, nonNamedArguments, expr->arguments, false, true, false, cerror, 0, "");
+            reportFunctionNotFound(expr->name, msg + expr->name, expr->at, can1, nonNamedArguments, *expr->arguments, false, true, false, cerror, 0, "");
         } else {
             error("too many matching functions or generics: " + expr->name, "", "", expr->at, cerror);
         }
@@ -682,7 +692,7 @@ namespace das {
     }
     string InferTypes::reportMethodVsCall(ExprLooksLikeCall *expr) {
         if (verbose && expr->arguments.size() >= 1) {
-            if (auto tp = expr->arguments[0]->type.get()) {
+            if (auto tp = expr->arguments[0]->type) {
                 Structure *cls = nullptr;
                 if (tp->isClass()) {
                     cls = tp->structType;
@@ -736,31 +746,31 @@ namespace das {
         }
     }
     bool InferTypes::reportOp2Errors(ExprLooksLikeCall *expr) {
-        auto expr_left = expr->arguments[0].get();
-        auto expr_right = expr->arguments[1].get();
+        auto expr_left = expr->arguments[0];
+        auto expr_right = expr->arguments[1];
         auto expr_op = expr->name.substr(3);
         if (expr_left->type->isNumeric() && expr_right->type->isNumeric()) {
             if (isAssignmentOperator(expr_op)) {
                 if (!expr_left->type->ref) {
                     error("numeric operator '" + expr_op + "' left side must be reference.", "", "",
-                          expr->at, CompilationError::operator_not_found);
+                          expr->at, CompilationError::cant_assign_op);
                     return true;
                 } else if (expr_left->type->isConst()) {
                     error("numeric operator '" + expr_op + "' left side can't be constant.", "", "",
-                          expr->at, CompilationError::operator_not_found);
+                          expr->at, CompilationError::cant_assign_op);
                     return true;
                 } else {
                     if (verbose) {
                         TextWriter tw;
                         tw << "\t" << *expr_left << " " << expr_op << " " << das_to_string(expr_left->type->baseType) << "(" << *expr_right << ")\n";
                         error("numeric operator '" + expr_op + "' type mismatch. both sides have to be of the same type; " +
-                                  das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType) + " is not defined",
-                              "", "try the following\n" + tw.str(),
-                              expr->at, CompilationError::operator_not_found);
+                              das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType) + " is not defined",
+                          "", "try the following\n" + tw.str(),
+                          expr->at, CompilationError::mismatching_numeric_type);
                         return true;
                     } else {
                         error("numeric operator '" + expr_op + "' type mismatch. both sides have to be of the same type. ", "", "",
-                              expr->at, CompilationError::operator_not_found);
+                              expr->at, CompilationError::mismatching_numeric_type);
                         return true;
                     }
                 }
@@ -771,24 +781,24 @@ namespace das {
                         tw << "\t" << *expr_left << " " << expr_op << " " << das_to_string(expr_left->type->baseType) << "(" << *expr_right << ")\n";
                         tw << "\t" << das_to_string(expr_right->type->baseType) << "(" << *expr_left << ") " << expr_op << " " << *expr_right << "\n";
                         error("numeric operator '" + expr_op + "' type mismatch. both sides have to be of the same type. " +
-                                  das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType) + " is not defined",
-                              "", "try one of the following\n" + tw.str(),
-                              expr->at, CompilationError::operator_not_found);
+                              das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType) + " is not defined",
+                          "", "try one of the following\n" + tw.str(),
+                          expr->at, CompilationError::mismatching_numeric_type);
                         return true;
                     } else if (expr_left->type->isNumericStorage()) {
                         error("numeric operator '" + expr_op + "' is not defined for storage types (int8, uint8, int16, uint16)",
                               "\t" + das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType),
-                              "", expr->at, CompilationError::operator_not_found);
+                              "", expr->at, CompilationError::invalid_storage_type_op);
                         return true;
                     } else {
                         error("numeric operator '" + expr_op + "' type mismatch",
-                              "\t" + das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType),
-                              "", expr->at, CompilationError::operator_not_found);
+                          "\t" + das_to_string(expr_left->type->baseType) + " " + expr_op + " " + das_to_string(expr_right->type->baseType),
+                          "", expr->at, CompilationError::mismatching_numeric_type);
                         return true;
                     }
                 } else {
                     error("numeric operator '" + expr_op + "' type mismatch", "", "",
-                          expr->at, CompilationError::operator_not_found);
+                          expr->at, CompilationError::mismatching_numeric_type);
                     return true;
                 }
             }
