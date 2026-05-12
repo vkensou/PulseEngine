@@ -91,6 +91,12 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
+            // let (query_result, query_type) = is_query_type(arg._type)
+            // if (query_result) {
+
+            //     continue
+            // }
+
             if (true) {
                 is_entity_system = true
                 let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
@@ -310,6 +316,38 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return (true, slice(type_name, 18, i4))
         }
 
+        return (false, "");
+    }
+
+    def is_query_type(arg_type : TypeDeclPtr) {
+        let type_name = string(describe(arg_type))
+        let i1 = find(type_name, "$Query")
+        if (i1 != 0) {
+            return (false, "");
+        }
+        
+        let type_start = find(type_name, "type<")
+        if (type_start == -1) {
+            return (false, "")
+        }
+        
+        let len = length(type_name)
+        
+        let i2 = last_index_of(type_name, ">) const")
+        if (i2 + 8 == len) {
+            return (true, type_name)
+        }
+        
+        let i3 = last_index_of(type_name, ">) -const")
+        if (i3 + 9 == len) {
+            return (true, type_name)
+        }
+        
+        let i4 = last_index_of(type_name, ">)")
+        if (i4 + 2 == len) {
+            return (true, type_name)
+        }
+        
         return (false, "");
     }
 
