@@ -593,21 +593,21 @@ public:
 		lib.addBuiltInModule();
 		lib.addModule(Module::require("cgpu"));
 
-		addAnnotation(make_smart<HMM_Vec3Annotation>(lib));
-		addAnnotation(make_smart<HMM_Vec4Annotation>(lib));
-		addAnnotation(make_smart<HMM_Mat4Annotation>(lib));
-		addAnnotation(make_smart<HMM_QuatAnnotation>(lib));
-		addAnnotation(make_smart<ResourceManagerAnnotation>(lib));
-		addAnnotation(make_smart<KeyboardStateAnnotation>(lib));
-		addAnnotation(make_smart<oval_update_contextAnnotation>(lib));
-		addAnnotation(make_smart<UpdateContextAnnotation>(lib));
-		addAnnotation(das::make_smart<das::DummyTypeAnnotation>("Shader", "HGEGraphics::Shader", 1, 1));
-		addAnnotation(make_smart<PositionAnnotation>(lib));
-		addAnnotation(make_smart<LocalTransformAnnotation>(lib));
-		addAnnotation(make_smart<WorldTransformAnnotation>(lib));
-		addAnnotation(make_smart<RendableAnnotation>(lib));
-		addAnnotation(make_smart<ShowMatrixAnnotation>(lib));
-		addAnnotation(make_smart<EventTagAnnotation>(lib));
+		addAnnotation(new HMM_Vec3Annotation(lib));
+		addAnnotation(new HMM_Vec4Annotation(lib));
+		addAnnotation(new HMM_Mat4Annotation(lib));
+		addAnnotation(new HMM_QuatAnnotation(lib));
+		addAnnotation(new ResourceManagerAnnotation(lib));
+		addAnnotation(new KeyboardStateAnnotation(lib));
+		addAnnotation(new oval_update_contextAnnotation(lib));
+		addAnnotation(new UpdateContextAnnotation(lib));
+		addAnnotation(new das::DummyTypeAnnotation("Shader", "HGEGraphics::Shader", 1, 1));
+		addAnnotation(new PositionAnnotation(lib));
+		addAnnotation(new LocalTransformAnnotation(lib));
+		addAnnotation(new WorldTransformAnnotation(lib));
+		addAnnotation(new RendableAnnotation(lib));
+		addAnnotation(new ShowMatrixAnnotation(lib));
+		addAnnotation(new EventTagAnnotation(lib));
 
 		addExtern<DAS_BIND_FUN(HMM_V3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V3", das::SideEffects::none, "HMM_V3")->args({ "x", "y", "z" });
 		addExtern<DAS_BIND_FUN(HMM_V4), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V4", das::SideEffects::none, "HMM_V4")->args({ "x", "y", "z", "w" });

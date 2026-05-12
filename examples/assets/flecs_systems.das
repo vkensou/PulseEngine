@@ -26,30 +26,30 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     def generate_functions(var func : FunctionPtr; phase_field : string; var errors : das_string)  : bool {
         let wrapper_name = "{func.name}`system_wrapper"
 
-        var inscope wrapper_fn_batch_exprs : array<ExpressionPtr>
-        var inscope wrapper_fn_call_args : array<ExpressionPtr>
-        var inscope wrapper_fn_body : array<ExpressionPtr>
+        var wrapper_fn_batch_exprs : array<ExpressionPtr>
+        var wrapper_fn_call_args : array<ExpressionPtr>
+        var wrapper_fn_body : array<ExpressionPtr>
         let register_fn_name = "{func.name}`register"
-        var inscope register_fn_body_exprs : array<ExpressionPtr>
-        var inscope event_register_fn_body_exprs : array<ExpressionPtr>
+        var register_fn_body_exprs : array<ExpressionPtr>
+        var event_register_fn_body_exprs : array<ExpressionPtr>
         let desc_name = "__system_desc"
-        register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
-        event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = EventSystemDesc(); })
+        register_fn_body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
+        event_register_fn_body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = EventSystemDesc(); })
 
-        wrapper_fn_body |> emplace_new <| qmacro_expr(${ var world = get_world(iter); })
+        wrapper_fn_body |> push <| qmacro_expr(${ var world = get_world(iter); })
         var is_event_system = false
         var is_entity_system = false
         var term_index = 0
         for (arg, arg_index in func.arguments, count()) {
             if (is_entity_type(arg._type)) {
-                wrapper_fn_call_args |> emplace_new <| qmacro(iter_entity(iter, i))
+                wrapper_fn_call_args |> push <| qmacro(iter_entity(iter, i))
                 is_entity_system = true
                 continue
             }
 
             if (is_command_buffer_type(arg._type)) {
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var cmd = CommandBuffer(world = world); })                                                                                                                                                              
-                wrapper_fn_call_args |> emplace_new <| qmacro(cmd)
+                wrapper_fn_body |> push <| qmacro_expr(${ var cmd = CommandBuffer(world = world); })                                                                                                                                                              
+                wrapper_fn_call_args |> push <| qmacro(cmd)
                 continue
             }
 
@@ -57,59 +57,59 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (res_result) {
                 let res_ptr_name = "res_ptr{arg_index}"
                 let res_name = "res{arg_index}"
-                var inscope resT <- new TypeDecl(baseType = Type.alias, alias := res_generic_type)
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(resT)>); })
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(res_name) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
-                wrapper_fn_call_args |> emplace_new <| qmacro($i(res_name))
+                var resT = new TypeDecl(baseType = Type.alias, alias := res_generic_type)
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(resT)>); })
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_name) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
+                wrapper_fn_call_args |> push <| qmacro($i(res_name))
                 continue
             }
 
             let (single_query_result, single_query_generic_type) = is_single_query_type(arg._type)
             if (single_query_result) {
                 let single_query_name = "single_query{arg_index}"
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
-                wrapper_fn_call_args |> emplace_new <| qmacro($i(single_query_name))
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
+                wrapper_fn_call_args |> push <| qmacro($i(single_query_name))
                 continue
             }
 
             let (event_writer_result, event_writer_generic_type) = is_event_writer_type(arg._type)
             if (event_writer_result) {
                 let event_writer_name = "event_writer{arg_index}"
-                var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>), event_tag = get_event_tag(world)); })
-                wrapper_fn_call_args |> emplace_new <| qmacro($i(event_writer_name))
+                var eventT = new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>), event_tag = get_event_tag(world)); })
+                wrapper_fn_call_args |> push <| qmacro($i(event_writer_name))
                 continue
             }
 
             let (event_reader_result, event_reader_generic_type) = is_event_reader_type(arg._type)
             if (event_reader_result) {
                 is_event_system = true
-                var inscope eventT <- new TypeDecl(baseType = Type.alias, alias := event_reader_generic_type)
-                wrapper_fn_body |> emplace_new <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = default<$t(eventT)>); })
-                wrapper_fn_call_args |> emplace_new <| qmacro(event_reader)
-                event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).event_id = ecs_component(ctx.world, type<$t(eventT)>); })
+                var eventT = new TypeDecl(baseType = Type.alias, alias := event_reader_generic_type)
+                wrapper_fn_body |> push <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = default<$t(eventT)>); })
+                wrapper_fn_call_args |> push <| qmacro(event_reader)
+                event_register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).event_id = ecs_component(ctx.world, type<$t(eventT)>); })
                 continue
             }
 
             if (true) {
                 is_entity_system = true
                 let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
-                var inscope component_type <- make_component_type(arg._type)
+                var component_type <- make_component_type(arg._type)
 
                 let field_name = "__field_{arg_index}"
-                var inscope pointer_type <- make_pointer_type(component_type)
-                wrapper_fn_batch_exprs |> emplace_new <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
-                wrapper_fn_call_args |> emplace_new <| qmacro($i(field_name)[i])
+                var pointer_type <- make_pointer_type(component_type)
+                wrapper_fn_batch_exprs |> push <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                wrapper_fn_call_args |> push <| qmacro($i(field_name)[i])
 
-                register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
-                event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
+                register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
+                event_register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
 
                 term_index += 1
             }
         }
 
         if (is_event_system && !is_entity_system) {
-            event_register_fn_body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = system_term_in(ctx.world, type<pulse::EventTag>); })
+            event_register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = system_term_in(ctx.world, type<pulse::EventTag>); })
         }
 
         if (!is_event_system && phase_field == "") {
@@ -120,12 +120,12 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         }
 
         if (is_entity_system && !is_event_system) {
-            wrapper_fn_batch_exprs |> emplace_new <| qmacro_block() {
+            wrapper_fn_batch_exprs |> push <| qmacro_block() {
                 for (i in 0..iter.count) {
                     $c("_::{func.name}")($a(wrapper_fn_call_args))
                 }
             }
-            wrapper_fn_body |> emplace_new <| qmacro_block() {
+            wrapper_fn_body |> push <| qmacro_block() {
                 unsafe {
                     while (iter_next(iter)) {
                         $b(wrapper_fn_batch_exprs)
@@ -133,36 +133,36 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 }
             }
         } elif (is_entity_system && is_event_system) {
-            wrapper_fn_batch_exprs |> emplace_new <| qmacro_expr(${let i = 0;})
-            wrapper_fn_batch_exprs |> emplace_new <| qmacro($c("_::{func.name}")($a(wrapper_fn_call_args)))
-            wrapper_fn_body |> emplace_new <| qmacro_block() {
+            wrapper_fn_batch_exprs |> push <| qmacro_expr(${let i = 0;})
+            wrapper_fn_batch_exprs |> push <| qmacro($c("_::{func.name}")($a(wrapper_fn_call_args)))
+            wrapper_fn_body |> push <| qmacro_block() {
                 unsafe {
                     $b(wrapper_fn_batch_exprs)
                 }
             }
         } else {
-            wrapper_fn_body |> emplace_new <| qmacro_block() {
+            wrapper_fn_body |> push <| qmacro_block() {
                 $c("_::{func.name}")($a(wrapper_fn_call_args))
             }
         }
 
-        var inscope wrapper_fn <- qmacro_function(wrapper_name) $(var iter : ecs_iter_t?) : void {
+        var wrapper_fn <- qmacro_function(wrapper_name) $(var iter : ecs_iter_t?) : void {
             $b(wrapper_fn_body)
         }
         wrapper_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
 
         let add_ok = compiling_module() |> add_function(wrapper_fn)
 
-        register_fn_body_exprs |> emplace_new <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
-        var inscope register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
+        register_fn_body_exprs |> push <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
+        var register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
             unsafe {
                 $b(register_fn_body_exprs)
             }
         }
         register_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
 
-        event_register_fn_body_exprs |> emplace_new <| qmacro(observe_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
-        var inscope event_register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
+        event_register_fn_body_exprs |> push <| qmacro(observe_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
+        var event_register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
             $b(event_register_fn_body_exprs)
         }
 
@@ -199,7 +199,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     }
 
     def is_entity_type(arg_type : TypeDeclPtr) : bool {
-        var inscope base_type <- make_component_type(arg_type)
+        var base_type <- make_component_type(arg_type)
         let type_name = string(describe(base_type))
         return type_name == "uint64 aka Entity"
     }
@@ -317,7 +317,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         if (is_run_iter_signature(arg_type)) {
             return true
         }
-        var inscope base_type <- make_component_type(arg_type)
+        var base_type <- make_component_type(arg_type)
         let type_name = string(describe(base_type))
         return type_name == "flecs::ecs_iter_t?" || type_name == "ecs_iter_t?"
     }
@@ -327,14 +327,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     }
 
     def make_component_type(arg_type : TypeDeclPtr) : TypeDeclPtr {
-        var inscope component_type <- clone_type(arg_type)
+        var component_type <- clone_type(arg_type)
         component_type.flags &= ~TypeDeclFlags.constant
         component_type.flags &= ~TypeDeclFlags.ref
-        return <- component_type
+        return component_type
     }
 
     def make_pointer_type(component_type : TypeDeclPtr) : TypeDeclPtr {
-        return <- new TypeDecl(at = component_type.at,
+        return new TypeDecl(at = component_type.at,
             baseType = Type.tPointer,
             firstType <- clone_type(component_type)
         )
@@ -343,8 +343,8 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     def add_register_helper(func : FunctionPtr; callback_name : string; phase_field : string) : bool {
         let helper_name = "{func.name}`register"
         let desc_name = "__system_desc"
-        var inscope body_exprs : array<ExpressionPtr>
-        body_exprs |> emplace_new <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
+        var body_exprs : array<ExpressionPtr>
+        body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
 
         if (!is_run_mode(func)) {
             // register_system copies desc.terms until the first zeroed slot, so generated terms must stay dense.
@@ -355,17 +355,17 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 }
 
                 if (true) {
-                    var inscope component_type <- make_component_type(arg._type)
+                    var component_type <- make_component_type(arg._type)
                     let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
-                    body_exprs |> emplace_new <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
+                    body_exprs |> push <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
                     term_index += 1
                 }
             }
         }
 
-        body_exprs |> emplace_new <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(callback_name)))
+        body_exprs |> push <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(callback_name)))
 
-        var inscope helper_fn <- qmacro_function(helper_name) $(ctx : ModuleContext) : void {
+        var helper_fn <- qmacro_function(helper_name) $(ctx : ModuleContext) : void {
             unsafe {
                 $b(body_exprs)
             }
@@ -377,7 +377,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
 [call_macro(name="register_system")]
 class FlecsRegisterSystemMacro : AstCallMacro {
-    def override visit(prog : ProgramPtr; mod : Module?; var expr : smart_ptr<ExprCallMacro>) : ExpressionPtr {
+    def override visit(prog : ProgramPtr; mod : Module?; var expr : ExprCallMacro?) : ExpressionPtr {
         macro_verify(length(expr.arguments) == 2, prog, expr.at,
             "register_system requires 2 argument")
         macro_verify(expr.arguments[1] is ExprAddr, prog, expr.at,
@@ -387,6 +387,6 @@ class FlecsRegisterSystemMacro : AstCallMacro {
         assume addrOfFunc = expr.arguments[1] as ExprAddr
         assume target = addrOfFunc.target
         let registerfunc = "{target}`register"
-        return <- qmacro($c(registerfunc)($e(ctx)))
+        return qmacro($c(registerfunc)($e(ctx)))
     }
 }

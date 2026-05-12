@@ -1,7 +1,7 @@
 // this file is generated via Daslang automatic binder
 // all user modifications will be lost after this file is re-generated
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:34:14
+// from cgpu/api.h:34:14
 class Enumeration_ECGPUBackend : public das::Enumeration {
 public:
 	Enumeration_ECGPUBackend() : das::Enumeration("ECGPUBackend") {
@@ -15,7 +15,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:44:14
+// from cgpu/api.h:44:14
 class Enumeration_ECGPUBlendFactor : public das::Enumeration {
 public:
 	Enumeration_ECGPUBlendFactor() : das::Enumeration("ECGPUBlendFactor") {
@@ -37,7 +37,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:62:14
+// from cgpu/api.h:62:14
 class Enumeration_ECGPUBlendOp : public das::Enumeration {
 public:
 	Enumeration_ECGPUBlendOp() : das::Enumeration("ECGPUBlendOp") {
@@ -53,7 +53,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:74:14
+// from cgpu/api.h:74:14
 class Enumeration_ECGPULogSeverity : public das::Enumeration {
 public:
 	Enumeration_ECGPULogSeverity() : das::Enumeration("ECGPULogSeverity") {
@@ -70,7 +70,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:87:14
+// from cgpu/api.h:87:14
 class Enumeration_ECGPUTextureFormat : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureFormat() : das::Enumeration("ECGPUTextureFormat") {
@@ -262,7 +262,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:275:14
+// from cgpu/api.h:275:14
 class Enumeration_ECGPUFilterType : public das::Enumeration {
 public:
 	Enumeration_ECGPUFilterType() : das::Enumeration("ECGPUFilterType") {
@@ -275,7 +275,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:284:14
+// from cgpu/api.h:284:14
 class Enumeration_ECGPUAddressMode : public das::Enumeration {
 public:
 	Enumeration_ECGPUAddressMode() : das::Enumeration("ECGPUAddressMode") {
@@ -290,7 +290,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:295:14
+// from cgpu/api.h:295:14
 class Enumeration_ECGPUMipMapMode : public das::Enumeration {
 public:
 	Enumeration_ECGPUMipMapMode() : das::Enumeration("ECGPUMipMapMode") {
@@ -303,7 +303,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:304:14
+// from cgpu/api.h:304:14
 class Enumeration_ECGPULoadAction : public das::Enumeration {
 public:
 	Enumeration_ECGPULoadAction() : das::Enumeration("ECGPULoadAction") {
@@ -317,7 +317,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:314:14
+// from cgpu/api.h:314:14
 class Enumeration_ECGPUStoreAction : public das::Enumeration {
 public:
 	Enumeration_ECGPUStoreAction() : das::Enumeration("ECGPUStoreAction") {
@@ -330,7 +330,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:323:14
+// from cgpu/api.h:323:14
 class Enumeration_ECGPUPrimitiveTopology : public das::Enumeration {
 public:
 	Enumeration_ECGPUPrimitiveTopology() : das::Enumeration("ECGPUPrimitiveTopology") {
@@ -347,7 +347,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:336:14
+// from cgpu/api.h:336:14
 class Enumeration_ECGPUCompareOp : public das::Enumeration {
 public:
 	Enumeration_ECGPUCompareOp() : das::Enumeration("ECGPUCompareOp") {
@@ -366,7 +366,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:351:14
+// from cgpu/api.h:351:14
 class Enumeration_ECGPUFillMode : public das::Enumeration {
 public:
 	Enumeration_ECGPUFillMode() : das::Enumeration("ECGPUFillMode") {
@@ -379,7 +379,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:360:14
+// from cgpu/api.h:360:14
 class Enumeration_ECGPUFrontFace : public das::Enumeration {
 public:
 	Enumeration_ECGPUFrontFace() : das::Enumeration("ECGPUFrontFace") {
@@ -392,7 +392,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:369:14
+// from cgpu/api.h:369:14
 class Enumeration_ECGPUVertexInputRate : public das::Enumeration {
 public:
 	Enumeration_ECGPUVertexInputRate() : das::Enumeration("ECGPUVertexInputRate") {
@@ -405,7 +405,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:378:14
+// from cgpu/api.h:378:14
 class Enumeration_ECGPUStencilOp : public das::Enumeration {
 public:
 	Enumeration_ECGPUStencilOp() : das::Enumeration("ECGPUStencilOp") {
@@ -424,7 +424,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:393:14
+// from cgpu/api.h:393:14
 class Enumeration_ECGPUTextureDimension : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureDimension() : das::Enumeration("ECGPUTextureDimension") {
@@ -445,7 +445,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:410:14
+// from cgpu/api.h:410:14
 class Enumeration_ECGPUShaderBytecodeType : public das::Enumeration {
 public:
 	Enumeration_ECGPUShaderBytecodeType() : das::Enumeration("ECGPUShaderBytecodeType") {
@@ -459,7 +459,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:420:14
+// from cgpu/api.h:420:14
 class Enumeration_ECGPUTextureFormatUsage : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureFormatUsage() : das::Enumeration("ECGPUTextureFormatUsage") {
@@ -478,7 +478,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:435:14
+// from cgpu/api.h:435:14
 class Enumeration_ECGPUFenceStatus : public das::Enumeration {
 public:
 	Enumeration_ECGPUFenceStatus() : das::Enumeration("ECGPUFenceStatus") {
@@ -492,7 +492,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:445:14
+// from cgpu/api.h:445:14
 class Enumeration_ECGPUQueryType : public das::Enumeration {
 public:
 	Enumeration_ECGPUQueryType() : das::Enumeration("ECGPUQueryType") {
@@ -506,7 +506,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:455:14
+// from cgpu/api.h:455:14
 class Enumeration_ECGPUMemoryUsage : public das::Enumeration {
 public:
 	Enumeration_ECGPUMemoryUsage() : das::Enumeration("ECGPUMemoryUsage") {
@@ -522,7 +522,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:467:14
+// from cgpu/api.h:467:14
 class Enumeration_ECGPUMemoryPoolType : public das::Enumeration {
 public:
 	Enumeration_ECGPUMemoryPoolType() : das::Enumeration("ECGPUMemoryPoolType") {
@@ -536,7 +536,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:477:14
+// from cgpu/api.h:477:14
 class Enumeration_ECGPUPipelineType : public das::Enumeration {
 public:
 	Enumeration_ECGPUPipelineType() : das::Enumeration("ECGPUPipelineType") {
@@ -551,7 +551,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:488:14
+// from cgpu/api.h:488:14
 class Enumeration_ECGPUShadingRate : public das::Enumeration {
 public:
 	Enumeration_ECGPUShadingRate() : das::Enumeration("ECGPUShadingRate") {
@@ -569,7 +569,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:502:14
+// from cgpu/api.h:502:14
 class Enumeration_ECGPUShadingRateCombiner : public das::Enumeration {
 public:
 	Enumeration_ECGPUShadingRateCombiner() : das::Enumeration("ECGPUShadingRateCombiner") {
@@ -585,7 +585,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:514:14
+// from cgpu/api.h:514:14
 class Enumeration_ECGPUQueueType : public das::Enumeration {
 public:
 	Enumeration_ECGPUQueueType() : das::Enumeration("ECGPUQueueType") {
@@ -600,7 +600,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:525:14
+// from cgpu/api.h:525:14
 class Enumeration_ECGPUVertexFormat : public das::Enumeration {
 public:
 	Enumeration_ECGPUVertexFormat() : das::Enumeration("ECGPUVertexFormat") {
@@ -638,7 +638,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:559:14
+// from cgpu/api.h:559:14
 class Enumeration_ECGPUAcquireNextImageError : public das::Enumeration {
 public:
 	Enumeration_ECGPUAcquireNextImageError() : das::Enumeration("ECGPUAcquireNextImageError") {
@@ -655,7 +655,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:572:14
+// from cgpu/api.h:572:14
 class Enumeration_ECGPUSubmitError : public das::Enumeration {
 public:
 	Enumeration_ECGPUSubmitError() : das::Enumeration("ECGPUSubmitError") {
@@ -669,7 +669,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:582:14
+// from cgpu/api.h:582:14
 class Enumeration_ECGPUPresentError : public das::Enumeration {
 public:
 	Enumeration_ECGPUPresentError() : das::Enumeration("ECGPUPresentError") {
@@ -685,7 +685,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:595:14
+// from cgpu/api.h:595:14
 class Enumeration_ECGPUColorMaskFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUColorMaskFlagBits() : das::Enumeration("ECGPUColorMaskFlagBits") {
@@ -701,7 +701,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:607:14
+// from cgpu/api.h:607:14
 class Enumeration_ECGPUCullModeFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUCullModeFlagBits() : das::Enumeration("ECGPUCullModeFlagBits") {
@@ -715,7 +715,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:617:14
+// from cgpu/api.h:617:14
 class Enumeration_ECGPUStencilFaceFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUStencilFaceFlagBits() : das::Enumeration("ECGPUStencilFaceFlagBits") {
@@ -728,7 +728,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:626:14
+// from cgpu/api.h:626:14
 class Enumeration_ECGPUShaderStageFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUShaderStageFlagBits() : das::Enumeration("ECGPUShaderStageFlagBits") {
@@ -747,7 +747,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:641:14
+// from cgpu/api.h:641:14
 class Enumeration_ECGPUPipelineStageFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUPipelineStageFlagBits() : das::Enumeration("ECGPUPipelineStageFlagBits") {
@@ -767,7 +767,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:657:14
+// from cgpu/api.h:657:14
 class Enumeration_ECGPUResourceStateFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUResourceStateFlagBits() : das::Enumeration("ECGPUResourceStateFlagBits") {
@@ -797,7 +797,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:683:14
+// from cgpu/api.h:683:14
 class Enumeration_ECGPUBufferCreationUsageFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUBufferCreationUsageFlagBits() : das::Enumeration("ECGPUBufferCreationUsageFlagBits") {
@@ -811,7 +811,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:693:14
+// from cgpu/api.h:693:14
 class Enumeration_ECGPUTextureCreationUsageFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureCreationUsageFlagBits() : das::Enumeration("ECGPUTextureCreationUsageFlagBits") {
@@ -829,7 +829,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:707:14
+// from cgpu/api.h:707:14
 class Enumeration_ECGPUSampleCountFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUSampleCountFlagBits() : das::Enumeration("ECGPUSampleCountFlagBits") {
@@ -844,7 +844,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:718:14
+// from cgpu/api.h:718:14
 class Enumeration_ECGPUResourceTypeFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUResourceTypeFlagBits() : das::Enumeration("ECGPUResourceTypeFlagBits") {
@@ -878,7 +878,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:748:14
+// from cgpu/api.h:748:14
 class Enumeration_ECGPUTextureViewUsageFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureViewUsageFlagBits() : das::Enumeration("ECGPUTextureViewUsageFlagBits") {
@@ -891,7 +891,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:757:14
+// from cgpu/api.h:757:14
 class Enumeration_ECGPUTextureViewAspectFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureViewAspectFlagBits() : das::Enumeration("ECGPUTextureViewAspectFlagBits") {
@@ -904,7 +904,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:766:14
+// from cgpu/api.h:766:14
 class Enumeration_ECGPUTextureFormatSupportFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUTextureFormatSupportFlagBits() : das::Enumeration("ECGPUTextureFormatSupportFlagBits") {
@@ -922,7 +922,7 @@ public:
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:780:14
+// from cgpu/api.h:780:14
 class Enumeration_ECGPUDynamicStateFeaturesFlagBits : public das::Enumeration {
 public:
 	Enumeration_ECGPUDynamicStateFeaturesFlagBits() : das::Enumeration("ECGPUDynamicStateFeaturesFlagBits") {

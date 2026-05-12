@@ -389,16 +389,16 @@ public:
 		lib.addBuiltInModule();
 		addBuiltinDependency(lib, Module::require("math"));
 
-		addAnnotation(make_smart<WorldAnnotation>(lib));
-		addAnnotation(make_smart<QueryAnnotation>(lib));
-		addAnnotation(make_smart<ecs_iter_tAnnotation>(lib));
-		addAnnotation(make_smart<ecs_term_tAnnotation>(lib));
-		addAnnotation(make_smart<ecs_query_tAnnotation>(lib));
-		addAnnotation(make_smart<ecs_query_desc_tAnnotation>(lib));
-		addAnnotation(make_smart<SystemDescAnnotation>(lib));
-		addAnnotation(make_smart<EventSystemDescAnnotation>(lib));
-		addAnnotation(make_smart<EventDescAnnotation>(lib));
-		addAnnotation(make_smart<ModuleContextAnnotation>(lib));
+		addAnnotation(new WorldAnnotation(lib));
+		addAnnotation(new QueryAnnotation(lib));
+		addAnnotation(new ecs_iter_tAnnotation(lib));
+		addAnnotation(new ecs_term_tAnnotation(lib));
+		addAnnotation(new ecs_query_tAnnotation(lib));
+		addAnnotation(new ecs_query_desc_tAnnotation(lib));
+		addAnnotation(new SystemDescAnnotation(lib));
+		addAnnotation(new EventSystemDescAnnotation(lib));
+		addAnnotation(new EventDescAnnotation(lib));
+		addAnnotation(new ModuleContextAnnotation(lib));
 
 		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::destruct_entity)>(*this, lib, "destruct_entity", SideEffects::worstDefault, "destruct_entity")->args({ "world", "entity" });

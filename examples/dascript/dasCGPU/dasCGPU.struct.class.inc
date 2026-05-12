@@ -1,7 +1,7 @@
 // this file is generated via Daslang automatic binder
 // all user modifications will be lost after this file is re-generated
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1102:16
+// from cgpu/api.h:1102:16
 struct CGPULogger_GeneratedAnnotation : ManagedStructureAnnotation<CGPULogger> {
 	CGPULogger_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPULogger", ml, "CGPULogger") {
 	}
@@ -10,7 +10,7 @@ struct CGPULogger_GeneratedAnnotation : ManagedStructureAnnotation<CGPULogger> {
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1109:16
+// from cgpu/api.h:1109:16
 struct CGPUAllocator_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAllocator> {
 	CGPUAllocator_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUAllocator", ml, "CGPUAllocator") {
 	}
@@ -19,7 +19,7 @@ struct CGPUAllocator_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAlloca
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1123:16
+// from cgpu/api.h:1123:16
 struct CGPUInstanceDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUInstanceDescriptor> {
 	CGPUInstanceDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUInstanceDescriptor", ml, "CGPUInstanceDescriptor") {
 	}
@@ -33,7 +33,7 @@ struct CGPUInstanceDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<C
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1134:16
+// from cgpu/api.h:1134:16
 struct CGPUInstanceFeatures_GeneratedAnnotation : ManagedStructureAnnotation<CGPUInstanceFeatures> {
 	CGPUInstanceFeatures_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUInstanceFeatures", ml, "CGPUInstanceFeatures") {
 	}
@@ -42,7 +42,7 @@ struct CGPUInstanceFeatures_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1140:16
+// from cgpu/api.h:1140:16
 struct CGPUInstance_GeneratedAnnotation : ManagedStructureAnnotation<CGPUInstance> {
 	CGPUInstance_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUInstance", ml, "CGPUInstance") {
 	}
@@ -57,7 +57,7 @@ struct CGPUInstance_GeneratedAnnotation : ManagedStructureAnnotation<CGPUInstanc
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1152:16
+// from cgpu/api.h:1152:16
 struct CGPUVendorPreset_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVendorPreset> {
 	CGPUVendorPreset_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUVendorPreset", ml, "CGPUVendorPreset") {
 	}
@@ -69,7 +69,7 @@ struct CGPUVendorPreset_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVen
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1161:16
+// from cgpu/api.h:1161:16
 struct CGPUAdapterDetail_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAdapterDetail> {
 	CGPUAdapterDetail_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUAdapterDetail", ml, "CGPUAdapterDetail") {
 	}
@@ -99,7 +99,7 @@ struct CGPUAdapterDetail_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAd
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1188:16
+// from cgpu/api.h:1188:16
 struct CGPUAdapter_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAdapter> {
 	CGPUAdapter_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUAdapter", ml, "CGPUAdapter") {
 	}
@@ -109,7 +109,7 @@ struct CGPUAdapter_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAdapter>
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1195:16
+// from cgpu/api.h:1195:16
 struct CGPUQueueGroupDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueueGroupDescriptor> {
 	CGPUQueueGroupDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueueGroupDescriptor", ml, "CGPUQueueGroupDescriptor") {
 	}
@@ -119,7 +119,7 @@ struct CGPUQueueGroupDescriptor_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1202:16
+// from cgpu/api.h:1202:16
 struct CGPUDeviceDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDeviceDescriptor> {
 	CGPUDeviceDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDeviceDescriptor", ml, "CGPUDeviceDescriptor") {
 	}
@@ -130,7 +130,7 @@ struct CGPUDeviceDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1210:16
+// from cgpu/api.h:1210:16
 struct CGPUDevice_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDevice> {
 	CGPUDevice_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDevice", ml, "CGPUDevice") {
 	}
@@ -142,7 +142,7 @@ struct CGPUDevice_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDevice> {
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1219:16
+// from cgpu/api.h:1219:16
 struct CGPUQueue_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueue> {
 	CGPUQueue_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueue", ml, "CGPUQueue") {
 	}
@@ -154,7 +154,7 @@ struct CGPUQueue_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueue> {
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1228:16
+// from cgpu/api.h:1228:16
 struct CGPUFence_GeneratedAnnotation : ManagedStructureAnnotation<CGPUFence> {
 	CGPUFence_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUFence", ml, "CGPUFence") {
 	}
@@ -163,7 +163,7 @@ struct CGPUFence_GeneratedAnnotation : ManagedStructureAnnotation<CGPUFence> {
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1234:16
+// from cgpu/api.h:1234:16
 struct CGPUSemaphore_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSemaphore> {
 	CGPUSemaphore_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSemaphore", ml, "CGPUSemaphore") {
 	}
@@ -172,7 +172,7 @@ struct CGPUSemaphore_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSemaph
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1240:16
+// from cgpu/api.h:1240:16
 struct CGPUCommandPool_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCommandPool> {
 	CGPUCommandPool_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCommandPool", ml, "CGPUCommandPool") {
 	}
@@ -181,7 +181,7 @@ struct CGPUCommandPool_GeneratedAnnotation : ManagedStructureAnnotation<CGPUComm
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1246:16
+// from cgpu/api.h:1246:16
 struct CGPUCommandBuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCommandBuffer> {
 	CGPUCommandBuffer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCommandBuffer", ml, "CGPUCommandBuffer") {
 	}
@@ -192,7 +192,7 @@ struct CGPUCommandBuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCo
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1254:16
+// from cgpu/api.h:1254:16
 struct CGPUQueryPool_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueryPool> {
 	CGPUQueryPool_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueryPool", ml, "CGPUQueryPool") {
 	}
@@ -202,7 +202,7 @@ struct CGPUQueryPool_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueryP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1261:16
+// from cgpu/api.h:1261:16
 struct CGPUComputePassEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CGPUComputePassEncoder> {
 	CGPUComputePassEncoder_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUComputePassEncoder", ml, "CGPUComputePassEncoder") {
 	}
@@ -211,7 +211,7 @@ struct CGPUComputePassEncoder_GeneratedAnnotation : ManagedStructureAnnotation<C
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1267:16
+// from cgpu/api.h:1267:16
 struct CGPURenderPassEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CGPURenderPassEncoder> {
 	CGPURenderPassEncoder_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURenderPassEncoder", ml, "CGPURenderPassEncoder") {
 	}
@@ -220,7 +220,7 @@ struct CGPURenderPassEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CG
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1273:16
+// from cgpu/api.h:1273:16
 struct CGPURenderPass_GeneratedAnnotation : ManagedStructureAnnotation<CGPURenderPass> {
 	CGPURenderPass_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURenderPass", ml, "CGPURenderPass") {
 	}
@@ -229,7 +229,7 @@ struct CGPURenderPass_GeneratedAnnotation : ManagedStructureAnnotation<CGPURende
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1279:16
+// from cgpu/api.h:1279:16
 struct CGPUFramebufferInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUFramebufferInfo> {
 	CGPUFramebufferInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUFramebufferInfo", ml, "CGPUFramebufferInfo") {
 	}
@@ -239,7 +239,7 @@ struct CGPUFramebufferInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPU
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1286:16
+// from cgpu/api.h:1286:16
 struct CGPUFramebuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUFramebuffer> {
 	CGPUFramebuffer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUFramebuffer", ml, "CGPUFramebuffer") {
 	}
@@ -249,7 +249,7 @@ struct CGPUFramebuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUFram
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1293:16
+// from cgpu/api.h:1293:16
 struct CGPUStateBuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUStateBuffer> {
 	CGPUStateBuffer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUStateBuffer", ml, "CGPUStateBuffer") {
 	}
@@ -259,7 +259,7 @@ struct CGPUStateBuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUStat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1300:16
+// from cgpu/api.h:1300:16
 struct CGPURasterStateEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CGPURasterStateEncoder> {
 	CGPURasterStateEncoder_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURasterStateEncoder", ml, "CGPURasterStateEncoder") {
 	}
@@ -268,7 +268,7 @@ struct CGPURasterStateEncoder_GeneratedAnnotation : ManagedStructureAnnotation<C
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1306:16
+// from cgpu/api.h:1306:16
 struct CGPUShaderStateEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CGPUShaderStateEncoder> {
 	CGPUShaderStateEncoder_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUShaderStateEncoder", ml, "CGPUShaderStateEncoder") {
 	}
@@ -277,7 +277,7 @@ struct CGPUShaderStateEncoder_GeneratedAnnotation : ManagedStructureAnnotation<C
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1312:16
+// from cgpu/api.h:1312:16
 struct CGPUUserStateEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CGPUUserStateEncoder> {
 	CGPUUserStateEncoder_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUUserStateEncoder", ml, "CGPUUserStateEncoder") {
 	}
@@ -286,7 +286,7 @@ struct CGPUUserStateEncoder_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1318:16
+// from cgpu/api.h:1318:16
 struct CGPUBinder_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBinder> {
 	CGPUBinder_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBinder", ml, "CGPUBinder") {
 	}
@@ -296,7 +296,7 @@ struct CGPUBinder_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBinder> {
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1325:16
+// from cgpu/api.h:1325:16
 struct CGPURootSignaturePoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPURootSignaturePoolDescriptor> {
 	CGPURootSignaturePoolDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURootSignaturePoolDescriptor", ml, "CGPURootSignaturePoolDescriptor") {
 	}
@@ -305,7 +305,7 @@ struct CGPURootSignaturePoolDescriptor_GeneratedAnnotation : ManagedStructureAnn
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1331:16
+// from cgpu/api.h:1331:16
 struct CGPURootSignaturePool_GeneratedAnnotation : ManagedStructureAnnotation<CGPURootSignaturePool> {
 	CGPURootSignaturePool_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURootSignaturePool", ml, "CGPURootSignaturePool") {
 	}
@@ -315,7 +315,7 @@ struct CGPURootSignaturePool_GeneratedAnnotation : ManagedStructureAnnotation<CG
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1338:16
+// from cgpu/api.h:1338:16
 struct CGPUVertexInput_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVertexInput> {
 	CGPUVertexInput_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUVertexInput", ml, "CGPUVertexInput") {
 	}
@@ -326,7 +326,7 @@ struct CGPUVertexInput_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVert
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1346:16
+// from cgpu/api.h:1346:16
 struct CGPUShaderResource_GeneratedAnnotation : ManagedStructureAnnotation<CGPUShaderResource> {
 	CGPUShaderResource_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUShaderResource", ml, "CGPUShaderResource") {
 	}
@@ -343,7 +343,7 @@ struct CGPUShaderResource_GeneratedAnnotation : ManagedStructureAnnotation<CGPUS
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1360:16
+// from cgpu/api.h:1360:16
 struct CGPUShaderReflection_GeneratedAnnotation : ManagedStructureAnnotation<CGPUShaderReflection> {
 	CGPUShaderReflection_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUShaderReflection", ml, "CGPUShaderReflection") {
 	}
@@ -358,7 +358,7 @@ struct CGPUShaderReflection_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1372:16
+// from cgpu/api.h:1372:16
 struct CGPUShaderLibrary_GeneratedAnnotation : ManagedStructureAnnotation<CGPUShaderLibrary> {
 	CGPUShaderLibrary_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUShaderLibrary", ml, "CGPUShaderLibrary") {
 	}
@@ -370,7 +370,7 @@ struct CGPUShaderLibrary_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSh
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1381:15
+// from cgpu/api.h:1381:15
 struct CGPUConstantSpecializationImpl_GeneratedAnnotation : ManagedStructureAnnotation<CGPUConstantSpecializationImpl> {
 	CGPUConstantSpecializationImpl_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUConstantSpecializationImpl", ml, "CGPUConstantSpecializationImpl") {
 	}
@@ -381,7 +381,7 @@ struct CGPUConstantSpecializationImpl_GeneratedAnnotation : ManagedStructureAnno
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1389:16
+// from cgpu/api.h:1389:16
 struct CGPUConstantSpecialization_GeneratedAnnotation : ManagedStructureAnnotation<CGPUConstantSpecialization> {
 	CGPUConstantSpecialization_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUConstantSpecialization", ml, "CGPUConstantSpecialization") {
 	}
@@ -391,7 +391,7 @@ struct CGPUConstantSpecialization_GeneratedAnnotation : ManagedStructureAnnotati
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1396:16
+// from cgpu/api.h:1396:16
 struct CGPUShaderEntryDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUShaderEntryDescriptor> {
 	CGPUShaderEntryDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUShaderEntryDescriptor", ml, "CGPUShaderEntryDescriptor") {
 	}
@@ -404,7 +404,7 @@ struct CGPUShaderEntryDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1406:16
+// from cgpu/api.h:1406:16
 struct CGPURootSignatureDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPURootSignatureDescriptor> {
 	CGPURootSignatureDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURootSignatureDescriptor", ml, "CGPURootSignatureDescriptor") {
 	}
@@ -420,7 +420,7 @@ struct CGPURootSignatureDescriptor_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1419:16
+// from cgpu/api.h:1419:16
 struct CGPUParameterTable_GeneratedAnnotation : ManagedStructureAnnotation<CGPUParameterTable> {
 	CGPUParameterTable_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUParameterTable", ml, "CGPUParameterTable") {
 	}
@@ -431,7 +431,7 @@ struct CGPUParameterTable_GeneratedAnnotation : ManagedStructureAnnotation<CGPUP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1427:16
+// from cgpu/api.h:1427:16
 struct CGPURootSignature_GeneratedAnnotation : ManagedStructureAnnotation<CGPURootSignature> {
 	CGPURootSignature_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURootSignature", ml, "CGPURootSignature") {
 	}
@@ -449,7 +449,7 @@ struct CGPURootSignature_GeneratedAnnotation : ManagedStructureAnnotation<CGPURo
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1442:16
+// from cgpu/api.h:1442:16
 struct CGPUDescriptorSet_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDescriptorSet> {
 	CGPUDescriptorSet_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDescriptorSet", ml, "CGPUDescriptorSet") {
 	}
@@ -459,7 +459,7 @@ struct CGPUDescriptorSet_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDe
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1449:16
+// from cgpu/api.h:1449:16
 struct CGPUVertexAttribute_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVertexAttribute> {
 	CGPUVertexAttribute_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUVertexAttribute", ml, "CGPUVertexAttribute") {
 	}
@@ -474,7 +474,7 @@ struct CGPUVertexAttribute_GeneratedAnnotation : ManagedStructureAnnotation<CGPU
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1461:16
+// from cgpu/api.h:1461:16
 struct CGPUVertexLayout_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVertexLayout> {
 	CGPUVertexLayout_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUVertexLayout", ml, "CGPUVertexLayout") {
 	}
@@ -484,7 +484,7 @@ struct CGPUVertexLayout_GeneratedAnnotation : ManagedStructureAnnotation<CGPUVer
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1468:16
+// from cgpu/api.h:1468:16
 struct CGPUBlendAttachmentState_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBlendAttachmentState> {
 	CGPUBlendAttachmentState_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBlendAttachmentState", ml, "CGPUBlendAttachmentState") {
 	}
@@ -500,7 +500,7 @@ struct CGPUBlendAttachmentState_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1481:16
+// from cgpu/api.h:1481:16
 struct CGPUBlendStateDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBlendStateDescriptor> {
 	CGPUBlendStateDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBlendStateDescriptor", ml, "CGPUBlendStateDescriptor") {
 	}
@@ -512,7 +512,7 @@ struct CGPUBlendStateDescriptor_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1490:16
+// from cgpu/api.h:1490:16
 struct CGPUDepthStateDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDepthStateDescriptor> {
 	CGPUDepthStateDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDepthStateDescriptor", ml, "CGPUDepthStateDescriptor") {
 	}
@@ -534,7 +534,7 @@ struct CGPUDepthStateDescriptor_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1509:16
+// from cgpu/api.h:1509:16
 struct CGPURasterizerStateDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPURasterizerStateDescriptor> {
 	CGPURasterizerStateDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURasterizerStateDescriptor", ml, "CGPURasterizerStateDescriptor") {
 	}
@@ -550,7 +550,7 @@ struct CGPURasterizerStateDescriptor_GeneratedAnnotation : ManagedStructureAnnot
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1522:16
+// from cgpu/api.h:1522:16
 struct CGPURenderPipelineDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPURenderPipelineDescriptor> {
 	CGPURenderPipelineDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURenderPipelineDescriptor", ml, "CGPURenderPipelineDescriptor") {
 	}
@@ -574,7 +574,7 @@ struct CGPURenderPipelineDescriptor_GeneratedAnnotation : ManagedStructureAnnota
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1543:16
+// from cgpu/api.h:1543:16
 struct CGPURenderPipeline_GeneratedAnnotation : ManagedStructureAnnotation<CGPURenderPipeline> {
 	CGPURenderPipeline_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURenderPipeline", ml, "CGPURenderPipeline") {
 	}
@@ -584,7 +584,7 @@ struct CGPURenderPipeline_GeneratedAnnotation : ManagedStructureAnnotation<CGPUR
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1550:16
+// from cgpu/api.h:1550:16
 struct CGPUComputePipelineDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUComputePipelineDescriptor> {
 	CGPUComputePipelineDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUComputePipelineDescriptor", ml, "CGPUComputePipelineDescriptor") {
 	}
@@ -594,7 +594,7 @@ struct CGPUComputePipelineDescriptor_GeneratedAnnotation : ManagedStructureAnnot
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1557:16
+// from cgpu/api.h:1557:16
 struct CGPUComputePipeline_GeneratedAnnotation : ManagedStructureAnnotation<CGPUComputePipeline> {
 	CGPUComputePipeline_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUComputePipeline", ml, "CGPUComputePipeline") {
 	}
@@ -604,7 +604,7 @@ struct CGPUComputePipeline_GeneratedAnnotation : ManagedStructureAnnotation<CGPU
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1564:16
+// from cgpu/api.h:1564:16
 struct CGPUCompiledShader_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCompiledShader> {
 	CGPUCompiledShader_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCompiledShader", ml, "CGPUCompiledShader") {
 	}
@@ -614,7 +614,7 @@ struct CGPUCompiledShader_GeneratedAnnotation : ManagedStructureAnnotation<CGPUC
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1571:16
+// from cgpu/api.h:1571:16
 struct CGPULinkedShader_GeneratedAnnotation : ManagedStructureAnnotation<CGPULinkedShader> {
 	CGPULinkedShader_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPULinkedShader", ml, "CGPULinkedShader") {
 	}
@@ -624,7 +624,7 @@ struct CGPULinkedShader_GeneratedAnnotation : ManagedStructureAnnotation<CGPULin
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1578:16
+// from cgpu/api.h:1578:16
 struct CGPUDescriptorSetDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDescriptorSetDescriptor> {
 	CGPUDescriptorSetDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDescriptorSetDescriptor", ml, "CGPUDescriptorSetDescriptor") {
 	}
@@ -634,7 +634,7 @@ struct CGPUDescriptorSetDescriptor_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1585:16
+// from cgpu/api.h:1585:16
 struct CGPUBufferParams_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferParams> {
 	CGPUBufferParams_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferParams", ml, "CGPUBufferParams") {
 	}
@@ -644,7 +644,7 @@ struct CGPUBufferParams_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBuf
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1592:16
+// from cgpu/api.h:1592:16
 struct CGPUUavParams_GeneratedAnnotation : ManagedStructureAnnotation<CGPUUavParams> {
 	CGPUUavParams_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUUavParams", ml, "CGPUUavParams") {
 	}
@@ -654,7 +654,7 @@ struct CGPUUavParams_GeneratedAnnotation : ManagedStructureAnnotation<CGPUUavPar
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1599:15
+// from cgpu/api.h:1599:15
 struct CGPUDescriptorDataParams_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDescriptorDataParams> {
 	CGPUDescriptorDataParams_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDescriptorDataParams", ml, "CGPUDescriptorDataParams") {
 	}
@@ -665,7 +665,7 @@ struct CGPUDescriptorDataParams_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1607:15
+// from cgpu/api.h:1607:15
 struct CGPUDescriptorDataResource_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDescriptorDataResource> {
 	CGPUDescriptorDataResource_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDescriptorDataResource", ml, "CGPUDescriptorDataResource") {
 	}
@@ -680,7 +680,7 @@ struct CGPUDescriptorDataResource_GeneratedAnnotation : ManagedStructureAnnotati
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1619:16
+// from cgpu/api.h:1619:16
 struct CGPUDescriptorData_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDescriptorData> {
 	CGPUDescriptorData_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDescriptorData", ml, "CGPUDescriptorData") {
 	}
@@ -694,7 +694,7 @@ struct CGPUDescriptorData_GeneratedAnnotation : ManagedStructureAnnotation<CGPUD
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1630:16
+// from cgpu/api.h:1630:16
 struct CGPUBufferInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferInfo> {
 	CGPUBufferInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferInfo", ml, "CGPUBufferInfo") {
 	}
@@ -706,7 +706,7 @@ struct CGPUBufferInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBuffe
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1639:16
+// from cgpu/api.h:1639:16
 struct CGPUBuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBuffer> {
 	CGPUBuffer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBuffer", ml, "CGPUBuffer") {
 	}
@@ -716,7 +716,7 @@ struct CGPUBuffer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBuffer> {
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1646:16
+// from cgpu/api.h:1646:16
 struct CGPUTextureInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureInfo> {
 	CGPUTextureInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureInfo", ml, "CGPUTextureInfo") {
 	}
@@ -743,7 +743,7 @@ struct CGPUTextureInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUText
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1670:16
+// from cgpu/api.h:1670:16
 struct CGPUTiledSubresourceInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTiledSubresourceInfo> {
 	CGPUTiledSubresourceInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTiledSubresourceInfo", ml, "CGPUTiledSubresourceInfo") {
 	}
@@ -756,7 +756,7 @@ struct CGPUTiledSubresourceInfo_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1680:16
+// from cgpu/api.h:1680:16
 struct CGPUTiledTextureInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTiledTextureInfo> {
 	CGPUTiledTextureInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTiledTextureInfo", ml, "CGPUTiledTextureInfo") {
 	}
@@ -775,7 +775,7 @@ struct CGPUTiledTextureInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1696:16
+// from cgpu/api.h:1696:16
 struct CGPUTexture_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTexture> {
 	CGPUTexture_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTexture", ml, "CGPUTexture") {
 	}
@@ -786,7 +786,7 @@ struct CGPUTexture_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTexture>
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1704:16
+// from cgpu/api.h:1704:16
 struct CGPUTextureViewDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureViewDescriptor> {
 	CGPUTextureViewDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureViewDescriptor", ml, "CGPUTextureViewDescriptor") {
 	}
@@ -804,7 +804,7 @@ struct CGPUTextureViewDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1719:16
+// from cgpu/api.h:1719:16
 struct CGPUQueryPoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueryPoolDescriptor> {
 	CGPUQueryPoolDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueryPoolDescriptor", ml, "CGPUQueryPoolDescriptor") {
 	}
@@ -814,7 +814,7 @@ struct CGPUQueryPoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1726:16
+// from cgpu/api.h:1726:16
 struct CGPUTextureView_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureView> {
 	CGPUTextureView_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureView", ml, "CGPUTextureView") {
 	}
@@ -824,7 +824,7 @@ struct CGPUTextureView_GeneratedAnnotation : ManagedStructureAnnotation<CGPUText
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1733:16
+// from cgpu/api.h:1733:16
 struct CGPUSampler_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSampler> {
 	CGPUSampler_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSampler", ml, "CGPUSampler") {
 	}
@@ -833,7 +833,7 @@ struct CGPUSampler_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSampler>
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1739:16
+// from cgpu/api.h:1739:16
 struct CGPUSwapChain_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSwapChain> {
 	CGPUSwapChain_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSwapChain", ml, "CGPUSwapChain") {
 	}
@@ -844,7 +844,7 @@ struct CGPUSwapChain_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSwapCh
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1747:16
+// from cgpu/api.h:1747:16
 struct CGPUSurface_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSurface> {
 	CGPUSurface_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSurface", ml, "CGPUSurface") {
 	}
@@ -853,7 +853,7 @@ struct CGPUSurface_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSurface>
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1753:16
+// from cgpu/api.h:1753:16
 struct CGPUBufferRange_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferRange> {
 	CGPUBufferRange_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferRange", ml, "CGPUBufferRange") {
 	}
@@ -863,7 +863,7 @@ struct CGPUBufferRange_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBuff
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1760:16
+// from cgpu/api.h:1760:16
 struct CGPUMemoryPoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUMemoryPoolDescriptor> {
 	CGPUMemoryPoolDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUMemoryPoolDescriptor", ml, "CGPUMemoryPoolDescriptor") {
 	}
@@ -877,7 +877,7 @@ struct CGPUMemoryPoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1771:16
+// from cgpu/api.h:1771:16
 struct CGPUMemoryPool_GeneratedAnnotation : ManagedStructureAnnotation<CGPUMemoryPool> {
 	CGPUMemoryPool_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUMemoryPool", ml, "CGPUMemoryPool") {
 	}
@@ -887,7 +887,7 @@ struct CGPUMemoryPool_GeneratedAnnotation : ManagedStructureAnnotation<CGPUMemor
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1778:16
+// from cgpu/api.h:1778:16
 struct CGPUQueueSubmitDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueueSubmitDescriptor> {
 	CGPUQueueSubmitDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueueSubmitDescriptor", ml, "CGPUQueueSubmitDescriptor") {
 	}
@@ -902,7 +902,7 @@ struct CGPUQueueSubmitDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1790:16
+// from cgpu/api.h:1790:16
 struct CGPUQueuePresentDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueuePresentDescriptor> {
 	CGPUQueuePresentDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueuePresentDescriptor", ml, "CGPUQueuePresentDescriptor") {
 	}
@@ -914,7 +914,7 @@ struct CGPUQueuePresentDescriptor_GeneratedAnnotation : ManagedStructureAnnotati
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1799:16
+// from cgpu/api.h:1799:16
 struct CGPUCoordinate_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCoordinate> {
 	CGPUCoordinate_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCoordinate", ml, "CGPUCoordinate") {
 	}
@@ -925,7 +925,7 @@ struct CGPUCoordinate_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCoord
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1807:16
+// from cgpu/api.h:1807:16
 struct CGPUCoordinateRegion_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCoordinateRegion> {
 	CGPUCoordinateRegion_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCoordinateRegion", ml, "CGPUCoordinateRegion") {
 	}
@@ -935,7 +935,7 @@ struct CGPUCoordinateRegion_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1814:16
+// from cgpu/api.h:1814:16
 struct CGPUTextureCoordinateRegion_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureCoordinateRegion> {
 	CGPUTextureCoordinateRegion_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureCoordinateRegion", ml, "CGPUTextureCoordinateRegion") {
 	}
@@ -947,7 +947,7 @@ struct CGPUTextureCoordinateRegion_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1823:16
+// from cgpu/api.h:1823:16
 struct CGPUTiledTextureRegions_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTiledTextureRegions> {
 	CGPUTiledTextureRegions_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTiledTextureRegions", ml, "CGPUTiledTextureRegions") {
 	}
@@ -958,7 +958,7 @@ struct CGPUTiledTextureRegions_GeneratedAnnotation : ManagedStructureAnnotation<
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1831:16
+// from cgpu/api.h:1831:16
 struct CGPUTiledTexturePackedMip_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTiledTexturePackedMip> {
 	CGPUTiledTexturePackedMip_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTiledTexturePackedMip", ml, "CGPUTiledTexturePackedMip") {
 	}
@@ -968,7 +968,7 @@ struct CGPUTiledTexturePackedMip_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1838:16
+// from cgpu/api.h:1838:16
 struct CGPUTiledTexturePackedMips_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTiledTexturePackedMips> {
 	CGPUTiledTexturePackedMips_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTiledTexturePackedMips", ml, "CGPUTiledTexturePackedMips") {
 	}
@@ -978,7 +978,7 @@ struct CGPUTiledTexturePackedMips_GeneratedAnnotation : ManagedStructureAnnotati
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1845:16
+// from cgpu/api.h:1845:16
 struct CGPUColorAttachment_GeneratedAnnotation : ManagedStructureAnnotation<CGPUColorAttachment> {
 	CGPUColorAttachment_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUColorAttachment", ml, "CGPUColorAttachment") {
 	}
@@ -989,7 +989,7 @@ struct CGPUColorAttachment_GeneratedAnnotation : ManagedStructureAnnotation<CGPU
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1853:16
+// from cgpu/api.h:1853:16
 struct CGPUDepthStencilAttachment_GeneratedAnnotation : ManagedStructureAnnotation<CGPUDepthStencilAttachment> {
 	CGPUDepthStencilAttachment_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUDepthStencilAttachment", ml, "CGPUDepthStencilAttachment") {
 	}
@@ -1002,7 +1002,7 @@ struct CGPUDepthStencilAttachment_GeneratedAnnotation : ManagedStructureAnnotati
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1863:16
+// from cgpu/api.h:1863:16
 struct CGPURenderPassDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPURenderPassDescriptor> {
 	CGPURenderPassDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPURenderPassDescriptor", ml, "CGPURenderPassDescriptor") {
 	}
@@ -1013,7 +1013,7 @@ struct CGPURenderPassDescriptor_GeneratedAnnotation : ManagedStructureAnnotation
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1871:16
+// from cgpu/api.h:1871:16
 struct CGPUFramebufferDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUFramebufferDescriptor> {
 	CGPUFramebufferDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUFramebufferDescriptor", ml, "CGPUFramebufferDescriptor") {
 	}
@@ -1027,7 +1027,7 @@ struct CGPUFramebufferDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1882:16
+// from cgpu/api.h:1882:16
 struct CGPUPipelineReflection_GeneratedAnnotation : ManagedStructureAnnotation<CGPUPipelineReflection> {
 	CGPUPipelineReflection_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUPipelineReflection", ml, "CGPUPipelineReflection") {
 	}
@@ -1038,7 +1038,7 @@ struct CGPUPipelineReflection_GeneratedAnnotation : ManagedStructureAnnotation<C
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1890:16
+// from cgpu/api.h:1890:16
 struct CGPUClearValue_GeneratedAnnotation : ManagedStructureAnnotation<CGPUClearValue> {
 	CGPUClearValue_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUClearValue", ml, "CGPUClearValue") {
 	}
@@ -1050,7 +1050,7 @@ struct CGPUClearValue_GeneratedAnnotation : ManagedStructureAnnotation<CGPUClear
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1899:16
+// from cgpu/api.h:1899:16
 struct CGPUQueryDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUQueryDescriptor> {
 	CGPUQueryDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUQueryDescriptor", ml, "CGPUQueryDescriptor") {
 	}
@@ -1060,7 +1060,7 @@ struct CGPUQueryDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPU
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1906:16
+// from cgpu/api.h:1906:16
 struct CGPUAcquireNextDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUAcquireNextDescriptor> {
 	CGPUAcquireNextDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUAcquireNextDescriptor", ml, "CGPUAcquireNextDescriptor") {
 	}
@@ -1070,7 +1070,7 @@ struct CGPUAcquireNextDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1913:16
+// from cgpu/api.h:1913:16
 struct CGPUTextureSubresource_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureSubresource> {
 	CGPUTextureSubresource_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureSubresource", ml, "CGPUTextureSubresource") {
 	}
@@ -1082,7 +1082,7 @@ struct CGPUTextureSubresource_GeneratedAnnotation : ManagedStructureAnnotation<C
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1922:16
+// from cgpu/api.h:1922:16
 struct CGPUBufferToBufferTransfer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferToBufferTransfer> {
 	CGPUBufferToBufferTransfer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferToBufferTransfer", ml, "CGPUBufferToBufferTransfer") {
 	}
@@ -1095,7 +1095,7 @@ struct CGPUBufferToBufferTransfer_GeneratedAnnotation : ManagedStructureAnnotati
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1932:16
+// from cgpu/api.h:1932:16
 struct CGPUBufferToTilesTransfer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferToTilesTransfer> {
 	CGPUBufferToTilesTransfer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferToTilesTransfer", ml, "CGPUBufferToTilesTransfer") {
 	}
@@ -1107,7 +1107,7 @@ struct CGPUBufferToTilesTransfer_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1941:16
+// from cgpu/api.h:1941:16
 struct CGPUTextureToTextureTransfer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureToTextureTransfer> {
 	CGPUTextureToTextureTransfer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureToTextureTransfer", ml, "CGPUTextureToTextureTransfer") {
 	}
@@ -1119,7 +1119,7 @@ struct CGPUTextureToTextureTransfer_GeneratedAnnotation : ManagedStructureAnnota
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1950:16
+// from cgpu/api.h:1950:16
 struct CGPUBufferToTextureTransfer_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferToTextureTransfer> {
 	CGPUBufferToTextureTransfer_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferToTextureTransfer", ml, "CGPUBufferToTextureTransfer") {
 	}
@@ -1131,7 +1131,7 @@ struct CGPUBufferToTextureTransfer_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1959:16
+// from cgpu/api.h:1959:16
 struct CGPUBufferBarrier_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferBarrier> {
 	CGPUBufferBarrier_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferBarrier", ml, "CGPUBufferBarrier") {
 	}
@@ -1145,7 +1145,7 @@ struct CGPUBufferBarrier_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBu
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1970:16
+// from cgpu/api.h:1970:16
 struct CGPUTextureBarrier_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureBarrier> {
 	CGPUTextureBarrier_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureBarrier", ml, "CGPUTextureBarrier") {
 	}
@@ -1162,7 +1162,7 @@ struct CGPUTextureBarrier_GeneratedAnnotation : ManagedStructureAnnotation<CGPUT
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1984:16
+// from cgpu/api.h:1984:16
 struct CGPUResourceBarrierDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUResourceBarrierDescriptor> {
 	CGPUResourceBarrierDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUResourceBarrierDescriptor", ml, "CGPUResourceBarrierDescriptor") {
 	}
@@ -1174,7 +1174,7 @@ struct CGPUResourceBarrierDescriptor_GeneratedAnnotation : ManagedStructureAnnot
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1993:16
+// from cgpu/api.h:1993:16
 struct CGPUCommandPoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCommandPoolDescriptor> {
 	CGPUCommandPoolDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCommandPoolDescriptor", ml, "CGPUCommandPoolDescriptor") {
 	}
@@ -1183,7 +1183,7 @@ struct CGPUCommandPoolDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:1999:16
+// from cgpu/api.h:1999:16
 struct CGPUCommandBufferDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCommandBufferDescriptor> {
 	CGPUCommandBufferDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCommandBufferDescriptor", ml, "CGPUCommandBufferDescriptor") {
 	}
@@ -1192,7 +1192,7 @@ struct CGPUCommandBufferDescriptor_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2005:16
+// from cgpu/api.h:2005:16
 struct CGPUSwapChainDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSwapChainDescriptor> {
 	CGPUSwapChainDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSwapChainDescriptor", ml, "CGPUSwapChainDescriptor") {
 	}
@@ -1210,7 +1210,7 @@ struct CGPUSwapChainDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2020:16
+// from cgpu/api.h:2020:16
 struct CGPUComputePassDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUComputePassDescriptor> {
 	CGPUComputePassDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUComputePassDescriptor", ml, "CGPUComputePassDescriptor") {
 	}
@@ -1219,7 +1219,7 @@ struct CGPUComputePassDescriptor_GeneratedAnnotation : ManagedStructureAnnotatio
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2026:16
+// from cgpu/api.h:2026:16
 struct CGPUCompiledShaderDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUCompiledShaderDescriptor> {
 	CGPUCompiledShaderDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUCompiledShaderDescriptor", ml, "CGPUCompiledShaderDescriptor") {
 	}
@@ -1230,7 +1230,7 @@ struct CGPUCompiledShaderDescriptor_GeneratedAnnotation : ManagedStructureAnnota
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2034:16
+// from cgpu/api.h:2034:16
 struct CGPUShaderLibraryDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUShaderLibraryDescriptor> {
 	CGPUShaderLibraryDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUShaderLibraryDescriptor", ml, "CGPUShaderLibraryDescriptor") {
 	}
@@ -1243,7 +1243,7 @@ struct CGPUShaderLibraryDescriptor_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2044:16
+// from cgpu/api.h:2044:16
 struct CGPUBufferDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBufferDescriptor> {
 	CGPUBufferDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBufferDescriptor", ml, "CGPUBufferDescriptor") {
 	}
@@ -1265,7 +1265,7 @@ struct CGPUBufferDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGP
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2063:16
+// from cgpu/api.h:2063:16
 struct CGPUTextureDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureDescriptor> {
 	CGPUTextureDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureDescriptor", ml, "CGPUTextureDescriptor") {
 	}
@@ -1288,7 +1288,7 @@ struct CGPUTextureDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CG
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2083:16
+// from cgpu/api.h:2083:16
 struct CGPUExportTextureDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUExportTextureDescriptor> {
 	CGPUExportTextureDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUExportTextureDescriptor", ml, "CGPUExportTextureDescriptor") {
 	}
@@ -1297,7 +1297,7 @@ struct CGPUExportTextureDescriptor_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2089:16
+// from cgpu/api.h:2089:16
 struct CGPUImportTextureDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUImportTextureDescriptor> {
 	CGPUImportTextureDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUImportTextureDescriptor", ml, "CGPUImportTextureDescriptor") {
 	}
@@ -1313,7 +1313,7 @@ struct CGPUImportTextureDescriptor_GeneratedAnnotation : ManagedStructureAnnotat
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2102:16
+// from cgpu/api.h:2102:16
 struct CGPUTextureAliasingBindDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUTextureAliasingBindDescriptor> {
 	CGPUTextureAliasingBindDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUTextureAliasingBindDescriptor", ml, "CGPUTextureAliasingBindDescriptor") {
 	}
@@ -1323,7 +1323,7 @@ struct CGPUTextureAliasingBindDescriptor_GeneratedAnnotation : ManagedStructureA
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2109:16
+// from cgpu/api.h:2109:16
 struct CGPUSamplerDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSamplerDescriptor> {
 	CGPUSamplerDescriptor_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSamplerDescriptor", ml, "CGPUSamplerDescriptor") {
 	}
@@ -1340,7 +1340,7 @@ struct CGPUSamplerDescriptor_GeneratedAnnotation : ManagedStructureAnnotation<CG
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2123:16
+// from cgpu/api.h:2123:16
 struct CGPUBeginRenderPassInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUBeginRenderPassInfo> {
 	CGPUBeginRenderPassInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUBeginRenderPassInfo", ml, "CGPUBeginRenderPassInfo") {
 	}
@@ -1352,7 +1352,7 @@ struct CGPUBeginRenderPassInfo_GeneratedAnnotation : ManagedStructureAnnotation<
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2132:16
+// from cgpu/api.h:2132:16
 struct CGPUEventInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUEventInfo> {
 	CGPUEventInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUEventInfo", ml, "CGPUEventInfo") {
 	}
@@ -1362,7 +1362,7 @@ struct CGPUEventInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUEventI
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2139:16
+// from cgpu/api.h:2139:16
 struct CGPUMarkerInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUMarkerInfo> {
 	CGPUMarkerInfo_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUMarkerInfo", ml, "CGPUMarkerInfo") {
 	}
@@ -1372,7 +1372,7 @@ struct CGPUMarkerInfo_GeneratedAnnotation : ManagedStructureAnnotation<CGPUMarke
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2149:16
+// from cgpu/api.h:2149:16
 struct CGPUProcTable_GeneratedAnnotation : ManagedStructureAnnotation<CGPUProcTable> {
 	CGPUProcTable_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUProcTable", ml, "CGPUProcTable") {
 	}
@@ -1380,7 +1380,7 @@ struct CGPUProcTable_GeneratedAnnotation : ManagedStructureAnnotation<CGPUProcTa
 	}
 };
 
-// from G:/Users/Administrator/Downloads/DAS/learn/bind/cgpu/api.h:2290:16
+// from cgpu/api.h:2290:16
 struct CGPUSurfacesProcTable_GeneratedAnnotation : ManagedStructureAnnotation<CGPUSurfacesProcTable> {
 	CGPUSurfacesProcTable_GeneratedAnnotation(ModuleLibrary & ml) : ManagedStructureAnnotation ("CGPUSurfacesProcTable", ml, "CGPUSurfacesProcTable") {
 	}

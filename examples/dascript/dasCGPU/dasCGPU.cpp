@@ -30,6 +30,7 @@ bool Module_dasCGPU::initDependencies() {
 	initMain();
 	return true;
 }
+REGISTER_DYN_MODULE(Module_dasCGPU,Module_dasCGPU);
 }
 REGISTER_MODULE_IN_NAMESPACE(Module_dasCGPU,das);
 
