@@ -32,6 +32,9 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         let register_fn_name = "{func.name}`register"
         var register_fn_body_exprs : array<ExpressionPtr>
         var event_register_fn_body_exprs : array<ExpressionPtr>
+        var system_state_class_name = "__{func.name}_state"
+        var system_state_class <- new Structure(name := system_state_class_name)
+        system_state_class.flags |= StructureFlags.privateStructure
         let desc_name = "__system_desc"
         register_fn_body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
         event_register_fn_body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = EventSystemDesc(); })
@@ -91,11 +94,16 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            // let (query_result, query_type) = is_query_type(arg._type)
-            // if (query_result) {
-
-            //     continue
-            // }
+            let (query_result, query_type) = is_query_type(arg._type)
+            if (query_result) {
+                let fi_name = "{arg.name}"
+                let fi = system_state_class |> add_structure_field(fi_name, arg._type, default<ExpressionPtr>)
+                print("{fi_name}: {describe(arg._type)}\n")
+                event_register_fn_body_exprs |> push <| qmacro_expr(${var $i(arg.name) = ecs_get_mut_res(ctx.world, type<$t(arg._type)>);})
+                wrapper_fn_body |> push <| qmacro_expr(${var $i(arg.name) = ecs_get_mut_res(world, type<$t(arg._type)>);})
+                wrapper_fn_call_args |> push <| qmacro($i(arg.name))
+                continue
+            }
 
             if (true) {
                 is_entity_system = true
@@ -150,6 +158,10 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             wrapper_fn_body |> push <| qmacro_block() {
                 $c("_::{func.name}")($a(wrapper_fn_call_args))
             }
+        }
+
+        if (length(system_state_class.fields) > 0) {
+            compiling_module() |> add_structure(system_state_class)
         }
 
         var wrapper_fn <- qmacro_function(wrapper_name) $(var iter : ecs_iter_t?) : void {

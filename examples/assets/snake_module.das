@@ -475,7 +475,7 @@ def scheduleSnakeMoveSystem(var context: $Res<UpdateContext>, var snakeMoveWrite
 }
 
 [system]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, borderQuery: $SingletonQuery<Border>, resources: $SingletonQuery<SnakeResources>, gameOverEvent: $EventWriter<GameOverEvent>, appleEatenEvent: $EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: $Query2<IsApple, Position>, borderQuery: $SingletonQuery<Border>, resources: $SingletonQuery<SnakeResources>, gameOverEvent: $EventWriter<GameOverEvent>, appleEatenEvent: $EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
     print("snake move\n")
 }
 
