@@ -6,6 +6,26 @@ require daslib/typemacro_boost
 require daslib/class_boost
 require flecs_base
 
+def private get_field(var iter_ptr; t: type<auto(T)>; index: int) : T -const? {
+    unsafe {
+        static_if (typeinfo sizeof(type<T>) == 0) {
+            return default<T -const?>
+        } else {
+            return reinterpret<T -const?> iter_field(iter_ptr, typeinfo sizeof(type<T>), index)
+        }
+    }
+}
+
+def private index_at(fields: auto(T) -const?; index: int) {
+    unsafe {
+        static_if (typeinfo sizeof(type<T>) == 0) {
+            return default<T>
+        } else {
+            return fields[index]
+        }
+    }
+}
+
 [template_structure(T1)]
 struct template Query1 {
     query_: ecs_query_t?
@@ -106,7 +126,7 @@ struct template Query20 {
     query_: ecs_query_t?
 }
 
-def query(var world: World; t1: type<auto(T1)>) {
+def query(var world: World; var t1: type<auto(T1)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -115,7 +135,7 @@ def query(var world: World; t1: type<auto(T1)>) {
     return _Query1(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -126,7 +146,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>) {
     return _Query2(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -139,7 +159,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query3(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -154,7 +174,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query4(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -171,7 +191,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query5(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -190,7 +210,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query6(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -211,7 +231,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query7(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -234,7 +254,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query8(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -259,7 +279,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query9(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -286,7 +306,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query10(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -315,7 +335,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query11(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -346,7 +366,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query12(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -379,7 +399,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query13(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -414,7 +434,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query14(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>; t15: type<auto(T15)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -451,7 +471,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query15(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>; t15: type<auto(T15)>; t16: type<auto(T16)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -490,7 +510,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query16(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>; t15: type<auto(T15)>; t16: type<auto(T16)>; t17: type<auto(T17)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -531,7 +551,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query17(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>; t15: type<auto(T15)>; t16: type<auto(T16)>; t17: type<auto(T17)>; t18: type<auto(T18)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>; var t18: type<auto(T18)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -574,7 +594,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query18(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>; t15: type<auto(T15)>; t16: type<auto(T16)>; t17: type<auto(T17)>; t18: type<auto(T18)>; t19: type<auto(T19)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>; var t18: type<auto(T18)>; var t19: type<auto(T19)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -619,7 +639,7 @@ def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<aut
     return _Query19(query_ = query_)
 }
 
-def query(var world: World; t1: type<auto(T1)>; t2: type<auto(T2)>; t3: type<auto(T3)>; t4: type<auto(T4)>; t5: type<auto(T5)>; t6: type<auto(T6)>; t7: type<auto(T7)>; t8: type<auto(T8)>; t9: type<auto(T9)>; t10: type<auto(T10)>; t11: type<auto(T11)>; t12: type<auto(T12)>; t13: type<auto(T13)>; t14: type<auto(T14)>; t15: type<auto(T15)>; t16: type<auto(T16)>; t17: type<auto(T17)>; t18: type<auto(T18)>; t19: type<auto(T19)>; t20: type<auto(T20)>) {
+def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>; var t18: type<auto(T18)>; var t19: type<auto(T19)>; var t20: type<auto(T20)>) {
     var desc = ecs_query_desc_t();
     let inout1 = typeinfo is_const(type<T1>) ? int16(1) : int16(0)
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
@@ -671,9 +691,9 @@ def for_each(query: $Query1<auto(T1)>, blk : block<(entity: Entity; t1 : T1) : v
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i))
             }
         }
     }
@@ -684,10 +704,10 @@ def for_each(query: $Query2<auto(T1), auto(T2)>, blk : block<(entity: Entity; t1
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i))
             }
         }
     }
@@ -698,11 +718,11 @@ def for_each(query: $Query3<auto(T1), auto(T2), auto(T3)>, blk : block<(entity: 
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i))
             }
         }
     }
@@ -713,12 +733,12 @@ def for_each(query: $Query4<auto(T1), auto(T2), auto(T3), auto(T4)>, blk : block
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i))
             }
         }
     }
@@ -729,13 +749,13 @@ def for_each(query: $Query5<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5)>, b
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i))
             }
         }
     }
@@ -746,14 +766,14 @@ def for_each(query: $Query6<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i))
             }
         }
     }
@@ -764,15 +784,15 @@ def for_each(query: $Query7<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i))
             }
         }
     }
@@ -783,16 +803,16 @@ def for_each(query: $Query8<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i))
             }
         }
     }
@@ -803,17 +823,17 @@ def for_each(query: $Query9<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i))
             }
         }
     }
@@ -824,18 +844,18 @@ def for_each(query: $Query10<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i))
             }
         }
     }
@@ -846,19 +866,19 @@ def for_each(query: $Query11<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i))
             }
         }
     }
@@ -869,20 +889,20 @@ def for_each(query: $Query12<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i))
             }
         }
     }
@@ -893,21 +913,21 @@ def for_each(query: $Query13<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i))
             }
         }
     }
@@ -918,22 +938,22 @@ def for_each(query: $Query14<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i))
             }
         }
     }
@@ -944,23 +964,23 @@ def for_each(query: $Query15<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
+            var field15 = get_field(iter_ptr, type<T15>, 14)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i], field15[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i), index_at(field15, i))
             }
         }
     }
@@ -971,24 +991,24 @@ def for_each(query: $Query16<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
+            var field15 = get_field(iter_ptr, type<T15>, 14)
+            var field16 = get_field(iter_ptr, type<T16>, 15)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i], field15[i], field16[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i), index_at(field15, i), index_at(field16, i))
             }
         }
     }
@@ -999,25 +1019,25 @@ def for_each(query: $Query17<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
+            var field15 = get_field(iter_ptr, type<T15>, 14)
+            var field16 = get_field(iter_ptr, type<T16>, 15)
+            var field17 = get_field(iter_ptr, type<T17>, 16)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i], field15[i], field16[i], field17[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i), index_at(field15, i), index_at(field16, i), index_at(field17, i))
             }
         }
     }
@@ -1028,26 +1048,26 @@ def for_each(query: $Query18<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            var field18 = reinterpret<T18 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T18>), 17);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
+            var field15 = get_field(iter_ptr, type<T15>, 14)
+            var field16 = get_field(iter_ptr, type<T16>, 15)
+            var field17 = get_field(iter_ptr, type<T17>, 16)
+            var field18 = get_field(iter_ptr, type<T18>, 17)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i], field15[i], field16[i], field17[i], field18[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i), index_at(field15, i), index_at(field16, i), index_at(field17, i), index_at(field18, i))
             }
         }
     }
@@ -1058,27 +1078,27 @@ def for_each(query: $Query19<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            var field18 = reinterpret<T18 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T18>), 17);
-            var field19 = reinterpret<T19 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T19>), 18);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
+            var field15 = get_field(iter_ptr, type<T15>, 14)
+            var field16 = get_field(iter_ptr, type<T16>, 15)
+            var field17 = get_field(iter_ptr, type<T17>, 16)
+            var field18 = get_field(iter_ptr, type<T18>, 17)
+            var field19 = get_field(iter_ptr, type<T19>, 18)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i], field15[i], field16[i], field17[i], field18[i], field19[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i), index_at(field15, i), index_at(field16, i), index_at(field17, i), index_at(field18, i), index_at(field19, i))
             }
         }
     }
@@ -1089,28 +1109,28 @@ def for_each(query: $Query20<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         while (iter_next(iter_ptr)) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            var field18 = reinterpret<T18 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T18>), 17);
-            var field19 = reinterpret<T19 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T19>), 18);
-            var field20 = reinterpret<T20 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T20>), 19);
+            var field1 = get_field(iter_ptr, type<T1>, 0)
+            var field2 = get_field(iter_ptr, type<T2>, 1)
+            var field3 = get_field(iter_ptr, type<T3>, 2)
+            var field4 = get_field(iter_ptr, type<T4>, 3)
+            var field5 = get_field(iter_ptr, type<T5>, 4)
+            var field6 = get_field(iter_ptr, type<T6>, 5)
+            var field7 = get_field(iter_ptr, type<T7>, 6)
+            var field8 = get_field(iter_ptr, type<T8>, 7)
+            var field9 = get_field(iter_ptr, type<T9>, 8)
+            var field10 = get_field(iter_ptr, type<T10>, 9)
+            var field11 = get_field(iter_ptr, type<T11>, 10)
+            var field12 = get_field(iter_ptr, type<T12>, 11)
+            var field13 = get_field(iter_ptr, type<T13>, 12)
+            var field14 = get_field(iter_ptr, type<T14>, 13)
+            var field15 = get_field(iter_ptr, type<T15>, 14)
+            var field16 = get_field(iter_ptr, type<T16>, 15)
+            var field17 = get_field(iter_ptr, type<T17>, 16)
+            var field18 = get_field(iter_ptr, type<T18>, 17)
+            var field19 = get_field(iter_ptr, type<T19>, 18)
+            var field20 = get_field(iter_ptr, type<T20>, 19)
             for (i in 0..iter_ptr.count) {
-                blk(iter_entity(iter_ptr, i), field1[i], field2[i], field3[i], field4[i], field5[i], field6[i], field7[i], field8[i], field9[i], field10[i], field11[i], field12[i], field13[i], field14[i], field15[i], field16[i], field17[i], field18[i], field19[i], field20[i])
+                blk(iter_entity(iter_ptr, i), index_at(field1, i), index_at(field2, i), index_at(field3, i), index_at(field4, i), index_at(field5, i), index_at(field6, i), index_at(field7, i), index_at(field8, i), index_at(field9, i), index_at(field10, i), index_at(field11, i), index_at(field12, i), index_at(field13, i), index_at(field14, i), index_at(field15, i), index_at(field16, i), index_at(field17, i), index_at(field18, i), index_at(field19, i), index_at(field20, i))
             }
         }
     }
@@ -1121,8 +1141,8 @@ def first(query: $Query1<auto(T1)>) {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            return (iter_entity(iter_ptr, 0), field1[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1136,9 +1156,9 @@ def first(query: $Query2<auto(T1), auto(T2)>) {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1152,10 +1172,10 @@ def first(query: $Query3<auto(T1), auto(T2), auto(T3)>) {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1169,11 +1189,11 @@ def first(query: $Query4<auto(T1), auto(T2), auto(T3), auto(T4)>) {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1187,12 +1207,12 @@ def first(query: $Query5<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5)>) {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1206,13 +1226,13 @@ def first(query: $Query6<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1226,14 +1246,14 @@ def first(query: $Query7<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1247,15 +1267,15 @@ def first(query: $Query8<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1269,16 +1289,16 @@ def first(query: $Query9<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1292,17 +1312,17 @@ def first(query: $Query10<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1316,18 +1336,18 @@ def first(query: $Query11<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1341,19 +1361,19 @@ def first(query: $Query12<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1367,20 +1387,20 @@ def first(query: $Query13<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1394,21 +1414,21 @@ def first(query: $Query14<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1422,22 +1442,22 @@ def first(query: $Query15<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0], field15[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            var field15 = get_field(iter_ptr, type<T15>, 14);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0), index_at(field15, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1451,23 +1471,23 @@ def first(query: $Query16<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0], field15[0], field16[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            var field15 = get_field(iter_ptr, type<T15>, 14);
+            var field16 = get_field(iter_ptr, type<T16>, 15);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0), index_at(field15, 0), index_at(field16, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1481,24 +1501,24 @@ def first(query: $Query17<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0], field15[0], field16[0], field17[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            var field15 = get_field(iter_ptr, type<T15>, 14);
+            var field16 = get_field(iter_ptr, type<T16>, 15);
+            var field17 = get_field(iter_ptr, type<T17>, 16);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0), index_at(field15, 0), index_at(field16, 0), index_at(field17, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1512,25 +1532,25 @@ def first(query: $Query18<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            var field18 = reinterpret<T18 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T18>), 17);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0], field15[0], field16[0], field17[0], field18[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            var field15 = get_field(iter_ptr, type<T15>, 14);
+            var field16 = get_field(iter_ptr, type<T16>, 15);
+            var field17 = get_field(iter_ptr, type<T17>, 16);
+            var field18 = get_field(iter_ptr, type<T18>, 17);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0), index_at(field15, 0), index_at(field16, 0), index_at(field17, 0), index_at(field18, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1544,26 +1564,26 @@ def first(query: $Query19<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            var field18 = reinterpret<T18 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T18>), 17);
-            var field19 = reinterpret<T19 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T19>), 18);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0], field15[0], field16[0], field17[0], field18[0], field19[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            var field15 = get_field(iter_ptr, type<T15>, 14);
+            var field16 = get_field(iter_ptr, type<T16>, 15);
+            var field17 = get_field(iter_ptr, type<T17>, 16);
+            var field18 = get_field(iter_ptr, type<T18>, 17);
+            var field19 = get_field(iter_ptr, type<T19>, 18);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0), index_at(field15, 0), index_at(field16, 0), index_at(field17, 0), index_at(field18, 0), index_at(field19, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }
@@ -1577,27 +1597,27 @@ def first(query: $Query20<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
         if (iter_next(iter_ptr) && iter_ptr.count > 0) {
-            var field1 = reinterpret<T1 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T1>), 0);
-            var field2 = reinterpret<T2 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T2>), 1);
-            var field3 = reinterpret<T3 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T3>), 2);
-            var field4 = reinterpret<T4 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T4>), 3);
-            var field5 = reinterpret<T5 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T5>), 4);
-            var field6 = reinterpret<T6 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T6>), 5);
-            var field7 = reinterpret<T7 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T7>), 6);
-            var field8 = reinterpret<T8 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T8>), 7);
-            var field9 = reinterpret<T9 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T9>), 8);
-            var field10 = reinterpret<T10 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T10>), 9);
-            var field11 = reinterpret<T11 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T11>), 10);
-            var field12 = reinterpret<T12 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T12>), 11);
-            var field13 = reinterpret<T13 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T13>), 12);
-            var field14 = reinterpret<T14 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T14>), 13);
-            var field15 = reinterpret<T15 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T15>), 14);
-            var field16 = reinterpret<T16 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T16>), 15);
-            var field17 = reinterpret<T17 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T17>), 16);
-            var field18 = reinterpret<T18 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T18>), 17);
-            var field19 = reinterpret<T19 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T19>), 18);
-            var field20 = reinterpret<T20 -const?> iter_field(iter_ptr, typeinfo sizeof(type<T20>), 19);
-            return (iter_entity(iter_ptr, 0), field1[0], field2[0], field3[0], field4[0], field5[0], field6[0], field7[0], field8[0], field9[0], field10[0], field11[0], field12[0], field13[0], field14[0], field15[0], field16[0], field17[0], field18[0], field19[0], field20[0])
+            var field1 = get_field(iter_ptr, type<T1>, 0);
+            var field2 = get_field(iter_ptr, type<T2>, 1);
+            var field3 = get_field(iter_ptr, type<T3>, 2);
+            var field4 = get_field(iter_ptr, type<T4>, 3);
+            var field5 = get_field(iter_ptr, type<T5>, 4);
+            var field6 = get_field(iter_ptr, type<T6>, 5);
+            var field7 = get_field(iter_ptr, type<T7>, 6);
+            var field8 = get_field(iter_ptr, type<T8>, 7);
+            var field9 = get_field(iter_ptr, type<T9>, 8);
+            var field10 = get_field(iter_ptr, type<T10>, 9);
+            var field11 = get_field(iter_ptr, type<T11>, 10);
+            var field12 = get_field(iter_ptr, type<T12>, 11);
+            var field13 = get_field(iter_ptr, type<T13>, 12);
+            var field14 = get_field(iter_ptr, type<T14>, 13);
+            var field15 = get_field(iter_ptr, type<T15>, 14);
+            var field16 = get_field(iter_ptr, type<T16>, 15);
+            var field17 = get_field(iter_ptr, type<T17>, 16);
+            var field18 = get_field(iter_ptr, type<T18>, 17);
+            var field19 = get_field(iter_ptr, type<T19>, 18);
+            var field20 = get_field(iter_ptr, type<T20>, 19);
+            return (iter_entity(iter_ptr, 0), index_at(field1, 0), index_at(field2, 0), index_at(field3, 0), index_at(field4, 0), index_at(field5, 0), index_at(field6, 0), index_at(field7, 0), index_at(field8, 0), index_at(field9, 0), index_at(field10, 0), index_at(field11, 0), index_at(field12, 0), index_at(field13, 0), index_at(field14, 0), index_at(field15, 0), index_at(field16, 0), index_at(field17, 0), index_at(field18, 0), index_at(field19, 0), index_at(field20, 0))
         } finally {
             while(iter_next(iter_ptr)) {}
         }

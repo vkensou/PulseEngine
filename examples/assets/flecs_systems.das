@@ -94,13 +94,16 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let (query_result, query_type) = is_query_type(arg._type)
+            let query_result = is_query_type(arg._type)
             if (query_result) {
                 let fi_name = "{arg.name}"
                 let fi = system_state_class |> add_structure_field(fi_name, arg._type, default<ExpressionPtr>)
-                // print("{fi_name}: {describe(arg._type)}\n")
-                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = default<$t(arg._type)>;})
-                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = default<$t(arg._type)>;})
+                var query_types : array<ExpressionPtr>
+                for (i in 1..length(arg._type.dimExpr)) {
+                    query_types |> push <| arg._type.dimExpr[i]
+                }
+                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = ctx.world |> query($a(query_types));})
+                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = ctx.world |> query($a(query_types));})
                 wrapper_fn_body |> push <| qmacro_expr(${var $i(fi_name) = system_state.$f(fi_name);})
                 wrapper_fn_call_args |> push <| qmacro($i(fi_name))
                 continue
@@ -338,35 +341,34 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     }
 
     def is_query_type(arg_type : TypeDeclPtr) {
-        let type_name = string(describe(arg_type))
-        let i1 = find(type_name, "$Query")
-        if (i1 != 0) {
-            return (false, "");
+        if (arg_type.baseType != Type.typeMacro || length(arg_type.dimExpr) < 2) {
+            return false
         }
-        
-        let type_start = find(type_name, "type<")
-        if (type_start == -1) {
-            return (false, "")
+
+        if (!(arg_type.dimExpr[0] is ExprConstString)) {
+            return false
         }
-        
-        let len = length(type_name)
-        
-        let i2 = last_index_of(type_name, ">) const")
-        if (i2 + 8 == len) {
-            return (true, type_name)
+
+        let macroExpr = arg_type.dimExpr[0] as ExprConstString
+        let macroName = string(macroExpr.value)
+
+        if (!macroName.starts_with("Query")) {
+            return false
         }
-        
-        let i3 = last_index_of(type_name, ">) -const")
-        if (i3 + 9 == len) {
-            return (true, type_name)
+
+        for (i in 5..length(macroName)) {
+            if (!is_number(character_at(macroName, i))) {
+                return false
+            }
         }
-        
-        let i4 = last_index_of(type_name, ">)")
-        if (i4 + 2 == len) {
-            return (true, type_name)
+
+        for (i in 1..length(arg_type.dimExpr)) {
+            if (!(arg_type.dimExpr[i] is ExprTypeDecl)) {
+                return false
+            }
         }
-        
-        return (false, "");
+
+        return true
     }
 
     def is_iter_type(arg_type : TypeDeclPtr) : bool {

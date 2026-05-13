@@ -13,6 +13,26 @@ require daslib/typemacro_boost
 require daslib/class_boost
 require flecs_base
 
+def private get_field(var iter_ptr; t: type<auto(T)>; index: int) : T -const? {
+    unsafe {
+        static_if (typeinfo sizeof(type<T>) == 0) {
+            return default<T -const?>
+        } else {
+            return reinterpret<T -const?> iter_field(iter_ptr, typeinfo sizeof(type<T>), index)
+        }
+    }
+}
+
+def private index_at(fields: auto(T) -const?; index: int) {
+    unsafe {
+        static_if (typeinfo sizeof(type<T>) == 0) {
+            return default<T>
+        } else {
+            return fields[index]
+        }
+    }
+}
+
 ]])
     
     -- 生成 template_structure 定义
@@ -34,7 +54,7 @@ require flecs_base
         local params = {}
         local param_decls = {}
         for i = 1, n do
-            params[i] = "t" .. i .. ": type<auto(T" .. i .. ")>"
+            params[i] = "var t" .. i .. ": type<auto(T" .. i .. ")>"
             param_decls[i] = "t" .. i
         end
         local param_list = table.concat(params, "; ")
@@ -90,14 +110,14 @@ require flecs_base
         
         -- 生成字段提取
         for i = 1, n do
-            table.insert(output, string.format("            var field%d = reinterpret<T%d -const?> iter_field(iter_ptr, typeinfo sizeof(type<T%d>), %d);\n", i, i, i, i-1))
+            table.insert(output, string.format("            var field%d = get_field(iter_ptr, type<T%d>, %d)\n", i, i, i-1))
         end
         
         table.insert(output, "            for (i in 0..iter_ptr.count) {\n")
         
         local blk_args = {"iter_entity(iter_ptr, i)"}
         for i = 1, n do
-            blk_args[i+1] = "field" .. i .. "[i]"
+            blk_args[i+1] = "index_at(field" .. i .. ", i)"
         end
         local blk_call = table.concat(blk_args, ", ")
         
@@ -136,12 +156,12 @@ require flecs_base
         
         -- 生成字段提取
         for i = 1, n do
-            table.insert(output, string.format("            var field%d = reinterpret<T%d -const?> iter_field(iter_ptr, typeinfo sizeof(type<T%d>), %d);\n", i, i, i, i-1))
+            table.insert(output, string.format("            var field%d = get_field(iter_ptr, type<T%d>, %d);\n", i, i, i-1))
         end
         
         local return_values = {"iter_entity(iter_ptr, 0)"}
         for i = 1, n do
-            return_values[i+1] = "field" .. i .. "[0]"
+            return_values[i+1] = "index_at(field" .. i .. ", 0)"
         end
         local return_list = table.concat(return_values, ", ")
         
@@ -159,8 +179,8 @@ require flecs_base
 end
 
 -- 配置：通过命令行参数设置
-local MAX_PARAMS = tonumber(arg[1]) or 10  -- 第一个参数：最大参数数量，默认10
-local output_file = arg[2] or "flecs_query_gen.das"  -- 第二个参数：输出文件路径，默认flecs_query_gen.das
+local MAX_PARAMS = tonumber(arg[1]) or 20  -- 第一个参数：最大参数数量，默认10
+local output_file = arg[2] or "flecs_query.das"  -- 第二个参数：输出文件路径，默认flecs_query_gen.das
 
 -- 生成代码
 local generated_code = generate_query_code(MAX_PARAMS)
