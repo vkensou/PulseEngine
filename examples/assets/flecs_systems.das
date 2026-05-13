@@ -98,10 +98,11 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (query_result) {
                 let fi_name = "{arg.name}"
                 let fi = system_state_class |> add_structure_field(fi_name, arg._type, default<ExpressionPtr>)
-                print("{fi_name}: {describe(arg._type)}\n")
-                event_register_fn_body_exprs |> push <| qmacro_expr(${var $i(arg.name) = ecs_get_mut_res(ctx.world, type<$t(arg._type)>);})
-                wrapper_fn_body |> push <| qmacro_expr(${var $i(arg.name) = ecs_get_mut_res(world, type<$t(arg._type)>);})
-                wrapper_fn_call_args |> push <| qmacro($i(arg.name))
+                // print("{fi_name}: {describe(arg._type)}\n")
+                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = default<$t(arg._type)>;})
+                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = default<$t(arg._type)>;})
+                wrapper_fn_body |> push <| qmacro_expr(${var $i(fi_name) = system_state.$f(fi_name);})
+                wrapper_fn_call_args |> push <| qmacro($i(fi_name))
                 continue
             }
 
@@ -133,6 +134,15 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return false
         }
 
+        if (length(system_state_class.fields) > 0) {
+            compiling_module() |> add_structure(system_state_class)
+            wrapper_fn_body |> push(qmacro_expr(${var system_state = ecs_entity_get_mut(world, ecs_component(world, type<$t(system_state_class)>), type<$t(system_state_class)>);}), 1)
+            register_fn_body_exprs |> push(qmacro_expr(${var system_state = default<$t(system_state_class)>;}), 0)
+            register_fn_body_exprs |> push <| qmacro_expr(${ecs_entity_set(ctx.world, ecs_component(ctx.world, type<$t(system_state_class)>), system_state);})
+            event_register_fn_body_exprs |> push(qmacro_expr(${var system_state = default<$t(system_state_class)>;}), 0)
+            event_register_fn_body_exprs |> push <| qmacro_expr(${ecs_entity_set(ctx.world, ecs_component(ctx.world, type<$t(system_state_class)>), system_state);})
+        }
+
         if (is_entity_system && !is_event_system) {
             wrapper_fn_batch_exprs |> push <| qmacro_block() {
                 for (i in 0..iter.count) {
@@ -158,10 +168,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             wrapper_fn_body |> push <| qmacro_block() {
                 $c("_::{func.name}")($a(wrapper_fn_call_args))
             }
-        }
-
-        if (length(system_state_class.fields) > 0) {
-            compiling_module() |> add_structure(system_state_class)
         }
 
         var wrapper_fn <- qmacro_function(wrapper_name) $(var iter : ecs_iter_t?) : void {
