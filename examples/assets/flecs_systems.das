@@ -88,7 +88,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (event_reader_result) {
                 is_event_system = true
                 var eventT = new TypeDecl(baseType = Type.alias, alias := event_reader_generic_type)
-                wrapper_fn_body |> push <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = default<$t(eventT)>); })
+                wrapper_fn_body |> push <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = unsafe(reinterpret<$t(eventT)>(iter.param))); })
                 wrapper_fn_call_args |> push <| qmacro(event_reader)
                 event_register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).event_id = ecs_component(ctx.world, type<$t(eventT)>); })
                 continue
