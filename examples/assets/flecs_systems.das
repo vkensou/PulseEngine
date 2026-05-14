@@ -40,6 +40,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         event_register_fn_body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = EventSystemDesc(); })
 
         wrapper_fn_body |> push <| qmacro_expr(${ var world = get_world(iter); })
+        wrapper_fn_body |> push <| qmacro_expr(${ var real_world = get_real_world(iter); })
         var is_event_system = false
         var is_entity_system = false
         var term_index = 0
@@ -79,7 +80,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (event_writer_result) {
                 let event_writer_name = "event_writer{arg_index}"
                 var eventT = new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
-                wrapper_fn_body |> push <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world), event_id = ecs_component(world, type<$t(eventT)>), event_tag = get_event_tag(world)); })
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = real_world, singleton_holder = get_single_holder(real_world), event_id = ecs_component(real_world, type<$t(eventT)>), event_tag = get_event_tag(real_world)); })
                 wrapper_fn_call_args |> push <| qmacro($i(event_writer_name))
                 continue
             }

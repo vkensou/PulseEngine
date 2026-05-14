@@ -94,8 +94,7 @@ struct SnakeMoveIntentEvent {
 	delta: HMM_Vec3
 }
 
-struct AppleEatenEvent
-{
+struct AppleEatenEvent {
     apple: Entity
 }
 
@@ -444,7 +443,6 @@ def handleSnakeInputSystem(var resKeyboardState: $Res<KeyboardState>; input: Sna
     let keyInput = getInputDirection(input, deref(resKeyboardState.get()))
     if (keyInput |> is_some) {
         let value = keyInput |> unwrap
-        print("keydown:{value}\n")
         if (!isOpposite(direction.value, value)) {
             direction.value = value
             move.lastTime = move.interval;
@@ -534,10 +532,30 @@ def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEve
 def syncSnakeBodyPositionSystem(var snake: SnakeBodies, var positionQuery: $Query1<Position>) {
 	for (i in 0..length(snake.bodies))
 	{
-		assume body = snake.bodies[i];
+		assume body = snake.bodies[i]
         ecs_query_entity_set(positionQuery, body.entity, Position(value = body.position))
 	}
 }
+
+[system]
+def eatAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: CommandBuffer) {
+	cmd.destruct(eventAppleEat.read().apple)
+}
+
+[system]
+def spawnAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: CommandBuffer, var snakeQuery: $Query1<SnakeBodies>, borderQuery: SingletonQuery<Border>, resources: SingletonQuery<SnakeResources>) {
+	let (snakeEnt, snakeBodies) = snakeQuery.first()
+    // // createApple(cmd, snakeBodies, borderQuery.get(), resources.get().quad, resources.get().appleMat)
+    // var poses: array<HMM_Vec3>;
+	// for (i in 0..length(snakeBodies.bodies))
+	// {
+    //     let bodyPos = snakeBodies.bodies[i].position
+    //     poses |> push(bodyPos)
+	// }
+
+	// createApple(cmd, poses, border, resources.quad, resources.appleMat);
+}
+
 
 [export]
 def importModule(var ctx:ModuleContext) {
@@ -586,6 +604,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@scheduleSnakeMoveSystem)
     ctx |> register_system(@@executeSnakeMoveSystem)
     ctx |> register_system(@@syncSnakeBodyPositionSystem)
+    ctx |> register_system(@@eatAppleSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
