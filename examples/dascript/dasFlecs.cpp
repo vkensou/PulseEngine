@@ -297,6 +297,7 @@ struct ecs_iter_tAnnotation final : das::ManagedStructureAnnotation<ecs_iter_t>
 		: ManagedStructureAnnotation("ecs_iter_t", ml, "ecs_iter_t")
 	{
 		addField<DAS_BIND_MANAGED_FIELD(count)>("count");
+		addField<DAS_BIND_MANAGED_FIELD(param)>("param");
 	}
 };
 
