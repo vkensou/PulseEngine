@@ -45,6 +45,7 @@ def private index_at(fields: auto(T) -const?; index: int) {
         
         table.insert(output, string.format("[template_structure(%s)]\n", param_list))
         table.insert(output, string.format("struct template Query%d {\n", n))
+        table.insert(output, "    @safe_when_uninitialized world : World\n")
         table.insert(output, "    query_: ecs_query_t?\n")
         table.insert(output, "}\n\n")
     end
@@ -78,7 +79,7 @@ def private index_at(fields: auto(T) -const?; index: int) {
         local template_list = table.concat(template_params, ", ")
         
         table.insert(output, string.format("    typedef _Query%d = $Query%d<%s>\n", n, n, template_list))
-        table.insert(output, string.format("    return _Query%d(query_ = query_)\n", n))
+        table.insert(output, string.format("    return _Query%d(world = world, query_ = query_)\n", n))
         table.insert(output, "}\n\n")
     end
     

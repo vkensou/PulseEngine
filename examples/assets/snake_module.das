@@ -210,6 +210,10 @@ def operator ==(a, b : HMM_Vec3) {
     return a.X == b.X && a.Y == b.Y && a.Z == b.Z
 }
 
+def operator+(a, b: HMM_Vec3) {
+    return HMM_V3(a.X + b.X, a.Y + b.Y, a.Z + b.Z)
+}
+
 def createRenderable(var cmd: CommandBuffer, position: HMM_Vec3, mat: uint64, mesh: uint64) {
 	let ent = cmd.entity();
     cmd |> set_entity_component(ent, LocalTransform(model = HMM_M4_Identity))
@@ -474,14 +478,76 @@ def scheduleSnakeMoveSystem(var context: $Res<UpdateContext>, var snakeMoveWrite
 	snakeMoveWriter |> send(type<SnakeBodies>, entity, SnakeMoveIntentEvent(delta = delta))
 }
 
-[system]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: $Query2<IsApple, Position>, borderQuery: $SingletonQuery<Border>, resources: $SingletonQuery<SnakeResources>, gameOverEvent: $EventWriter<GameOverEvent>, appleEatenEvent: $EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
-    print("snake move\n")
-    let event = snakeMoveIntentEvent.read()
-    print("{event.delta}\n")
+enum ObstacleType {
+    None
+    Apple
+    SnakeBody
+    Border
+}
 
-    let (_, _, applePos) = appleQuery |> first()
-    print("{applePos.value}\n")
+def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border, applePos: NullableVec3) : ObstacleType {
+    let left = border.left
+    let right = border.right
+    let bottom = border.bottom
+    let up = border.up
+
+    if (nextPos.X <= float(left) || nextPos.X >= float(right) || nextPos.Y <= float(bottom) || nextPos.Y >= float(up))
+        return ObstacleType.Border
+
+    assume bodies = snake.bodies
+    for (i in 1..length(bodies) - 1) {
+        if (bodies[i].position == nextPos)
+            return ObstacleType.SnakeBody
+    }
+
+    if (applePos is value) {
+        if (nextPos == (applePos as value))
+            return ObstacleType.Apple
+    }
+
+    return ObstacleType.None
+}
+
+[system]
+def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: $Query2<IsApple, Position>, borderQuery: $SingletonQuery<Border>, resources: $SingletonQuery<SnakeResources>, var gameOverEvent: $EventWriter<GameOverEvent>, var appleEatenEvent: $EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
+    let event = snakeMoveIntentEvent.read()
+    let delta = event.delta
+
+    let headIdx = length(snake.bodies) - 1
+    let headPosition = snake.bodies[headIdx].position
+    let nextPos = headPosition + delta
+
+    let (appleEnt, _, applePosComp) = appleQuery |> first()
+    var applePos = NullableVec3(value = applePosComp.value)
+
+    let border = borderQuery.get()
+    let obstacle = queryCollideObstacle(nextPos, snake, border, applePos)
+
+    if (obstacle == ObstacleType.None) {
+        for (i in 0..length(snake.bodies) - 1) {
+            snake.bodies[i].position = snake.bodies[i + 1].position
+        }
+        snake.bodies[headIdx].position = nextPos
+    }
+    elif (obstacle == ObstacleType.Apple) {
+        snake.bodies[headIdx].position = nextPos
+        let newBody = createRenderable(cmd, headPosition, resources.get().snakeBodyMat, resources.get().quad)
+        snake.bodies |> push(SnakeBody(position = headPosition, entity = newBody), length(snake.bodies) - 1)
+
+        appleEatenEvent |> broadcast(AppleEatenEvent(apple = appleEnt))
+    }
+    else    {
+        gameOverEvent |> broadcast(GameOverEvent())
+    }
+}
+
+[system(phase="update")]
+def syncSnakeBodyPositionSystem(var snake: SnakeBodies, var positionQuery: $Query1<Position>) {
+	for (i in 0..length(snake.bodies))
+	{
+		assume body = snake.bodies[i];
+        ecs_query_entity_set(positionQuery, body.entity, Position(value = body.position))
+	}
 }
 
 [export]
@@ -530,6 +596,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@handleSnakeInputSystem)
     ctx |> register_system(@@scheduleSnakeMoveSystem)
     ctx |> register_system(@@executeSnakeMoveSystem)
+    ctx |> register_system(@@syncSnakeBodyPositionSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)

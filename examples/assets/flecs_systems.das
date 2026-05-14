@@ -98,6 +98,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (query_result) {
                 let fi_name = "{arg.name}"
                 let fi = system_state_class |> add_structure_field(fi_name, arg._type, default<ExpressionPtr>)
+                system_state_class.fields[fi].annotation |> add_annotation_argument("safe_when_uninitialized", true)
                 var query_types : array<ExpressionPtr>
                 for (i in 1..length(arg._type.dimExpr)) {
                     query_types |> push <| arg._type.dimExpr[i]

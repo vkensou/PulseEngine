@@ -51,3 +51,17 @@ def set_entity_component(self: CommandBuffer; entity: Entity; component: auto(T)
 def ecs_observe(var world: World, callback: function<(var iter: Iter?):void>, eventType: type<auto(EventType)>) {
     observe(world, callback, ecs_component(world, eventType), "pulse.EventTag")
 }
+
+def ecs_query_entity_set(var query: auto(Query), entity: Entity, component: auto(T)) {
+    unsafe {
+        let p = addr(component)
+        set_component_from_query(query.query_, entity, ecs_component(query.world, component), typeinfo sizeof(type<T>), p)
+    }
+}
+
+def ecs_query_entity_get(var query: auto(Query), entity: Entity, component: type<auto(T)>) {
+    unsafe {
+        let p = get_component_from_query(query.query_, entity, ecs_component(query.world, type<T>))
+        return reinterpret<T?>(p)
+    }
+}

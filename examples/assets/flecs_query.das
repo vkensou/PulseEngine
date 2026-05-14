@@ -28,101 +28,121 @@ def private index_at(fields: auto(T) -const?; index: int) {
 
 [template_structure(T1)]
 struct template Query1 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2)]
 struct template Query2 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3)]
 struct template Query3 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4)]
 struct template Query4 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5)]
 struct template Query5 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6)]
 struct template Query6 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7)]
 struct template Query7 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8)]
 struct template Query8 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9)]
 struct template Query9 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)]
 struct template Query10 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)]
 struct template Query11 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12)]
 struct template Query12 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13)]
 struct template Query13 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14)]
 struct template Query14 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15)]
 struct template Query15 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16)]
 struct template Query16 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17)]
 struct template Query17 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18)]
 struct template Query18 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19)]
 struct template Query19 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
 [template_structure(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20)]
 struct template Query20 {
+    @safe_when_uninitialized world : World
     query_: ecs_query_t?
 }
 
@@ -132,7 +152,7 @@ def query(var world: World; var t1: type<auto(T1)>) {
     desc.terms[0] = ecs_term_t(id = ecs_component(world, type<T1>), inout = inout1)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query1 = $Query1<T1>
-    return _Query1(query_ = query_)
+    return _Query1(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>) {
@@ -143,7 +163,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>) {
     desc.terms[1] = ecs_term_t(id = ecs_component(world, type<T2>), inout = inout2)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query2 = $Query2<T1, T2>
-    return _Query2(query_ = query_)
+    return _Query2(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>) {
@@ -156,7 +176,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[2] = ecs_term_t(id = ecs_component(world, type<T3>), inout = inout3)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query3 = $Query3<T1, T2, T3>
-    return _Query3(query_ = query_)
+    return _Query3(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>) {
@@ -171,7 +191,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[3] = ecs_term_t(id = ecs_component(world, type<T4>), inout = inout4)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query4 = $Query4<T1, T2, T3, T4>
-    return _Query4(query_ = query_)
+    return _Query4(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>) {
@@ -188,7 +208,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[4] = ecs_term_t(id = ecs_component(world, type<T5>), inout = inout5)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query5 = $Query5<T1, T2, T3, T4, T5>
-    return _Query5(query_ = query_)
+    return _Query5(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>) {
@@ -207,7 +227,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[5] = ecs_term_t(id = ecs_component(world, type<T6>), inout = inout6)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query6 = $Query6<T1, T2, T3, T4, T5, T6>
-    return _Query6(query_ = query_)
+    return _Query6(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>) {
@@ -228,7 +248,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[6] = ecs_term_t(id = ecs_component(world, type<T7>), inout = inout7)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query7 = $Query7<T1, T2, T3, T4, T5, T6, T7>
-    return _Query7(query_ = query_)
+    return _Query7(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>) {
@@ -251,7 +271,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[7] = ecs_term_t(id = ecs_component(world, type<T8>), inout = inout8)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query8 = $Query8<T1, T2, T3, T4, T5, T6, T7, T8>
-    return _Query8(query_ = query_)
+    return _Query8(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>) {
@@ -276,7 +296,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[8] = ecs_term_t(id = ecs_component(world, type<T9>), inout = inout9)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query9 = $Query9<T1, T2, T3, T4, T5, T6, T7, T8, T9>
-    return _Query9(query_ = query_)
+    return _Query9(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>) {
@@ -303,7 +323,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[9] = ecs_term_t(id = ecs_component(world, type<T10>), inout = inout10)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query10 = $Query10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
-    return _Query10(query_ = query_)
+    return _Query10(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>) {
@@ -332,7 +352,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[10] = ecs_term_t(id = ecs_component(world, type<T11>), inout = inout11)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query11 = $Query11<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>
-    return _Query11(query_ = query_)
+    return _Query11(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>) {
@@ -363,7 +383,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[11] = ecs_term_t(id = ecs_component(world, type<T12>), inout = inout12)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query12 = $Query12<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>
-    return _Query12(query_ = query_)
+    return _Query12(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>) {
@@ -396,7 +416,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[12] = ecs_term_t(id = ecs_component(world, type<T13>), inout = inout13)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query13 = $Query13<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>
-    return _Query13(query_ = query_)
+    return _Query13(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>) {
@@ -431,7 +451,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[13] = ecs_term_t(id = ecs_component(world, type<T14>), inout = inout14)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query14 = $Query14<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>
-    return _Query14(query_ = query_)
+    return _Query14(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>) {
@@ -468,7 +488,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[14] = ecs_term_t(id = ecs_component(world, type<T15>), inout = inout15)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query15 = $Query15<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>
-    return _Query15(query_ = query_)
+    return _Query15(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>) {
@@ -507,7 +527,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[15] = ecs_term_t(id = ecs_component(world, type<T16>), inout = inout16)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query16 = $Query16<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16>
-    return _Query16(query_ = query_)
+    return _Query16(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>) {
@@ -548,7 +568,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[16] = ecs_term_t(id = ecs_component(world, type<T17>), inout = inout17)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query17 = $Query17<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17>
-    return _Query17(query_ = query_)
+    return _Query17(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>; var t18: type<auto(T18)>) {
@@ -591,7 +611,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[17] = ecs_term_t(id = ecs_component(world, type<T18>), inout = inout18)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query18 = $Query18<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18>
-    return _Query18(query_ = query_)
+    return _Query18(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>; var t18: type<auto(T18)>; var t19: type<auto(T19)>) {
@@ -636,7 +656,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[18] = ecs_term_t(id = ecs_component(world, type<T19>), inout = inout19)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query19 = $Query19<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19>
-    return _Query19(query_ = query_)
+    return _Query19(world = world, query_ = query_)
 }
 
 def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var t3: type<auto(T3)>; var t4: type<auto(T4)>; var t5: type<auto(T5)>; var t6: type<auto(T6)>; var t7: type<auto(T7)>; var t8: type<auto(T8)>; var t9: type<auto(T9)>; var t10: type<auto(T10)>; var t11: type<auto(T11)>; var t12: type<auto(T12)>; var t13: type<auto(T13)>; var t14: type<auto(T14)>; var t15: type<auto(T15)>; var t16: type<auto(T16)>; var t17: type<auto(T17)>; var t18: type<auto(T18)>; var t19: type<auto(T19)>; var t20: type<auto(T20)>) {
@@ -683,7 +703,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     desc.terms[19] = ecs_term_t(id = ecs_component(world, type<T20>), inout = inout20)
     var query_ = build_query_from_desc(world, desc)
     typedef _Query20 = $Query20<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20>
-    return _Query20(query_ = query_)
+    return _Query20(world = world, query_ = query_)
 }
 
 def for_each(query: $Query1<auto(T1)>, blk : block<(entity: Entity; t1 : T1) : void>) {

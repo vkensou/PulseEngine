@@ -128,6 +128,24 @@ namespace dasPulseECS
 		return ecs_get_mut_id(world.world_, entity, component_id);
 	}
 
+	void set_component_from_query(ecs_query_t* query, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data, das::Context* context, das::LineInfoArg* at)
+	{
+		if (size == 0)
+			ecs_add_id(query->world, entity, component_id);
+		else
+		{
+			auto type_info = ecs_get_type_info(query->world, component_id);
+			if (type_info->size != size)
+				context->throw_error_at(at, "set component size different!");
+			ecs_set_id(query->world, entity, component_id, size, data);
+		}
+	}
+
+	const void* get_component_from_query(ecs_query_t* query, ecs_entity_t entity, ecs_id_t component_id)
+	{
+		return ecs_get_id(query->world, entity, component_id);
+	}
+
 	const void* get_res(const World& world, ecs_id_t component_id)
 	{
 		return ecs_get_id(world.world_, component_id, component_id);
@@ -422,6 +440,8 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data", "context", "at"});
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_component)>(*this, lib, "get_component", SideEffects::worstDefault, "get_component")->args({ "world", "entity", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_component)>(*this, lib, "get_mut_component", SideEffects::worstDefault, "get_mut_component")->args({ "world", "entity", "component_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::set_component_from_query)>(*this, lib, "set_component_from_query", SideEffects::worstDefault, "set_component_from_query")->args({ "query", "entity", "component_id", "size", "data", "context", "at" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_component_from_query)>(*this, lib, "get_component_from_query", SideEffects::worstDefault, "get_component_from_query")->args({ "query", "entity", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_res)>(*this, lib, "get_res", SideEffects::worstDefault, "get_res")->args({ "world", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_res)>(*this, lib, "get_mut_res", SideEffects::worstDefault, "get_mut_res")->args({ "world", "component_id" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
