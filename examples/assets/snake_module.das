@@ -5,6 +5,7 @@ require pulse
 require cgpu
 require daslib/random
 require daslib/match
+require daslib/option
 
 enum Direction4W {
 	Right
@@ -249,11 +250,6 @@ def createSnake(var cmd: CommandBuffer, quad: uint64, headMat: uint64, bodyMat: 
 	return (snake, <- poses);
 }
 
-variant NullableVec3 {
-    empty : int
-    value : HMM_Vec3
-}
-
 def random_range(var seed : int4&, min: int, max: int) {
     var value = random_int(seed)
     value %= (max - min)
@@ -270,7 +266,7 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
 	let maxCount = (right - left - 1) * (up - bottom - 1)
 
 	if (length(snakeBodyPoses) >= maxCount) {
-		return NullableVec3(empty = 0)
+		return none(type<HMM_Vec3>)
 	}
 
     var s1 = random_seed(13141516)
@@ -298,20 +294,20 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
 		}
 
 		if (!bodyOverlaped) {
-			return NullableVec3(value = newPos)
+			return some(newPos)
         }
 	}
 
-	return NullableVec3(empty = 0)
+	return none(type<HMM_Vec3>)
 }
 
 def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border, quad: uint64, appleMat: uint64) {
 	let newPos = getNewApplePosition(snakeBodyPoses, border);
-    if (newPos is empty) {
+    if (newPos |> is_none) {
         return default<Entity>;
     }
 
-	let apple = createRenderable(cmd, newPos as value, appleMat, quad);
+	let apple = createRenderable(cmd, unwrap(newPos), appleMat, quad);
     cmd |> set_entity_component(apple, IsApple())
 	return apple;
 }
@@ -338,13 +334,7 @@ def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: in
 	return border;
 }
 
-variant NullableDirection4W {
-    empty : int
-    value : Direction4W
-}
-
-def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&)
-{
+def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&) {
 	let lastRight = keyboardState.lastKeys[input.rightKey] != uint8(0)
 	let lastUp = keyboardState.lastKeys[input.upKey] != uint8(0)
 	let lastLeft = keyboardState.lastKeys[input.leftKey] != uint8(0)
@@ -356,19 +346,19 @@ def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&)
 	let down = keyboardState.currentKeys[input.downKey] != uint8(0)
 
 	if (!lastRight && right) {
-        return NullableDirection4W(value = Direction4W.Right)
+        return some(Direction4W.Right)
     }
 	elif (!lastUp && up) {
-        return NullableDirection4W(value = Direction4W.Up)
+        return some(Direction4W.Up)
     }
 	elif (!lastLeft && left) {
-        return NullableDirection4W(value = Direction4W.Left)
+        return some(Direction4W.Left)
     }
 	elif (!lastDown && down) {
-        return NullableDirection4W(value = Direction4W.Down)
+        return some(Direction4W.Down)
     }
 	else {
-        return NullableDirection4W(empty = 0)
+        return none(type<Direction4W>)
     }
 }
 
@@ -452,13 +442,12 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: $SingletonQuery
 [system(phase="update")]
 def handleSnakeInputSystem(var resKeyboardState: $Res<KeyboardState>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
     let keyInput = getInputDirection(input, deref(resKeyboardState.get()))
-    match (keyInput) {
-        if ($v(value) as value) {
-            print("keydown:{value}\n")
-            if (!isOpposite(direction.value, value)) {
-                direction.value = value
-                move.lastTime = move.interval;
-            }
+    if (keyInput |> is_some) {
+        let value = keyInput |> unwrap
+        print("keydown:{value}\n")
+        if (!isOpposite(direction.value, value)) {
+            direction.value = value
+            move.lastTime = move.interval;
         }
     }
 }
@@ -485,7 +474,7 @@ enum ObstacleType {
     Border
 }
 
-def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border, applePos: NullableVec3) : ObstacleType {
+def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border, applePos: $Option<HMM_Vec3>) : ObstacleType {
     let left = border.left
     let right = border.right
     let bottom = border.bottom
@@ -500,8 +489,8 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
             return ObstacleType.SnakeBody
     }
 
-    if (applePos is value) {
-        if (nextPos == (applePos as value))
+    if (applePos |> is_some) {
+        if (nextPos == (unwrap(applePos)))
             return ObstacleType.Apple
     }
 
@@ -518,7 +507,7 @@ def executeSnakeMoveSystem(snakeMoveIntentEvent: $EventReader<SnakeMoveIntentEve
     let nextPos = headPosition + delta
 
     let (appleEnt, _, applePosComp) = appleQuery |> first()
-    var applePos = NullableVec3(value = applePosComp.value)
+    var applePos = some(applePosComp.value)
 
     let border = borderQuery.get()
     let obstacle = queryCollideObstacle(nextPos, snake, border, applePos)

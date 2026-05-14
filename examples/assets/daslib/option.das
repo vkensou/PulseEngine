@@ -63,7 +63,6 @@ def move_some(var v : auto(TT)) {
 //! Construct an empty ``Option<T>``. Pass the payload type as a witness::
 //!
 //!     let o = none(type<int>)
-[template(t)]
 def none(t : auto(TT)) {
     return default<$Option<TT -const> >
 }
