@@ -318,6 +318,20 @@ def createEntities(var cmd: CommandBuffer, border: Border, resources: SnakeResou
 	let apple = createApple(cmd, poses, border, resources.quad, resources.appleMat);
 }
 
+def destructEntities(var cmd: CommandBuffer, var snakeQuery: $Query1<SnakeBodies>, var appleQuery: $Query1<IsApple>) {
+	snakeQuery |> for_each() $(entity, snake) {
+        for (i in 0..length(snake.bodies))
+		{
+            cmd.destruct(snake.bodies[i].entity)
+		}
+        cmd.destruct(entity)
+	}
+
+	appleQuery |> for_each() $(entity, apple) {
+        cmd.destruct(entity)
+    }
+}
+
 def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: int, bottom: int, left: int, right: int) {
 	let centerX = float(left + right) / 2.0;
 	let centerY = float(up + bottom) / 2.0;
@@ -561,6 +575,11 @@ def spawnAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: Comm
 	createApple(cmd, poses, borderQuery.get(), resources.get().quad, resources.get().appleMat);
 }
 
+[system]
+def onGameOverSystem(eventGameOver: $EventReader<GameOverEvent>, var cmd: CommandBuffer, var snakeQuery: $Query1<SnakeBodies>, var appleQuery: $Query1<IsApple>) {
+	cmd.set_singleton(SnakeGame(playing = false))
+	destructEntities(cmd, snakeQuery, appleQuery);
+}
 
 [export]
 def importModule(var ctx:ModuleContext) {
@@ -612,6 +631,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@eatAppleSystem)
     ctx |> register_system(@@increaseScoreSystem)
     ctx |> register_system(@@spawnAppleSystem)
+    ctx |> register_system(@@onGameOverSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
