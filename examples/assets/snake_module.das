@@ -63,16 +63,6 @@ struct IsApple
 {
 }
 
-struct Velocity {
-    X: float
-    Y: float
-    Z: float
-}
-
-struct Comp2 {
-    X: float
-}
-
 struct SnakeBody {
 	position: HMM_Vec3
 	entity: Entity
@@ -101,74 +91,6 @@ struct AppleEatenEvent {
 struct GameOverEvent {}
 
 struct RestartEvent {}
-
-var private run_probe_batches = 0
-var private move_probe_hits = 0
-var private spawned_entity = default<Entity>
-
-[system(phase="update")]
-def run_probe(var iter: ecs_iter_t?) {
-    while (iter_next(iter)) {
-        run_probe_batches += 1
-        if (run_probe_batches == 1) {
-            print("spawned_entity_id=")
-            dump_entity(spawned_entity)
-            print("run_probe batch={iter.count} tick={run_probe_batches}\n")
-        }
-    }
-}
-
-[system(phase="update")]
-def move_probe(e: Entity; pos: Position const; var vel: Velocity) {
-    move_probe_hits += 1
-    vel.X += 1.0
-    if (move_probe_hits == 1) {
-        print("move_probe entity_id=")
-        dump_entity(e)
-        print("move_probe pos={pos.value.X} vel={vel.X} {vel.Y} {vel.Z}\n")
-    }
-}
-
-[system(phase="init")]
-def system2(var cmd: CommandBuffer; position : Position) {
-    print("system2\n")
-    let e2 = cmd.entity()
-    dump_entity(e2)
-}
-
-[system(phase="init")]
-def system3(var res: $Res<Position>; position : Position) {
-    print("system3\n")
-    let value = res.get()
-    // print("res Position={value.value.X} {value.value.Y} {value.value.Z}\n")
-}
-
-[system(phase="init")]
-def system4(var query: $SingletonQuery<Position>; position : Position) {
-    print("system4\n")
-    let value = query.get()
-    print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
-}
-
-[system(phase="init")]
-def system5(var event_writer: $EventWriter<Event1>; position : Position) {
-    print("system5\n")
-    event_writer |> broadcast(Event1())
-}
-
-[system]
-def system6(var event_reader: $EventReader<Event1>) {
-    print("system receive event!\n")
-}
-
-def show_singleton_position(query: $SingletonQuery<Position>) {
-    let value = query.get()
-    print("singleton Position={value.value.X} {value.value.Y} {value.value.Z}\n")
-}
-
-struct Event1 {
-
-}
 
 struct MaterialData
 {
@@ -605,45 +527,6 @@ def restartSystem(var restartEvent: $EventReader<RestartEvent>, var cmd: Command
 
 [export]
 def importModule(var ctx:ModuleContext) {
-    print("importModule(ModuleContext) from dascript\n")
-    dump_world(ctx.world)
-    var ent = create_entity(ctx.world)
-    dump_entity(ent)
-    dump_world(ctx.world)
-
-    print("{ecs_component(ctx.world, type<Position>)}\n")
-    print("{ecs_component(ctx.world, type<Position>)}\n")
-    print("{ecs_component(ctx.world, type<Position>)}\n")
-    print("{ecs_component(ctx.world, type<Velocity>)}\n")
-    print("{ecs_component(ctx.world, type<Comp2>)}\n")
-
-    var query1 = ctx.world |> query(type<Position>)
-    let (first_of_query1_entity, first_of_query1_pos) = query1 |> first()
-    print("query1 first: {first_of_query1_entity}, pos: {first_of_query1_pos.value}\n")
-
-    print("query for_each\n")
-    query1 |> for_each() <| $(entity, pos) {
-        print("{entity}: {pos.value.X} {pos.value.Y} {pos.value.Z}\n")
-    }
-
-    run_probe_batches = 0
-    move_probe_hits = 0
-    spawned_entity = ent
-
-    ctx |> register_system(@@run_probe)
-
-    ctx |> register_system(@@move_probe)
-
-    ctx |> register_system(@@system2)
-
-    ctx |> register_system(@@system3)
-
-    ctx |> register_system(@@system4)
-
-    ctx |> register_system(@@system5)
-
-    ctx |> register_system(@@system6)
-
     ctx |> register_system(@@loadSnakeResources)
     ctx |> register_system(@@initSnakeGameSystem)
     ctx |> register_system(@@handleSnakeInputSystem)
@@ -656,12 +539,4 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@onGameOverSystem)
     ctx |> register_system(@@onImguiSystem)
     ctx |> register_system(@@restartSystem)
-
-    {
-        var cmd = CommandBuffer(world = ctx.world)
-        var ent2 = cmd.entity()
-        dump_entity(ent2)
-        cmd.destruct(ent2)
-        cmd |> set_singleton(Position(value=HMM_V3(1.0, 4.0, 1.0)))
-    }
 }
