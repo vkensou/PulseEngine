@@ -6,17 +6,17 @@ require daslib/typemacro_boost
 require daslib/class_boost
 require flecs_base
 
-def private get_field(var iter_ptr; t: type<auto(T)>; index: int) : T -const? {
+def private get_field(var iter_ptr; var t: type<auto(T)>; index: int) : T? {
     unsafe {
         static_if (typeinfo sizeof(type<T>) == 0) {
-            return default<T -const?>
+            return default<T?>
         } else {
-            return reinterpret<T -const?> iter_field(iter_ptr, typeinfo sizeof(type<T>), index)
+            return reinterpret<T?> iter_field(iter_ptr, typeinfo sizeof(type<T>), index)
         }
     }
 }
 
-def private index_at(fields: auto(T) -const?; index: int) {
+def private index_at(var fields: auto(T)?; index: int) : T? {
     unsafe {
         static_if (typeinfo sizeof(type<T>) == 0) {
             return default<T?>
@@ -706,7 +706,7 @@ def query(var world: World; var t1: type<auto(T1)>; var t2: type<auto(T2)>; var 
     return _Query20(world = world, query_ = query_)
 }
 
-def for_each(query: $Query1<auto(T1)>, blk : block<(entity: Entity; t1 : T1?) : void>) {
+def for_each(query: $Query1<auto(T1)>, blk : block<(entity: Entity; var t1 : T1?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -719,7 +719,7 @@ def for_each(query: $Query1<auto(T1)>, blk : block<(entity: Entity; t1 : T1?) : 
     }
 }
 
-def for_each(query: $Query2<auto(T1), auto(T2)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?) : void>) {
+def for_each(query: $Query2<auto(T1), auto(T2)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -733,7 +733,7 @@ def for_each(query: $Query2<auto(T1), auto(T2)>, blk : block<(entity: Entity; t1
     }
 }
 
-def for_each(query: $Query3<auto(T1), auto(T2), auto(T3)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?) : void>) {
+def for_each(query: $Query3<auto(T1), auto(T2), auto(T3)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -748,7 +748,7 @@ def for_each(query: $Query3<auto(T1), auto(T2), auto(T3)>, blk : block<(entity: 
     }
 }
 
-def for_each(query: $Query4<auto(T1), auto(T2), auto(T3), auto(T4)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?) : void>) {
+def for_each(query: $Query4<auto(T1), auto(T2), auto(T3), auto(T4)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -764,7 +764,7 @@ def for_each(query: $Query4<auto(T1), auto(T2), auto(T3), auto(T4)>, blk : block
     }
 }
 
-def for_each(query: $Query5<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?) : void>) {
+def for_each(query: $Query5<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -781,7 +781,7 @@ def for_each(query: $Query5<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5)>, b
     }
 }
 
-def for_each(query: $Query6<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?) : void>) {
+def for_each(query: $Query6<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -799,7 +799,7 @@ def for_each(query: $Query6<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
     }
 }
 
-def for_each(query: $Query7<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?) : void>) {
+def for_each(query: $Query7<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -818,7 +818,7 @@ def for_each(query: $Query7<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
     }
 }
 
-def for_each(query: $Query8<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?) : void>) {
+def for_each(query: $Query8<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -838,7 +838,7 @@ def for_each(query: $Query8<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
     }
 }
 
-def for_each(query: $Query9<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?) : void>) {
+def for_each(query: $Query9<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -859,7 +859,7 @@ def for_each(query: $Query9<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), au
     }
 }
 
-def for_each(query: $Query10<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?) : void>) {
+def for_each(query: $Query10<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -881,7 +881,7 @@ def for_each(query: $Query10<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query11<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?) : void>) {
+def for_each(query: $Query11<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -904,7 +904,7 @@ def for_each(query: $Query11<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query12<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?) : void>) {
+def for_each(query: $Query12<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -928,7 +928,7 @@ def for_each(query: $Query12<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query13<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?) : void>) {
+def for_each(query: $Query13<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -953,7 +953,7 @@ def for_each(query: $Query13<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query14<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?) : void>) {
+def for_each(query: $Query14<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -979,7 +979,7 @@ def for_each(query: $Query14<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query15<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?; t15 : T15?) : void>) {
+def for_each(query: $Query15<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?; var t15 : T15?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -1006,7 +1006,7 @@ def for_each(query: $Query15<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query16<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?; t15 : T15?; t16 : T16?) : void>) {
+def for_each(query: $Query16<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?; var t15 : T15?; var t16 : T16?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -1034,7 +1034,7 @@ def for_each(query: $Query16<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query17<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?; t15 : T15?; t16 : T16?; t17 : T17?) : void>) {
+def for_each(query: $Query17<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?; var t15 : T15?; var t16 : T16?; var t17 : T17?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -1063,7 +1063,7 @@ def for_each(query: $Query17<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query18<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17), auto(T18)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?; t15 : T15?; t16 : T16?; t17 : T17?; t18 : T18?) : void>) {
+def for_each(query: $Query18<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17), auto(T18)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?; var t15 : T15?; var t16 : T16?; var t17 : T17?; var t18 : T18?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -1093,7 +1093,7 @@ def for_each(query: $Query18<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query19<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17), auto(T18), auto(T19)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?; t15 : T15?; t16 : T16?; t17 : T17?; t18 : T18?; t19 : T19?) : void>) {
+def for_each(query: $Query19<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17), auto(T18), auto(T19)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?; var t15 : T15?; var t16 : T16?; var t17 : T17?; var t18 : T18?; var t19 : T19?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)
@@ -1124,7 +1124,7 @@ def for_each(query: $Query19<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), a
     }
 }
 
-def for_each(query: $Query20<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17), auto(T18), auto(T19), auto(T20)>, blk : block<(entity: Entity; t1 : T1?; t2 : T2?; t3 : T3?; t4 : T4?; t5 : T5?; t6 : T6?; t7 : T7?; t8 : T8?; t9 : T9?; t10 : T10?; t11 : T11?; t12 : T12?; t13 : T13?; t14 : T14?; t15 : T15?; t16 : T16?; t17 : T17?; t18 : T18?; t19 : T19?; t20 : T20?) : void>) {
+def for_each(query: $Query20<auto(T1), auto(T2), auto(T3), auto(T4), auto(T5), auto(T6), auto(T7), auto(T8), auto(T9), auto(T10), auto(T11), auto(T12), auto(T13), auto(T14), auto(T15), auto(T16), auto(T17), auto(T18), auto(T19), auto(T20)>, blk : block<(entity: Entity; var t1 : T1?; var t2 : T2?; var t3 : T3?; var t4 : T4?; var t5 : T5?; var t6 : T6?; var t7 : T7?; var t8 : T8?; var t9 : T9?; var t10 : T10?; var t11 : T11?; var t12 : T12?; var t13 : T13?; var t14 : T14?; var t15 : T15?; var t16 : T16?; var t17 : T17?; var t18 : T18?; var t19 : T19?; var t20 : T20?) : void>) {
     unsafe {
         var iter = query_iter(query.query_)
         var iter_ptr = addr(iter)

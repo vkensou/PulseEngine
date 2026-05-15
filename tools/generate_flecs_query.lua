@@ -13,17 +13,17 @@ require daslib/typemacro_boost
 require daslib/class_boost
 require flecs_base
 
-def private get_field(var iter_ptr; t: type<auto(T)>; index: int) : T -const? {
+def private get_field(var iter_ptr; var t: type<auto(T)>; index: int) : T? {
     unsafe {
         static_if (typeinfo sizeof(type<T>) == 0) {
-            return default<T -const?>
+            return default<T?>
         } else {
-            return reinterpret<T -const?> iter_field(iter_ptr, typeinfo sizeof(type<T>), index)
+            return reinterpret<T?> iter_field(iter_ptr, typeinfo sizeof(type<T>), index)
         }
     }
 }
 
-def private index_at(fields: auto(T) -const?; index: int) {
+def private index_at(var fields: auto(T)?; index: int) : T? {
     unsafe {
         static_if (typeinfo sizeof(type<T>) == 0) {
             return default<T?>
@@ -99,7 +99,7 @@ def private index_at(fields: auto(T) -const?; index: int) {
         
         local block_params = {}
         for i = 1, n do
-            block_params[i] = "t" .. i .. " : T" .. i .. "?"
+            block_params[i] = "var t" .. i .. " : T" .. i .. "?"
         end
         local block_list = table.concat(block_params, "; ")
         

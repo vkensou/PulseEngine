@@ -543,6 +543,12 @@ def eatAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: Comman
 }
 
 [system]
+def increaseScoreSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var scoreQuery: $SingletonQuery<Score>) {
+    scoreQuery.get().value += 1
+    print("{scoreQuery.get().value}\n")
+}
+
+[system]
 def spawnAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: CommandBuffer, var snakeQuery: $Query1<SnakeBodies>, borderQuery: SingletonQuery<Border>, resources: SingletonQuery<SnakeResources>) {
 	let (snakeEnt, snakeBodies) = snakeQuery.first()
     var poses: array<HMM_Vec3>;
@@ -604,6 +610,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@executeSnakeMoveSystem)
     ctx |> register_system(@@syncSnakeBodyPositionSystem)
     ctx |> register_system(@@eatAppleSystem)
+    ctx |> register_system(@@increaseScoreSystem)
     ctx |> register_system(@@spawnAppleSystem)
 
     {
