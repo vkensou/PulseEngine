@@ -113,12 +113,17 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
             if (true) {
                 is_entity_system = true
-                let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
+                let is_const = arg._type.flags.constant
+                let term_fn = !is_const ? "system_term_inout" : "system_term_in"
                 var component_type <- make_component_type(arg._type)
 
                 let field_name = "__field_{arg_index}"
                 var pointer_type <- make_pointer_type(component_type)
-                wrapper_fn_batch_exprs |> push <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                if (is_const) {
+                    wrapper_fn_batch_exprs |> push <| qmacro_expr(${ let $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                } else {
+                    wrapper_fn_batch_exprs |> push <| qmacro_expr(${ var $i(field_name) = reinterpret<$t(pointer_type)>(iter_field(iter, typeinfo sizeof(type<$t(component_type)>), $v(term_index))); })
+                }
                 wrapper_fn_call_args |> push <| qmacro($i(field_name)[i])
 
                 register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
