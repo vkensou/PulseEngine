@@ -545,15 +545,14 @@ def eatAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: Comman
 [system]
 def spawnAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: CommandBuffer, var snakeQuery: $Query1<SnakeBodies>, borderQuery: SingletonQuery<Border>, resources: SingletonQuery<SnakeResources>) {
 	let (snakeEnt, snakeBodies) = snakeQuery.first()
-    // // createApple(cmd, snakeBodies, borderQuery.get(), resources.get().quad, resources.get().appleMat)
-    // var poses: array<HMM_Vec3>;
-	// for (i in 0..length(snakeBodies.bodies))
-	// {
-    //     let bodyPos = snakeBodies.bodies[i].position
-    //     poses |> push(bodyPos)
-	// }
+    var poses: array<HMM_Vec3>;
+	for (i in 0..length(snakeBodies.bodies))
+	{
+        let bodyPos = snakeBodies.bodies[i].position
+        poses |> push(bodyPos)
+	}
 
-	// createApple(cmd, poses, border, resources.quad, resources.appleMat);
+	createApple(cmd, poses, borderQuery.get(), resources.get().quad, resources.get().appleMat);
 }
 
 
@@ -605,6 +604,7 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@executeSnakeMoveSystem)
     ctx |> register_system(@@syncSnakeBodyPositionSystem)
     ctx |> register_system(@@eatAppleSystem)
+    ctx |> register_system(@@spawnAppleSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)

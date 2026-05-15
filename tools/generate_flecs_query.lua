@@ -26,9 +26,9 @@ def private get_field(var iter_ptr; t: type<auto(T)>; index: int) : T -const? {
 def private index_at(fields: auto(T) -const?; index: int) {
     unsafe {
         static_if (typeinfo sizeof(type<T>) == 0) {
-            return default<T>
+            return default<T?>
         } else {
-            return fields[index]
+            return fields + index
         }
     }
 }
@@ -99,7 +99,7 @@ def private index_at(fields: auto(T) -const?; index: int) {
         
         local block_params = {}
         for i = 1, n do
-            block_params[i] = "t" .. i .. " : T" .. i
+            block_params[i] = "t" .. i .. " : T" .. i .. "?"
         end
         local block_list = table.concat(block_params, "; ")
         
@@ -145,7 +145,7 @@ def private index_at(fields: auto(T) -const?; index: int) {
         
         local default_values = {"default<Entity>"}
         for i = 1, n do
-            default_values[i+1] = "default<T" .. i .. ">"
+            default_values[i+1] = "default<T" .. i .. "?>"
         end
         local default_list = table.concat(default_values, ", ")
         
