@@ -579,6 +579,14 @@ void material_bind_buffer(pulse::ResourceManager* resourceManager, size_t materi
 MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
 IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
 
+void Text(const char* txt) {
+	ImGui::Text("%s", txt);
+}
+
+bool Button(const char* label) {
+	return ImGui::Button(label);
+}
+
 class ModulePulseECS : public das::Module
 {
 public:
@@ -616,6 +624,9 @@ public:
 		addExtern<DAS_BIND_FUN(load_mesh)>(*this, lib, "load_mesh", das::SideEffects::worstDefault, "load_mesh")->args({ "resourceManager", "path" });
 		addExtern<DAS_BIND_FUN(create_material)>(*this, lib, "create_material", das::SideEffects::worstDefault, "create_material")->args({ "resourceManager", "shaderIndex", "context", "at" });
 		addExtern<DAS_BIND_FUN(material_bind_buffer)>(*this, lib, "material_bind_buffer", das::SideEffects::worstDefault, "material_bind_buffer")->args({ "resourceManager", "materialIndex", "set", "bind", "size", "ptr", "context", "at" });
+
+		addExtern<DAS_BIND_FUN(Text)>(*this, lib, "Text", das::SideEffects::worstDefault, "Text")->args({ "txt" });
+		addExtern<DAS_BIND_FUN(Button)>(*this, lib, "Button", das::SideEffects::worstDefault, "Button")->args({ "label" });
 
 		return true;
 	}

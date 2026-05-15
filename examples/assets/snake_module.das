@@ -100,6 +100,8 @@ struct AppleEatenEvent {
 
 struct GameOverEvent {}
 
+struct RestartEvent {}
+
 var private run_probe_batches = 0
 var private move_probe_hits = 0
 var private spawned_entity = default<Entity>
@@ -559,7 +561,6 @@ def eatAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: Comman
 [system]
 def increaseScoreSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var scoreQuery: $SingletonQuery<Score>) {
     scoreQuery.get().value += 1
-    print("{scoreQuery.get().value}\n")
 }
 
 [system]
@@ -579,6 +580,27 @@ def spawnAppleSystem(eventAppleEat: $EventReader<AppleEatenEvent>, var cmd: Comm
 def onGameOverSystem(eventGameOver: $EventReader<GameOverEvent>, var cmd: CommandBuffer, var snakeQuery: $Query1<SnakeBodies>, var appleQuery: $Query1<IsApple>) {
 	cmd.set_singleton(SnakeGame(playing = false))
 	destructEntities(cmd, snakeQuery, appleQuery);
+}
+
+[system(phase="imgui")]
+def onImguiSystem(snakeGame: SnakeGame, score: Score, var restartEvent: $EventWriter<RestartEvent>) {
+	if (snakeGame.playing)
+	{
+		Text("{score.value}");
+	}
+	else
+	{
+		if (Button("Restart"))
+		{
+            restartEvent |> broadcast(RestartEvent())
+		}
+	}
+}
+
+[system]
+def restartSystem(var restartEvent: $EventReader<RestartEvent>, var cmd: CommandBuffer, borderQuery: $SingletonQuery<Border>, resources: $SingletonQuery<SnakeResources>) {
+	createEntities(cmd, borderQuery.get(), resources.get());
+    cmd |> set_singleton(SnakeGame(playing = true))
 }
 
 [export]
@@ -632,6 +654,8 @@ def importModule(var ctx:ModuleContext) {
     ctx |> register_system(@@increaseScoreSystem)
     ctx |> register_system(@@spawnAppleSystem)
     ctx |> register_system(@@onGameOverSystem)
+    ctx |> register_system(@@onImguiSystem)
+    ctx |> register_system(@@restartSystem)
 
     {
         var cmd = CommandBuffer(world = ctx.world)
