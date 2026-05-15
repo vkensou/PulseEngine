@@ -573,7 +573,7 @@ bool on_resize(oval_cgpu_device_t* D, oval_window_impl_t* window)
 	return true;
 }
 
-struct UpdateTask : enki::ITaskSet
+struct UpdateTask : enki::IPinnedTask
 {
 	enki::Dependency m_Dependency;
 
@@ -586,13 +586,13 @@ struct UpdateTask : enki::ITaskSet
 	{
 	}
 
-	virtual void ExecuteRange(enki::TaskSetPartition range, uint32_t threadnum) override
+	virtual void Execute() override
 	{
 		on_update(device, update_context);
 	}
 };
 
-struct RenderTask : enki::ITaskSet
+struct RenderTask : enki::IPinnedTask
 {
 	enki::Dependency m_Dependency;
 
@@ -605,7 +605,7 @@ struct RenderTask : enki::ITaskSet
 	{
 	}
 
-	virtual void ExecuteRange(enki::TaskSetPartition range, uint32_t threadnum) override
+	virtual void Execute() override
 	{
 		on_render(device, render_context);
 	}
