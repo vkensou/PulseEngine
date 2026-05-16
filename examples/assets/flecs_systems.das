@@ -61,9 +61,13 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (res_result) {
                 let res_ptr_name = "res_ptr{arg_index}"
                 let res_name = "res{arg_index}"
-                var resT = new TypeDecl(baseType = Type.alias, alias := res_generic_type)
-                wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(resT)>); })
-                wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_name) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
+                let is_const = res_generic_type.flags.constant
+                if (is_const) {
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_ptr_name) = ecs_get_res(world, type<$t(res_generic_type)>); })
+                } else {
+                    wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(res_generic_type)>); })
+                }
+                wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
                 wrapper_fn_call_args |> push <| qmacro($i(res_name))
                 continue
             }
@@ -244,29 +248,26 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     }
 
     def is_res_type(arg_type : TypeDeclPtr) {
-        let type_name = string(describe(arg_type))
-        let i1 = find(type_name, "$Res(type<")
-        if (i1 != 0) {
-            return (false, "");
-        }
-        let len = length(type_name)
-
-        let i2 = last_index_of(type_name, ">) const")
-        if (i2 + 8 == len) {
-            return (true, slice(type_name, 9 + 1, i2))
+        if (arg_type.baseType != Type.typeMacro || length(arg_type.dimExpr) != 2) {
+            return (false, default<TypeDeclPtr>)
         }
 
-        let i3 = last_index_of(type_name, ">) -const")
-        if (i3 + 9 == len) {
-            return (true, slice(type_name, 9 + 1, i3))
+        if (!(arg_type.dimExpr[0] is ExprConstString)) {
+            return (false, default<TypeDeclPtr>)
         }
 
-        let i4 = last_index_of(type_name, ">)")
-        if (i4 + 2 == len) {
-            return (true, slice(type_name, 9 + 1, i4))
+        let macroExpr = arg_type.dimExpr[0] as ExprConstString
+        let macroName = string(macroExpr.value)
+
+        if (macroName != ("Res")) {
+            return (false, default<TypeDeclPtr>)
         }
 
-        return (false, "");
+        if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {
+            return (false, default<TypeDeclPtr>)
+        }
+
+        return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr)
     }
 
     def is_single_query_type(arg_type : TypeDeclPtr) {

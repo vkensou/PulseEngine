@@ -300,7 +300,7 @@ def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&) {
 }
 
 [system(phase="init")]
-def loadSnakeResources(var res: $Res<ResourceManager>; var cmd: CommandBuffer) {
+def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
     print("load resource!\n")
 
 	var blend_attachments = CGPUBlendAttachmentState(
@@ -377,7 +377,7 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: $SingletonQuery
 }
 
 [system(phase="update")]
-def handleSnakeInputSystem(var resKeyboardState: $Res<KeyboardState>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
+def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState const>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
     let keyInput = getInputDirection(input, deref(resKeyboardState.get()))
     if (keyInput |> is_some) {
         let value = keyInput |> unwrap
@@ -389,7 +389,7 @@ def handleSnakeInputSystem(var resKeyboardState: $Res<KeyboardState>; input: Sna
 }
 
 [system(phase="update")]
-def scheduleSnakeMoveSystem(var context: $Res<UpdateContext>, var snakeMoveWriter: $EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
+def scheduleSnakeMoveSystem(context: Res<UpdateContext const>, var snakeMoveWriter: $EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
 	move.lastTime += context.get().value.delta_time
 	if (move.lastTime < move.interval) {
         return
