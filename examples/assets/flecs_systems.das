@@ -65,13 +65,15 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (res_result) {
                 let res_ptr_name = "res_ptr{arg_index}"
                 let res_name = "res{arg_index}"
-                let is_const = res_generic_type.flags.constant
+                let is_const = arg._type.flags.constant
+                print("restype:{describe(arg._type)}\n")
                 if (is_const) {
                     wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_ptr_name) = ecs_get_res(world, type<$t(res_generic_type)>); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name): $t(arg._type) = struct<$t(arg._type)>(const_value_ptr = $i(res_ptr_name)); })
                 } else {
                     wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(res_generic_type)>); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_name): $t(arg._type) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
                 }
-                wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
                 wrapper_fn_call_args |> push <| qmacro($i(res_name))
                 continue
             }
@@ -276,14 +278,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return (false, default<TypeDeclPtr>, "")
         }
 
-        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
-            var cloned = clone_type(arg_type)
-            cloned.flags.constant = true
-            cloned.flags.removeConstant = false
-            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
-            system parameter of type Res<T> cannot be declared with 'var'; remove 'var' keyword")
-        }
-
         if (length(arg_type.dimExpr) < 2) {
             return (false, default<TypeDeclPtr>, "expecting 'Res<T>', got 'Res<>'
             Res<T> requires a type parameter, e.g. Res<ResourceManager>")
@@ -308,14 +302,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         if (macroName != "SingletonQuery") {
             return (false, default<TypeDeclPtr>, "")
         }
-
-        // if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
-        //     var cloned = clone_type(arg_type)
-        //     cloned.flags.constant = true
-        //     cloned.flags.removeConstant = false
-        //     return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
-        //     system parameter of type SingletonQuery<T> cannot be declared with 'var'; remove 'var' keyword")
-        // }
 
         if (length(arg_type.dimExpr) < 2) {
             return (false, default<TypeDeclPtr>, "expecting 'SingletonQuery<T>', got 'SingletonQuery<>'

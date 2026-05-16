@@ -12,12 +12,16 @@ struct template SingletonQuery {
     const_comp_ptr : T const?
 
     [class_method]
-    def static const get() : T const? {
-        return const_comp_ptr
+    def static const get() : T const& {
+        unsafe {
+            return *const_comp_ptr
+        }
     }
 
     [class_method]
-    def static get() : T? {
-        return comp_ptr
+    def static get() : T& {
+        unsafe {
+            return *comp_ptr
+        }
     }
 }

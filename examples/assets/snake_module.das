@@ -109,7 +109,7 @@ struct Border
 	up, bottom, left, right: int;
 };
 
-def pulse_material_bind_buffer(resourceManager: ResourceManager?, material: uint64, set: int, bind: int, buffer: auto(T))
+def pulse_material_bind_buffer(var resourceManager: ResourceManager, material: uint64, set: int, bind: int, buffer: auto(T))
 {
     material_bind_buffer(resourceManager, material, set, bind, typeinfo sizeof(type<T>), unsafe(addr(buffer)))
 }
@@ -180,7 +180,7 @@ def random_range(var seed : int4&, min: int, max: int) {
     return value
 }
 
-def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border const?) {
+def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
 	let left = border.left;
 	let right = border.right;
 	let bottom = border.bottom;
@@ -224,7 +224,7 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border const?) 
 	return none(type<HMM_Vec3>)
 }
 
-def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border const?, quad: uint64, appleMat: uint64) {
+def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border, quad: uint64, appleMat: uint64) {
 	let newPos = getNewApplePosition(snakeBodyPoses, border);
     if (newPos |> is_none) {
         return default<Entity>;
@@ -235,7 +235,7 @@ def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border:
 	return apple;
 }
 
-def createEntities(var cmd: CommandBuffer, border: Border const?, resources: SnakeResources const?) {
+def createEntities(var cmd: CommandBuffer, border: Border, resources: SnakeResources) {
     cmd |> set_singleton(SnakeGame(playing = true))
 	cmd |> set_singleton(Score(value = 0))
 	let (snake, poses) = createSnake(cmd, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0.0, 0.0, 0.0));
@@ -271,7 +271,7 @@ def createBorder(var cmd: CommandBuffer, quad: uint64, borderMat: uint64, up: in
 	return border;
 }
 
-def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&) {
+def getInputDirection(input: SnakeInput, keyboardState: KeyboardState) {
 	let lastRight = keyboardState.lastKeys[input.rightKey] != uint8(0)
 	let lastUp = keyboardState.lastKeys[input.upKey] != uint8(0)
 	let lastLeft = keyboardState.lastKeys[input.leftKey] != uint8(0)
@@ -300,7 +300,7 @@ def getInputDirection(input: SnakeInput, keyboardState: KeyboardState&) {
 }
 
 [system(phase="init")]
-def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
+def loadSnakeResources(var res: Res<ResourceManager>; var cmd: CommandBuffer) {
     print("load resource!\n")
 
 	var blend_attachments = CGPUBlendAttachmentState(
@@ -330,7 +330,7 @@ def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
 		front_face	= ECGPUFrontFace.CGPU_FRONT_FACE_CLOCK_WISE,
 	);
 
-    let resMan = res.get()
+    var resMan: ResourceManager& = res.get()
     let shader = load_shader(resMan, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state)
 
 	let quad = load_mesh(resMan, "media/models/Quad.obj");
@@ -373,12 +373,12 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<
 	let right: int = 21
 
 	let border = createBorder(cmd, resources.quad, resources.boardMat, up, bottom, left, right);
-    createEntities(cmd, unsafe(addr(border)), resources)
+    createEntities(cmd, border, resources)
 }
 
 [system(phase="update")]
-def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState const>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
-    let keyInput = getInputDirection(input, deref(resKeyboardState.get()))
+def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
+    let keyInput = getInputDirection(input, resKeyboardState.get())
     if (keyInput |> is_some) {
         let value = keyInput |> unwrap
         if (!isOpposite(direction.value, value)) {
@@ -389,7 +389,7 @@ def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState const>; input: Sn
 }
 
 [system(phase="update")]
-def scheduleSnakeMoveSystem(context: Res<UpdateContext const>, var snakeMoveWriter: EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
+def scheduleSnakeMoveSystem(context: Res<UpdateContext>, var snakeMoveWriter: EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
 	move.lastTime += context.get().value.delta_time
 	if (move.lastTime < move.interval) {
         return
@@ -410,7 +410,7 @@ enum ObstacleType {
     Border
 }
 
-def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border const?, applePos: Option<HMM_Vec3>) : ObstacleType {
+def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border, applePos: Option<HMM_Vec3>) : ObstacleType {
     let left = border.left
     let right = border.right
     let bottom = border.bottom

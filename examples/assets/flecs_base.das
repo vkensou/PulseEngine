@@ -18,14 +18,14 @@ def ecs_entity_set(var world: World, entity: Entity, component: auto(T)) {
     }
 }
 
-def ecs_entity_get(var world: World, entity: Entity, component: type<auto(T)>) {
+def ecs_entity_get(var world: World, entity: Entity, component: type<auto(T)>) : T const? {
     unsafe {
         let p = get_component(world, entity, ecs_component(world, type<T>))
         return reinterpret<T?>(p)
     }
 }
 
-def ecs_entity_get_mut(var world: World, entity: Entity, var component: type<auto(T)>) {
+def ecs_entity_get_mut(var world: World, entity: Entity, var component: type<auto(T)>) : T? {
     unsafe {
         let p = get_mut_component(world, entity, ecs_component(world, type<T>))
         return reinterpret<T?>(p)

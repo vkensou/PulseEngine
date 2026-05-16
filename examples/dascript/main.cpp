@@ -425,6 +425,8 @@ struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::
 		: ManagedStructureAnnotation("ResourceManager", ml, "pulse::ResourceManager")
 	{
 	}
+
+	virtual bool canMove() const override { return true; }
 };
 
 MAKE_TYPE_FACTORY(KeyboardState, pulse::KeyboardState);
@@ -436,6 +438,8 @@ struct KeyboardStateAnnotation final : das::ManagedStructureAnnotation<pulse::Ke
 		addField<DAS_BIND_MANAGED_FIELD(lastKeys)>("lastKeys");
 		addField<DAS_BIND_MANAGED_FIELD(currentKeys)>("currentKeys");
 	}
+
+	virtual bool canMove() const override { return true; }
 };
 
 MAKE_TYPE_FACTORY(UpdateContext, pulse::UpdateContext);
@@ -539,40 +543,40 @@ namespace das
 	template <> struct WrapType<HMM_Quat> { enum { value = true }; typedef HMM_Quat type; typedef HMM_Quat rettype; };
 }
 
-size_t load_shader(pulse::ResourceManager* resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+size_t load_shader(pulse::ResourceManager& resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 {
-	auto shader = oval_create_shader(resourceManager->device, vertPath, fragPath, blend_desc, depth_desc, rasterizer_state);
-	auto index = resourceManager->shaders.size();
-	resourceManager->shaders.push_back(shader);
+	auto shader = oval_create_shader(resourceManager.device, vertPath, fragPath, blend_desc, depth_desc, rasterizer_state);
+	auto index = resourceManager.shaders.size();
+	resourceManager.shaders.push_back(shader);
 	return index;
 }
 
-size_t load_mesh(pulse::ResourceManager* resourceManager, const char* path)
+size_t load_mesh(pulse::ResourceManager& resourceManager, const char* path)
 {
-	auto mesh = oval_load_mesh(resourceManager->device, path);
-	int index = resourceManager->meshes.size();
-	resourceManager->meshes.push_back(mesh);
+	auto mesh = oval_load_mesh(resourceManager.device, path);
+	int index = resourceManager.meshes.size();
+	resourceManager.meshes.push_back(mesh);
 	return index;
 }
 
-size_t create_material(pulse::ResourceManager* resourceManager, size_t shaderIndex, das::Context* context, das::LineInfoArg* at)
+size_t create_material(pulse::ResourceManager& resourceManager, size_t shaderIndex, das::Context* context, das::LineInfoArg* at)
 {
-	if (shaderIndex >= resourceManager->shaders.size())
+	if (shaderIndex >= resourceManager.shaders.size())
 		context->throw_error_at(at, "shader index(%lld) out of range", shaderIndex);
 
-	auto shader = resourceManager->shaders[shaderIndex];
-	auto material = oval_create_material(resourceManager->device, shader);
-	int index = resourceManager->materials.size();
-	resourceManager->materials.push_back(material);
+	auto shader = resourceManager.shaders[shaderIndex];
+	auto material = oval_create_material(resourceManager.device, shader);
+	int index = resourceManager.materials.size();
+	resourceManager.materials.push_back(material);
 	return index;
 }
 
-void material_bind_buffer(pulse::ResourceManager* resourceManager, size_t materialIndex, int set, int bind, int size, void* ptr, das::Context* context, das::LineInfoArg* at)
+void material_bind_buffer(pulse::ResourceManager& resourceManager, size_t materialIndex, int set, int bind, int size, void* ptr, das::Context* context, das::LineInfoArg* at)
 {
-	if (materialIndex >= resourceManager->materials.size())
+	if (materialIndex >= resourceManager.materials.size())
 		context->throw_error_at(at, "material index(%lld) out of range", materialIndex);
 
-	auto material = resourceManager->materials[materialIndex];
+	auto material = resourceManager.materials[materialIndex];
 	material->bindBuffer(set, bind, size, ptr);
 }
 
