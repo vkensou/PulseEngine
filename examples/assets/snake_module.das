@@ -180,7 +180,7 @@ def random_range(var seed : int4&, min: int, max: int) {
     return value
 }
 
-def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
+def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border const?) {
 	let left = border.left;
 	let right = border.right;
 	let bottom = border.bottom;
@@ -224,7 +224,7 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
 	return none(type<HMM_Vec3>)
 }
 
-def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border, quad: uint64, appleMat: uint64) {
+def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border const?, quad: uint64, appleMat: uint64) {
 	let newPos = getNewApplePosition(snakeBodyPoses, border);
     if (newPos |> is_none) {
         return default<Entity>;
@@ -235,7 +235,7 @@ def createApple(var cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border:
 	return apple;
 }
 
-def createEntities(var cmd: CommandBuffer, border: Border, resources: SnakeResources) {
+def createEntities(var cmd: CommandBuffer, border: Border const?, resources: SnakeResources const?) {
     cmd |> set_singleton(SnakeGame(playing = true))
 	cmd |> set_singleton(Score(value = 0))
 	let (snake, poses) = createSnake(cmd, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0.0, 0.0, 0.0));
@@ -364,7 +364,7 @@ def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
 }
 
 [system(phase="init")]
-def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<SnakeResources const>) {
+def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<SnakeResources>) {
     print("resource loaded!\n")
     let resources = resources_query.get()
     let up: int = 16
@@ -373,7 +373,7 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<
 	let right: int = 21
 
 	let border = createBorder(cmd, resources.quad, resources.boardMat, up, bottom, left, right);
-    createEntities(cmd, border, resources)
+    createEntities(cmd, unsafe(addr(border)), resources)
 }
 
 [system(phase="update")]
@@ -410,7 +410,7 @@ enum ObstacleType {
     Border
 }
 
-def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border, applePos: Option<HMM_Vec3>) : ObstacleType {
+def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border const?, applePos: Option<HMM_Vec3>) : ObstacleType {
     let left = border.left
     let right = border.right
     let bottom = border.bottom
@@ -481,7 +481,7 @@ def eatAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, var cmd: Command
 }
 
 [system]
-def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, scoreQuery: SingletonQuery<Score>) {
+def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, var scoreQuery: SingletonQuery<Score>) {
     scoreQuery.get().value += 1
 }
 

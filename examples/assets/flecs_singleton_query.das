@@ -8,14 +8,16 @@ require flecs_base public
 
 [template_structure(T)]
 struct template SingletonQuery {
-    @safe_when_uninitialized world : World
-    @safe_when_uninitialized singleton_holder : Entity
+    comp_ptr : T?
+    const_comp_ptr : T const?
 
     [class_method]
-    def static const get() : T& {
-        unsafe {
-            let ptr = get_component(self.world, self.singleton_holder, ecs_component(self.world, type<T>))
-            return *reinterpret<T?>(ptr)
-        }
+    def static const get() : T const? {
+        return const_comp_ptr
+    }
+
+    [class_method]
+    def static get() : T? {
+        return comp_ptr
     }
 }

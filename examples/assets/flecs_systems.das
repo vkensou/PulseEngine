@@ -82,8 +82,16 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 return false
             }
             if (single_query_result) {
+                let single_query_ptr_name = "single_query_ptr{arg_index}"
                 let single_query_name = "single_query{arg_index}"
-                wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
+                let is_const = arg._type.flags.constant
+                if (is_const) {
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(single_query_ptr_name) = ecs_entity_get(world, get_single_holder(world), type<$t(single_query_generic_type)>); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(single_query_name) = struct<$t(arg._type)>(const_comp_ptr = $i(single_query_ptr_name)); })
+                } else {
+                    wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_ptr_name) = ecs_entity_get_mut(world, get_single_holder(world), type<$t(single_query_generic_type)>); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(comp_ptr = $i(single_query_ptr_name)); })
+                }
                 wrapper_fn_call_args |> push <| qmacro($i(single_query_name))
                 continue
             }
@@ -301,13 +309,13 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return (false, default<TypeDeclPtr>, "")
         }
 
-        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
-            var cloned = clone_type(arg_type)
-            cloned.flags.constant = true
-            cloned.flags.removeConstant = false
-            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
-            system parameter of type SingletonQuery<T> cannot be declared with 'var'; remove 'var' keyword")
-        }
+        // if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+        //     var cloned = clone_type(arg_type)
+        //     cloned.flags.constant = true
+        //     cloned.flags.removeConstant = false
+        //     return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+        //     system parameter of type SingletonQuery<T> cannot be declared with 'var'; remove 'var' keyword")
+        // }
 
         if (length(arg_type.dimExpr) < 2) {
             return (false, default<TypeDeclPtr>, "expecting 'SingletonQuery<T>', got 'SingletonQuery<>'

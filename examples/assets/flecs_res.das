@@ -13,4 +13,9 @@ struct template Res {
     def static const get() : T? const {
         return value_ptr
     }
+
+    [class_method]
+    def static get() : T? {
+        return value_ptr
+    }
 }
