@@ -66,10 +66,9 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 let res_ptr_name = "res_ptr{arg_index}"
                 let res_name = "res{arg_index}"
                 let is_const = arg._type.flags.constant
-                print("restype:{describe(arg._type)}\n")
                 if (is_const) {
                     wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_ptr_name) = ecs_get_res(world, type<$t(res_generic_type)>); })
-                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name): $t(arg._type) = struct<$t(arg._type)>(const_value_ptr = $i(res_ptr_name)); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name): $t(arg._type) = struct<$t(arg._type)>(value_ptr = unsafe(reinterpret<$t(res_generic_type)?>($i(res_ptr_name)))); })
                 } else {
                     wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(res_generic_type)>); })
                     wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_name): $t(arg._type) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
@@ -89,7 +88,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 let is_const = arg._type.flags.constant
                 if (is_const) {
                     wrapper_fn_body |> push <| qmacro_expr(${ let $i(single_query_ptr_name) = ecs_entity_get(world, get_single_holder(world), type<$t(single_query_generic_type)>); })
-                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(single_query_name) = struct<$t(arg._type)>(const_comp_ptr = $i(single_query_ptr_name)); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(single_query_name) = struct<$t(arg._type)>(comp_ptr = unsafe(reinterpret<$t(single_query_generic_type)?>($i(single_query_ptr_name)))); })
                 } else {
                     wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_ptr_name) = ecs_entity_get_mut(world, get_single_holder(world), type<$t(single_query_generic_type)>); })
                     wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(comp_ptr = $i(single_query_ptr_name)); })
