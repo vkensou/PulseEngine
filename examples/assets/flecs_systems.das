@@ -57,7 +57,11 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let (res_result, res_generic_type) = is_res_type(arg._type)
+            let (res_result, res_generic_type, res_error_message) = is_res_type(arg)
+            if (res_error_message != "") {
+                errors := res_error_message
+                return false
+            }
             if (res_result) {
                 let res_ptr_name = "res_ptr{arg_index}"
                 let res_name = "res{arg_index}"
@@ -247,27 +251,41 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return type_name == "flecs_boost::CommandBuffer const" || type_name == "flecs_boost::CommandBuffer" || type_name == "flecs_boost::CommandBuffer -const"
     }
 
-    def is_res_type(arg_type : TypeDeclPtr) {
-        if (arg_type.baseType != Type.typeMacro || length(arg_type.dimExpr) != 2) {
-            return (false, default<TypeDeclPtr>)
-        }
-
-        if (!(arg_type.dimExpr[0] is ExprConstString)) {
-            return (false, default<TypeDeclPtr>)
+    def is_res_type(arg: VariablePtr) {
+        let arg_type = arg._type
+        if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
+            return (false, default<TypeDeclPtr>, "")
         }
 
         let macroExpr = arg_type.dimExpr[0] as ExprConstString
         let macroName = string(macroExpr.value)
 
         if (macroName != ("Res")) {
-            return (false, default<TypeDeclPtr>)
+            return (false, default<TypeDeclPtr>, "")
+        }
+
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            print("{arg}\n")
+            print("{describe(arg)}\n")
+            print("{arg_type}\n")
+            print("{describe(arg_type)}\n")
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type Res<T> cannot be declared with 'var'; remove 'var' keyword")
+        }
+
+        if (length(arg_type.dimExpr) < 2) {
+            return (false, default<TypeDeclPtr>, "expecting 'Res<T>', got 'Res<>'
+            Res<T> requires a type parameter, e.g. Res<ResourceManager>")
         }
 
         if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {
-            return (false, default<TypeDeclPtr>)
+            return (false, default<TypeDeclPtr>, "Res<T> requires a type param, but {describe(arg_type.dimExpr[1])} is not a Type")
         }
 
-        return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr)
+        return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
     def is_single_query_type(arg_type : TypeDeclPtr) {
