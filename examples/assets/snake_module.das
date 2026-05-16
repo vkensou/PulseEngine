@@ -364,7 +364,7 @@ def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
 }
 
 [system(phase="init")]
-def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<SnakeResources>) {
+def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<SnakeResources const>) {
     print("resource loaded!\n")
     let resources = resources_query.get()
     let up: int = 16
@@ -434,7 +434,7 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 }
 
 [system]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: Query2<IsApple, Position>, borderQuery: SingletonQuery<Border>, resources: SingletonQuery<SnakeResources>, var gameOverEvent: EventWriter<GameOverEvent>, var appleEatenEvent: EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: Query2<IsApple, Position>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>, var gameOverEvent: EventWriter<GameOverEvent>, var appleEatenEvent: EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
     let event = snakeMoveIntentEvent.read()
     let delta = event.delta
 
@@ -481,12 +481,12 @@ def eatAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, var cmd: Command
 }
 
 [system]
-def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, var scoreQuery: SingletonQuery<Score>) {
+def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, scoreQuery: SingletonQuery<Score>) {
     scoreQuery.get().value += 1
 }
 
 [system]
-def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, var cmd: CommandBuffer, var snakeQuery: Query1<SnakeBodies>, borderQuery: SingletonQuery<Border>, resources: SingletonQuery<SnakeResources>) {
+def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, var cmd: CommandBuffer, var snakeQuery: Query1<SnakeBodies>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
 	let (snakeEnt, snakeBodies) = snakeQuery.first()
     var poses: array<HMM_Vec3>;
 	for (i in 0..length(snakeBodies.bodies))
@@ -520,7 +520,7 @@ def onImguiSystem(snakeGame: SnakeGame, score: Score, var restartEvent: EventWri
 }
 
 [system]
-def restartSystem(var restartEvent: EventReader<RestartEvent>, var cmd: CommandBuffer, borderQuery: SingletonQuery<Border>, resources: SingletonQuery<SnakeResources>) {
+def restartSystem(var restartEvent: EventReader<RestartEvent>, var cmd: CommandBuffer, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
 	createEntities(cmd, borderQuery.get(), resources.get());
     cmd |> set_singleton(SnakeGame(playing = true))
 }
