@@ -76,7 +76,11 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let (single_query_result, single_query_generic_type) = is_single_query_type(arg._type)
+            let (single_query_result, single_query_generic_type, single_query_error_message) = is_single_query_type(arg)
+            if (single_query_error_message != "") {
+                errors := single_query_error_message
+                return false
+            }
             if (single_query_result) {
                 let single_query_name = "single_query{arg_index}"
                 wrapper_fn_body |> push <| qmacro_expr(${ var $i(single_query_name) = struct<$t(arg._type)>(world = world, singleton_holder = get_single_holder(world)); })
@@ -265,10 +269,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         }
 
         if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
-            print("{arg}\n")
-            print("{describe(arg)}\n")
-            print("{arg_type}\n")
-            print("{describe(arg_type)}\n")
             var cloned = clone_type(arg_type)
             cloned.flags.constant = true
             cloned.flags.removeConstant = false
@@ -288,30 +288,37 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_single_query_type(arg_type : TypeDeclPtr) {
-        let type_name = string(describe(arg_type))
-        let i1 = find(type_name, "$SingletonQuery(type<")
-        if (i1 != 0) {
-            return (false, "");
-        }
-        let len = length(type_name)
-
-        let i2 = last_index_of(type_name, ">) const")
-        if (i2 + 8 == len) {
-            return (true, slice(type_name, 20, i2))
+    def is_single_query_type(arg: VariablePtr) {
+        let arg_type = arg._type
+        if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
+            return (false, default<TypeDeclPtr>, "")
         }
 
-        let i3 = last_index_of(type_name, ">) -const")
-        if (i3 + 9 == len) {
-            return (true, slice(type_name, 20, i3))
+        let macroExpr = arg_type.dimExpr[0] as ExprConstString
+        let macroName = string(macroExpr.value)
+
+        if (macroName != "SingletonQuery") {
+            return (false, default<TypeDeclPtr>, "")
         }
 
-        let i4 = last_index_of(type_name, ">)")
-        if (i4 + 2 == len) {
-            return (true, slice(type_name, 20, i4))
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type SingletonQuery<T> cannot be declared with 'var'; remove 'var' keyword")
         }
 
-        return (false, "");
+        if (length(arg_type.dimExpr) < 2) {
+            return (false, default<TypeDeclPtr>, "expecting 'SingletonQuery<T>', got 'SingletonQuery<>'
+            SingletonQuery<T> requires a type parameter, e.g. SingletonQuery<Score>")
+        }
+
+        if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {
+            return (false, default<TypeDeclPtr>, "SingletonQuery<T> requires a type param, but {describe(arg_type.dimExpr[1])} is not a Type")
+        }
+
+        return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
     def is_event_writer_type(arg_type : TypeDeclPtr) {
