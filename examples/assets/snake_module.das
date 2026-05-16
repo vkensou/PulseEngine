@@ -109,7 +109,7 @@ struct Border
 	up, bottom, left, right: int;
 };
 
-def pulse_material_bind_buffer(var resourceManager: ResourceManager?, material: uint64, set: int, bind: int, buffer: auto(T))
+def pulse_material_bind_buffer(resourceManager: ResourceManager?, material: uint64, set: int, bind: int, buffer: auto(T))
 {
     material_bind_buffer(resourceManager, material, set, bind, typeinfo sizeof(type<T>), unsafe(addr(buffer)))
 }
@@ -330,7 +330,7 @@ def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
 		front_face	= ECGPUFrontFace.CGPU_FRONT_FACE_CLOCK_WISE,
 	);
 
-    var resMan = res.get()
+    let resMan = res.get()
     let shader = load_shader(resMan, "shaderbin/color.vert.spv", "shaderbin/color.frag.spv", blend_desc, depth_desc, rasterizer_state)
 
 	let quad = load_mesh(resMan, "media/models/Quad.obj");

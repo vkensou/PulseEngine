@@ -10,9 +10,7 @@ struct template Res {
     value_ptr : T?
 
     [class_method]
-    def static const get() : T? {
-        unsafe {
-            return reinterpret<T?>(value_ptr)
-        }
+    def static const get() : T? const {
+        return value_ptr
     }
 }
