@@ -28,16 +28,14 @@ def system_term_inout(var world : World; t : type<auto(T)>) {
 
 struct CommandBuffer {
     @safe_when_uninitialized world : World
+}
 
-    [class_method]
-    def static entity() : Entity {
-        return create_entity(self.world)
-    }
+def entity(self: CommandBuffer) {
+    return ecs_entity_create(self.world)
+}
 
-    [class_method]
-    def static destruct(entity: Entity) {
-        destruct_entity(self.world, entity)
-    }
+def destruct(self: CommandBuffer; entity: Entity) {
+    ecs_entity_destruct(self.world, entity)
 }
 
 def set_singleton(self: CommandBuffer; component: auto(T)) {
@@ -46,6 +44,14 @@ def set_singleton(self: CommandBuffer; component: auto(T)) {
 
 def set_entity_component(self: CommandBuffer; entity: Entity; component: auto(T)) {
     ecs_entity_set(self.world, entity, component)
+}
+
+def private ecs_entity_create(var world: World) {
+    return create_entity(world)
+}
+
+def private ecs_entity_destruct(var world: World, entity: Entity) {
+    destruct_entity(world, entity)
 }
 
 def ecs_observe(var world: World, callback: function<(var iter: Iter?):void>, eventType: type<auto(EventType)>) {
