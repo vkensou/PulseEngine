@@ -7,7 +7,7 @@ require daslib/class_boost
 
 [template_structure(T)]
 struct template EventReader {
-    value : T
+    value : T const
 
     [class_method]
     def static const read() : T& {

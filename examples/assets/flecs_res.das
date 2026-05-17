@@ -10,14 +10,7 @@ struct template Res {
     value_ptr : T?
 
     [class_method]
-    def static const get() : T const& {
-        unsafe {
-            return *value_ptr
-        }
-    }
-
-    [class_method]
-    def static get() : T& {
+    def static const get() : T& {
         unsafe {
             return *value_ptr
         }

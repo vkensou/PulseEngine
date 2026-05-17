@@ -277,6 +277,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             return (false, default<TypeDeclPtr>, "")
         }
 
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type Res<T> cannot be declared with 'var'; remove 'var' keyword")
+        }
+
         if (length(arg_type.dimExpr) < 2) {
             return (false, default<TypeDeclPtr>, "expecting 'Res<T>', got 'Res<>'
             Res<T> requires a type parameter, e.g. Res<ResourceManager>")
@@ -300,6 +308,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
         if (macroName != "SingletonQuery") {
             return (false, default<TypeDeclPtr>, "")
+        }
+
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type SingletonQuery<T> cannot be declared with 'var'; remove 'var' keyword")
         }
 
         if (length(arg_type.dimExpr) < 2) {

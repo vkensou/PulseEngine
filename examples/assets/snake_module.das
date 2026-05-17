@@ -300,7 +300,7 @@ def getInputDirection(input: SnakeInput, keyboardState: KeyboardState) {
 }
 
 [system(phase="init")]
-def loadSnakeResources(var res: Res<ResourceManager>; var cmd: CommandBuffer) {
+def loadSnakeResources(res: Res<ResourceManager>; var cmd: CommandBuffer) {
     print("load resource!\n")
 
 	var blend_attachments = CGPUBlendAttachmentState(
@@ -364,7 +364,7 @@ def loadSnakeResources(var res: Res<ResourceManager>; var cmd: CommandBuffer) {
 }
 
 [system(phase="init")]
-def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<SnakeResources>) {
+def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<SnakeResources const>) {
     print("resource loaded!\n")
     let resources = resources_query.get()
     let up: int = 16
@@ -377,7 +377,7 @@ def initSnakeGameSystem(var cmd: CommandBuffer, resources_query: SingletonQuery<
 }
 
 [system(phase="update")]
-def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
+def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState const>; input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
     let keyInput = getInputDirection(input, resKeyboardState.get())
     if (keyInput |> is_some) {
         let value = keyInput |> unwrap
@@ -389,7 +389,7 @@ def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState>; input: SnakeInp
 }
 
 [system(phase="update")]
-def scheduleSnakeMoveSystem(context: Res<UpdateContext>, var snakeMoveWriter: EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
+def scheduleSnakeMoveSystem(context: Res<UpdateContext const>, var snakeMoveWriter: EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
 	move.lastTime += context.get().value.delta_time
 	if (move.lastTime < move.interval) {
         return
@@ -481,7 +481,7 @@ def eatAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, var cmd: Command
 }
 
 [system]
-def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, var scoreQuery: SingletonQuery<Score>) {
+def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, scoreQuery: SingletonQuery<Score>) {
     scoreQuery.get().value += 1
 }
 
@@ -520,7 +520,7 @@ def onImguiSystem(snakeGame: SnakeGame, score: Score, var restartEvent: EventWri
 }
 
 [system]
-def restartSystem(var restartEvent: EventReader<RestartEvent>, var cmd: CommandBuffer, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
+def restartSystem(restartEvent: EventReader<RestartEvent>, var cmd: CommandBuffer, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
 	createEntities(cmd, borderQuery.get(), resources.get());
     cmd |> set_singleton(SnakeGame(playing = true))
 }
