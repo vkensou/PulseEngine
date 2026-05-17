@@ -106,13 +106,16 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let (event_reader_result, event_reader_generic_type) = is_event_reader_type(arg._type)
+            let (event_reader_result, event_reader_generic_type, event_reader_error_message) = is_event_reader_type(arg)
+            if (event_reader_error_message != "") {
+                errors := event_reader_error_message
+                return false
+            }
             if (event_reader_result) {
                 is_event_system = true
-                var eventT = new TypeDecl(baseType = Type.alias, alias := event_reader_generic_type)
-                wrapper_fn_body |> push <| qmacro_expr(${ var event_reader = struct<$t(arg._type)>(value = iter.param != null ? deref(unsafe(reinterpret<$t(eventT)?>(iter.param))) : default<$t(eventT)>); })
+                wrapper_fn_body |> push <| qmacro_expr(${ let event_reader = struct<$t(arg._type)>(value = iter.param != null ? deref(unsafe(reinterpret<$t(event_reader_generic_type)?>(iter.param))) : default<$t(event_reader_generic_type)>); })
                 wrapper_fn_call_args |> push <| qmacro(event_reader)
-                event_register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).event_id = ecs_component(ctx.world, type<$t(eventT)>); })
+                event_register_fn_body_exprs |> push <| qmacro_expr(${ $i(desc_name).event_id = ecs_component(ctx.world, type<$t(event_reader_generic_type)>); })
                 continue
             }
 
@@ -356,30 +359,37 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (false, "");
     }
 
-    def is_event_reader_type(arg_type : TypeDeclPtr) {
-        let type_name = string(describe(arg_type))
-        let i1 = find(type_name, "$EventReader(type<")
-        if (i1 != 0) {
-            return (false, "");
-        }
-        let len = length(type_name)
-
-        let i2 = last_index_of(type_name, ">) const")
-        if (i2 + 8 == len) {
-            return (true, slice(type_name, 18, i2))
+    def is_event_reader_type(arg: VariablePtr) {
+        let arg_type = arg._type
+        if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
+            return (false, default<TypeDeclPtr>, "")
         }
 
-        let i3 = last_index_of(type_name, ">) -const")
-        if (i3 + 9 == len) {
-            return (true, slice(type_name, 18, i3))
+        let macroExpr = arg_type.dimExpr[0] as ExprConstString
+        let macroName = string(macroExpr.value)
+
+        if (macroName != ("EventReader")) {
+            return (false, default<TypeDeclPtr>, "")
         }
 
-        let i4 = last_index_of(type_name, ">)")
-        if (i4 + 2 == len) {
-            return (true, slice(type_name, 18, i4))
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type EventReader<T> cannot be declared with 'var'; remove 'var' keyword")
         }
 
-        return (false, "");
+        if (length(arg_type.dimExpr) < 2) {
+            return (false, default<TypeDeclPtr>, "expecting 'EventReader<T>', got 'EventReader<>'
+            EventReader<T> requires a type parameter, e.g. EventReader<ResourceManager>")
+        }
+
+        if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {
+            return (false, default<TypeDeclPtr>, "EventReader<T> requires a type param, but {describe(arg_type.dimExpr[1])} is not a Type")
+        }
+
+        return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
     def is_query_type(arg_type : TypeDeclPtr) {
