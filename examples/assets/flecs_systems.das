@@ -97,11 +97,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let (event_writer_result, event_writer_generic_type) = is_event_writer_type(arg._type)
+            let (event_writer_result, event_writer_generic_type, event_writer_error_message) = is_event_writer_type(arg)
+            if (event_writer_error_message != "") {
+                errors := event_writer_error_message
+                return false
+            }
             if (event_writer_result) {
                 let event_writer_name = "event_writer{arg_index}"
-                var eventT = new TypeDecl(baseType = Type.alias, alias := event_writer_generic_type)
-                wrapper_fn_body |> push <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = real_world, singleton_holder = get_single_holder(real_world), event_id = ecs_component(real_world, type<$t(eventT)>), event_tag = get_event_tag(real_world)); })
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(event_writer_name) = struct<$t(arg._type)>(world = real_world, event_id = ecs_component(real_world, type<$t(event_writer_generic_type)>)); })
                 wrapper_fn_call_args |> push <| qmacro($i(event_writer_name))
                 continue
             }
@@ -333,30 +336,37 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_event_writer_type(arg_type : TypeDeclPtr) {
-        let type_name = string(describe(arg_type))
-        let i1 = find(type_name, "$EventWriter(type<")
-        if (i1 != 0) {
-            return (false, "");
-        }
-        let len = length(type_name)
-
-        let i2 = last_index_of(type_name, ">) const")
-        if (i2 + 8 == len) {
-            return (true, slice(type_name, 18, i2))
+    def is_event_writer_type(arg: VariablePtr) {
+        let arg_type = arg._type
+        if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
+            return (false, default<TypeDeclPtr>, "")
         }
 
-        let i3 = last_index_of(type_name, ">) -const")
-        if (i3 + 9 == len) {
-            return (true, slice(type_name, 18, i3))
+        let macroExpr = arg_type.dimExpr[0] as ExprConstString
+        let macroName = string(macroExpr.value)
+
+        if (macroName != ("EventWriter")) {
+            return (false, default<TypeDeclPtr>, "")
         }
 
-        let i4 = last_index_of(type_name, ">)")
-        if (i4 + 2 == len) {
-            return (true, slice(type_name, 18, i4))
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, default<TypeDeclPtr>, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type EventWriter<T> cannot be declared with 'var'; remove 'var' keyword")
         }
 
-        return (false, "");
+        if (length(arg_type.dimExpr) < 2) {
+            return (false, default<TypeDeclPtr>, "expecting 'EventWriter<T>', got 'EventWriter<>'
+            EventWriter<T> requires a type parameter, e.g. EventWriter<AppleEatenEvent>")
+        }
+
+        if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {
+            return (false, default<TypeDeclPtr>, "EventWriter<T> requires a type param, but {describe(arg_type.dimExpr[1])} is not a Type")
+        }
+
+        return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
     def is_event_reader_type(arg: VariablePtr) {
@@ -382,7 +392,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
         if (length(arg_type.dimExpr) < 2) {
             return (false, default<TypeDeclPtr>, "expecting 'EventReader<T>', got 'EventReader<>'
-            EventReader<T> requires a type parameter, e.g. EventReader<ResourceManager>")
+            EventReader<T> requires a type parameter, e.g. EventReader<AppleEatenEvent>")
         }
 
         if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {

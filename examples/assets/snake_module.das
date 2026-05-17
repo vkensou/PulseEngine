@@ -389,7 +389,7 @@ def handleSnakeInputSystem(resKeyboardState: Res<KeyboardState const>; input: Sn
 }
 
 [system(phase="update")]
-def scheduleSnakeMoveSystem(context: Res<UpdateContext const>, var snakeMoveWriter: EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
+def scheduleSnakeMoveSystem(context: Res<UpdateContext const>, snakeMoveWriter: EventWriter<SnakeMoveIntentEvent> , entity: Entity, direction: Facing4W, var move: SnakeMove) {	
 	move.lastTime += context.get().value.delta_time
 	if (move.lastTime < move.interval) {
         return
@@ -434,7 +434,7 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 }
 
 [system]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: Query2<IsApple, Position>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>, var gameOverEvent: EventWriter<GameOverEvent>, var appleEatenEvent: EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, var cmd: CommandBuffer, var appleQuery: Query2<IsApple, Position>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>, gameOverEvent: EventWriter<GameOverEvent>, appleEatenEvent: EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
     let event = snakeMoveIntentEvent.read()
     let delta = event.delta
 
@@ -505,7 +505,7 @@ def onGameOverSystem(eventGameOver: EventReader<GameOverEvent>, var cmd: Command
 }
 
 [system(phase="imgui")]
-def onImguiSystem(snakeGame: SnakeGame, score: Score, var restartEvent: EventWriter<RestartEvent>) {
+def onImguiSystem(snakeGame: SnakeGame, score: Score, restartEvent: EventWriter<RestartEvent>) {
 	if (snakeGame.playing)
 	{
 		Text("{score.value}");
