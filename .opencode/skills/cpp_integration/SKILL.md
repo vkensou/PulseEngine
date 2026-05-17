@@ -148,6 +148,67 @@ addExtern<DAS_CALL_METHOD(method_get)>(*this, lib, "get",
 - **Const methods**: `SideEffects::none`
 - `DAS_CALL_MEMBER_CPP(Class::method)` provides the AOT-compatible name string
 
+## Binding `std::shared_ptr<T>` — `Handle<T>` + `HandleRegistry`
+
+Use this pattern when the C++ type is already owned by `std::shared_ptr` and you cannot or do not want to retrofit `ptr_ref_count`. This is how `modules/dasHV` exposes `WebSocketClient`, `WebSocketServer`, `HttpServer`, etc. See `tutorials/integration/cpp/23_handle_registry.cpp` for a self-contained example.
+
+**Headers:**
+```cpp
+#include "daScript/misc/handle_registry.h"   // Handle<T>, HandleRegistry<T>
+#include "daScript/ast/ast_handle.h"         // ManagedHandleAnnotation, addHandleAnnotation, cast<Handle<T>>
+```
+
+**File-scope `typeName<T>` — REQUIRED.** The leak-dump path reads `typeName<T>::name()` on the inner type. Without this you get `error C2027: use of undefined type 'das::typeName<T>'` at the `addHandleAnnotation` call site. Use `MAKE_TYPE_FACTORY(MyType, MyType)` for single-TU types, or `MAKE_EXTERNAL_TYPE_FACTORY` / `IMPLEMENT_EXTERNAL_TYPE_FACTORY` when split across header/cpp (dasHV uses the external pair).
+
+**One-call registration:**
+```cpp
+MAKE_TYPE_FACTORY(MyType, MyType)     // at file scope
+
+addHandleAnnotation<MyType>(this, lib, "MyType",
+    "destroy_my_type",                // optional daslang destructor
+    "das::Handle<MyType>");           // C++ name AOT emits into stubs
+```
+Registers the annotation **plus** `==`, `!=`, `is_alive`, and (if `destroyFnName` is non-empty) the release helper. Also installs a per-T leak-dump hook via `handleRegistry_registerDump` — `Module::Shutdown(bool dumpHandleLeaks = true)` calls `handleRegistry_dumpAll()` directly; pass `false` to suppress leak output (CI use).
+
+**Factory (acquire) and method (lookup) patterns:**
+```cpp
+Handle<MyType> make_my_type(const char * n) {
+    auto sp = std::make_shared<MyType>(n);
+    return HandleRegistry<MyType>::instance().acquire(sp);
+}
+int my_type_do_thing(Handle<MyType> h, int arg) {
+    auto p = HandleRegistry<MyType>::instance().lookup(h);
+    if ( !p ) return -1;                       // stale / reused / null handle
+    return p->do_thing(arg);
+}
+```
+`lookup` returns an empty `shared_ptr` for null, stale, or slot-reused handles — the null-check is a **guaranteed** use-after-free guard (generation-checked).
+
+**`HandleRegistry<T>::instance()`** is a per-`T` singleton shared across `daslang.exe` and every `dasModule*.shared_module` DLL — all modules see the same storage. The registry is thread-safe (internal `mutex`).
+
+**`SideEffects` for bound methods — use `modifyExternal`, NOT `modifyArgument`.** `Handle<T>` is passed by value, so `modifyArgument` is rejected at module-registration time (`can't add function ... modify argument requires non-const ref argument`). The handle itself isn't mutated — the Actor/connection/whatever behind it is, which is external state.
+
+**Script side — Handle<T> is a value, not a smart_ptr:**
+- No `var inscope` required — plain `var h = make_my_type(...)`.
+- `==`, `!=`, `is_alive(h)` all work directly.
+- `destroy_my_type(h)` releases **only** the registry's `shared_ptr` — if another owner (your engine) holds a ref, the object survives; the handle becomes dead (`is_alive` → `false`).
+- **No scope-based auto-release** — unlike `smart_ptr<T>`, a handle going out of scope does nothing. Every script-acquired handle must be explicitly destroyed, or it leaks and gets printed at shutdown.
+
+**AOT:** no extra work. `cast<Handle<T>>` in `ast_handle.h` maps directly to `uint64_t`; AOT emits raw register passes. The `cppTypeName` argument is what AOT writes into the generated `.cpp`.
+
+**Leak dump at shutdown:** registered automatically. Use `--no-dump-leaks` on the daslang CLI for CI runs that intentionally exit with live handles.
+
+**When to pick which pattern:**
+
+| | `smart_ptr<T>` (Tutorial 12) | `Handle<T>` (Tutorial 23) |
+|---|---|---|
+| C++ class | must inherit `ptr_ref_count` | unchanged |
+| Primary owner | daslang | C++ engine |
+| Per-copy cost | refcount bump | 64-bit value copy |
+| UAF safety | refcount | generation check |
+| Thread-safe registry | n/a | yes |
+| Script-side syntax | `var inscope p <- ...` | `var h = ...` |
+
 ## Binding operators and properties
 
 **Operators**: register functions with the operator symbol as the daslang name:
@@ -193,15 +254,15 @@ DAS_BASE_BIND_ENUM(CppEnum, DasName, Value1, Value2, Value3)
 using namespace das;
 
 // In module constructor:
-addEnumeration(make_smart<EnumerationDasName>());
+addEnumeration(new EnumerationDasName());
 ```
 
 - `DAS_BASE_BIND_ENUM` creates class `EnumerationDasName` + `typeFactory<CppEnum>`
 - `DAS_BIND_ENUM_CAST(CppEnum)` — explicit `cast<>` specialization (often not needed, SFINAE default suffices)
 - `DAS_BASE_BIND_ENUM_98` — for unscoped (C-style) enums
 - **Critical**: place enum macros BEFORE `using namespace das` — the macros define names inside `namespace das` that collide with global enum names
-- **Name collision pitfall**: `das::LogLevel` is defined internally in `include/daScript/misc/string_writer.h` — do NOT name your enum `LogLevel` when `using namespace das`
-- Manual construction alternative: `make_smart<Enumeration>("Name")` + `pEnum->addIEx("Value", "CppEnum::Value", intValue, LineInfo())`
+- **Name collision pitfall**: `das::LogLevel` is defined internally — do NOT name your enum `LogLevel` when `using namespace das`
+- Manual construction alternative: `new Enumeration("Name")` + `pEnum->addIEx("Value", "CppEnum::Value", intValue, LineInfo())`
 
 ## Low-level interop — `addInterop`
 
@@ -296,3 +357,82 @@ See `skills/aot_testing.md` for the full AOT pipeline and testing infrastructure
 - Non-static methods (`isClassMethod=true`, `isStaticClassMethod=false`) — self is added implicitly during inference; name stays unqualified (e.g. `finalize`, `[]`)
 - `func.moreFlags.propertyFunction` — property accessor (name starts with `.\``)
 - `func.classParent` — pointer to the struct/class that owns the method
+
+## Diagnostic output: `TextPrinter`, never `fprintf(stderr, ...)`
+
+Use `TextPrinter` from `include/daScript/misc/string_writer.h` for any
+diagnostic, log, or leak-dump output — including temporary debug prints.
+
+```cpp
+#include "daScript/misc/string_writer.h"
+TextPrinter tp;
+tp << "leaked " << count << " handles\n";
+```
+
+`fprintf(stderr, ...)` has three concrete problems:
+
+- **No sink override** — `TextPrinter` can be subclassed/redirected;
+  `fprintf` writes wherever the OS `stderr` happens to point.
+- **`stderr` is not available on consoles** (Switch, PlayStation, Xbox)
+  — `TextPrinter` abstracts the output path so platform ports can route
+  the text.
+- **Platform divergence** in general — `TextPrinter` hides the
+  differences.
+
+Applies to permanent diagnostics AND temporary debug prints — don't
+leave `fprintf` scaffolding in the tree even if you plan to remove it.
+Canonical patterns: `src/misc/job_que.cpp` (`JobStatus::DumpJobQueLeaks`)
+and `include/daScript/ast/ast_handle.h` (`dumpHandleLeaks<T>`).
+
+## C-string builtins: guard `!str || !*str`
+
+In daslang, the empty string `""` is represented as `nullptr` at
+runtime. The interpreter always passes `null` for empty strings, but
+when a function is **AOT-compiled and constant-folded**, the C++ AOT
+output may pass an actual `""` (pointer to `'\0'`) instead of `null`.
+
+Any C++ builtin that takes `const char *` must therefore guard:
+
+```cpp
+// Wrong — only catches the interpreter case
+const char * find(const char * str, const char * needle) {
+    if (!str || !needle) return nullptr;
+    ...
+}
+
+// Right — also catches AOT-folded empty strings
+const char * find(const char * str, const char * needle) {
+    if (!str || !*str || !needle || !*needle) return nullptr;
+    ...
+}
+```
+
+Real bug: `strstr("","")` returned `0` (match) instead of `-1` (not
+found), changing semantics between interpreter and AOT. Diagnosed by
+diffing `options log_nodes` output between `daslang.exe` and
+`test_aot.exe` — the constant-folded values differed.
+
+Highest-risk surface: 2-arg overloads (no `Context*` parameter) used in
+constant-foldable expressions — `find`, `rfind`, `contains`, etc.
+
+## Searching C++ — prefer `mcp__cplusplus__*` over Bash/Grep
+
+For navigating C++ in this repo, default to the C++ MCP tools, not
+`Bash grep` / `rg` / the Grep tool. The MCP server builds a real C++
+index (~9k files) that resolves symbols, call graphs, class hierarchies,
+and overrides — plain text search misses overloads, virtual dispatch,
+macro-defined names, and cross-file relationships.
+
+- **First call of a session:** `mcp__cplusplus__set_project_directory`
+  with `d:\Work\daScript` (required before any other C++ MCP call).
+- **Refresh on demand:** `mcp__cplusplus__refresh_project` after
+  significant edits or when switching branches.
+- **Tool picks:**
+  - `search_symbols` / `search_functions` / `search_classes` — find by name
+  - `find_callers` / `find_callees` / `get_call_path` — call graphs
+  - `get_class_info` / `get_class_hierarchy` / `get_derived_classes` — OOP structure
+  - `get_function_signature` — exact signature including overloads
+  - `find_in_file` — scoped, symbol-aware file search
+- **Fall back to `Grep` only for:** string literals, comments, non-C++
+  files (CMake, shell, docs), or when the index is stale and refresh
+  is too slow.
