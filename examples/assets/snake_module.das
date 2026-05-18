@@ -1,6 +1,6 @@
 options gen2
 
-require flecs_boost
+require pulse/flecs_boost
 require pulse
 require cgpu
 require daslib/random
