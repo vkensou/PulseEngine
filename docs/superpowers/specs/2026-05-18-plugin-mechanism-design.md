@@ -27,7 +27,6 @@
 |------|------|
 | App 生命周期 | create / destroy / run / update |
 | Plugin 注册 | `pulse_plugin_desc` + build/ready/finish/cleanup 生命周期 |
-| PluginGroup | 简单列表模式（有序 plugin desc 数组） |
 | SubApp | 创建/挂载/查询/移除子 App |
 | Runner 机制 | 可替换的 runner，默认 `run_once`（只跑一帧） |
 | System 注册 | 直接暴露 Flecs 的 `ecs_system_desc_t` |
@@ -45,6 +44,7 @@
 | `res<>` / `singleton_query<>` 等宏 | 由各语言自己封装 |
 | daScript hot-reload | 后续 |
 | Plugin 依赖自动排序 / 去重 | MVP 阶段显式加载，不做自动处理 |
+| PluginGroup | 后续版本 |
 | 嵌套 add_plugins | build 内不能调用 add_plugin |
 | Render plugin 化 | 渲染模块通过头文件暴露，暂不做 plugin 封装 |
 
@@ -66,13 +66,6 @@ typedef struct pulse_plugin_desc {
     const char** dependencies;                            // 依赖的 plugin name 列表
     int          dependency_count;
 } pulse_plugin_desc;
-
-typedef struct pulse_plugin_group {
-    const char*              name;
-    const pulse_plugin_desc* plugins;
-    int                      plugin_count;
-    bool                     enabled;
-} pulse_plugin_group;
 
 typedef void (*pulse_runner_fn)(pulse_app_t app, void* ctx);
 ```
@@ -99,8 +92,6 @@ void pulse_app_set_runner(pulse_app_t app, pulse_runner_fn runner, void* ctx);
 
 ```c
 void pulse_app_add_plugin(pulse_app_t app, const pulse_plugin_desc* desc);
-void pulse_app_add_plugins(pulse_app_t app, const pulse_plugin_desc* descs, int count);
-void pulse_app_add_plugin_group(pulse_app_t app, const pulse_plugin_group* group);
 ```
 
 ### 4.5 SubApp
@@ -190,7 +181,7 @@ C++ 侧不感知 daScript，只提供 C API。
 全部新文件，与 oval 代码无交叠：
 
 ```
-src/plugin/
+src/app/
   pulse_app.h         // C API 头文件（纯 C，可被任何语言 FFI）
   app.h               // C++ App 内部声明
   app.cpp             // C++ App 实现
