@@ -65,6 +65,20 @@ target("rgframework")
         add_syslinks("Advapi32")
     end 
 
+target("pulse_app")
+    set_kind("static")
+    add_includedirs("src/rgframework/include", {public = true})
+    add_includedirs("src/app", {public = true})
+    add_headerfiles("src/app/*.h")
+    add_files("src/app/app.cpp")
+    add_files("src/rgframework/src/flecs.c")
+
+target("test_plugin")
+    set_kind("binary")
+    set_group("tests")
+    add_deps("pulse_app")
+    add_files("tests/test_plugin.cpp")
+
 rule("example_base")
     after_load(function(target)
         target:set("group", "examples")

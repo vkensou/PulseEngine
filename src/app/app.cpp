@@ -191,35 +191,22 @@ void pulse_app_add_plugin(pulse_app_t app, const pulse_plugin_desc* desc) {
 
 void pulse_app_add_system(pulse_app_t app, ecs_entity_t phase, ecs_system_desc_t* desc) {
     ecs_world_t* world = to_app(app)->world_c();
-    ecs_entity_t sys = ecs_system(world, desc);
+    ecs_entity_t sys = ecs_system_init(world, desc);
     ecs_add_id(world, sys, phase);
 }
 
 void pulse_app_insert_resource(pulse_app_t app, ecs_entity_t component, size_t size, const void* data) {
     ecs_world_t* world = to_app(app)->world_c();
-    ecs_entity_t singleton = ecs_singleton(world, &(ecs_singleton_desc_t){
-        .entity = ecs_new(world),
-        .type = component,
-        .type_size = size,
-        .type_alignment = 0,
-    });
-    ecs_set_id(world, singleton, component, size, data);
+    ecs_set_id(world, component, component, size, data);
 }
 
 void pulse_app_init_resource(pulse_app_t app, ecs_entity_t component, size_t size, void (*ctor)(void* out)) {
     ecs_world_t* world = to_app(app)->world_c();
-    ecs_entity_t ent = ecs_singleton_get(world, component);
-    if (ent == 0 || !ecs_has(world, ent, component)) {
-        ent = ecs_singleton(world, &(ecs_singleton_desc_t){
-            .entity = ecs_new(world),
-            .type = component,
-            .type_size = size,
-            .type_alignment = 0,
-        });
+    if (!ecs_has_id(world, component, component)) {
         if (ctor) {
             std::vector<char> buffer(size);
             ctor(buffer.data());
-            ecs_set_id(world, ent, component, size, buffer.data());
+            ecs_set_id(world, component, component, size, buffer.data());
         }
     }
 }

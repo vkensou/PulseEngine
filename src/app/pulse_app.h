@@ -3,6 +3,10 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint64_t pulse_app_t;
 
 typedef struct pulse_plugin_desc {
@@ -40,3 +44,7 @@ void         pulse_app_remove_subapp(pulse_app_t app, const char* name);
 
 bool         pulse_app_is_plugin_added(pulse_app_t app, const char* name);
 int          pulse_app_plugins_state(pulse_app_t app);
+
+#ifdef __cplusplus
+}
+#endif

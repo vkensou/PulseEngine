@@ -23,20 +23,20 @@ static void my_build(pulse_app_t app, void* ctx) {
     build_called = true;
     ecs_world_t* world = pulse_app_world(app);
 
-    ecs_entity_t int_type = ecs_component(world, &(ecs_component_desc_t){
-        .entity = ecs_new(world),
-        .type = { .size = sizeof(int), .alignment = ECS_ALIGNOF(int) }
-    });
+    ecs_component_desc_t comp_desc = {};
+    comp_desc.entity = ecs_new(world);
+    comp_desc.type.size = sizeof(int);
+    comp_desc.type.alignment = ECS_ALIGNOF(int);
+    ecs_entity_t int_type = ecs_component_init(world, &comp_desc);
 
     int initial = 0;
     pulse_app_insert_resource(app, int_type, sizeof(int), &initial);
 
-    ecs_entity_t sys = ecs_system(world, &(ecs_system_desc_t){
-        .query = { .terms = {
-            { .id = int_type, .inout = EcsInOut },
-        }},
-        .callback = my_system_callback,
-    });
+    ecs_system_desc_t sys_desc = {};
+    sys_desc.query.terms[0].id = int_type;
+    sys_desc.query.terms[0].inout = EcsInOut;
+    sys_desc.callback = my_system_callback;
+    ecs_entity_t sys = ecs_system_init(world, &sys_desc);
     (void)sys;
 }
 
