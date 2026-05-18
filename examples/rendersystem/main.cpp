@@ -10,6 +10,7 @@
 #include "tiny_gltf.h"
 #include <cassert>
 #include <SDL3/SDL.h>
+#include "HandmadeMath.h"
 
 constexpr ecs_entity_t kNullEntity = 0;
 

@@ -1,0 +1,1212 @@
+#include "framework.h"
+#include "imgui.h"
+#include <flecs.h>
+#include <bit>
+#include <filesystem>
+#define TINYGLTF_NO_STB_IMAGE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+#define TINYGLTF_NO_EXTERNAL_IMAGE
+#define TINYGLTF_NO_FS
+#include "tiny_gltf.h"
+#include <cassert>
+#include <SDL3/SDL.h>
+#include "predefine_components.h"
+// #include "snake_module.h"
+#include "daScript/daScript.h"
+#include "dasFlecs.h"
+#include "dasCGPU/need_dasCGPU.h"
+#include "dasCGPU/dasCGPU.h"
+
+constexpr ecs_entity_t kNullEntity = 0;
+
+struct Tree
+{
+	ecs_entity_t parent{ kNullEntity };
+	ecs_entity_t firstChild{ kNullEntity };
+	ecs_entity_t lastChild{ kNullEntity };
+	ecs_entity_t previousSibling{ kNullEntity };
+	ecs_entity_t nextSibling{ kNullEntity };
+};
+
+inline Tree& safeGetTree(flecs::world& world, flecs::entity& self)
+{
+	auto tree = self.try_get_mut<Tree>();
+	if (!tree)
+	{
+		self.add<Tree>();
+		tree = self.try_get_mut<Tree>();
+	}
+	return *tree;
+}
+
+void removeFromParent(flecs::world& world, flecs::entity& self, Tree& selfTree);
+
+void insertBefore(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& newNode, flecs::entity& referenceNode)
+{
+	assert(newNode != kNullEntity && "newNode is null");
+
+	auto& newTree = newNode.get_mut<Tree>();
+	removeFromParent(world, newNode, newTree);
+
+	if (referenceNode != kNullEntity)
+	{
+		auto& referenceTree = referenceNode.get<Tree>();
+		assert(referenceTree.parent == self);
+
+		newTree.previousSibling = referenceTree.previousSibling;
+		newTree.nextSibling = referenceNode;
+
+		if (newTree.previousSibling == kNullEntity)
+			selfTree.firstChild = newNode;
+		else 
+		{
+			auto& previousTree = flecs::entity(world, newTree.previousSibling).get_mut<Tree>();
+			previousTree.nextSibling = newNode;
+		}
+	}
+	else
+	{
+		if (selfTree.lastChild != kNullEntity)
+		{
+			auto& lastTree = flecs::entity(world, selfTree.lastChild).get_mut<Tree>();
+			assert(lastTree.nextSibling == kNullEntity);
+			lastTree.nextSibling = newNode;
+			newTree.previousSibling = selfTree.lastChild;
+			selfTree.lastChild = newNode;
+		}
+		else
+		{
+			assert(selfTree.firstChild == kNullEntity);
+			assert(selfTree.lastChild == kNullEntity);
+			selfTree.firstChild = newNode;
+			selfTree.lastChild = newNode;
+		}
+	}
+	newTree.parent = self;
+}
+
+void appendChild(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& child)
+{
+	assert(child != kNullEntity && "child is null");
+	assert(child != self && "child is self");
+
+	auto& childTree = child.get_mut<Tree>();
+	removeFromParent(world, child, childTree);
+	childTree.parent = self;
+	if (selfTree.lastChild != kNullEntity)
+	{
+		auto& lastChildTree = flecs::entity(world, selfTree.lastChild).get_mut<Tree>();
+		assert(lastChildTree.nextSibling == kNullEntity);
+		childTree.previousSibling = selfTree.lastChild;
+		lastChildTree.nextSibling = child;
+	}
+	else
+	{
+		assert(selfTree.firstChild == kNullEntity);
+		selfTree.firstChild = child;
+	}
+
+	selfTree.lastChild = child;
+}
+
+void replaceChild(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& newChild, flecs::entity& oldChild)
+{
+	assert(newChild != kNullEntity && "newChild is null");
+	assert(oldChild != kNullEntity && "oldChild is null");
+	assert(newChild != self);
+	auto& oldChildTree = oldChild.get_mut<Tree>();
+	assert(oldChildTree.parent == self);
+	auto oldChildNext = flecs::entity(world, oldChildTree.nextSibling);
+	removeFromParent(world, oldChild, oldChildTree);
+	insertBefore(world, self, selfTree, newChild, oldChildNext);
+}
+
+void removeChild(flecs::world& world, flecs::entity& self, Tree& selfTree, flecs::entity& child)
+{
+	assert(child != kNullEntity && "child is null");
+	auto& childTree = child.get_mut<Tree>();
+	assert(childTree.parent == self);
+	removeFromParent(world, child, childTree);
+}
+
+void removeFromParent(flecs::world& world, flecs::entity& self, Tree& selfTree)
+{
+	if (selfTree.parent == kNullEntity) return;
+
+	auto& parentTree = flecs::entity(world, selfTree.parent).get_mut<Tree>();
+
+	if (parentTree.firstChild == self)
+		parentTree.firstChild = selfTree.nextSibling;
+	if (parentTree.lastChild == self)
+		parentTree.lastChild = selfTree.previousSibling;
+
+	if (selfTree.previousSibling != kNullEntity)
+	{
+		auto& previousTree = flecs::entity(world, selfTree.previousSibling).get_mut<Tree>();
+		previousTree.nextSibling = selfTree.nextSibling;
+	}
+
+	if (selfTree.nextSibling != kNullEntity)
+	{
+		auto& nextTree = flecs::entity(world, selfTree.nextSibling).get_mut<Tree>();
+		nextTree.previousSibling = selfTree.previousSibling;
+	}
+
+	selfTree.parent = kNullEntity;
+	selfTree.previousSibling = kNullEntity;
+	selfTree.nextSibling = kNullEntity;
+}
+
+void setParent(flecs::world& world, flecs::entity self, flecs::entity newParent)
+{
+	auto& selfTree = safeGetTree(world, self);
+	removeFromParent(world, self, selfTree);
+	auto& parentTree = safeGetTree(world, newParent);
+	appendChild(world, newParent, parentTree, self);
+}
+
+struct BindBuffer
+{
+	int set;
+	int bind;
+	HGEGraphics::Buffer* buffer;
+};
+
+struct BindTexture
+{
+	int set;
+	int bind;
+	HGEGraphics::Texture* texture;
+};
+
+struct BindSampler
+{
+	int set;
+	int bind;
+	CGPUSamplerId sampler;
+};
+
+struct SimpleHarmonic
+{
+	HMM_Vec3 amplitude;
+	float speed = 0;
+	HMM_Vec3 base;
+};
+
+struct Rotate
+{
+	HMM_Vec3 axis;
+	float speed = 0;
+	HMM_Quat base;
+};
+
+struct MoveInterpolation
+{
+	HMM_Vec3 value;
+};
+
+struct RotateInterpolation
+{
+	HMM_Quat value;
+};
+
+struct PassData
+{
+	HMM_Mat4	vpMatrix;
+};
+
+struct MaterialData
+{
+	HMM_Vec4	albedo;
+};
+
+struct RenderObject
+{
+	int material;
+	int mesh;
+	HMM_Mat4 wMatrix;
+};
+
+struct ObjectData
+{
+	HMM_Mat4	wMatrix;
+};
+
+struct ViewRenderPacket
+{
+	ecs_entity_t window_entity;
+	PassData passData;
+	std::pmr::vector<RenderObject> renderObjects;
+	std::pmr::vector<ObjectData> renderData;
+};
+
+void updateMatrixPositionOnly(const pulse::Position& position, pulse::LocalTransform& matrix)
+{
+	matrix.model = HMM_Translate(position.value);
+}
+
+void updateMatrixRotationOnly(const pulse::Rotation& rotation, pulse::LocalTransform& matrix)
+{
+	matrix.model = HMM_QToM4(rotation.value);
+}
+
+void updateMatrixPositionAndRotation(const pulse::Position& position, const pulse::Rotation& rotation, pulse::LocalTransform& matrix)
+{
+	matrix.model = HMM_TRS(position.value, rotation.value, HMM_V3_One);
+}
+
+void updateTreeTransform(flecs::world world, flecs::entity entity, const Tree& entityTree, HMM_Mat4 parentTransform)
+{
+	auto local = entity.try_get<pulse::LocalTransform>();
+	auto worldTr = entity.try_get_mut<pulse::WorldTransform>();
+	HMM_Mat4 selfWorldTransform;
+	if (worldTr && local)
+	{
+		selfWorldTransform = worldTr->value = parentTransform * local->model;
+	}
+	else if (worldTr)
+	{
+		selfWorldTransform = worldTr->value = parentTransform;
+	}
+	else
+	{
+		selfWorldTransform = parentTransform;
+	}
+
+	ecs_entity_t child = entityTree.firstChild;
+	while (child != kNullEntity)
+	{
+		auto childEnt = flecs::entity(world, child);
+		auto& childTree = childEnt.get<Tree>();
+		updateTreeTransform(world, childEnt, childTree, selfWorldTransform);
+		child = childTree.nextSibling;
+	}
+}
+
+void updateHierarchyTransform(flecs::iter& it, size_t i, const Tree& entityTree)
+{
+	if (entityTree.parent != kNullEntity) return;
+	updateTreeTransform(it.world(), it.entity(i), entityTree, HMM_M4_Identity);
+}
+
+void updateNonHierarchyTrasform(const pulse::LocalTransform& local, pulse::WorldTransform& world)
+{
+	world.value = local.model;
+}
+
+void updateMoveInterpolation(flecs::iter& it, size_t i, const SimpleHarmonic& simpleHarmonic, MoveInterpolation& moveInterp)
+{
+	auto world = it.world();
+	auto& renderContextQuery = world.get<pulse::RenderContext>();
+	const oval_render_context& context = renderContextQuery.value;
+	auto pos1 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * context.time_since_startup) + simpleHarmonic.base;
+	auto pos2 = simpleHarmonic.amplitude * sin(simpleHarmonic.speed * (context.time_since_startup + context.render_interpolation_time)) + simpleHarmonic.base;
+	moveInterp.value = pos2 - pos1;
+}
+
+void updateRotateInterpolation(flecs::iter& it, size_t i, const Rotate& rotate, RotateInterpolation& rotateInterp)
+{
+	auto world = it.world();
+	auto& renderContextQuery = world.get<pulse::RenderContext>();
+	const oval_render_context& context = renderContextQuery.value;
+	auto rot1 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, context.time_since_startup * rotate.speed);
+	auto rot2 = rotate.base * HMM_QFromAxisAngle_LH(rotate.axis, (context.time_since_startup + context.render_interpolation_time) * rotate.speed);
+	rotateInterp.value = HMM_MulQ(HMM_InvQ(rot2), rot1);
+}
+
+void updateShowMatrixStatic(const pulse::WorldTransform& matrix, pulse::ShowMatrix& showMatrix)
+{
+	showMatrix.model = matrix.value;
+}
+
+void updateShowMatrixMoveOnly(const pulse::WorldTransform& matrix, const MoveInterpolation& moveInterp, pulse::ShowMatrix& showMatrix)
+{
+	showMatrix.model = HMM_MulM4(matrix.value, HMM_Translate(moveInterp.value));
+}
+
+void updateShowMatrixRotateOnly(const pulse::WorldTransform& matrix, const RotateInterpolation& rotateInterp, pulse::ShowMatrix& showMatrix)
+{
+	auto oriPosition = HMM_M4GetTranslate(matrix.value);
+	auto oriRotation = HMM_M4ToQ_LH(matrix.value);
+	auto newRotation = HMM_MulQ(oriRotation, rotateInterp.value);
+	showMatrix.model = HMM_TRS(oriPosition, newRotation, HMM_V3_One);
+}
+
+void updateShowMatrixMoveAndRotate(const pulse::WorldTransform& matrix, const MoveInterpolation& moveInterp, const RotateInterpolation& rotateInterp, pulse::ShowMatrix& showMatrix)
+{
+	auto oriPosition = HMM_M4GetTranslate(matrix.value);
+	auto oriRotation = HMM_M4ToQ_LH(matrix.value);
+	auto newPosition = oriPosition + moveInterp.value;
+	auto newRotation = HMM_MulQ(oriRotation, rotateInterp.value);
+	showMatrix.model = HMM_TRS(newPosition, newRotation, HMM_V3_One);
+}
+
+struct FrameRenderPacket
+{
+	std::pmr::synchronized_pool_resource* memory_resource;
+	std::pmr::vector<ViewRenderPacket> viewDatas;
+
+	FrameRenderPacket(std::pmr::synchronized_pool_resource* memory_resource)
+		: memory_resource(memory_resource), viewDatas(memory_resource)
+	{
+	}
+
+	void clear()
+	{
+		viewDatas.clear();
+	}
+};
+
+MAKE_TYPE_FACTORY(HMM_Vec3, HMM_Vec3);
+struct HMM_Vec3Annotation final : das::ManagedStructureAnnotation<HMM_Vec3>
+{
+	HMM_Vec3Annotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Vec3", ml, "HMM_Vec3")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
+		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
+		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(HMM_Vec4, HMM_Vec4);
+struct HMM_Vec4Annotation final : das::ManagedStructureAnnotation<HMM_Vec4>
+{
+	HMM_Vec4Annotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Vec4", ml, "HMM_Vec4")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
+		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
+		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
+		addField<DAS_BIND_MANAGED_FIELD(W)>("W");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(HMM_Mat4, HMM_Mat4);
+struct HMM_Mat4Annotation final : das::ManagedStructureAnnotation<HMM_Mat4>
+{
+	HMM_Mat4Annotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Mat4", ml, "HMM_Mat4")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(Columns)>("Columns");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+static inline void TRS(const HMM_Vec3& Translate, const HMM_Quat& Rotation, const HMM_Vec3& Scale, HMM_Mat4& OutMatrix)
+{
+	OutMatrix = HMM_TRS(Translate, Rotation, Scale);
+}
+
+MAKE_TYPE_FACTORY(HMM_Quat, HMM_Quat);
+struct HMM_QuatAnnotation final : das::ManagedStructureAnnotation<HMM_Quat>
+{
+	HMM_QuatAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("HMM_Quat", ml, "HMM_Quat")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(X)>("X");
+		addField<DAS_BIND_MANAGED_FIELD(Y)>("Y");
+		addField<DAS_BIND_MANAGED_FIELD(Z)>("Z");
+		addField<DAS_BIND_MANAGED_FIELD(W)>("W");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(ResourceManager, pulse::ResourceManager);
+struct ResourceManagerAnnotation final : das::ManagedStructureAnnotation<pulse::ResourceManager>
+{
+	ResourceManagerAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ResourceManager", ml, "pulse::ResourceManager")
+	{
+	}
+
+	virtual bool canMove() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(KeyboardState, pulse::KeyboardState);
+struct KeyboardStateAnnotation final : das::ManagedStructureAnnotation<pulse::KeyboardState>
+{
+	KeyboardStateAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("KeyboardState", ml, "pulse::KeyboardState")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(lastKeys)>("lastKeys");
+		addField<DAS_BIND_MANAGED_FIELD(currentKeys)>("currentKeys");
+	}
+
+	virtual bool canMove() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(UpdateContext, pulse::UpdateContext);
+struct UpdateContextAnnotation final : das::ManagedStructureAnnotation<pulse::UpdateContext>
+{
+	UpdateContextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("UpdateContext", ml, "pulse::UpdateContext")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+	}
+};
+
+MAKE_TYPE_FACTORY(oval_update_context, oval_update_context);
+struct oval_update_contextAnnotation final : das::ManagedStructureAnnotation<oval_update_context>
+{
+	oval_update_contextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("oval_update_context", ml, "oval_update_context")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(delta_time)>("delta_time");
+		addField<DAS_BIND_MANAGED_FIELD(time_since_startup)>("time_since_startup");
+	}
+};
+
+MAKE_TYPE_FACTORY(Position, pulse::Position);
+struct PositionAnnotation final : das::ManagedStructureAnnotation<pulse::Position>
+{
+	PositionAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("Position", ml, "pulse::Position")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(LocalTransform, pulse::LocalTransform);
+struct LocalTransformAnnotation final : das::ManagedStructureAnnotation<pulse::LocalTransform>
+{
+	LocalTransformAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("LocalTransform", ml, "pulse::LocalTransform")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(model)>("model");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(WorldTransform, pulse::WorldTransform);
+struct WorldTransformAnnotation final : das::ManagedStructureAnnotation<pulse::WorldTransform>
+{
+	WorldTransformAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("WorldTransform", ml, "pulse::WorldTransform")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(value)>("value");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(Rendable, pulse::Rendable);
+struct RendableAnnotation final : das::ManagedStructureAnnotation<pulse::Rendable>
+{
+	RendableAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("Rendable", ml, "pulse::Rendable")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(material)>("material");
+		addField<DAS_BIND_MANAGED_FIELD(mesh)>("mesh");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(ShowMatrix, pulse::ShowMatrix);
+struct ShowMatrixAnnotation final : das::ManagedStructureAnnotation<pulse::ShowMatrix>
+{
+	ShowMatrixAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ShowMatrix", ml, "pulse::ShowMatrix")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(model)>("model");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+MAKE_TYPE_FACTORY(EventTag, pulse::EventTag);
+struct EventTagAnnotation final : das::ManagedStructureAnnotation<pulse::EventTag>
+{
+	EventTagAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventTag", ml, "pulse::EventTag")
+	{
+	}
+};
+
+namespace das
+{
+	template <>
+	struct cast<HMM_Quat> {
+		static __forceinline HMM_Quat to(vec4f x) { return HMM_Q(v_extract_x(x), v_extract_y(x), v_extract_z(x), v_extract_w(x)); }
+		static __forceinline vec4f from(HMM_Quat x) { return v_make_vec4f(x.X, x.Y, x.Z, x.W); }
+	};
+	template <> struct WrapType<HMM_Quat> { enum { value = true }; typedef HMM_Quat type; typedef HMM_Quat rettype; };
+}
+
+size_t load_shader(pulse::ResourceManager& resourceManager, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+{
+	auto shader = oval_create_shader(resourceManager.device, vertPath, fragPath, blend_desc, depth_desc, rasterizer_state);
+	auto index = resourceManager.shaders.size();
+	resourceManager.shaders.push_back(shader);
+	return index;
+}
+
+size_t load_mesh(pulse::ResourceManager& resourceManager, const char* path)
+{
+	auto mesh = oval_load_mesh(resourceManager.device, path);
+	int index = resourceManager.meshes.size();
+	resourceManager.meshes.push_back(mesh);
+	return index;
+}
+
+size_t create_material(pulse::ResourceManager& resourceManager, size_t shaderIndex, das::Context* context, das::LineInfoArg* at)
+{
+	if (shaderIndex >= resourceManager.shaders.size())
+		context->throw_error_at(at, "shader index(%lld) out of range", shaderIndex);
+
+	auto shader = resourceManager.shaders[shaderIndex];
+	auto material = oval_create_material(resourceManager.device, shader);
+	int index = resourceManager.materials.size();
+	resourceManager.materials.push_back(material);
+	return index;
+}
+
+void material_bind_buffer(pulse::ResourceManager& resourceManager, size_t materialIndex, int set, int bind, int size, void* ptr, das::Context* context, das::LineInfoArg* at)
+{
+	if (materialIndex >= resourceManager.materials.size())
+		context->throw_error_at(at, "material index(%lld) out of range", materialIndex);
+
+	auto material = resourceManager.materials[materialIndex];
+	material->bindBuffer(set, bind, size, ptr);
+}
+
+MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
+IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
+
+void Text(const char* txt) {
+	ImGui::Text("%s", txt);
+}
+
+bool Button(const char* label) {
+	return ImGui::Button(label);
+}
+
+class ModulePulseECS : public das::Module
+{
+public:
+	ModulePulseECS() : Module("pulse")
+	{
+	}
+	bool initDependencies() {
+		if (initialized) return true;
+		initialized = true;
+
+		lib.addModule(this);
+		lib.addBuiltInModule();
+		lib.addModule(Module::require("cgpu"));
+
+		addAnnotation(new HMM_Vec3Annotation(lib));
+		addAnnotation(new HMM_Vec4Annotation(lib));
+		addAnnotation(new HMM_Mat4Annotation(lib));
+		addAnnotation(new HMM_QuatAnnotation(lib));
+		addAnnotation(new ResourceManagerAnnotation(lib));
+		addAnnotation(new KeyboardStateAnnotation(lib));
+		addAnnotation(new oval_update_contextAnnotation(lib));
+		addAnnotation(new UpdateContextAnnotation(lib));
+		addAnnotation(new das::DummyTypeAnnotation("Shader", "HGEGraphics::Shader", 1, 1));
+		addAnnotation(new PositionAnnotation(lib));
+		addAnnotation(new LocalTransformAnnotation(lib));
+		addAnnotation(new WorldTransformAnnotation(lib));
+		addAnnotation(new RendableAnnotation(lib));
+		addAnnotation(new ShowMatrixAnnotation(lib));
+		addAnnotation(new EventTagAnnotation(lib));
+
+		addExtern<DAS_BIND_FUN(HMM_V3), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V3", das::SideEffects::none, "HMM_V3")->args({ "x", "y", "z" });
+		addExtern<DAS_BIND_FUN(HMM_V4), das::SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V4", das::SideEffects::none, "HMM_V4")->args({ "x", "y", "z", "w" });
+		addExtern<DAS_BIND_FUN(TRS)>(*this, lib, "HMM_TRS", das::SideEffects::modifyArgument, "HMM_TRS")->args({ "translation", "rotation", "scale", "out" });
+		addExtern<DAS_BIND_FUN(load_shader)>(*this, lib, "load_shader", das::SideEffects::worstDefault, "load_shader")->args({ "resourceManager", "vertPath", "fragPath", "blend_desc", "depth_desc", "rasterizer_state" });
+		addExtern<DAS_BIND_FUN(load_mesh)>(*this, lib, "load_mesh", das::SideEffects::worstDefault, "load_mesh")->args({ "resourceManager", "path" });
+		addExtern<DAS_BIND_FUN(create_material)>(*this, lib, "create_material", das::SideEffects::worstDefault, "create_material")->args({ "resourceManager", "shaderIndex", "context", "at" });
+		addExtern<DAS_BIND_FUN(material_bind_buffer)>(*this, lib, "material_bind_buffer", das::SideEffects::worstDefault, "material_bind_buffer")->args({ "resourceManager", "materialIndex", "set", "bind", "size", "ptr", "context", "at" });
+
+		addExtern<DAS_BIND_FUN(Text)>(*this, lib, "Text", das::SideEffects::worstDefault, "Text")->args({ "txt" });
+		addExtern<DAS_BIND_FUN(Button)>(*this, lib, "Button", das::SideEffects::worstDefault, "Button")->args({ "label" });
+
+		return true;
+	}
+private:
+	das::ModuleLibrary lib;
+	bool initialized = false;
+};
+
+REGISTER_MODULE(ModulePulseECS);
+
+class DasSDLTextPrinter : public das::TextWriter {
+public:
+	DasSDLTextPrinter() {}
+	virtual void output() override
+	{
+		std::lock_guard<std::mutex> guard(pmut);
+		uint64_t newPos = tellp();
+		if (newPos != pos) {
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION,
+				SDL_LOG_PRIORITY_INFO,
+				"%.*s",
+				(int)(newPos - pos),
+				data() + pos);
+			fflush(stdout);
+			pos = newPos;
+		}
+	}
+protected:
+	uint64_t pos = 0;
+	static std::mutex pmut;
+};
+
+std::mutex DasSDLTextPrinter::pmut;
+
+struct Application
+{
+	std::unique_ptr<oval_device_t, decltype(&oval_free_device)> device;
+	ecs_entity_t window1{};
+	std::pmr::synchronized_pool_resource root_memory_resource;
+	std::array<FrameRenderPacket, 2> frameRenderPackets;
+
+	flecs::entity initPipeline;
+	flecs::entity_t initPipelineId;
+	flecs::entity updatePipeline;
+	flecs::entity_t updatePipelineId;
+	flecs::entity postUpdatePipeline;
+	flecs::entity_t postUpdatePipelineId;
+	flecs::entity renderPipeline;
+	flecs::entity_t renderPipelineId;
+	flecs::entity imguiPipeline;
+	flecs::entity_t imguiPipelineId;
+
+	pulse::EventCenter eventCenter;
+
+	std::unique_ptr<das::ModuleGroup> dummyLibGroup;
+	das::ProgramPtr program;
+	std::unique_ptr<das::Context> ctx;
+
+	Application()
+		: device(nullptr, oval_free_device), frameRenderPackets{ FrameRenderPacket{&root_memory_resource}, FrameRenderPacket{&root_memory_resource} }
+	{
+		void* buffer = nullptr;
+		buffer = frameRenderPackets[0].memory_resource->allocate(1024 * 1024, 8);
+		frameRenderPackets[0].memory_resource->deallocate(buffer, 1024 * 1024, 8);
+		buffer = frameRenderPackets[1].memory_resource->allocate(1024 * 1024, 8);
+		frameRenderPackets[1].memory_resource->deallocate(buffer, 1024 * 1024, 8);
+	}
+
+	~Application()
+	{
+		program.reset();
+		dummyLibGroup.reset();
+		das::Module::Shutdown();
+	}
+
+	bool loadProgram(const std::string& scriptName)
+	{
+		using namespace das;
+
+		dummyLibGroup = std::make_unique<ModuleGroup>();
+
+		DasSDLTextPrinter tout;
+		auto fAccess = make_smart<FsFileAccess>();
+
+		program = compileDaScript(getDasRoot() + "/" + scriptName,
+			fAccess, tout, *dummyLibGroup);
+		if (program->failed()) {
+			tout << "Compilation failed:";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			return false;
+		}
+
+		tout << *(program.get()) << "\n";
+
+		ctx = std::make_unique<Context>(program->getContextStackSize());
+		if (!program->simulate(*ctx, tout)) {
+			tout << "Simulation failed:\n";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+	bool importDasModule(dasPulseECS::ModuleContext& moduleContext)
+	{
+		using namespace das;
+
+		DasSDLTextPrinter tout;
+
+		auto fnImportModule = ctx->findFunction("importModule");
+		if (!fnImportModule) { tout << "'importModule' not found"; return false; }
+
+		if (!verifyCall<void, dasPulseECS::ModuleContext&>(fnImportModule->debugInfo, *dummyLibGroup))
+		{
+			tout << "Function has wrong signature:";
+			for (auto& err : program->errors) {
+				tout << reportError(err.at, err.what, err.extra,
+					err.fixme, err.cerr);
+			}
+			return false;
+		}
+
+		vec4f args[1];
+		args[0] = cast<dasPulseECS::ModuleContext&>::from(moduleContext);
+
+		vec4f ret = ctx->evalWithCatch(fnImportModule, args);
+		if (auto ex = ctx->getException()) {
+			tout << "exception in importModule: " << ex << " at " << ctx->exceptionAt.describe() << "\n";
+			return false;
+		}
+
+		return true;
+	}
+};
+
+void _init_world(Application& app, flecs::world& world, ecs_entity_t window_entity)
+{
+	auto snakeApp = world.singleton<pulse::SingleHolder>();
+	snakeApp.add<pulse::EventTag>();
+
+	auto cam = world.entity();
+	auto cameraParentMat = HMM_M4_Identity;
+	auto cameraLocalMat = HMM_Translate(HMM_V3(0 + 0.5, 0 + 0.5, -38));
+	auto cameraWMat = HMM_Mul(cameraParentMat, cameraLocalMat);
+	cam.add<pulse::WorldTransform>()
+		.add<pulse::Camera>();
+	cam.set<pulse::WorldTransform>({ .value = cameraWMat })
+		.set<pulse::Camera>({ .window_entity = window_entity, .fov = 45.0f, .nearPlane = 0.1f, .farPlane = 1000.f, .width = 800, .height = 600 });
+
+	app.initPipelineId = flecs::_::type<pulse::InitPipeline>::id(world);
+	app.initPipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.initPipelineId)
+		.build();
+
+	app.updatePipelineId = flecs::_::type<pulse::UpdatePipeline>::id(world);
+	app.updatePipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.updatePipelineId)
+		.build();
+
+	app.postUpdatePipelineId = flecs::_::type<pulse::PostUpdatePipeline>::id(world);
+	app.postUpdatePipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.postUpdatePipelineId)
+		.build();
+
+	int numKeys;
+	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
+	pulse::KeyboardState keyboardState = {};
+	keyboardState.lastKeys.resize(numKeys);
+	keyboardState.currentKeys.resize(numKeys);
+	std::fill(keyboardState.lastKeys.begin(), keyboardState.lastKeys.end(), 0);
+	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+	pulse::registerResource<pulse::KeyboardState>(world, std::move(keyboardState));
+
+	pulse::ResourceManager resourceManager = {};
+	resourceManager.device = app.device.get();
+	resourceManager.meshes.clear();
+	resourceManager.materials.clear();
+	pulse::registerResource<pulse::ResourceManager>(world, std::move(resourceManager));
+
+	pulse::registerResource<pulse::UpdateContext>(world);
+	pulse::registerResource<pulse::RenderContext>(world);
+
+	world.system<const pulse::Position, pulse::LocalTransform>("UpdateMatrixPositionOnly")
+		.without<pulse::Rotation>()
+		.kind<pulse::PostUpdatePipeline>()
+		.each(updateMatrixPositionOnly);
+
+	world.system<const pulse::Rotation, pulse::LocalTransform>("UpdateMatrixRotationOnly")
+		.without<pulse::Position>()
+		.kind<pulse::PostUpdatePipeline>()
+		.each(updateMatrixRotationOnly);
+
+	world.system<const pulse::Position, const pulse::Rotation, pulse::LocalTransform>("UpdateMatrixPositionAndRotation")
+		.kind<pulse::PostUpdatePipeline>()
+		.each(updateMatrixPositionAndRotation);
+
+	world.system<const Tree>("UpdateHierarchyTransform")
+		.kind<pulse::PostUpdatePipeline>()
+		.each(updateHierarchyTransform);
+
+	world.system<const pulse::LocalTransform, pulse::WorldTransform>("UpdateNonHierarchyTrasform")
+		.without<Tree>()
+		.kind<pulse::PostUpdatePipeline>()
+		.each(updateNonHierarchyTrasform);
+
+	app.renderPipelineId = flecs::_::type<pulse::RenderPipeline>::id(world);
+	app.renderPipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.renderPipelineId)
+		.build();
+
+	world.system<const SimpleHarmonic, MoveInterpolation>("UpdateMoveInterpolation")
+		.kind<pulse::RenderPipeline>()
+		.each(updateMoveInterpolation);
+
+	world.system<const Rotate, RotateInterpolation>("UpdateRotateInterpolation")
+		.kind<pulse::RenderPipeline>()
+		.each(updateRotateInterpolation);
+
+	world.system<const pulse::WorldTransform, pulse::ShowMatrix>("ShowMatrixStatic")
+		.without<MoveInterpolation, RotateInterpolation>()
+		.kind<pulse::RenderPipeline>()
+		.each(updateShowMatrixStatic);
+
+	world.system<const pulse::WorldTransform, const MoveInterpolation, pulse::ShowMatrix>("ShowMatrixMoveOnly")
+		.without<RotateInterpolation>()
+		.kind<pulse::RenderPipeline>()
+		.each(updateShowMatrixMoveOnly);
+
+	world.system<const pulse::WorldTransform, const RotateInterpolation, pulse::ShowMatrix>("ShowMatrixRotateOnly")
+		.without<MoveInterpolation>()
+		.kind<pulse::RenderPipeline>()
+		.each(updateShowMatrixRotateOnly);
+
+	world.system<const pulse::WorldTransform, const MoveInterpolation, const RotateInterpolation, pulse::ShowMatrix>("ShowMatrixMoveAndRotate")
+		.kind<pulse::RenderPipeline>()
+		.each(updateShowMatrixMoveAndRotate);
+
+	app.imguiPipelineId = flecs::_::type<pulse::ImguiPipeline>::id(world);
+	app.imguiPipeline = world.pipeline()
+		.with(flecs::System)
+		.with(app.imguiPipelineId)
+		.build();
+
+	dasPulseECS::ModuleContext moduleContext {
+		.world = {world.world_},
+		.initPipeline = app.initPipelineId,
+		.updatePipeline = app.updatePipelineId,
+		.postUpdatePipeline = app.postUpdatePipelineId,
+		.renderPipeline = app.renderPipelineId,
+		.imguiPipeline = app.imguiPipelineId,
+		//.eventManager = &app.eventCenter,
+	};
+
+	world.set<pulse::Position>({ .value = HMM_V3(13, 24, 35) });
+
+	auto ent = world.entity();
+	ent.set<pulse::Position>({ .value = HMM_V3(1, 2, 3) });
+	auto pos = ent.get<pulse::Position>();
+
+	//importModule(&moduleContext);
+	app.importDasModule(moduleContext);
+
+	world.run_pipeline(app.initPipeline);
+}
+
+static void simulate(Application& app, flecs::world world, const oval_update_context& update_context)
+{
+	int numKeys;
+	auto currentKeyboardStates = SDL_GetKeyboardState(&numKeys);
+	auto& keyboardState = world.get_mut<pulse::KeyboardState>();
+	assert(numKeys == keyboardState.lastKeys.size());
+	assert(numKeys == keyboardState.currentKeys.size());
+	memcpy(keyboardState.lastKeys.data(), keyboardState.currentKeys.data(), numKeys);
+	memcpy(keyboardState.currentKeys.data(), currentKeyboardStates, numKeys);
+
+	world.set<pulse::UpdateContext>(pulse::UpdateContext{ .value = update_context });
+	world.run_pipeline(app.updatePipeline, update_context.delta_time);
+	world.run_pipeline(app.postUpdatePipeline, update_context.delta_time);
+}
+
+std::pmr::vector<ecs_entity_t> vis(Application& app, flecs::world& world, const pulse::Camera& camera, std::pmr::synchronized_pool_resource* memory_resource)
+{
+	std::pmr::vector<ecs_entity_t> visibles(memory_resource);
+	world.each([&](flecs::entity e, const pulse::ShowMatrix& matrix, const pulse::Rendable& rendable) {
+		(void)matrix; (void)rendable;
+		bool visible = true;
+		if (visible)
+			visibles.push_back(e.id());
+	});
+	return visibles;
+}
+
+std::pmr::vector<RenderObject> extract(Application& app, flecs::world& world, std::pmr::vector<ecs_entity_t> visibles, std::pmr::synchronized_pool_resource* memory_resource)
+{
+	std::pmr::vector<RenderObject> renderObjects(memory_resource);
+	renderObjects.reserve(visibles.size());
+	for (auto entity_id : visibles)
+	{
+		auto entity = flecs::entity(world, entity_id);
+		auto matrix = entity.try_get<pulse::ShowMatrix>();
+		auto rendable = entity.try_get<pulse::Rendable>();
+		if (!matrix || !rendable) continue;
+		RenderObject robj = {
+			.material = rendable->material,
+			.mesh = rendable->mesh,
+			.wMatrix = matrix->model,
+		};
+		renderObjects.push_back(robj);
+	}
+	return renderObjects;
+}
+
+void interpolate(Application& app, flecs::world& world, const oval_render_context& render_context)
+{
+	world.set<pulse::RenderContext>(pulse::RenderContext{ .value = render_context });
+	world.run_pipeline(app.renderPipeline, render_context.delta_time);
+}
+
+void enumViews(Application& app, flecs::world& world, FrameRenderPacket& currentFramePack)
+{
+	auto lightDir = HMM_Norm(HMM_V3(0, -1, 0));
+	bool firstLight = true;
+	world.each([&](flecs::entity e, pulse::Light& light, const pulse::WorldTransform& transform) {
+		(void)e; (void)light;
+		if (firstLight) {
+			lightDir = HMM_M4GetForward(transform.value);
+			firstLight = false;
+		}
+	});
+
+	currentFramePack.clear();
+	world.each([&](flecs::entity e, pulse::Camera& camera, const pulse::WorldTransform& transform) {
+		(void)e;
+		auto cameraMat = transform.value;
+
+		auto eye = HMM_M4GetTranslate(cameraMat);
+		auto forward = HMM_M4GetForward(cameraMat);
+		(void)forward;
+		auto viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
+
+		if (!world.is_alive(camera.window_entity))
+			return;
+
+		auto window = flecs::entity(world, camera.window_entity).try_get<WindowComponent>();
+		if (!window)
+			return;
+
+		camera.width = window->width;
+		camera.height = window->height;
+
+		float aspect = (float)camera.width / camera.height;
+		float near = camera.nearPlane;
+		float far = camera.farPlane;
+		auto proj = HMM_Perspective_LH_RO(camera.fov * HMM_DegToRad, aspect, near, far);
+		auto vpMat = proj * viewMat;
+
+		auto visibles = vis(app, world, camera, currentFramePack.memory_resource);
+		currentFramePack.viewDatas.emplace_back(ViewRenderPacket{
+			.window_entity = camera.window_entity,
+			.passData = {
+				.vpMatrix = vpMat,
+			},
+			.renderObjects = extract(app, world, std::move(visibles), currentFramePack.memory_resource),
+			});
+	});
+}
+
+void prepare(Application& app, FrameRenderPacket& lastFrameRenderPacket)
+{
+	for (auto& view : lastFrameRenderPacket.viewDatas)
+	{
+		std::sort(view.renderObjects.begin(), view.renderObjects.end(), [](const RenderObject& a, const RenderObject& b)
+			{
+				if (a.material != b.material)
+					return a.material > b.material;
+				else
+					return a.mesh > b.mesh;
+			});
+
+		view.renderData.resize(view.renderObjects.size());
+		for (size_t i = 0; i < view.renderObjects.size(); ++i)
+		{
+			view.renderData[i].wMatrix = view.renderObjects[i].wMatrix;
+		}
+	}
+}
+
+void submit(Application& app, FrameRenderPacket& lastFrameRenderPacket, oval_device_t* device, HGEGraphics::rendergraph_t& rg)
+{
+	using namespace HGEGraphics;
+
+	for (auto& view : lastFrameRenderPacket.viewDatas)
+	{
+		auto current_back_buffer = oval_get_backbuffer_for_window(device, view.window_entity, rg);
+		if (!rendergraph_texture_handle_valid(current_back_buffer))
+			continue;
+
+		auto depth_handle = rendergraph_declare_texture(&rg);
+		rg_texture_set_extent(&rg, depth_handle, rg_texture_get_width(&rg, current_back_buffer), rg_texture_get_height(&rg, current_back_buffer));
+		rg_texture_set_depth_format(&rg, depth_handle, DepthBits::D24, true);
+
+		auto pass_ubo_handle = rendergraph_declare_uniform_buffer_quick(&rg, sizeof(PassData), &view.passData);
+		auto object_ubo_handle = rendergraph_declare_uniform_buffer_quick(&rg, view.renderData.size() * sizeof(ObjectData), view.renderData.data());
+
+		auto passBuilder = rendergraph_add_renderpass(&rg, "Main Pass");
+		uint32_t color = 0xff000000;
+		renderpass_add_color_attachment(&passBuilder, current_back_buffer, ECGPULoadAction::CGPU_LOAD_ACTION_CLEAR, color, ECGPUStoreAction::CGPU_STORE_ACTION_STORE);
+		renderpass_add_depth_attachment(&passBuilder, depth_handle, CGPU_LOAD_ACTION_CLEAR, 0, CGPU_STORE_ACTION_DISCARD, CGPU_LOAD_ACTION_CLEAR, 0, CGPU_STORE_ACTION_DISCARD);
+		renderpass_use_buffer(&passBuilder, pass_ubo_handle);
+		renderpass_use_buffer(&passBuilder, object_ubo_handle);
+
+		struct MainPassPassData
+		{
+			const pulse::ResourceManager* resourceManager;
+			ViewRenderPacket* view;
+			HGEGraphics::buffer_handle_t pass_ubo_handle;
+			HGEGraphics::buffer_handle_t object_ubo_handle;
+		};
+		MainPassPassData* passdata;
+		renderpass_set_executable(&passBuilder, [](RenderPassEncoder* encoder, void* passdata)
+			{
+				MainPassPassData* resolved_passdata = (MainPassPassData*)passdata;
+				set_global_dynamic_buffer(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
+				for (size_t i = 0; i < resolved_passdata->view->renderObjects.size(); ++i)
+				{
+					auto& obj = resolved_passdata->view->renderObjects[i];
+					set_global_buffer_with_offset_size(encoder, resolved_passdata->object_ubo_handle, 2, 0, i * sizeof(ObjectData), sizeof(ObjectData));
+					draw(encoder, resolved_passdata->resourceManager->materials[obj.material], resolved_passdata->resourceManager->meshes[obj.mesh]);
+				}
+			}, sizeof(MainPassPassData), (void**)&passdata);
+		flecs::world world = flecs::world(oval_get_world(device));
+		passdata->resourceManager = &world.get<pulse::ResourceManager>();
+		passdata->view = &view;
+		passdata->pass_ubo_handle = pass_ubo_handle;
+		passdata->object_ubo_handle = object_ubo_handle;
+	}
+}
+
+void on_update(oval_device_t* device, oval_update_context update_context)
+{
+	Application& app = *(Application*)device->descriptor.userdata;
+	flecs::world world = flecs::world(oval_get_world(app.device.get()));
+	simulate(app, world, update_context);
+}
+
+void on_render(oval_device_t* device, oval_render_context render_context)
+{
+	Application& app = *(Application*)device->descriptor.userdata;
+	flecs::world world = flecs::world(oval_get_world(app.device.get()));
+	auto& cuurentFrameRenderPacket = app.frameRenderPackets[render_context.currentRenderPacketFrame];
+	interpolate(app, world, render_context);
+	enumViews(app, world, cuurentFrameRenderPacket);
+	prepare(app, cuurentFrameRenderPacket);
+}
+
+void on_imgui1(ecs_entity_t entity, oval_device_t* device, oval_render_context render_context)
+{
+	ImGui::Text("Hello, ImGui!");
+	ImGui::Text("%d", render_context.fps);
+	ImGui::Text("%lf", render_context.delta_time_double);
+	if (ImGui::Button("Capture"))
+		oval_render_debug_capture(device);
+	
+	uint32_t length;
+	const char** names;
+	const float* durations;
+	oval_query_render_profile(device, &length, &names, &durations);
+	if (length > 0)
+	{
+		float total_duration = 0.f;
+		for (uint32_t i = 0; i < length; ++i)
+		{
+			float duration = durations[i] * 1000;
+			ImGui::Text("%s %7.2f us", names[i], duration);
+			total_duration += duration;
+		}
+		ImGui::Text("Total Time: %7.2f us", total_duration);
+	}
+
+	Application& app = *(Application*)device->descriptor.userdata;
+	flecs::world world = flecs::world(oval_get_world(device));
+	world.set<pulse::RenderContext>(pulse::RenderContext{ .value = render_context });
+	world.run_pipeline(app.imguiPipeline);
+}
+
+void on_window_close1(ecs_entity_t entity, oval_device_t* device)
+{
+	Application* app = (Application*)device->descriptor.userdata;
+	app->window1 = kNullEntity;
+}
+
+void on_submit(oval_device_t* device, oval_submit_context submit_context, HGEGraphics::rendergraph_t& rg)
+{
+	Application* app = (Application*)device->descriptor.userdata;
+	auto& lastFrameRenderPacket = app->frameRenderPackets[submit_context.submitRenderPacketFrame];
+	submit(*app, lastFrameRenderPacket, device, rg);
+}
+
+void on_post_update(oval_device_t* device, oval_update_context update_context)
+{
+}
+
+void need_das_modules()
+{
+    NEED_ALL_DEFAULT_MODULES;
+	NEED_MODULE(ModulePulseECS);
+	NEED_MODULE(ModuleFlecs);
+	NEED_MODULE(Module_dasCGPU);
+}
+
+extern "C"
+int SDL_main(int argc, char *argv[])
+{
+	const int width = 800;
+	const int height = 600;
+	Application app;
+	oval_device_descriptor device_descriptor =
+	{
+		.userdata = &app,
+		.on_update = on_update,
+		.on_render = on_render,
+		.on_submit = on_submit,
+		.on_post_update = on_post_update,
+		.update_frequecy_mode = UPDATE_FREQUENCY_MODE_VARIABLE,
+		.fixed_update_time_step = 1.0 / 1,
+		.render_frequecy_mode = RENDER_FREQUENCY_MODE_LIMITED,
+		.render_need_interpolate = false,
+		.target_fps = 100,
+		.enable_capture = false,
+		.enable_profile = false,
+		.enable_gpu_validation = false,
+	};
+	app.device.reset(oval_create_device(&device_descriptor));
+
+	if (!app.device)
+		return -1;
+
+	need_das_modules();
+
+	das::Module::Initialize();
+
+	if (!app.loadProgram("snake_module.das"))
+	{
+		return -1;
+	}
+
+	oval_window_descriptor window_descriptor = {
+		.width = width,
+		.height = height,
+		.primary = true,
+		.resizable = false,
+		.use_imgui = true,
+		.own_imgui = true,
+		.on_imgui = on_imgui1,
+		.on_close = on_window_close1,
+	};
+	app.window1 = oval_create_window_entity(app.device.get(), &window_descriptor);
+
+	flecs::world world = flecs::world(oval_get_world(app.device.get()));
+
+	_init_world(app, world, app.window1);
+		
+	oval_runloop(app.device.get());
+	if (app.window1 != 0)
+		oval_free_window_entity(app.device.get(), app.window1);
+
+	return 0;
+}

@@ -166,3 +166,4 @@ $RECYCLE.BIN/
 /vsxmake*
 /examples/assets/shaderbin
 /shaders
+/.worktrees/

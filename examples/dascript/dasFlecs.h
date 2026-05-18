@@ -1,0 +1,63 @@
+#pragma once
+
+#include <flecs.h>
+#include "daScript/daScript.h"
+
+namespace dasPulseECS
+{
+	struct World
+	{
+		ecs_world_t* world_;
+		World() : world_(nullptr) {}
+		World(ecs_world_t* w) : world_(w) {}
+
+		operator ecs_world_t*() const { return world_; }
+	};
+
+	struct Query
+	{
+		ecs_query_t* query_;
+		Query() : query_(nullptr) {}
+		Query(ecs_query_t* q) : query_(q) {}
+
+		operator ecs_query_t* () const { return query_; }
+	};
+
+	struct SystemDesc
+	{
+		const char* name = nullptr;
+		ecs_entity_t dependsOn;
+		bool immediate = false;
+		ecs_term_t terms[FLECS_TERM_COUNT_MAX] = {};
+	};
+
+	struct EventSystemDesc
+	{
+		ecs_id_t event_id;
+		ecs_term_t terms[FLECS_TERM_COUNT_MAX] = {};
+	};
+
+	struct EventDesc
+	{
+		uint64_t event;
+		int termCount = 0;
+		uint64_t terms[FLECS_TERM_COUNT_MAX] = {};
+		ecs_entity_t entity;
+		const void* payload = nullptr;
+	};
+
+	struct ModuleContext
+	{
+		World world;
+		ecs_entity_t initPipeline;
+		ecs_entity_t updatePipeline;
+		ecs_entity_t postUpdatePipeline;
+		ecs_entity_t renderPipeline;
+		ecs_entity_t imguiPipeline;
+		//pulse::EventCenter* eventManager;
+	};
+}
+MAKE_TYPE_FACTORY(SystemDesc, dasPulseECS::SystemDesc);
+MAKE_TYPE_FACTORY(EventSystemDesc, dasPulseECS::EventSystemDesc);
+MAKE_TYPE_FACTORY(EventDesc, dasPulseECS::EventDesc);
+MAKE_TYPE_FACTORY(ModuleContext, dasPulseECS::ModuleContext);

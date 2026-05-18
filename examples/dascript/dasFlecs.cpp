@@ -1,0 +1,488 @@
+#include "dasFlecs.h"
+
+#include "daScript/daScript.h"
+#include "ecsext.hpp"
+
+namespace dasPulseECS
+{
+	ecs_entity_t create_entity(World& world)
+	{
+		ecs_entity_desc_t desc = {};
+		auto id_ = ecs_entity_init(world.world_, &desc);
+		return id_;
+	}
+
+	void destruct_entity(World& world, ecs_entity_t entity)
+	{
+		ecs_delete(world.world_, entity);
+	}
+
+	void dump_world(const World& world)
+	{
+		auto info = ecs_get_world_info(world.world_);
+		printf("%lld\n", info->cmd.add_count);
+	}
+
+	void dump_entity(ecs_entity_t entity)
+	{
+		printf("%lld\n", entity);
+	}
+
+	ecs_entity_t get_single_holder(const World& world)
+	{
+		return flecs::_::type<pulse::SingleHolder>::id(world.world_);
+	}
+
+	ecs_query_t* build_query_from_desc(const World& world, const ecs_query_desc_t& desc)
+	{
+		ecs_query_t* query = ecs_query_init(world.world_, &desc);
+		return query;
+	}
+
+	ecs_iter_t query_iter(ecs_query_t* query, das::Context* context, das::LineInfoArg* at)
+	{
+		if (query == nullptr)
+			context->throw_error_at(at, "query is null!");
+		return ecs_query_iter(query->world, query);
+	}
+
+	bool iter_next(ecs_iter_t* iter)
+	{
+		if (!iter->next)
+			return false;
+		return iter->next(iter);
+	}
+
+	void* iter_field(ecs_iter_t* iter, int size, int index)
+	{
+		return ecs_field_w_size(iter, size, index);
+	}
+
+	ecs_entity_t iter_entity(ecs_iter_t* iter, int index)
+	{
+		ecs_assert(iter->entities != nullptr, ECS_INVALID_PARAMETER, "iterator has no entity array");
+		ecs_assert(index >= 0 && index < iter->count, ECS_INVALID_PARAMETER, "iterator entity index %d out of range %d", index, iter->count);
+		return ecs_entity_t{ iter->entities[index] };
+	}
+
+	World get_world(ecs_iter_t* iter)
+	{
+		return World(iter->world);
+	}
+
+	World get_real_world(ecs_iter_t* iter)
+	{
+		return World(iter->real_world);
+	}
+
+	ecs_id_t register_component(const World& world, const char* component_name, int size, int alignment)
+	{
+		ecs_entity_t ComponentID_ = 0;
+		{
+			ecs_size_t len = ecs_os_strlen(component_name);
+			char* symbol_name = ecs_os_alloca_n(char, len + 1);
+			const char* cpp_symbol = ecs_cpp_get_symbol_name(symbol_name, component_name, len);
+
+			auto exist = ecs_lookup_path_w_sep(world, 0, component_name, "::", "::", false);
+			if (exist != 0)
+				return exist;
+
+			ecs_component_desc_t desc = { 0 };
+			ecs_entity_desc_t edesc = { 0 };
+			edesc.id = ComponentID_;
+			edesc.use_low_id = true;
+			edesc.name = ecs_cpp_trim_module(world.world_, component_name);
+			edesc.sep = "::";
+			edesc.root_sep = "::";
+			edesc.symbol = cpp_symbol;
+			desc.entity = ecs_entity_init(world, &edesc);
+			desc.type.size = (static_cast<ecs_size_t>(size));
+			desc.type.alignment = static_cast<int64_t>(size > 0 ? alignment : 0);
+			ComponentID_ = ecs_component_init(world, &desc);
+		}
+		if (!(ComponentID_ != 0)) {
+			ecs_assert(ComponentID_ != 0, ECS_INVALID_PARAMETER, "failed to create component %s", component_name);
+			return 0;
+		}
+		return ComponentID_;
+	}
+
+	void set_component(World& world, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data, das::Context* context, das::LineInfoArg* at)
+	{
+		if (size == 0)
+			ecs_add_id(world.world_, entity, component_id);
+		else
+		{
+			auto type_info = ecs_get_type_info(world.world_, component_id);
+			if (type_info->size != size)
+				context->throw_error_at(at, "set component size different!");
+			ecs_set_id(world.world_, entity, component_id, size, data);
+		}
+	}
+
+	const void* get_component(const World& world, ecs_entity_t entity, ecs_id_t component_id)
+	{
+		return ecs_get_id(world.world_, entity, component_id);
+	}
+
+	void* get_mut_component(const World& world, ecs_entity_t entity, ecs_id_t component_id)
+	{
+		return ecs_get_mut_id(world.world_, entity, component_id);
+	}
+
+	void set_component_from_query(ecs_query_t* query, ecs_entity_t entity, ecs_id_t component_id, int size, const void* data, das::Context* context, das::LineInfoArg* at)
+	{
+		if (size == 0)
+			ecs_add_id(query->world, entity, component_id);
+		else
+		{
+			auto type_info = ecs_get_type_info(query->world, component_id);
+			if (type_info->size != size)
+				context->throw_error_at(at, "set component size different!");
+			ecs_set_id(query->world, entity, component_id, size, data);
+		}
+	}
+
+	const void* get_component_from_query(ecs_query_t* query, ecs_entity_t entity, ecs_id_t component_id)
+	{
+		return ecs_get_id(query->world, entity, component_id);
+	}
+
+	const void* get_res(const World& world, ecs_id_t component_id)
+	{
+		return ecs_get_id(world.world_, component_id, component_id);
+	}
+
+	void* get_mut_res(const World& world, ecs_id_t component_id)
+	{
+		return ecs_get_mut_id(world.world_, component_id, component_id);
+	}
+
+	struct SystemCallBackContext
+	{
+		das::Func fn;
+		das::Context* context;
+		das::LineInfo at;
+	};
+
+	void das_system_wrapper(ecs_iter_t* it)
+	{
+		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->run_ctx;
+
+		vec4f args[1];
+		args[0] = das::cast<ecs_iter_t*>::from(it);
+
+		vec4f ret = callBackContext->context->evalWithCatch(callBackContext->fn.PTR, args);
+		if (auto ex = callBackContext->context->getException()) {
+			printf("EXCEPTION: %s at %s\n", ex, callBackContext->context->exceptionAt.describe().c_str());
+		}
+	}
+
+	void das_system_context_free(void* ctx)
+	{
+		SystemCallBackContext* callBackContext = (SystemCallBackContext*)ctx;
+		delete callBackContext;
+	}
+
+	void register_system_from_desc(const World& world, const SystemDesc& desc, das::Func fn, das::Context* context, das::LineInfoArg* at)
+	{
+		if (!context) {
+			return;
+		}
+		if (!fn) {
+			context->throw_error_at(at, "register_system requires a valid callback function");
+		}
+
+		ecs_id_t ids[] = { ecs_dependson(desc.dependsOn), desc.dependsOn, 0 };
+		ecs_entity_desc_t edesc = { .name = desc.name, .add = desc.dependsOn != 0 ? ids : nullptr };
+
+		ecs_entity_t entity = ecs_entity_init(world, &edesc);
+		if (!entity) {
+			context->throw_error_at(at, "failed to create flecs system entity '%s'", desc.name ? desc.name : "<unnamed>");
+		}
+
+		SystemCallBackContext* callBackContext = new SystemCallBackContext();
+		callBackContext->fn = fn;
+		callBackContext->context = context;
+		if (at) {
+			callBackContext->at = *at;
+		}
+
+		ecs_system_desc_t sdesc = {
+			.entity = entity,
+			.query = {},
+			.run = das_system_wrapper,
+			.run_ctx = callBackContext,
+			.run_ctx_free = das_system_context_free,
+			.immediate = true,
+		};
+
+		memcpy(sdesc.query.terms, desc.terms, sizeof(SystemDesc::terms));
+
+		ecs_entity_t system = ecs_system_init(world, &sdesc);
+		if (!system) {
+			ecs_delete(world, entity);
+			context->throw_error_at(at, "failed to register flecs system '%s'", desc.name ? desc.name : "<unnamed>");
+		}
+	}
+
+	void das_event_wrapper(ecs_iter_t* it)
+	{
+		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->callback_ctx;
+
+		vec4f args[1];
+		args[0] = das::cast<ecs_iter_t*>::from(it);
+
+		vec4f ret = callBackContext->context->evalWithCatch(callBackContext->fn.PTR, args);
+		if (auto ex = callBackContext->context->getException()) {
+			printf("EXCEPTION: %s at %s\n", ex, callBackContext->context->exceptionAt.describe().c_str());
+		}
+	}
+
+	void observe_from_desc(const World& world, const EventSystemDesc& desc, das::Func fn, das::Context* context, das::LineInfoArg* at)
+	{
+		if (!context) {
+			return;
+		}
+		if (!fn) {
+			context->throw_error_at(at, "register_system requires a valid callback function");
+		}
+
+		SystemCallBackContext* callBackContext = new SystemCallBackContext();
+		callBackContext->fn = fn;
+		callBackContext->context = context;
+		if (at) {
+			callBackContext->at = *at;
+		}
+
+		ecs_observer_desc_t odesc = { 0 };
+		odesc.callback = das_event_wrapper;
+		odesc.callback_ctx = callBackContext;
+		odesc.callback_ctx_free = das_system_context_free;
+		odesc.query = {};
+		odesc.events[0] = desc.event_id;
+
+		memcpy(odesc.query.terms, desc.terms, sizeof(EventSystemDesc::terms));
+
+		ecs_entity_t eventSystem = ecs_observer_init(world.world_, &odesc);
+		if (!eventSystem) {
+			context->throw_error_at(at, "failed to register flecs event system for event '%lld'", desc.event_id);
+		}
+	}
+
+	void emit_entity(const World& world, const EventDesc& desc)
+	{
+		ecs_type_t ids;
+		ids.array = (ecs_id_t*)desc.terms;
+		ids.count = desc.termCount;
+		ecs_event_desc_t edesc = {
+			.event = desc.event,
+			.ids = &ids, // 1 id
+			.entity = desc.entity != 0 ? desc.entity : get_single_holder(world),
+			.const_param = desc.payload,
+			.observable = world.world_,
+		};
+
+		ecs_enqueue(world.world_, &edesc);
+	}
+
+	void emit_broadcast(const World& world, const EventDesc& desc)
+	{
+		ecs_id_t terms[1];
+		terms[0] = flecs::_::type<pulse::EventTag>::id(world.world_);
+		ecs_type_t ids;
+		ids.array = terms;
+		ids.count = 1;
+		ecs_event_desc_t edesc = {
+			.event = desc.event,
+			.ids = &ids,
+			.entity = flecs::_::type<pulse::SingleHolder>::id(world.world_),
+			.const_param = desc.payload,
+			.observable = world.world_,
+		};
+
+		ecs_enqueue(world.world_, &edesc);
+	}
+}
+
+MAKE_TYPE_FACTORY(World, dasPulseECS::World);
+struct WorldAnnotation final : das::ManagedValueAnnotation<dasPulseECS::World>
+{
+	WorldAnnotation(das::ModuleLibrary& ml)
+		: ManagedValueAnnotation(ml, "World", "dasPulseECS::World")
+	{
+	}
+};
+
+MAKE_TYPE_FACTORY(_Query, dasPulseECS::Query);
+struct QueryAnnotation final : das::ManagedValueAnnotation<dasPulseECS::Query>
+{
+	QueryAnnotation(das::ModuleLibrary& ml)
+		: ManagedValueAnnotation(ml, "_Query", "dasPulseECS::Query")
+	{
+	}
+};
+
+MAKE_TYPE_FACTORY(ecs_query_t, ecs_query_t);
+struct ecs_query_tAnnotation final : das::ManagedStructureAnnotation<ecs_query_t>
+{
+	ecs_query_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_query_t", ml, "ecs_query_t")
+	{
+	}
+};
+
+MAKE_TYPE_FACTORY(ecs_query_desc_t, ecs_query_desc_t);
+struct ecs_query_desc_tAnnotation final : das::ManagedStructureAnnotation<ecs_query_desc_t>
+{
+	ecs_query_desc_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_query_desc_t", ml, "ecs_query_desc_t")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
+	}
+};
+
+MAKE_TYPE_FACTORY(ecs_iter_t, ecs_iter_t);
+struct ecs_iter_tAnnotation final : das::ManagedStructureAnnotation<ecs_iter_t>
+{
+	ecs_iter_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_iter_t", ml, "ecs_iter_t")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(count)>("count");
+		addField<DAS_BIND_MANAGED_FIELD(param)>("param");
+	}
+};
+
+MAKE_TYPE_FACTORY(ecs_term_t, ecs_term_t);
+struct ecs_term_tAnnotation final : das::ManagedStructureAnnotation<ecs_term_t>
+{
+	ecs_term_tAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ecs_term_t", ml, "ecs_term_t")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(id)>("id");
+		addField<DAS_BIND_MANAGED_FIELD(inout)>("inout");
+	}
+};
+
+struct SystemDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::SystemDesc>
+{
+	SystemDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("SystemDesc", ml, "dasPulseECS::SystemDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(name)>("name");
+		addField<DAS_BIND_MANAGED_FIELD(dependsOn)>("dependsOn");
+		addField<DAS_BIND_MANAGED_FIELD(immediate)>("immediate");
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+struct EventSystemDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::EventSystemDesc>
+{
+	EventSystemDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventSystemDesc", ml, "dasPulseECS::EventSystemDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(event_id)>("event_id");
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+struct EventDescAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::EventDesc>
+{
+	EventDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("EventDesc", ml, "dasPulseECS::EventDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(event)>("event");
+		addField<DAS_BIND_MANAGED_FIELD(termCount)>("termCount");
+		addField<DAS_BIND_MANAGED_FIELD(terms)>("terms");
+		addField<DAS_BIND_MANAGED_FIELD(entity)>("entity");
+		addField<DAS_BIND_MANAGED_FIELD(payload)>("payload");
+	}
+
+	virtual bool isLocal() const override { return true; }
+};
+
+struct ModuleContextAnnotation final : das::ManagedStructureAnnotation<dasPulseECS::ModuleContext>
+{
+	ModuleContextAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("ModuleContext", ml, "dasPulseECS::ModuleContext")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(world)>("world");
+		addField<DAS_BIND_MANAGED_FIELD(initPipeline)>("initPipeline");
+		addField<DAS_BIND_MANAGED_FIELD(updatePipeline)>("updatePipeline");
+		addField<DAS_BIND_MANAGED_FIELD(postUpdatePipeline)>("postUpdatePipeline");
+		addField<DAS_BIND_MANAGED_FIELD(renderPipeline)>("renderPipeline");
+		addField<DAS_BIND_MANAGED_FIELD(imguiPipeline)>("imguiPipeline");
+	}
+};
+
+namespace das
+{
+	template <>
+	struct cast<dasPulseECS::World> {
+		static __forceinline dasPulseECS::World to(vec4f x) { return dasPulseECS::World{ cast<ecs_world_t*>::to(x) }; }
+		static __forceinline vec4f from(dasPulseECS::World x) { return cast<ecs_world_t*>::from(x.world_); }
+	};
+	template <> struct WrapType<dasPulseECS::World> { enum { value = true }; typedef void* type; typedef void* rettype; };
+
+	template <>
+	struct cast<dasPulseECS::Query> {
+		static __forceinline dasPulseECS::Query to(vec4f x) { return dasPulseECS::Query{ cast<ecs_query_t*>::to(x) }; }
+		static __forceinline vec4f from(dasPulseECS::Query x) { return cast<ecs_query_t*>::from(x.query_); }
+	};
+	template <> struct WrapType<dasPulseECS::Query> { enum { value = true }; typedef void* type; typedef void* rettype; };
+}
+
+class ModuleFlecs : public das::Module
+{
+public:
+	ModuleFlecs() : Module("flecs")
+	{
+		using namespace das;
+
+		ModuleLibrary lib(this);
+		lib.addBuiltInModule();
+		addBuiltinDependency(lib, Module::require("math"));
+
+		addAnnotation(new WorldAnnotation(lib));
+		addAnnotation(new QueryAnnotation(lib));
+		addAnnotation(new ecs_iter_tAnnotation(lib));
+		addAnnotation(new ecs_term_tAnnotation(lib));
+		addAnnotation(new ecs_query_tAnnotation(lib));
+		addAnnotation(new ecs_query_desc_tAnnotation(lib));
+		addAnnotation(new SystemDescAnnotation(lib));
+		addAnnotation(new EventSystemDescAnnotation(lib));
+		addAnnotation(new EventDescAnnotation(lib));
+		addAnnotation(new ModuleContextAnnotation(lib));
+
+		addExtern<DAS_BIND_FUN(dasPulseECS::create_entity)>(*this, lib, "create_entity", SideEffects::worstDefault, "create_entity")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::destruct_entity)>(*this, lib, "destruct_entity", SideEffects::worstDefault, "destruct_entity")->args({ "world", "entity" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::dump_world)>(*this, lib, "dump_world", SideEffects::modifyExternal, "dump_world")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_single_holder)>(*this, lib, "get_single_holder", SideEffects::modifyExternal, "get_single_holder")->args({ "world" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::build_query_from_desc)>(*this, lib, "build_query_from_desc", SideEffects::worstDefault, "build_query_from_desc")->args({ "world", "desc" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query", "context", "at" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::iter_entity)>(*this, lib, "iter_entity", SideEffects::worstDefault, "iter_entity")->args({ "iter", "index" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_world)>(*this, lib, "get_world", SideEffects::worstDefault, "get_world")->args({ "iter" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_real_world)>(*this, lib, "get_real_world", SideEffects::worstDefault, "get_real_world")->args({ "iter" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::register_component)>(*this, lib, "register_component", SideEffects::worstDefault, "register_component")->args({ "world", "component_name", "size", "alignment" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::set_component)>(*this, lib, "set_component", SideEffects::worstDefault, "set_component")->args({ "world", "entity", "component_id", "size", "data", "context", "at"});
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_component)>(*this, lib, "get_component", SideEffects::worstDefault, "get_component")->args({ "world", "entity", "component_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_component)>(*this, lib, "get_mut_component", SideEffects::worstDefault, "get_mut_component")->args({ "world", "entity", "component_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::set_component_from_query)>(*this, lib, "set_component_from_query", SideEffects::worstDefault, "set_component_from_query")->args({ "query", "entity", "component_id", "size", "data", "context", "at" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_component_from_query)>(*this, lib, "get_component_from_query", SideEffects::worstDefault, "get_component_from_query")->args({ "query", "entity", "component_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_res)>(*this, lib, "get_res", SideEffects::worstDefault, "get_res")->args({ "world", "component_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::get_mut_res)>(*this, lib, "get_mut_res", SideEffects::worstDefault, "get_mut_res")->args({ "world", "component_id" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::register_system_from_desc)>(*this, lib, "register_system_from_desc", SideEffects::worstDefault, "register_system_from_desc")->args({ "world", "desc", "fn", "context", "at"});
+		addExtern<DAS_BIND_FUN(dasPulseECS::observe_from_desc)>(*this, lib, "observe_from_desc", SideEffects::worstDefault, "observe_from_desc")->args({ "world", "desc", "fn", "context", "at"});
+		addExtern<DAS_BIND_FUN(dasPulseECS::emit_entity)>(*this, lib, "emit_entity", SideEffects::worstDefault, "emit_entity")->args({ "world", "desc" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::emit_broadcast)>(*this, lib, "emit_broadcast", SideEffects::worstDefault, "emit_broadcast")->args({ "world", "desc" });
+	}
+};
+
+REGISTER_MODULE(ModuleFlecs);

@@ -20,7 +20,7 @@ end
 add_requires("libsdl3", {configs = {sdlmain = false, shared = is_plat("android")}})
 add_requires("imgui v1.92.1-docking")
 add_requires("mimalloc")
-add_requires("flecs")
+-- add_requires("flecs")
 add_requires("enkits")
 
 if is_plat("windows", "linux", "android") then
@@ -51,7 +51,7 @@ target("rgframework")
     add_packages("imgui", {public = true})
     add_packages("mimalloc", {public = true})
     add_packages("enkits", {public = true})
-    add_packages("flecs", {public = true})
+    -- add_packages("flecs", {public = true})
     add_rules("utils.hlsl2spv", {bin2c = true})
     set_pcheader("src/rgframework/src/pcheader.h")
     add_includedirs("src/rgframework/include", {public = true})
@@ -60,6 +60,7 @@ target("rgframework")
     add_headerfiles("src/rgframework/src/*.h", {install = false})
     add_files("src/rgframework/src/*.cpp")
     add_files("src/rgframework/src/*.hlsl")
+    add_files("src/rgframework/src/flecs.c")
     if is_plat("windows") then 
         add_syslinks("Advapi32")
     end 
@@ -92,3 +93,11 @@ target("snake")
         add_rules("androidcpp", {android_sdk_version = "34", android_manifest = "examples/AndroidManifest.xml", android_res = "examples/res", android_assets = "examples/assets", attachedjar = path.join("androidsdl", "libsdl3-3.2.16.jar"), apk_output_path = ".", package_name = "com.xmake.androidcpp", activity_name = "org.libsdl.app.SDLActivity"})
     end
     add_files("examples/snake/*.cpp")
+
+includes("dascript/xmake.lua")
+
+target("das-example")
+    add_rules("example_base")
+    add_files("examples/dascript/*.cpp")
+    add_files("examples/dascript/dasCGPU/*.cpp")
+    add_deps("libDaScript")

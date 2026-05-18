@@ -99,11 +99,21 @@ struct WaitLoadResource
 	};
 };
 
+struct Vec3
+{
+	float X, Y, Z;
+};
+
+struct Vec2
+{
+	float X, Y;
+};
+
 struct TexturedVertex
 {
-	HMM_Vec3 position;
-	HMM_Vec3 normal;
-	HMM_Vec2 texCoord;
+	Vec3 position;
+	Vec3 normal;
+	Vec2 texCoord;
 };
 
 struct SwapChain
