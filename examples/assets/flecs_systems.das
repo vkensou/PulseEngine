@@ -9,7 +9,6 @@ module flecs_systems private
 require daslib/ast_boost
 require daslib/templates_boost
 require daslib/macro_boost
-require daslib/strings_boost
 
 [function_macro(name="system")]
 class FlecsSystemMacro : AstFunctionAnnotation {
@@ -122,18 +121,31 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 continue
             }
 
-            let query_result = is_query_type(arg._type)
+            let (query_result, query_error_message) = is_query_type(arg)
+            if (query_error_message != "") {
+                errors := query_error_message
+                return false
+            }
             if (query_result) {
                 let fi_name = "{arg.name}"
-                let fi = system_state_class |> add_structure_field(fi_name, arg._type, default<ExpressionPtr>)
+                var query_field = clone_type(arg._type)
+                query_field.flags.constant = false
+                let fi = system_state_class |> add_structure_field(fi_name, query_field, default<ExpressionPtr>)
                 system_state_class.fields[fi].annotation |> add_annotation_argument("safe_when_uninitialized", true)
                 var query_types : array<ExpressionPtr>
                 for (i in 1..length(arg._type.dimExpr)) {
                     query_types |> push <| arg._type.dimExpr[i]
                 }
-                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = ctx.world |> query($a(query_types));})
-                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = ctx.world |> query($a(query_types));})
-                wrapper_fn_body |> push <| qmacro_expr(${var $i(fi_name) = system_state.$f(fi_name);})
+                var register_query_call = make_call(arg.at, "query")
+                var register_query_macro = register_query_call as ExprCallMacro
+                register_query_macro.arguments |> push <| qmacro(ctx.world)
+                for (qt in query_types) {
+                    register_query_macro.arguments |> push <| clone_expression(qt)
+                }
+                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = $e(register_query_call);})
+                var event_query_call = clone_expression(register_query_call)
+                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = $e(event_query_call);})
+                wrapper_fn_body |> push <| qmacro_expr(${let $i(fi_name) = system_state.$f(fi_name);})
                 wrapper_fn_call_args |> push <| qmacro($i(fi_name))
                 continue
             }
@@ -402,35 +414,38 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_query_type(arg_type : TypeDeclPtr) {
+    def is_query_type(arg: VariablePtr) {
+        let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || length(arg_type.dimExpr) < 2) {
-            return false
+            return (false, "")
         }
 
         if (!(arg_type.dimExpr[0] is ExprConstString)) {
-            return false
+            return (false, "")
         }
 
         let macroExpr = arg_type.dimExpr[0] as ExprConstString
         let macroName = string(macroExpr.value)
 
-        if (!macroName.starts_with("Query")) {
-            return false
+        if (macroName != "Query") {
+            return (false, "")
         }
 
-        for (i in 5..length(macroName)) {
-            if (!is_number(character_at(macroName, i))) {
-                return false
-            }
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type Query<T> cannot be declared with 'var'; remove 'var' keyword")
         }
 
         for (i in 1..length(arg_type.dimExpr)) {
             if (!(arg_type.dimExpr[i] is ExprTypeDecl)) {
-                return false
+                return (false, "")
             }
         }
 
-        return true
+        return (true, "")
     }
 
     def is_iter_type(arg_type : TypeDeclPtr) : bool {

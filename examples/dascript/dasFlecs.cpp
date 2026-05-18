@@ -39,8 +39,10 @@ namespace dasPulseECS
 		return query;
 	}
 
-	ecs_iter_t query_iter(ecs_query_t* query)
+	ecs_iter_t query_iter(ecs_query_t* query, das::Context* context, das::LineInfoArg* at)
 	{
+		if (query == nullptr)
+			context->throw_error_at(at, "query is null!");
 		return ecs_query_iter(query->world, query);
 	}
 
@@ -166,7 +168,16 @@ namespace dasPulseECS
 	void das_system_wrapper(ecs_iter_t* it)
 	{
 		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->run_ctx;
-		das::das_invoke_function<ecs_iter_t*>::invoke(callBackContext->context, &callBackContext->at, callBackContext->fn, it);
+
+		vec4f args[1];
+		args[0] = das::cast<ecs_iter_t*>::from(it);
+
+		vec4f ret = callBackContext->context->evalWithCatch(callBackContext->fn.PTR, args);
+		if (auto ex = callBackContext->context->getException()) {
+			printf("exception in importModule: %s\n", ex);
+			if (it->query)
+				ecs_iter_fini(it);
+		}
 	}
 
 	void das_system_context_free(void* ctx)
@@ -220,7 +231,16 @@ namespace dasPulseECS
 	void das_event_wrapper(ecs_iter_t* it)
 	{
 		SystemCallBackContext* callBackContext = (SystemCallBackContext*)it->callback_ctx;
-		das::das_invoke_function<ecs_iter_t*>::invoke(callBackContext->context, &callBackContext->at, callBackContext->fn, it);
+
+		vec4f args[1];
+		args[0] = das::cast<ecs_iter_t*>::from(it);
+
+		vec4f ret = callBackContext->context->evalWithCatch(callBackContext->fn.PTR, args);
+		if (auto ex = callBackContext->context->getException()) {
+			printf("exception in importModule: %s\n", ex);
+			if (it->query)
+				ecs_iter_fini(it);
+		}
 	}
 
 	void observe_from_desc(const World& world, const EventSystemDesc& desc, das::Func fn, das::Context* context, das::LineInfoArg* at)
@@ -448,7 +468,7 @@ public:
 		addExtern<DAS_BIND_FUN(dasPulseECS::dump_entity)>(*this, lib, "dump_entity", SideEffects::modifyExternal, "dump_entity")->args({ "entity" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::get_single_holder)>(*this, lib, "get_single_holder", SideEffects::modifyExternal, "get_single_holder")->args({ "world" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::build_query_from_desc)>(*this, lib, "build_query_from_desc", SideEffects::worstDefault, "build_query_from_desc")->args({ "world", "desc" });
-		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query" });
+		addExtern<DAS_BIND_FUN(dasPulseECS::query_iter), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "query_iter", SideEffects::worstDefault, "query_iter")->args({ "query", "context", "at" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_next)>(*this, lib, "iter_next", SideEffects::worstDefault, "iter_next")->args({ "iter" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_field)>(*this, lib, "iter_field", SideEffects::worstDefault, "iter_field")->args({ "iter", "size", "index" });
 		addExtern<DAS_BIND_FUN(dasPulseECS::iter_entity)>(*this, lib, "iter_entity", SideEffects::worstDefault, "iter_entity")->args({ "iter", "index" });

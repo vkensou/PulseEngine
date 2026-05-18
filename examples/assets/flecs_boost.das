@@ -58,7 +58,7 @@ def ecs_observe(var world: World, callback: function<(var iter: Iter?):void>, ev
     observe(world, callback, ecs_component(world, eventType), "pulse.EventTag")
 }
 
-def ecs_query_entity_set(var query: auto(Query), entity: Entity, component: auto(T)) {
+def ecs_query_entity_set(query: auto(Query), entity: Entity, component: auto(T)) {
     unsafe {
         let p = addr(component)
         set_component_from_query(query.query_, entity, ecs_component(query.world, component), typeinfo sizeof(type<T>), p)

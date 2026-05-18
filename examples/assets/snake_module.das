@@ -242,7 +242,7 @@ def createEntities(cmd: CommandBuffer, border: Border, resources: SnakeResources
 	let apple = createApple(cmd, poses, border, resources.quad, resources.appleMat);
 }
 
-def destructEntities(cmd: CommandBuffer, var snakeQuery: Query1<SnakeBodies>, var appleQuery: Query1<IsApple>) {
+def destructEntities(cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, appleQuery: Query<IsApple const>) {
 	snakeQuery |> for_each() $(entity, snake) {
         for (i in 0..length(snake.bodies))
 		{
@@ -434,7 +434,7 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 }
 
 [system]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, cmd: CommandBuffer, var appleQuery: Query2<IsApple, Position>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>, gameOverEvent: EventWriter<GameOverEvent>, appleEatenEvent: EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, cmd: CommandBuffer, appleQuery: Query<IsApple const, Position const>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>, gameOverEvent: EventWriter<GameOverEvent>, appleEatenEvent: EventWriter<AppleEatenEvent>, var snake: SnakeBodies) {
     let event = snakeMoveIntentEvent.read()
     let delta = event.delta
 
@@ -467,7 +467,7 @@ def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEven
 }
 
 [system(phase="update")]
-def syncSnakeBodyPositionSystem(var snake: SnakeBodies, var positionQuery: Query1<Position>) {
+def syncSnakeBodyPositionSystem(var snake: SnakeBodies, positionQuery: Query<Position const>) {
 	for (i in 0..length(snake.bodies))
 	{
 		assume body = snake.bodies[i]
@@ -486,7 +486,7 @@ def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, scoreQuery:
 }
 
 [system]
-def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBuffer, var snakeQuery: Query1<SnakeBodies>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
+def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
 	let (snakeEnt, snakeBodies) = snakeQuery.first()
     var poses: array<HMM_Vec3>;
 	for (i in 0..length(snakeBodies.bodies))
@@ -499,7 +499,7 @@ def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBu
 }
 
 [system]
-def onGameOverSystem(eventGameOver: EventReader<GameOverEvent>, cmd: CommandBuffer, var snakeQuery: Query1<SnakeBodies>, var appleQuery: Query1<IsApple>) {
+def onGameOverSystem(eventGameOver: EventReader<GameOverEvent>, cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, appleQuery: Query<IsApple const>) {
 	cmd.set_singleton(SnakeGame(playing = false))
 	destructEntities(cmd, snakeQuery, appleQuery);
 }
