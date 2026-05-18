@@ -174,9 +174,7 @@ namespace dasPulseECS
 
 		vec4f ret = callBackContext->context->evalWithCatch(callBackContext->fn.PTR, args);
 		if (auto ex = callBackContext->context->getException()) {
-			printf("exception in importModule: %s\n", ex);
-			if (it->query)
-				ecs_iter_fini(it);
+			printf("EXCEPTION: %s at %s\n", ex, callBackContext->context->exceptionAt.describe().c_str());
 		}
 	}
 
@@ -237,9 +235,7 @@ namespace dasPulseECS
 
 		vec4f ret = callBackContext->context->evalWithCatch(callBackContext->fn.PTR, args);
 		if (auto ex = callBackContext->context->getException()) {
-			printf("exception in importModule: %s\n", ex);
-			if (it->query)
-				ecs_iter_fini(it);
+			printf("EXCEPTION: %s at %s\n", ex, callBackContext->context->exceptionAt.describe().c_str());
 		}
 	}
 

@@ -765,7 +765,7 @@ struct Application
 
 		vec4f ret = ctx->evalWithCatch(fnImportModule, args);
 		if (auto ex = ctx->getException()) {
-			tout << "exception in importModule: " << ex << "\n";
+			tout << "exception in importModule: " << ex << " at " << ctx->exceptionAt.describe() << "\n";
 			return false;
 		}
 
