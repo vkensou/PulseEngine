@@ -14,18 +14,13 @@ namespace {
 
 constexpr const char* kPluginName = "PulseWindowPlugin";
 
-struct WindowRecord {
-    ecs_entity_t entity = 0;
-    SDL_Window* window = nullptr;
-    SDL_WindowID window_id = 0;
-};
-
 struct pulse_window_plugin_state {
     pulse_app_t app = nullptr;
     pulse_window_plugin_desc desc{};
     uint32_t initialized_sdl_flags = 0;
     bool quit_requested = false;
-    std::vector<WindowRecord> windows;
+    ecs_query_t* window_query{};
+    ecs_query_t* sync_window_query{};
 };
 
 typedef struct pulse_window_state_resource {
@@ -109,22 +104,6 @@ pulse_window_plugin_state* state_from_app(pulse_app_t app) {
     return state_from_world(pulse_app_world(app));
 }
 
-auto find_record_by_entity(pulse_window_plugin_state* state, ecs_entity_t entity) {
-    return std::find_if(
-        state->windows.begin(),
-        state->windows.end(),
-        [entity](const WindowRecord& record) { return record.entity == entity; }
-    );
-}
-
-auto find_record_by_window_id(pulse_window_plugin_state* state, SDL_WindowID window_id) {
-    return std::find_if(
-        state->windows.begin(),
-        state->windows.end(),
-        [window_id](const WindowRecord& record) { return record.window_id == window_id; }
-    );
-}
-
 void* native_view_from_window(SDL_Window* window) {
     if (!window) {
         return nullptr;
@@ -140,35 +119,10 @@ void* native_view_from_window(SDL_Window* window) {
 #endif
 }
 
-bool destroy_sdl_window(pulse_window_plugin_state* state, ecs_entity_t entity) {
-    if (!state) {
-        return false;
-    }
-
-    auto it = find_record_by_entity(state, entity);
-    if (it == state->windows.end()) {
-        return false;
-    }
-
-    if (it->window) {
-        SDL_DestroyWindow(it->window);
-    }
-
-    state->windows.erase(it);
-    return true;
-}
-
 void destroy_all_windows(pulse_window_plugin_state* state) {
     if (!state) {
         return;
     }
-
-    for (auto it = state->windows.rbegin(); it != state->windows.rend(); ++it) {
-        if (it->window) {
-            SDL_DestroyWindow(it->window);
-        }
-    }
-    state->windows.clear();
 }
 
 void clear_frame_state(pulse_window_plugin_state* state) {
@@ -177,18 +131,17 @@ void clear_frame_state(pulse_window_plugin_state* state) {
         return;
     }
 
-    for (const WindowRecord& record : state->windows) {
-        if (!ecs_is_alive(world, record.entity)) {
-            continue;
-        }
+    ecs_iter_t it = ecs_query_iter(world, state->window_query);
+    while (ecs_query_next(&it)) {
+        pulse_window* windows = ecs_field(&it, pulse_window, 0);
 
-        pulse_window* window = ecs_get_mut(world, record.entity, pulse_window);
-        if (!window) {
-            continue;
-        }
+        for (int i = 0; i < it.count; i++) {
+            auto entity = it.entities[i];
+            auto& window = windows[i];
+            window.resized = false;
 
-        window->resized = false;
-        ecs_modified(world, record.entity, pulse_window);
+            ecs_modified(world, entity, pulse_window);
+        }
     }
 }
 
@@ -226,6 +179,100 @@ void mark_window_resized(
     ecs_modified(world, entity, pulse_window);
 }
 
+pulse_result_t pulse_window_poll_events(pulse_app_t app, pulse_window_plugin_state* state) {
+    ecs_world_t* world = pulse_app_world(app);
+    if (!state || !world) {
+        return PULSE_ERROR_INVALID_STATE;
+    }
+
+    clear_frame_state(state);
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_QUIT) {
+            state->quit_requested = true;
+            continue;
+        }
+
+        const bool is_close_event = event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+        const bool is_resize_event =
+            event.type == SDL_EVENT_WINDOW_RESIZED ||
+            event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+        if (!is_close_event && !is_resize_event) {
+            continue;
+        }
+
+        auto props = SDL_GetWindowProperties(SDL_GetWindowFromEvent(&event));
+        ecs_entity_t entity = SDL_GetNumberProperty(props, "sdl.window.entity", 0);
+        if (ecs_is_alive(world, entity)) {
+            if (is_close_event) {
+                mark_window_close_requested(state, world, entity);
+            }
+            else if (is_resize_event) {
+                mark_window_resized(world, entity, event.window.data1, event.window.data2);
+            }
+        }
+    }
+
+    return PULSE_OK;
+}
+
+pulse_result_t pulse_window_sync(pulse_app_t app, pulse_window_plugin_state* state) {
+    ecs_world_t* world = pulse_app_world(app);
+    if (!state || !world) {
+        return PULSE_ERROR_INVALID_STATE;
+    }
+
+    ecs_iter_t it = ecs_query_iter(world, state->sync_window_query);
+    while (ecs_query_next(&it)) {
+        pulse_window* windows = ecs_field(&it, pulse_window, 0);
+        pulse_sdl_window* sdl_windows = ecs_field(&it, pulse_sdl_window, 1);
+
+        for (int i = 0; i < it.count; i++) {
+            auto entity = it.entities[i];
+            auto& window = windows[i];
+            auto& sdl_window = sdl_windows[i];
+
+            if (window.width <= 0 || window.height <= 0) {
+                continue;
+            }
+
+            int sdl_width = 0;
+            int sdl_height = 0;
+            SDL_GetWindowSize(sdl_window.handle, &sdl_width, &sdl_height);
+            if (window.width != sdl_width || window.height != sdl_height) {
+                SDL_SetWindowSize(sdl_window.handle, window.width, window.height);
+            }
+        }
+    }
+
+    return PULSE_OK;
+}
+
+void on_add_window(ecs_iter_t* it)
+{
+    printf("add window\n");
+}
+
+void on_remove_window(ecs_iter_t* it)
+{
+    ecs_world_t* world = it->world;
+
+    for (int i = 0; i < it->count; ++i) {
+        ecs_entity_t entity = it->entities[i];
+
+        pulse_sdl_window* raw = ecs_get_mut(world, entity, pulse_sdl_window);
+        if (raw && raw->handle) {
+            SDL_DestroyWindow(raw->handle);
+            raw->handle = nullptr;
+            raw->native_view = nullptr;
+            raw->window_id = 0;
+        }
+
+        ecs_remove(world, entity, pulse_sdl_window);
+    }
+}
+
 pulse_result_t window_runner(pulse_app_t app, void* ctx) {
     pulse_window_plugin_state* state = static_cast<pulse_window_plugin_state*>(ctx);
     if (!state) {
@@ -233,7 +280,7 @@ pulse_result_t window_runner(pulse_app_t app, void* ctx) {
     }
 
     while (!state->quit_requested) {
-        pulse_result_t result = pulse_window_poll_events(app);
+        pulse_result_t result = pulse_window_poll_events(app, state);
         if (result != PULSE_OK) {
             return result;
         }
@@ -243,7 +290,7 @@ pulse_result_t window_runner(pulse_app_t app, void* ctx) {
             return result;
         }
 
-        result = pulse_window_sync(app);
+        result = pulse_window_sync(app, state);
         if (result != PULSE_OK) {
             return result;
         }
@@ -281,6 +328,28 @@ pulse_result_t window_plugin_build(pulse_app_t app, void* ctx) {
     }
     state->initialized_sdl_flags = missing_flags;
 
+    ecs_query_desc_t window_query_desc = {
+        .terms = {
+            {.id = ecs_id(pulse_window) }
+        },
+        .cache_kind = EcsQueryCacheAuto
+    };
+
+    state->window_query = ecs_query_init(world, &window_query_desc);
+
+    ecs_query_desc_t sync_window_query_desc = {
+        .terms = {
+            {.id = ecs_id(pulse_window) },
+            {.id = ecs_id(pulse_sdl_window) },
+        },
+        .cache_kind = EcsQueryCacheAuto
+    };
+
+    state->sync_window_query = ecs_query_init(world, &sync_window_query_desc);
+
+    ECS_OBSERVER(world, on_add_window, EcsOnAdd, pulse_window);
+    ECS_OBSERVER(world, on_remove_window, EcsOnRemove, pulse_window);
+
     if (state->desc.flags & PULSE_WINDOW_PLUGIN_CREATE_PRIMARY) {
         ecs_entity_t primary = 0;
         pulse_result_t result =
@@ -314,6 +383,11 @@ void window_plugin_shutdown(pulse_app_t app, void* ctx) {
 
     ecs_world_t* world = pulse_app_world(app);
     destroy_all_windows(state);
+
+    if (state->window_query)
+        ecs_query_fini(state->window_query);
+    if (state->sync_window_query)
+        ecs_query_fini(state->sync_window_query);
 
     if (world && ecs_id(pulse_window_state_resource) != 0) {
         ecs_singleton_remove(world, pulse_window_state_resource);
@@ -395,8 +469,7 @@ pulse_result_t pulse_window_create(
     }
 
     ecs_world_t* world = pulse_app_world(app);
-    pulse_window_plugin_state* state = state_from_app(app);
-    if (!world || !state) {
+    if (!world) {
         return PULSE_ERROR_INVALID_STATE;
     }
 
@@ -404,6 +477,8 @@ pulse_result_t pulse_window_create(
     if (normalized.primary && pulse_window_primary(app) != 0) {
         return PULSE_ERROR_INVALID_STATE;
     }
+
+
 
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, normalized.title);
@@ -455,7 +530,8 @@ pulse_result_t pulse_window_create(
         ecs_add_id(world, entity, PulsePrimaryWindow);
     }
 
-    state->windows.push_back({ entity, sdl_window, raw_component.window_id });
+    auto window_props = SDL_GetWindowProperties(sdl_window);
+    SDL_SetNumberProperty(window_props, "sdl.window.entity", entity);
 
     if (out_entity) {
         *out_entity = entity;
@@ -464,129 +540,37 @@ pulse_result_t pulse_window_create(
     return PULSE_OK;
 }
 
-pulse_result_t pulse_window_destroy(pulse_app_t app, ecs_entity_t entity) {
-    if (!app || !entity) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
-    }
-
-    ecs_world_t* world = pulse_app_world(app);
-    pulse_window_plugin_state* state = state_from_app(app);
-    if (!world || !state) {
-        return PULSE_ERROR_INVALID_STATE;
-    }
-
-    if (!ecs_is_alive(world, entity)) {
-        return PULSE_ERROR_NOT_FOUND;
-    }
-
-    if (!destroy_sdl_window(state, entity)) {
-        const pulse_sdl_window* raw = ecs_get(world, entity, pulse_sdl_window);
-        if (raw && raw->handle) {
-            SDL_DestroyWindow(raw->handle);
-        }
-    }
-
-    ecs_delete(world, entity);
-    return PULSE_OK;
-}
-
-pulse_result_t pulse_window_poll_events(pulse_app_t app) {
-    pulse_window_plugin_state* state = state_from_app(app);
-    ecs_world_t* world = pulse_app_world(app);
-    if (!state || !world) {
-        return PULSE_ERROR_INVALID_STATE;
-    }
-
-    clear_frame_state(state);
-
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) {
-            state->quit_requested = true;
-            continue;
-        }
-
-        const bool is_close_event = event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED;
-        const bool is_resize_event =
-            event.type == SDL_EVENT_WINDOW_RESIZED ||
-            event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
-        if (!is_close_event && !is_resize_event) {
-            continue;
-        }
-
-        auto record = find_record_by_window_id(state, event.window.windowID);
-        if (record == state->windows.end() || !ecs_is_alive(world, record->entity)) {
-            continue;
-        }
-
-        if (is_close_event) {
-            mark_window_close_requested(state, world, record->entity);
-        } else if (is_resize_event) {
-            mark_window_resized(world, record->entity, event.window.data1, event.window.data2);
-        }
-    }
-
-    return PULSE_OK;
-}
-
-pulse_result_t pulse_window_sync(pulse_app_t app) {
-    pulse_window_plugin_state* state = state_from_app(app);
-    ecs_world_t* world = pulse_app_world(app);
-    if (!state || !world) {
-        return PULSE_ERROR_INVALID_STATE;
-    }
-
-    for (const WindowRecord& record : state->windows) {
-        if (!record.window || !ecs_is_alive(world, record.entity)) {
-            continue;
-        }
-
-        const pulse_window* window = ecs_get(world, record.entity, pulse_window);
-        if (!window || window->width <= 0 || window->height <= 0) {
-            continue;
-        }
-
-        int sdl_width = 0;
-        int sdl_height = 0;
-        SDL_GetWindowSize(record.window, &sdl_width, &sdl_height);
-        if (window->width != sdl_width || window->height != sdl_height) {
-            SDL_SetWindowSize(record.window, window->width, window->height);
-        }
-    }
-
-    return PULSE_OK;
-}
-
-pulse_result_t pulse_window_request_close(pulse_app_t app) {
-    pulse_window_plugin_state* state = state_from_app(app);
-    if (!state) {
-        return PULSE_ERROR_INVALID_STATE;
-    }
-
-    state->quit_requested = true;
-    return PULSE_OK;
-}
-
-bool pulse_window_should_close(pulse_app_t app) {
-    pulse_window_plugin_state* state = state_from_app(app);
-    return state ? state->quit_requested : true;
-}
-
 ecs_entity_t pulse_window_primary(pulse_app_t app) {
-    pulse_window_plugin_state* state = state_from_app(app);
     ecs_world_t* world = pulse_app_world(app);
-    if (!state || !world) {
+    if (!world) {
         return 0;
     }
 
-    for (const WindowRecord& record : state->windows) {
-        if (ecs_is_alive(world, record.entity) &&
-            ecs_has_id(world, record.entity, PulsePrimaryWindow)) {
-            return record.entity;
+    ecs_query_desc_t primary_window_query_desc = {
+        .terms = {
+            {.id = ecs_id(PulsePrimaryWindow) }
+        },
+        .cache_kind = EcsQueryCacheAuto
+    };
+
+    auto primary_window_query = ecs_query_init(world, &primary_window_query_desc);
+
+    ecs_entity_t finded = 0;
+    ecs_iter_t it = ecs_query_iter(world, primary_window_query);
+    while (ecs_query_next(&it)) {
+        if (it.count > 0) {
+            finded = it.entities[0];
+            break;
         }
     }
 
-    return 0;
+    if (it.flags & EcsIterIsValid) {
+        ecs_iter_fini(&it);
+    }
+
+    ecs_query_fini(primary_window_query);
+
+    return finded;
 }
 
 SDL_Window* pulse_window_get_sdl_window(pulse_app_t app, ecs_entity_t entity) {

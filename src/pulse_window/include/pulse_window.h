@@ -81,12 +81,6 @@ pulse_result_t pulse_window_create(
     ecs_entity_t* out_entity
 );
 
-pulse_result_t pulse_window_destroy(pulse_app_t app, ecs_entity_t entity);
-pulse_result_t pulse_window_poll_events(pulse_app_t app);
-pulse_result_t pulse_window_sync(pulse_app_t app);
-pulse_result_t pulse_window_request_close(pulse_app_t app);
-
-bool         pulse_window_should_close(pulse_app_t app);
 ecs_entity_t pulse_window_primary(pulse_app_t app);
 SDL_Window*  pulse_window_get_sdl_window(pulse_app_t app, ecs_entity_t entity);
 void*        pulse_window_get_native_view(pulse_app_t app, ecs_entity_t entity);
