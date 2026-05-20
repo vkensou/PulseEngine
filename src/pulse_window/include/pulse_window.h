@@ -51,8 +51,10 @@ typedef struct pulse_window_plugin_desc {
 } pulse_window_plugin_desc;
 
 typedef struct pulse_window {
+	const char* title;
     int32_t width;
     int32_t height;
+    uint32_t flags;
     bool resized;
     bool close_requested;
 } pulse_window;
@@ -73,12 +75,6 @@ pulse_window_plugin_desc pulse_window_plugin_desc_default(void);
 pulse_result_t          pulse_window_add_plugin(
     pulse_app_t app,
     const pulse_window_plugin_desc* desc
-);
-
-pulse_result_t pulse_window_create(
-    pulse_app_t app,
-    const pulse_window_desc* desc,
-    ecs_entity_t* out_entity
 );
 
 ecs_entity_t pulse_window_primary(pulse_app_t app);
