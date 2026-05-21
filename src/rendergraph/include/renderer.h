@@ -16,10 +16,11 @@
 #include <optional>
 #include "profiler.h"
 #include "resource_type.h"
+#include "rendergraph.h"
 
 namespace HGEGraphics
 {
-	struct rendergraph_t;
+	
 
 	struct Shader
 	{
@@ -53,7 +54,7 @@ namespace HGEGraphics
 		CGPUBufferId handle;
 		ECGPUResourceTypeFlags type;
 		ECGPUResourceStateFlags cur_state;
-		buffer_handle_t dynamic_handle;
+		pulse_buffer_handle_t dynamic_handle;
 	};
 
 	std::unique_ptr<Buffer> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
@@ -76,8 +77,8 @@ namespace HGEGraphics
 	void init_mesh(Mesh* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
 	std::unique_ptr<Mesh> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
 	std::unique_ptr<Mesh> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
-	buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, rendergraph_t* rg, uint32_t count);
-	buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, rendergraph_t* rg, uint32_t count);
+	pulse_buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
+	pulse_buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
 	void dynamic_mesh_reset(Mesh* mesh);
 
 	struct Texture
@@ -89,7 +90,7 @@ namespace HGEGraphics
 		std::vector<ECGPUResourceStateFlags> cur_states;
 		bool states_consistent;
 		bool prepared;
-		texture_handle_t dynamic_handle;
+		pulse_texture_handle_t dynamic_handle;
 	};
 
 	std::unique_ptr<Texture> create_empty_texture();
@@ -157,7 +158,7 @@ namespace HGEGraphics
 	struct ShaderTextureBinder
 	{
 		Texture* texture;
-		texture_handle_t texture_handle;
+		pulse_texture_handle_t texture_handle;
 		int set, bind;
 	};
 
@@ -170,7 +171,7 @@ namespace HGEGraphics
 	struct ShaderBufferBinder
 	{
 		Buffer* buffer;
-		buffer_handle_t buffer_handle;
+		pulse_buffer_handle_t buffer_handle;
 		int set, bind;
 		uint64_t offset, size;
 	};

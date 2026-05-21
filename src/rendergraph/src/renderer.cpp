@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "hash.h"
-#include "rendergraph.h"
+#include "rendergraph_compiler_internal.h"
 #include <bit>
 #include "drawer.h"
 #include "compare.h"
@@ -192,23 +192,23 @@ namespace HGEGraphics
 		return mesh;
 	}
 
-	buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, rendergraph_t* rg, uint32_t count)
+	pulse_buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count)
 	{
-		auto dynamic_vertex_buffer = rendergraph_import_dynamic_buffer(rg, mesh->vertex_buffer.get());
-		rg_buffer_set_size(rg, dynamic_vertex_buffer, count * mesh->vertex_stride);
-		rg_buffer_set_type(rg, dynamic_vertex_buffer, CGPU_RESOURCE_TYPE_VERTEX_BUFFER);
-		rg_buffer_set_usage(rg, dynamic_vertex_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
+		auto dynamic_vertex_buffer = pulse_rendergraph_import_dynamic_buffer(rg, mesh->vertex_buffer.get());
+		pulse_rendergraph_buffer_set_size(rg, dynamic_vertex_buffer, count * mesh->vertex_stride);
+		pulse_rendergraph_buffer_set_type(rg, dynamic_vertex_buffer, CGPU_RESOURCE_TYPE_VERTEX_BUFFER);
+		pulse_rendergraph_buffer_set_usage(rg, dynamic_vertex_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
 		mesh->vertex_buffer->dynamic_handle = dynamic_vertex_buffer;
 		mesh->vertices_count = count;
 		return mesh->vertex_buffer->dynamic_handle;
 	}
 
-	buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, rendergraph_t* rg, uint32_t count)
+	pulse_buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count)
 	{
-		auto dynamic_index_buffer = rendergraph_import_dynamic_buffer(rg, mesh->index_buffer.get());
-		rg_buffer_set_size(rg, dynamic_index_buffer, count * mesh->index_stride);
-		rg_buffer_set_type(rg, dynamic_index_buffer, CGPU_RESOURCE_TYPE_INDEX_BUFFER);
-		rg_buffer_set_usage(rg, dynamic_index_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
+		auto dynamic_index_buffer = pulse_rendergraph_import_dynamic_buffer(rg, mesh->index_buffer.get());
+		pulse_rendergraph_buffer_set_size(rg, dynamic_index_buffer, count * mesh->index_stride);
+		pulse_rendergraph_buffer_set_type(rg, dynamic_index_buffer, CGPU_RESOURCE_TYPE_INDEX_BUFFER);
+		pulse_rendergraph_buffer_set_usage(rg, dynamic_index_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
 		mesh->index_buffer->dynamic_handle = dynamic_index_buffer;
 		mesh->index_count = count;
 		return mesh->index_buffer->dynamic_handle;
@@ -413,8 +413,8 @@ namespace HGEGraphics
 						auto& binder = *iter;
 						if (binder.set == i && binder.bind == res.binding)
 						{
-							if (rendergraph_texture_handle_valid(binder.texture_handle))
-								textureview = rendergraph_resolve_texture_view(encoder, binder.texture_handle);
+							if (pulse_rendergraph_texture_handle_valid(binder.texture_handle))
+								textureview = pulse_rendergraph_resolve_texture_view((pulse_renderpass_encoder_t*)encoder, binder.texture_handle);
 							else if (binder.texture && binder.texture->prepared)
 								textureview = binder.texture->view;
 							break;
@@ -452,8 +452,8 @@ namespace HGEGraphics
 						if (binder.set == i && binder.bind == res.binding)
 						{
 							CGPUBufferId buffer;
-							if (rendergraph_buffer_handle_valid(binder.buffer_handle))
-								buffer = rendergraph_resolve_buffer(encoder, binder.buffer_handle);
+							if (pulse_rendergraph_buffer_handle_valid(binder.buffer_handle))
+								buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, binder.buffer_handle);
 							else
 								buffer = binder.buffer->handle;
 							encoder->buffers[buffer_count] = buffer;
@@ -511,10 +511,10 @@ namespace HGEGraphics
 	void update_mesh(RenderPassEncoder* encoder, Mesh* mesh)
 	{
 		CGPUBufferId vertex_buffer = CGPU_NULLPTR;
-		if (rendergraph_buffer_handle_valid(mesh->vertex_buffer->dynamic_handle))
+		if (pulse_rendergraph_buffer_handle_valid(mesh->vertex_buffer->dynamic_handle))
 		{
 			auto vertex_buffer_handle = mesh->vertex_buffer->dynamic_handle;
-			vertex_buffer = rendergraph_resolve_buffer(encoder, vertex_buffer_handle);
+			vertex_buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, vertex_buffer_handle);
 		}
 		else if (mesh->vertex_buffer)
 		{
@@ -532,10 +532,10 @@ namespace HGEGraphics
 		CGPUBufferId index_buffer = CGPU_NULLPTR;
 		if (mesh->index_buffer)
 		{
-			if (rendergraph_buffer_handle_valid(mesh->index_buffer->dynamic_handle))
+			if (pulse_rendergraph_buffer_handle_valid(mesh->index_buffer->dynamic_handle))
 			{
 				auto index_buffer_handle = mesh->index_buffer->dynamic_handle;
-				index_buffer = rendergraph_resolve_buffer(encoder, index_buffer_handle);
+				index_buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, index_buffer_handle);
 			}
 			else
 			{
@@ -648,7 +648,7 @@ namespace HGEGraphics
 		encoder->context->global_texture_table.push_back({ texture, {}, set, slot });
 	}
 
-	void set_global_texture_handle(RenderPassEncoder* encoder, texture_handle_t texture, int set, int slot)
+	void set_global_texture_handle(RenderPassEncoder* encoder, pulse_texture_handle_t texture, int set, int slot)
 	{
 		encoder->context->global_texture_table.push_back({ nullptr, texture, set, slot });
 	}
@@ -663,12 +663,12 @@ namespace HGEGraphics
 		encoder->context->global_buffer_table.push_back({ buffer, {}, set, slot, 0, 0 });
 	}
 
-	void set_global_dynamic_buffer(RenderPassEncoder* encoder, buffer_handle_t buffer, int set, int slot)
+	void set_global_dynamic_buffer(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot)
 	{
 		encoder->context->global_buffer_table.push_back({ nullptr, buffer, set, slot, 0, 0 });
 	}
 
-	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size)
+	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size)
 	{
 		encoder->context->global_buffer_table.push_back({ nullptr, buffer, set, slot, offset, size });
 	}

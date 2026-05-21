@@ -1,17 +1,18 @@
 #include "rendergraph_compiler.h"
+#include "rendergraph_compiler_internal.h"
 
 #include "dependencygraph.h"
 #include <cassert>
 #include <algorithm>
-#include "renderer.h"
 
 namespace HGEGraphics
 {
-	CompiledRenderGraph Compiler::Compile(const rendergraph_t& renderGraph, std::pmr::memory_resource* const memory_resource)
+	CompiledRenderGraph Compiler::Compile(pulse_rendergraph_t* renderGraph, std::pmr::memory_resource* const memory_resource)
 	{
-		auto resourceCount = renderGraph.resources.size();
-		auto passCount = renderGraph.passes.size();
-		auto edgeCount = renderGraph.edges.size();
+		auto& impl = *to_impl(renderGraph);
+		auto resourceCount = impl.resources.size();
+		auto passCount = impl.passes.size();
+		auto edgeCount = impl.edges.size();
 		
 		struct Node
 		{
@@ -37,20 +38,20 @@ namespace HGEGraphics
 		nodes.reserve(passCount + resourceCount);
 		for (index_type_t i = 0; i < passCount; ++i)
 		{
-			auto const& pass = renderGraph.passes[i];
+			auto const& pass = impl.passes[i];
 			Node node(i, true, pass.type == PASS_TYPE_PRESENT || pass.type == PASS_TYPE_HOLDON, memory_resource);
 			node.ins.reserve(pass.reads.size());
 			for (index_type_t j = 0; j < pass.reads.size(); ++j)
-				node.ins.push_back(renderGraph.edges[pass.reads[j]].from + passCount);
+				node.ins.push_back(impl.edges[pass.reads[j]].from + passCount);
 			node.outs.reserve(pass.writes.size());
 			for (index_type_t j = 0; j < pass.writes.size(); ++j)
-				node.outs.push_back(renderGraph.edges[pass.writes[j]].to + passCount);
+				node.outs.push_back(impl.edges[pass.writes[j]].to + passCount);
 			nodes.emplace_back(std::move(node));
 		}
 
 		for (index_type_t i = 0; i < resourceCount; ++i)
 		{
-			auto const& resource = renderGraph.resources[i];
+			auto const& resource = impl.resources[i];
 			Node node(i, false, resource.manageType != ManageType::Managed, memory_resource);
 			nodes.emplace_back(std::move(node));
 		}
@@ -109,7 +110,7 @@ namespace HGEGraphics
 		for (auto i = 0; i < passCount; ++i)
 		{
 			auto const& node = nodes[i];
-			auto const& pass = renderGraph.passes[node.index];
+			auto const& pass = impl.passes[node.index];
 			if (!node.is_culled())
 			{
 				auto& compiledPass = compiled.passes.emplace_back(pass.name, memory_resource);
@@ -118,14 +119,14 @@ namespace HGEGraphics
 				compiledPass.reads.reserve(pass.reads.size());
 				for (auto edgeIndex : pass.reads)
 				{
-					auto& edge = renderGraph.edges[edgeIndex];
+					auto& edge = impl.edges[edgeIndex];
 					compiledPass.reads.emplace_back(edge.from, edge.usage);
 				}
 
 				compiledPass.writes.reserve(pass.writes.size());
 				for (auto edgeIndex : pass.writes)
 				{
-					auto& edge = renderGraph.edges[edgeIndex];
+					auto& edge = impl.edges[edgeIndex];
 					compiledPass.writes.emplace_back(edge.to, edge.usage);
 				}
 
@@ -175,7 +176,7 @@ namespace HGEGraphics
 		for (auto i = 0; i < resourceCount; ++i)
 		{
 			auto const& node = nodes[i + passCount];
-			auto const& resource = renderGraph.resources[node.index];
+			auto const& resource = impl.resources[node.index];
 			if (!node.is_culled())
 			{
 				if (resource.resourceType == ResourceType::Texture)
@@ -242,40 +243,48 @@ namespace HGEGraphics
 	{
 	}
 
-	CGPUBufferId rendergraph_resolve_buffer(RenderPassEncoder* encoder, buffer_handle_t buffer_handle)
-	{
-		auto crg = encoder->compiled_graph;
-		auto resourceNode = crg->resources[buffer_handle.index];
-		auto buffer = resourceNode.manageType == ManageType::Managed ? resourceNode.managed_buffer->handle : resourceNode.imported_buffer->handle;
-		return buffer;
-	}
+} // namespace HGEGraphics
 
-	CGPUTextureViewId rendergraph_resolve_texture_view(RenderPassEncoder* encoder, texture_handle_t texture_handle)
-	{
-		auto crg = encoder->compiled_graph;
-		auto& resourceNode = crg->resources[texture_handle.index];
-		CGPUTextureViewDescriptor desc = {};
-		Texture* texture;
-		if (resourceNode.manageType == ManageType::Managed)
-			texture = resourceNode.managered_texture->texture;
-		else if (resourceNode.manageType == ManageType::Imported)
-			texture = resourceNode.imported_texture;
-		else
-		{
-			auto& parentResource = crg->resources[resourceNode.parent];
-			assert(parentResource.parent == 0 && parentResource.resourceType == ResourceType::Texture);
-			texture = parentResource.manageType == ManageType::Managed ? parentResource.managered_texture->texture : parentResource.imported_texture;
-		}
-		desc.texture = texture->handle;
-		desc.format = texture->handle->info->format;
-		desc.usages = CGPU_TEXTURE_VIEW_USAGE_SRV;
-		desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
-		desc.dims = texture->handle->info->depth > 1 ? CGPU_TEXTURE_DIMENSION_3D :  CGPU_TEXTURE_DIMENSION_2D;
-		desc.base_array_layer = resourceNode.arraySlice;
-		desc.array_layer_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->array_size_minus_one + 1 : 1;
-		desc.base_mip_level = resourceNode.mipLevel;
-		desc.mip_level_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->mip_levels : 1;
-		auto textureView = encoder->context->textureViewPool.getResource(desc);
-		return textureView->handle;
-	}
+extern "C" {
+
+CGPUBufferId pulse_rendergraph_resolve_buffer(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t buffer_handle)
+{
+	auto* enc = (HGEGraphics::RenderPassEncoder*)encoder;
+	auto crg = enc->compiled_graph;
+	auto resourceNode = crg->resources[buffer_handle.index];
+	auto buffer = resourceNode.manageType == HGEGraphics::ManageType::Managed ? resourceNode.managed_buffer->handle : resourceNode.imported_buffer->handle;
+	return buffer;
 }
+
+CGPUTextureViewId pulse_rendergraph_resolve_texture_view(pulse_renderpass_encoder_t* encoder, pulse_texture_handle_t texture_handle)
+{
+	using namespace HGEGraphics;
+	auto* enc = (RenderPassEncoder*)encoder;
+	auto crg = enc->compiled_graph;
+	auto& resourceNode = crg->resources[texture_handle.index];
+	CGPUTextureViewDescriptor desc = {};
+	Texture* texture;
+	if (resourceNode.manageType == ManageType::Managed)
+		texture = resourceNode.managered_texture->texture;
+	else if (resourceNode.manageType == ManageType::Imported)
+		texture = resourceNode.imported_texture;
+	else
+	{
+		auto& parentResource = crg->resources[resourceNode.parent];
+		assert(parentResource.parent == 0 && parentResource.resourceType == ResourceType::Texture);
+		texture = parentResource.manageType == ManageType::Managed ? parentResource.managered_texture->texture : parentResource.imported_texture;
+	}
+	desc.texture = texture->handle;
+	desc.format = texture->handle->info->format;
+	desc.usages = CGPU_TEXTURE_VIEW_USAGE_SRV;
+	desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
+	desc.dims = texture->handle->info->depth > 1 ? CGPU_TEXTURE_DIMENSION_3D :  CGPU_TEXTURE_DIMENSION_2D;
+	desc.base_array_layer = resourceNode.arraySlice;
+	desc.array_layer_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->array_size_minus_one + 1 : 1;
+	desc.base_mip_level = resourceNode.mipLevel;
+	desc.mip_level_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->mip_levels : 1;
+	auto textureView = enc->context->textureViewPool.getResource(desc);
+	return textureView->handle;
+}
+
+} // extern "C"

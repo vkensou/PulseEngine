@@ -1,7 +1,7 @@
 #pragma once
 
 #include "stdint.h"
-#include "rendergraph.h"
+#include "rendergraph_cpp.h"
 #include "drawer.h"
 #include <flecs.h>
 

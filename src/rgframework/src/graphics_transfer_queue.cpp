@@ -1,5 +1,5 @@
 #include "cgpu_device.h"
-#include "rendergraph.h"
+#include "rendergraph_cpp.h"
 #include "rendergraph_compiler.h"
 #include "rendergraph_executor.h"
 #include <cassert>

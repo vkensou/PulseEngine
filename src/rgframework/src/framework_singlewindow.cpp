@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include "cgpu/api.h"
-#include "rendergraph.h"
+#include "rendergraph_cpp.h"
 #include "rendergraph_compiler.h"
 #include "rendergraph_executor.h"
 #include "imgui_impl_sdl3.h"
@@ -308,7 +308,7 @@ HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphi
 			ImDrawData* drawData;
 		};
 		PassData* update_vertex_passdata;
-		auto imgui_vertex_buffer = declare_dynamic_vertex_buffer(imgui_mesh, &rg, drawData->TotalVtxCount);
+		auto imgui_vertex_buffer = declare_dynamic_vertex_buffer(imgui_mesh, rg, drawData->TotalVtxCount);
 		rendergraph_add_uploadbufferpass(&rg, "upload imgui vertex data", imgui_vertex_buffer, [](UploadEncoder* encoder, void* passdata)
 			{
 				PassData* resolved_passdata = (PassData*)passdata;
@@ -325,7 +325,7 @@ HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphi
 		update_vertex_passdata->drawData = drawData;
 
 		PassData* update_index_passdata;
-		auto imgui_index_buffer = declare_dynamic_index_buffer(imgui_mesh, &rg, drawData->TotalIdxCount);
+		auto imgui_index_buffer = declare_dynamic_index_buffer(imgui_mesh, rg, drawData->TotalIdxCount);
 		rendergraph_add_uploadbufferpass(&rg, "upload imgui index data", imgui_index_buffer, [](UploadEncoder* encoder, void* passdata)
 			{
 				PassData* resolved_passdata = (PassData*)passdata;
@@ -511,11 +511,11 @@ void render(oval_cgpu_device_t* device, const oval_submit_context& submit_contex
 	auto compiled = Compiler::Compile(rg, &rg_pool);
 	Executor::Execute(compiled, device->frameDatas[device->info.current_frame_index].execContext);
 
-	for (auto imported : rg.imported_textures)
+	for (auto imported : to_impl(rg)->imported_textures)
 	{
 		imported->dynamic_handle = {};
 	}
-	for (auto imported : rg.imported_buffers)
+	for (auto imported : to_impl(rg)->imported_buffers)
 	{
 		imported->dynamic_handle = {};
 	}

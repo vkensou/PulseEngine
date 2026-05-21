@@ -2,18 +2,22 @@
 
 #include <stdint.h>
 
-namespace HGEGraphics
-{
-	typedef uint32_t index_type_t;
-	const index_type_t MAX_INDEX = UINT32_MAX - 2;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	struct texture_handle_t
-	{
-		index_type_t index;
-	};
+typedef uint32_t pulse_index_t;
 
-	struct buffer_handle_t
-	{
-		index_type_t index;
-	};
+#define PULSE_MAX_INDEX (UINT32_MAX - 2)
+
+typedef struct pulse_texture_handle_t {
+    pulse_index_t index;
+} pulse_texture_handle_t;
+
+typedef struct pulse_buffer_handle_t {
+    pulse_index_t index;
+} pulse_buffer_handle_t;
+
+#ifdef __cplusplus
 }
+#endif

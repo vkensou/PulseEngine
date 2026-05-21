@@ -1,261 +1,91 @@
 #pragma once
 
 #include "cgpu/api.h"
-#include <vector>
-#include <array>
-#include <memory>
-#include <optional>
-#include "texturepool.h"
-#include <functional>
 #include "resource_type.h"
 
-namespace HGEGraphics
-{
-	struct Shader;
-	struct Backbuffer;
-	struct Buffer;
-	struct Texture;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	enum class ResourceType
-	{
-		Texture,
-		Buffer
-	};
+#include <stdint.h>
+#include <stdbool.h>
 
-	enum class ManageType
-	{
-		Managed,
-		Imported,
-		SubResource,
-	};
+typedef struct pulse_rendergraph_t pulse_rendergraph_t;
+typedef struct pulse_renderpass_encoder_t pulse_renderpass_encoder_t;
+typedef struct pulse_upload_encoder_t pulse_upload_encoder_t;
 
-	enum class DepthBits : uint8_t
-	{
-		D32 = 32,
-		D24 = 24,
-		D16 = 16,
-	};
+typedef enum pulse_depth_bits_t {
+    PULSE_DEPTH_D32 = 32,
+    PULSE_DEPTH_D24 = 24,
+    PULSE_DEPTH_D16 = 16,
+} pulse_depth_bits_t;
 
-	struct alignas(8) ColorAttachmentInfo
-	{
-		unsigned int clearColor = 0;
-		uint32_t resourceIndex = 0;
-		ECGPULoadAction load_action = CGPU_LOAD_ACTION_DONT_CARE;
-		ECGPUStoreAction store_action = CGPU_STORE_ACTION_DISCARD;
-		bool valid = false;
-	};
+typedef struct pulse_renderpass_builder_t {
+    pulse_rendergraph_t* render_graph;
+    void* pass_node;
+    pulse_index_t pass_index;
+} pulse_renderpass_builder_t;
 
-	struct alignas(8) DepthAttachmentInfo
-	{
-		float clearDepth = 0;
-		uint8_t clearStencil = 0;
-		uint32_t resourceIndex = 0;
-		ECGPULoadAction depth_load_action = CGPU_LOAD_ACTION_DONT_CARE;
-		ECGPUStoreAction depth_store_action = CGPU_STORE_ACTION_DISCARD;
-		ECGPULoadAction stencil_load_action = CGPU_LOAD_ACTION_DONT_CARE;
-		ECGPUStoreAction stencil_store_action = CGPU_STORE_ACTION_DISCARD;
-		bool valid = false;
-	};
+typedef void (*pulse_renderpass_executable_t)(pulse_renderpass_encoder_t* encoder, void* userdata);
+typedef void (*pulse_uploadpass_executable_t)(pulse_upload_encoder_t* encoder, void* userdata);
 
-	class polymorphic_allocator_delete
-	{
-	public:
-		polymorphic_allocator_delete(std::pmr::polymorphic_allocator<std::byte>& allocator)
-			: d_allocator(allocator) {}
-		template <typename T> void operator()(T* tPtr) 
-		{
-			std::pmr::polymorphic_allocator<T>(d_allocator).delete_object(tPtr);
-		}
+pulse_rendergraph_t* pulse_rendergraph_create(uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
+void pulse_rendergraph_destroy(pulse_rendergraph_t* self);
+void pulse_rendergraph_reset(pulse_rendergraph_t* self);
 
-	private:
-		std::pmr::polymorphic_allocator<std::byte>& d_allocator;
-	};
+bool pulse_rendergraph_texture_handle_valid(pulse_texture_handle_t handle);
+bool pulse_rendergraph_buffer_handle_valid(pulse_buffer_handle_t handle);
 
-	struct ResourceNode
-	{
-		ResourceNode();
+pulse_texture_handle_t pulse_rendergraph_declare_texture(pulse_rendergraph_t* self);
+pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, void* imported);
+pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, void* imported_backbuffer);
+pulse_buffer_handle_t  pulse_rendergraph_declare_buffer(pulse_rendergraph_t* self);
+pulse_buffer_handle_t  pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, void* imported);
+pulse_buffer_handle_t  pulse_rendergraph_import_dynamic_buffer(pulse_rendergraph_t* self, void* imported);
+pulse_buffer_handle_t  pulse_rendergraph_declare_uniform_buffer_quick(pulse_rendergraph_t* self, uint32_t size, void* data);
+pulse_texture_handle_t pulse_rendergraph_declare_texture_subresource(pulse_rendergraph_t* self, pulse_texture_handle_t parent, uint8_t mip_level, uint8_t array_slice);
 
-		const char* name;
-		ResourceType resourceType;
-		ManageType manageType;
-		Texture* texture;
-		Buffer* buffer;
-		uint16_t width;
-		uint16_t height;
-		uint16_t depth;
-		ECGPUTextureFormat format;
-		uint8_t mipCount;;
-		uint8_t arraySize;
-		uint32_t size;
-		index_type_t parent;
-		uint8_t mipLevel;
-		uint8_t arraySlice;
-		ECGPUResourceTypeFlags bufferType;
-		ECGPUMemoryUsage memoryUsage;
-		bool holdOnLast;
-	};
+void pulse_rendergraph_texture_set_extent(pulse_rendergraph_t* self, pulse_texture_handle_t texture, uint32_t width, uint32_t height, uint32_t depth);
+void pulse_rendergraph_texture_set_format(pulse_rendergraph_t* self, pulse_texture_handle_t texture, ECGPUTextureFormat format);
+void pulse_rendergraph_texture_set_depth_format(pulse_rendergraph_t* self, pulse_texture_handle_t texture, pulse_depth_bits_t depth_bits, bool need_stencil);
+uint32_t pulse_rendergraph_texture_get_width(pulse_rendergraph_t* self, pulse_texture_handle_t texture);
+uint32_t pulse_rendergraph_texture_get_height(pulse_rendergraph_t* self, pulse_texture_handle_t texture);
+uint32_t pulse_rendergraph_texture_get_depth(pulse_rendergraph_t* self, pulse_texture_handle_t texture);
+ECGPUTextureFormat pulse_rendergraph_texture_get_format(pulse_rendergraph_t* self, pulse_texture_handle_t texture);
 
-	struct RenderGraphEdge
-	{
-		const index_type_t from;
-		const index_type_t to;
-		const ECGPUResourceStateFlags usage;
-	};
+void pulse_rendergraph_buffer_set_size(pulse_rendergraph_t* self, pulse_buffer_handle_t buffer, uint32_t size);
+void pulse_rendergraph_buffer_set_type(pulse_rendergraph_t* self, pulse_buffer_handle_t buffer, ECGPUResourceTypeFlags type);
+void pulse_rendergraph_buffer_set_usage(pulse_rendergraph_t* self, pulse_buffer_handle_t buffer, ECGPUMemoryUsage usage);
+void pulse_rendergraph_buffer_set_hold_on_last(pulse_rendergraph_t* self, pulse_buffer_handle_t buffer);
 
-	struct RenderPassEncoder;
-	typedef void(*renderpass_executable)(RenderPassEncoder* encoder, void* userdata);
-	struct UploadEncoder;
-	typedef void(*uploadpass_executable)(UploadEncoder* encoder, void* userdata);
+pulse_renderpass_builder_t pulse_rendergraph_add_renderpass(pulse_rendergraph_t* self, const char* name);
+pulse_renderpass_builder_t pulse_rendergraph_add_computepass(pulse_rendergraph_t* self, const char* name);
+pulse_renderpass_builder_t pulse_rendergraph_add_holdpass(pulse_rendergraph_t* self, const char* name);
+void pulse_rendergraph_add_uploadtexturepass(pulse_rendergraph_t* self, const char* name, pulse_texture_handle_t texture, uint8_t mip_level, uint8_t slice, pulse_uploadpass_executable_t executable, uint32_t passdata_size, void** out_passdata);
+void pulse_rendergraph_add_uploadtexturepass_ex(pulse_rendergraph_t* self, const char* name, pulse_texture_handle_t texture, uint8_t mip_level, uint8_t slice, uint64_t size, uint64_t offset, void* data, pulse_uploadpass_executable_t executable, uint32_t passdata_size, void** out_passdata);
+void pulse_rendergraph_add_uploadbufferpass(pulse_rendergraph_t* self, const char* name, pulse_buffer_handle_t buffer, pulse_uploadpass_executable_t executable, uint32_t passdata_size, void** out_passdata);
+void pulse_rendergraph_add_uploadbufferpass_ex(pulse_rendergraph_t* self, const char* name, pulse_buffer_handle_t buffer, uint64_t size, uint64_t offset, void* data, pulse_uploadpass_executable_t executable, uint32_t passdata_size, void** out_passdata);
+void pulse_rendergraph_add_generate_mipmap(pulse_rendergraph_t* self, pulse_texture_handle_t texture, uint8_t from_mip_level);
+void pulse_rendergraph_present(pulse_rendergraph_t* self, pulse_texture_handle_t texture);
 
-	enum pass_type
-	{
-		PASS_TYPE_HOLDON,
-		PASS_TYPE_RENDER,
-		PASS_TYPE_COMPUTE,
-		PASS_TYPE_UPLOAD_TEXTURE,
-		PASS_TYPE_UPLOAD_BUFFER,
-		PASS_TYPE_PRESENT,
-	};
+void pulse_renderpass_add_color_attachment(pulse_renderpass_builder_t* self, pulse_texture_handle_t texture, ECGPULoadAction load_action, uint32_t clear_color, ECGPUStoreAction store_action);
+void pulse_renderpass_add_depth_attachment(pulse_renderpass_builder_t* self, pulse_texture_handle_t texture, ECGPULoadAction depth_load_action, float clear_depth, ECGPUStoreAction depth_store_action, ECGPULoadAction stencil_load_action, uint8_t clear_stencil, ECGPUStoreAction stencil_store_action);
+void pulse_renderpass_sample(pulse_renderpass_builder_t* self, pulse_texture_handle_t texture);
+void pulse_renderpass_use_buffer(pulse_renderpass_builder_t* self, pulse_buffer_handle_t buffer);
+void pulse_renderpass_use_buffer_as(pulse_renderpass_builder_t* self, pulse_buffer_handle_t buffer, ECGPUResourceStateFlags state);
+void pulse_renderpass_set_executable(pulse_renderpass_builder_t* self, pulse_renderpass_executable_t executable, uint32_t passdata_size, void** out_passdata);
+void pulse_computepass_sample(pulse_renderpass_builder_t* self, pulse_texture_handle_t texture);
+void pulse_computepass_use_buffer(pulse_renderpass_builder_t* self, pulse_buffer_handle_t buffer);
+void pulse_computepass_use_buffer_as(pulse_renderpass_builder_t* self, pulse_buffer_handle_t buffer, ECGPUResourceStateFlags state);
+void pulse_computepass_readwrite_texture(pulse_renderpass_builder_t* self, pulse_texture_handle_t texture);
+void pulse_computepass_readwrite_buffer(pulse_renderpass_builder_t* self, pulse_buffer_handle_t buffer);
+void pulse_computepass_set_executable(pulse_renderpass_builder_t* self, pulse_renderpass_executable_t executable, uint32_t passdata_size, void** out_passdata);
 
-	struct RenderPassNode
-	{
-		RenderPassNode(const char* name, pass_type type, std::pmr::memory_resource* const momory_resource);
+uint32_t pulse_rendergraph_add_edge(pulse_rendergraph_t* self, pulse_index_t from, pulse_index_t to, ECGPUResourceStateFlags usage);
 
-		const char* name{ nullptr };
-		std::pmr::vector<uint32_t> writes;
-		std::pmr::vector<uint32_t> reads;
-		void* passdata;
-		pass_type type;
+CGPUBufferId pulse_rendergraph_resolve_buffer(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t buffer_handle);
+CGPUTextureViewId pulse_rendergraph_resolve_texture_view(pulse_renderpass_encoder_t* encoder, pulse_texture_handle_t texture_handle);
 
-		struct render_context_t
-		{
-			int colorAttachmentCount{ 0 };
-			std::array<ColorAttachmentInfo, 8> colorAttachments;
-			DepthAttachmentInfo depthAttachment;
-			renderpass_executable executable;
-		};
-
-		struct compute_context_t
-		{
-			renderpass_executable executable;
-		};
-
-		struct present_context_t
-		{
-		};
-
-		struct upload_texture_context_t
-		{
-			buffer_handle_t staging_buffer;
-			texture_handle_t dest_texture;
-			uploadpass_executable executable;
-			uint64_t size;
-			uint64_t offset;
-			void* data;
-			uint8_t mipmap;
-			uint8_t slice;
-		};
-
-		struct upload_buffer_context_t
-		{
-			buffer_handle_t staging_buffer;
-			buffer_handle_t dest_buffer;
-			uploadpass_executable executable;
-			uint64_t size;
-			uint64_t offset;
-			void* data;
-		};
-
-		union
-		{
-			render_context_t render_context;
-			compute_context_t compute_context;
-			present_context_t present_context;
-			upload_texture_context_t upload_texture_context;
-			upload_buffer_context_t upload_buffer_context;
-		};
-	};
-
-	class rendergraph_t;
-
-	struct renderpass_builder_t
-	{
-		renderpass_builder_t(rendergraph_t* renderGraph, RenderPassNode* passNode, int passIndex);
-
-		rendergraph_t* renderGraph;
-		RenderPassNode* passNode;
-		index_type_t passIndex;
-	};
-
-	void renderpass_add_color_attachment(renderpass_builder_t* self, texture_handle_t texture, ECGPULoadAction load_action, uint32_t clearColor, ECGPUStoreAction store_action);
-	void renderpass_add_depth_attachment(renderpass_builder_t* self, texture_handle_t texture, ECGPULoadAction depth_load_action, float clearDepth, ECGPUStoreAction depth_store_action, ECGPULoadAction stencil_load_action, uint8_t clearStencil, ECGPUStoreAction stencil_store_action);
-	void renderpass_sample(renderpass_builder_t* self, texture_handle_t texture);
-	void renderpass_use_buffer(renderpass_builder_t* self, buffer_handle_t buffer);
-	void renderpass_use_buffer_as(renderpass_builder_t* self, buffer_handle_t buffer, ECGPUResourceStateFlags state);
-	void renderpass_set_executable(renderpass_builder_t* self, renderpass_executable executable, size_t passdata_size, void** passdata);
-	void computepass_sample(renderpass_builder_t* self, texture_handle_t texture);
-	void computepass_use_buffer(renderpass_builder_t* self, buffer_handle_t buffer);
-	void computepass_use_buffer_as(renderpass_builder_t* self, buffer_handle_t buffer, ECGPUResourceStateFlags state);
-	void computepass_readwrite_texture(renderpass_builder_t* self, texture_handle_t texture);
-	void computepass_readwrite_buffer(renderpass_builder_t* self, buffer_handle_t buffer);
-	void computepass_set_executable(renderpass_builder_t* self, renderpass_executable executable, size_t passdata_size, void** passdata);
-
-	void rg_texture_set_extent(rendergraph_t* self, texture_handle_t texture, uint32_t width, uint32_t height, uint32_t depth = 1);
-	void rg_texture_set_format(rendergraph_t* self, texture_handle_t texture, ECGPUTextureFormat format);
-	void rg_texture_set_depth_format(rendergraph_t* self, texture_handle_t texture, DepthBits depthBits, bool needStencil);
-	uint32_t rg_texture_get_width(rendergraph_t* self, texture_handle_t texture);
-	uint32_t rg_texture_get_height(rendergraph_t* self, texture_handle_t texture);
-	uint32_t rg_texture_get_depth(rendergraph_t* self, texture_handle_t texture);
-	ECGPUTextureFormat rg_texture_get_format(rendergraph_t* self, texture_handle_t texture);
-
-	void rg_buffer_set_size(rendergraph_t* self, buffer_handle_t buffer, uint32_t size);
-	void rg_buffer_set_type(rendergraph_t* self, buffer_handle_t buffer, ECGPUResourceTypeFlags type);
-	void rg_buffer_set_usage(rendergraph_t* self, buffer_handle_t buffer, ECGPUMemoryUsage usage);
-	void rg_buffer_set_hold_on_last(rendergraph_t* self, buffer_handle_t buffer);
-
-	struct rendergraph_t
-	{
-		using allocator_type = std::pmr::polymorphic_allocator<std::byte>;
-
-		rendergraph_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, Shader* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource);
-		std::pmr::vector<ResourceNode> resources;
-		std::pmr::vector<RenderPassNode> passes;
-		std::pmr::vector<RenderGraphEdge> edges;
-		allocator_type allocator;
-		Shader* blitShader;
-		CGPUSamplerId blitSampler;
-		std::pmr::vector<Texture*> imported_textures;
-		std::pmr::vector<Buffer*> imported_buffers;
-	};
-
-	void rendergraph_reset(rendergraph_t* self);
-	inline bool rendergraph_texture_handle_valid(texture_handle_t handle)
-	{
-		return handle.index != 0;
-	}
-	inline bool rendergraph_buffer_handle_valid(buffer_handle_t handle)
-	{
-		return handle.index != 0;
-	}
-	renderpass_builder_t rendergraph_add_renderpass(rendergraph_t* self, const char* name);
-	renderpass_builder_t rendergraph_add_computepass(rendergraph_t* self, const char* name);
-	renderpass_builder_t rendergraph_add_holdpass(rendergraph_t* self, const char* name);
-	void rendergraph_add_uploadtexturepass(rendergraph_t* self, const char* name, texture_handle_t texture, uint8_t mipmap, uint8_t slice, uploadpass_executable executable, size_t passdata_size, void** passdata);
-	void rendergraph_add_uploadtexturepass_ex(rendergraph_t* self, const char* name, texture_handle_t texture, uint8_t mipmap, uint8_t slice, uint64_t size, uint64_t offset, void* data, uploadpass_executable executable, size_t passdata_size, void** passdata);
-	void rendergraph_add_uploadbufferpass(rendergraph_t* self, const char* name, buffer_handle_t buffer, uploadpass_executable executable, size_t passdata_size, void** passdata);
-	void rendergraph_add_uploadbufferpass_ex(rendergraph_t* self, const char* name, buffer_handle_t buffer, uint64_t size, uint64_t offset, void* data, uploadpass_executable executable, size_t passdata_size, void** passdata);
-	void rendergraph_add_generate_mipmap(rendergraph_t* self, texture_handle_t texture, uint8_t from_mipmap);
-	void rendergraph_present(rendergraph_t* self, texture_handle_t texture);
-	texture_handle_t rendergraph_declare_texture(rendergraph_t* self);
-	texture_handle_t rendergraph_import_texture(rendergraph_t* self, Texture* imported);
-	texture_handle_t rendergraph_import_backbuffer(rendergraph_t* self, Backbuffer* imported);
-	buffer_handle_t rendergraph_declare_buffer(rendergraph_t* self);
-	buffer_handle_t rendergraph_import_buffer(rendergraph_t* self, Buffer* imported);
-	buffer_handle_t rendergraph_import_dynamic_buffer(rendergraph_t* self, Buffer* imported);
-	buffer_handle_t rendergraph_declare_uniform_buffer_quick(rendergraph_t* self, uint32_t size, void* data);
-	texture_handle_t rendergraph_declare_texture_subresource(rendergraph_t* self, texture_handle_t parent, uint8_t mipmap, uint8_t slice);
-	uint32_t rendergraph_add_edge(rendergraph_t* self, index_type_t from, index_type_t to, ECGPUResourceStateFlags usage);
-
-	CGPUBufferId rendergraph_resolve_buffer(RenderPassEncoder* encoder, buffer_handle_t buffer_handle);
-	CGPUTextureViewId rendergraph_resolve_texture_view(RenderPassEncoder* encoder, texture_handle_t texture_handle);
+#ifdef __cplusplus
 }
+#endif

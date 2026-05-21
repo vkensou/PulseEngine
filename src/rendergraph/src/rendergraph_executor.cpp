@@ -2,6 +2,7 @@
 
 #include "renderer.h"
 #include <cassert>
+#include <cstring>
 
 namespace HGEGraphics
 {
@@ -289,9 +290,9 @@ namespace HGEGraphics
 					.context = &context,
 					.compiled_graph = &compiledRenderGraph,
 					.last_render_pipeline = 0,
-					.last_bind_resources = {0},
 				};
-				pass.executable(&rg_encoder, pass.passdata);
+				memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
+				pass.executable((pulse_renderpass_encoder_t*)&rg_encoder, pass.passdata);
 			}
 
 			cgpu_state_buffer_close_raster_state_encoder(state_buffer, raster_state_encoder);
@@ -316,9 +317,9 @@ namespace HGEGraphics
 				.context = &context,
 				.compiled_graph = &compiledRenderGraph,
 				.last_render_pipeline = 0,
-				.last_bind_resources = {0},
 			};
-			pass.executable(&rg_encoder, pass.passdata);
+			memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
+			pass.executable((pulse_renderpass_encoder_t*)&rg_encoder, pass.passdata);
 		}
 
 		cgpu_command_buffer_end_compute_pass(cmd, encoder);
@@ -342,7 +343,7 @@ namespace HGEGraphics
 				.address = src_buffer->info->cpu_mapped_address,
 			};
 
-			pass.uploadTextureExecutable(&up_encoder, pass.passdata);
+			pass.uploadTextureExecutable((pulse_upload_encoder_t*)&up_encoder, pass.passdata);
 		}
 
 		auto& dest_resource_node = compiledRenderGraph.resources[pass.dest_texture];
@@ -376,7 +377,7 @@ namespace HGEGraphics
 				.address = src_buffer->info->cpu_mapped_address,
 			};
 
-			pass.uploadTextureExecutable(&up_encoder, pass.passdata);
+			pass.uploadTextureExecutable((pulse_upload_encoder_t*)&up_encoder, pass.passdata);
 		}
 
 		auto& dest_resource_node = compiledRenderGraph.resources[pass.dest_buffer];
