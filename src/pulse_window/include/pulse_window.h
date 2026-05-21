@@ -55,8 +55,6 @@ typedef struct pulse_window {
     int32_t width;
     int32_t height;
     uint32_t flags;
-    bool resized;
-    bool close_requested;
 } pulse_window;
 
 typedef struct pulse_sdl_window {
@@ -68,6 +66,8 @@ typedef struct pulse_sdl_window {
 extern ECS_COMPONENT_DECLARE(pulse_window);
 extern ECS_COMPONENT_DECLARE(pulse_sdl_window);
 extern ECS_TAG_DECLARE(PulsePrimaryWindow);
+extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
+extern ECS_TAG_DECLARE(PulseWindowResized);
 
 pulse_window_desc        pulse_window_desc_default(void);
 pulse_window_plugin_desc pulse_window_plugin_desc_default(void);

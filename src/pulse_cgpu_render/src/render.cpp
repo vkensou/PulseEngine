@@ -375,7 +375,7 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
     pulse_window* windows = ecs_field(it, pulse_window, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        if (windows[i].close_requested) {
+        if (ecs_has_id(it->world, entity, PulseWindowCloseRequested)) {
             continue;
         }
 
@@ -391,10 +391,12 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
             continue;
         }
 
+        const bool window_resized =
+            ecs_has_id(it->world, entity, PulseWindowResized);
         const bool needs_resize =
             swapchain->width != static_cast<uint32_t>(windows[i].width) ||
             swapchain->height != static_cast<uint32_t>(windows[i].height) ||
-            windows[i].resized;
+            window_resized;
         if (needs_resize) {
             cgpu_queue_wait_idle(state->renderer.graphics_queue);
             release_swapchain_resources(swapchain);
@@ -767,7 +769,7 @@ bool ensure_cgpu_swapchain(
         swapchain->swapchain == CGPU_NULLPTR ||
         swapchain->width != static_cast<uint32_t>(window.width) ||
         swapchain->height != static_cast<uint32_t>(window.height) ||
-        window.resized;
+        ecs_has_id(world, entity, PulseWindowResized);
 
     if (needs_swapchain) {
         if (state->renderer.graphics_queue) {
@@ -927,9 +929,6 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
 
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        if (windows[i].close_requested) {
-            continue;
-        }
 
         pulse_cgpu_swapchain* swapchain = &swapchains[i];
         if (!ensure_cgpu_swapchain(
@@ -1065,7 +1064,7 @@ ecs_entity_t install_render_run_system(
 ) {
     ecs_system_desc_t system_desc{};
     system_desc.entity = create_render_system_entity(world, name, depends_on);
-    system_desc.phase = EcsPostFrame;
+    system_desc.phase = EcsOnStore;
     system_desc.run = run;
     system_desc.ctx = state;
     system_desc.immediate = true;
@@ -1083,10 +1082,12 @@ ecs_entity_t install_prepare_windows_system(
         "PulseCgpuPrepareWindowsSystem",
         depends_on
     );
-    system_desc.phase = EcsPostFrame;
+    system_desc.phase = EcsOnStore;
     system_desc.query.terms[0].id = ecs_id(pulse_window);
     system_desc.query.terms[1].id = ecs_id(pulse_cgpu_surface);
     system_desc.query.terms[2].id = ecs_id(pulse_cgpu_swapchain);
+    system_desc.query.terms[3].id = ecs_id(PulseWindowCloseRequested);
+    system_desc.query.terms[3].oper = EcsNot;
     system_desc.query.cache_kind = EcsQueryCacheAuto;
     system_desc.callback = render_prepare_windows_system_run;
     system_desc.ctx = state;
