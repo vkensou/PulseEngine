@@ -84,12 +84,36 @@ struct frame_data {
     }
 };
 
+struct render_frame_context {
+    uint32_t frame_index = 0;
+    frame_data* frame = nullptr;
+    bool active = false;
+    bool submitted = false;
+    bool failed = false;
+    std::vector<ecs_entity_t> prepared_entities;
+    std::vector<CGPUSemaphoreId> wait_semaphores;
+    std::vector<CGPUSemaphoreId> signal_semaphores;
+
+    void reset() {
+        frame_index = 0;
+        frame = nullptr;
+        active = false;
+        submitted = false;
+        failed = false;
+        prepared_entities.clear();
+        wait_semaphores.clear();
+        signal_semaphores.clear();
+    }
+};
+
 struct pulse_cgpu_render_state {
     pulse_app_t app = nullptr;
     pulse_cgpu_render_plugin_desc desc{};
     pulse_cgpu_renderer renderer{};
     std::vector<frame_data> frames;
+    render_frame_context frame_context;
     ecs_entity_t sdl_window_on_set_observer = 0;
+    ecs_entity_t sdl_window_on_remove_observer = 0;
     ecs_entity_t window_on_set_observer = 0;
     bool existing_sdl_windows_bootstrapped = false;
 };
@@ -99,6 +123,16 @@ typedef struct pulse_cgpu_render_state_resource {
 } pulse_cgpu_render_state_resource;
 
 ECS_COMPONENT_DECLARE(pulse_cgpu_render_state_resource);
+
+pulse_cgpu_render_state* state_from_world(ecs_world_t* world) {
+    if (!world || ecs_id(pulse_cgpu_render_state_resource) == 0) {
+        return nullptr;
+    }
+
+    const pulse_cgpu_render_state_resource* resource =
+        ecs_singleton_get(world, pulse_cgpu_render_state_resource);
+    return resource ? resource->state : nullptr;
+}
 
 void reset_surface_handles(pulse_cgpu_surface* surface) {
     surface->instance = CGPU_NULLPTR;
@@ -142,6 +176,21 @@ void on_surface_set(ecs_iter_t* it)
         ecs_entity_t entity = it->entities[i];
         if (!ecs_has_id(it->world, entity, ecs_id(pulse_cgpu_swapchain))) {
             ecs_add_id(it->world, entity, ecs_id(pulse_cgpu_swapchain));
+        }
+    }
+}
+
+void on_surface_remove(ecs_iter_t* it)
+{
+    pulse_cgpu_render_state* state = state_from_world(it->world);
+    if (state && state->renderer.graphics_queue) {
+        cgpu_queue_wait_idle(state->renderer.graphics_queue);
+    }
+
+    for (int32_t i = 0; i < it->count; ++i) {
+        ecs_entity_t entity = it->entities[i];
+        if (ecs_has_id(it->world, entity, ecs_id(pulse_cgpu_swapchain))) {
+            ecs_remove_id(it->world, entity, ecs_id(pulse_cgpu_swapchain));
         }
     }
 }
@@ -260,6 +309,7 @@ void register_components(ecs_world_t* world) {
         .dtor = ecs_dtor(pulse_cgpu_surface),
         .move = ecs_move(pulse_cgpu_surface),
         .on_set = on_surface_set,
+        .on_remove = on_surface_remove,
     };
     ecs_set_hooks_id(world, ecs_id(pulse_cgpu_surface), &surface_hooks);
 
@@ -298,6 +348,20 @@ void on_sdl_window_set(ecs_iter_t* it) {
             continue;
         }
         ensure_cgpu_surface(state, it->world, it->entities[i], sdl_windows[i], nullptr);
+    }
+}
+
+void on_sdl_window_remove(ecs_iter_t* it) {
+    pulse_cgpu_render_state* state = state_from_world(it->world);
+    if (state && state->renderer.graphics_queue) {
+        cgpu_queue_wait_idle(state->renderer.graphics_queue);
+    }
+
+    for (int32_t i = 0; i < it->count; ++i) {
+        ecs_entity_t entity = it->entities[i];
+        if (ecs_has_id(it->world, entity, ecs_id(pulse_cgpu_surface))) {
+            ecs_remove_id(it->world, entity, ecs_id(pulse_cgpu_surface));
+        }
     }
 }
 
@@ -343,6 +407,8 @@ ecs_entity_t create_named_observer(
     ecs_world_t* world,
     const char* name,
     ecs_entity_t component,
+    ecs_entity_t event,
+    bool yield_existing,
     ecs_iter_action_t callback,
     pulse_cgpu_render_state* state
 ) {
@@ -352,8 +418,8 @@ ecs_entity_t create_named_observer(
     ecs_observer_desc_t observer_desc{};
     observer_desc.entity = ecs_entity_init(world, &entity_desc);
     observer_desc.query.terms[0].id = component;
-    observer_desc.events[0] = EcsOnSet;
-    observer_desc.yield_existing = true;
+    observer_desc.events[0] = event;
+    observer_desc.yield_existing = yield_existing;
     observer_desc.callback = callback;
     observer_desc.ctx = state;
     return ecs_observer_init(world, &observer_desc);
@@ -397,6 +463,8 @@ void install_observers(pulse_cgpu_render_state* state, ecs_world_t* world) {
             world,
             "PulseCgpuSwapchainFromWindow",
             ecs_id(pulse_window),
+            EcsOnSet,
+            true,
             on_window_set_for_swapchain,
             state
         );
@@ -407,7 +475,21 @@ void install_observers(pulse_cgpu_render_state* state, ecs_world_t* world) {
             world,
             "PulseCgpuSurfaceFromSdlWindow",
             ecs_id(pulse_sdl_window),
+            EcsOnSet,
+            true,
             on_sdl_window_set,
+            state
+        );
+    }
+
+    if (!state->sdl_window_on_remove_observer && ecs_id(pulse_sdl_window) != 0) {
+        state->sdl_window_on_remove_observer = create_named_observer(
+            world,
+            "PulseCgpuSurfaceRemoveFromSdlWindow",
+            ecs_id(pulse_sdl_window),
+            EcsOnRemove,
+            false,
+            on_sdl_window_remove,
             state
         );
     }
@@ -804,21 +886,20 @@ void encode_clear_pass(
     cgpu_command_buffer_resource_barrier(cmd, &present_barrier_desc);
 }
 
-void render_system_run(ecs_iter_t* it) {
+void render_begin_frame_system_run(ecs_iter_t* it) {
     pulse_cgpu_render_state* state =
         static_cast<pulse_cgpu_render_state*>(it->ctx);
-    if (!state ||
-        !state->renderer.device ||
+    if (!state) {
+        return;
+    }
+
+    state->frame_context.reset();
+    if (!state->renderer.device ||
         state->frames.empty()) {
         return;
     }
 
     ecs_world_t* world = it->world;
-    if (ecs_id(pulse_window) == 0 ||
-        ecs_id(pulse_cgpu_surface) == 0 ||
-        ecs_id(pulse_cgpu_swapchain) == 0) {
-        return;
-    }
     install_observers(state, world);
 
     const uint32_t frame_index =
@@ -826,81 +907,83 @@ void render_system_run(ecs_iter_t* it) {
     frame_data& frame = state->frames[frame_index];
     frame.begin_frame();
 
-    std::vector<ecs_entity_t> prepared_entities;
-    std::vector<CGPUSemaphoreId> wait_semaphores;
-    std::vector<CGPUSemaphoreId> signal_semaphores;
+    state->frame_context.frame_index = frame_index;
+    state->frame_context.frame = &frame;
+    state->frame_context.active = true;
+}
 
-    ecs_query_desc_t query_desc{};
-    query_desc.terms[0].id = ecs_id(pulse_window);
-    query_desc.terms[1].id = ecs_id(pulse_cgpu_surface);
-    query_desc.terms[2].id = ecs_id(pulse_cgpu_swapchain);
-    query_desc.cache_kind = EcsQueryCacheAuto;
-    ecs_query_t* query = ecs_query_init(world, &query_desc);
-    if (!query) {
+void render_prepare_windows_system_run(ecs_iter_t* it) {
+    pulse_cgpu_render_state* state =
+        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    if (!state || !state->frame_context.active) {
         return;
     }
 
-    ecs_iter_t query_it = ecs_query_iter(world, query);
-    while (ecs_query_next(&query_it)) {
-        pulse_window* windows = ecs_field(&query_it, pulse_window, 0);
-        pulse_cgpu_surface* surfaces =
-            ecs_field(&query_it, pulse_cgpu_surface, 1);
-        pulse_cgpu_swapchain* swapchains =
-            ecs_field(&query_it, pulse_cgpu_swapchain, 2);
+    ecs_world_t* world = it->world;
+    pulse_window* windows = ecs_field(it, pulse_window, 0);
+    pulse_cgpu_surface* surfaces = ecs_field(it, pulse_cgpu_surface, 1);
+    pulse_cgpu_swapchain* swapchains = ecs_field(it, pulse_cgpu_swapchain, 2);
+    render_frame_context& frame = state->frame_context;
 
-        for (int32_t i = 0; i < query_it.count; ++i) {
-            ecs_entity_t entity = query_it.entities[i];
-            if (windows[i].close_requested) {
-                if (ecs_has_id(world, entity, ecs_id(pulse_cgpu_swapchain)) ||
-                    ecs_has_id(world, entity, ecs_id(pulse_cgpu_surface))) {
-                    cgpu_queue_wait_idle(state->renderer.graphics_queue);
-                    ecs_remove_id(world, entity, ecs_id(pulse_cgpu_swapchain));
-                    ecs_remove_id(world, entity, ecs_id(pulse_cgpu_surface));
-                }
-                continue;
-            }
+    for (int32_t i = 0; i < it->count; ++i) {
+        ecs_entity_t entity = it->entities[i];
+        if (windows[i].close_requested) {
+            continue;
+        }
 
-            pulse_cgpu_swapchain* swapchain = &swapchains[i];
-            if (!ensure_cgpu_swapchain(
-                    state,
-                    world,
-                    entity,
-                    windows[i],
-                    &surfaces[i],
-                    &swapchain)) {
-                continue;
-            }
+        pulse_cgpu_swapchain* swapchain = &swapchains[i];
+        if (!ensure_cgpu_swapchain(
+                state,
+                world,
+                entity,
+                windows[i],
+                &surfaces[i],
+                &swapchain)) {
+            continue;
+        }
 
-            if (acquire_window_image(swapchain, frame_index)) {
-                prepared_entities.push_back(entity);
-                wait_semaphores.push_back(
-                    swapchain->image_available_semaphores[
-                        frame_index % swapchain->backbuffer_count
-                    ]
-                );
-                signal_semaphores.push_back(
-                    swapchain->render_finished_semaphores[
-                        swapchain->current_backbuffer_index
-                    ]
-                );
-            }
+        if (acquire_window_image(swapchain, frame.frame_index)) {
+            frame.prepared_entities.push_back(entity);
+            frame.wait_semaphores.push_back(
+                swapchain->image_available_semaphores[
+                    frame.frame_index % swapchain->backbuffer_count
+                ]
+            );
+            frame.signal_semaphores.push_back(
+                swapchain->render_finished_semaphores[
+                    swapchain->current_backbuffer_index
+                ]
+            );
         }
     }
-    ecs_query_fini(query);
+}
 
-    if (prepared_entities.empty()) {
-        state->renderer.frame_index++;
-        ecs_singleton_set_ptr(world, pulse_cgpu_renderer, &state->renderer);
+void render_submit_system_run(ecs_iter_t* it) {
+    pulse_cgpu_render_state* state =
+        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    if (!state || !state->frame_context.active) {
         return;
     }
 
-    CGPUCommandBufferId cmd = frame.request_command_buffer();
+    render_frame_context& frame_context = state->frame_context;
+    if (frame_context.prepared_entities.empty()) {
+        return;
+    }
+
+    if (!frame_context.frame) {
+        frame_context.failed = true;
+        return;
+    }
+
+    ecs_world_t* world = it->world;
+    CGPUCommandBufferId cmd = frame_context.frame->request_command_buffer();
     if (!cmd) {
+        frame_context.failed = true;
         return;
     }
 
     cgpu_command_buffer_begin(cmd);
-    for (ecs_entity_t entity : prepared_entities) {
+    for (ecs_entity_t entity : frame_context.prepared_entities) {
         pulse_cgpu_swapchain* swapchain =
             ecs_get_mut(world, entity, pulse_cgpu_swapchain);
         if (swapchain) {
@@ -912,34 +995,128 @@ void render_system_run(ecs_iter_t* it) {
     CGPUQueueSubmitDescriptor submit_desc{};
     submit_desc.cmd_count = 1;
     submit_desc.p_cmds = &cmd;
-    submit_desc.signal_fence = frame.fence;
-    submit_desc.wait_semaphore_count = static_cast<uint32_t>(wait_semaphores.size());
-    submit_desc.p_wait_semaphores = wait_semaphores.data();
-    submit_desc.signal_semaphore_count = static_cast<uint32_t>(signal_semaphores.size());
-    submit_desc.p_signal_semaphores = signal_semaphores.data();
+    submit_desc.signal_fence = frame_context.frame->fence;
+    submit_desc.wait_semaphore_count =
+        static_cast<uint32_t>(frame_context.wait_semaphores.size());
+    submit_desc.p_wait_semaphores = frame_context.wait_semaphores.data();
+    submit_desc.signal_semaphore_count =
+        static_cast<uint32_t>(frame_context.signal_semaphores.size());
+    submit_desc.p_signal_semaphores = frame_context.signal_semaphores.data();
     cgpu_queue_submit(state->renderer.graphics_queue, &submit_desc);
+    frame_context.submitted = true;
+}
 
-    for (ecs_entity_t entity : prepared_entities) {
-        pulse_cgpu_swapchain* swapchain =
-            ecs_get_mut(world, entity, pulse_cgpu_swapchain);
-        if (!swapchain) {
-            continue;
+void render_present_system_run(ecs_iter_t* it) {
+    pulse_cgpu_render_state* state =
+        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    if (!state || !state->frame_context.active || state->frame_context.failed) {
+        return;
+    }
+
+    ecs_world_t* world = it->world;
+    render_frame_context& frame_context = state->frame_context;
+
+    if (frame_context.submitted) {
+        for (ecs_entity_t entity : frame_context.prepared_entities) {
+            pulse_cgpu_swapchain* swapchain =
+                ecs_get_mut(world, entity, pulse_cgpu_swapchain);
+            if (!swapchain) {
+                continue;
+            }
+
+            CGPUSemaphoreId wait =
+                swapchain->render_finished_semaphores[
+                    swapchain->current_backbuffer_index
+                ];
+            CGPUQueuePresentDescriptor present_desc{};
+            present_desc.swapchain = swapchain->swapchain;
+            present_desc.wait_semaphore_count = 1;
+            present_desc.p_wait_semaphores = &wait;
+            present_desc.index =
+                static_cast<uint8_t>(swapchain->current_backbuffer_index);
+            cgpu_queue_present(state->renderer.present_queue, &present_desc);
         }
-
-        CGPUSemaphoreId wait =
-            swapchain->render_finished_semaphores[
-                swapchain->current_backbuffer_index
-            ];
-        CGPUQueuePresentDescriptor present_desc{};
-        present_desc.swapchain = swapchain->swapchain;
-        present_desc.wait_semaphore_count = 1;
-        present_desc.p_wait_semaphores = &wait;
-        present_desc.index = static_cast<uint8_t>(swapchain->current_backbuffer_index);
-        cgpu_queue_present(state->renderer.present_queue, &present_desc);
     }
 
     state->renderer.frame_index++;
     ecs_singleton_set_ptr(world, pulse_cgpu_renderer, &state->renderer);
+}
+
+ecs_entity_t create_render_system_entity(
+    ecs_world_t* world,
+    const char* name,
+    ecs_entity_t depends_on
+) {
+    ecs_entity_desc_t entity_desc{};
+    entity_desc.name = name;
+    ecs_entity_t system_entity = ecs_entity_init(world, &entity_desc);
+    if (depends_on) {
+        ecs_add_pair(world, system_entity, EcsDependsOn, depends_on);
+    }
+    return system_entity;
+}
+
+ecs_entity_t install_render_run_system(
+    ecs_world_t* world,
+    const char* name,
+    ecs_run_action_t run,
+    pulse_cgpu_render_state* state,
+    ecs_entity_t depends_on
+) {
+    ecs_system_desc_t system_desc{};
+    system_desc.entity = create_render_system_entity(world, name, depends_on);
+    system_desc.phase = EcsPostFrame;
+    system_desc.run = run;
+    system_desc.ctx = state;
+    system_desc.immediate = true;
+    return ecs_system_init(world, &system_desc);
+}
+
+ecs_entity_t install_prepare_windows_system(
+    ecs_world_t* world,
+    pulse_cgpu_render_state* state,
+    ecs_entity_t depends_on
+) {
+    ecs_system_desc_t system_desc{};
+    system_desc.entity = create_render_system_entity(
+        world,
+        "PulseCgpuPrepareWindowsSystem",
+        depends_on
+    );
+    system_desc.phase = EcsPostFrame;
+    system_desc.query.terms[0].id = ecs_id(pulse_window);
+    system_desc.query.terms[1].id = ecs_id(pulse_cgpu_surface);
+    system_desc.query.terms[2].id = ecs_id(pulse_cgpu_swapchain);
+    system_desc.query.cache_kind = EcsQueryCacheAuto;
+    system_desc.callback = render_prepare_windows_system_run;
+    system_desc.ctx = state;
+    system_desc.immediate = true;
+    return ecs_system_init(world, &system_desc);
+}
+
+void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) {
+    ecs_entity_t begin = install_render_run_system(
+        world,
+        "PulseCgpuBeginFrameSystem",
+        render_begin_frame_system_run,
+        state,
+        0
+    );
+    ecs_entity_t prepare = install_prepare_windows_system(world, state, begin);
+    ecs_entity_t submit = install_render_run_system(
+        world,
+        "PulseCgpuSubmitSystem",
+        render_submit_system_run,
+        state,
+        prepare
+    );
+    install_render_run_system(
+        world,
+        "PulseCgpuPresentSystem",
+        render_present_system_run,
+        state,
+        submit
+    );
 }
 
 pulse_result_t render_plugin_build(pulse_app_t app, void* ctx) {
@@ -963,20 +1140,7 @@ pulse_result_t render_plugin_build(pulse_app_t app, void* ctx) {
     }
     ecs_singleton_set_ptr(world, pulse_cgpu_renderer, &state->renderer);
     install_observers(state, world);
-
-    ecs_entity_desc_t entity_desc{};
-    entity_desc.name = "PulseCgpuRenderSystem";
-    ecs_entity_t system_entity = ecs_entity_init(world, &entity_desc);
-    ecs_add_pair(world, system_entity, EcsDependsOn, EcsPostUpdate);
-    ecs_add_id(world, system_entity, EcsPostUpdate);
-
-    ecs_system_desc_t system_desc{};
-    system_desc.entity = system_entity;
-    system_desc.phase = EcsPostUpdate;
-    system_desc.run = render_system_run;
-    system_desc.ctx = state;
-    system_desc.immediate = true;
-    ecs_system_init(world, &system_desc);
+    install_render_systems(state, world);
 
     return PULSE_OK;
 }
@@ -1011,8 +1175,8 @@ void remove_component_from_all_entities(ecs_world_t* world, ecs_entity_t compone
 }
 
 void remove_render_window_components(ecs_world_t* world) {
-    remove_component_from_all_entities(world, ecs_id(pulse_cgpu_swapchain));
     remove_component_from_all_entities(world, ecs_id(pulse_cgpu_surface));
+    remove_component_from_all_entities(world, ecs_id(pulse_cgpu_swapchain));
 }
 
 void render_plugin_shutdown(pulse_app_t app, void* ctx) {
