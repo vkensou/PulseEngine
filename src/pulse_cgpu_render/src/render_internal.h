@@ -14,12 +14,6 @@
 
 namespace pulse_cgpu_render_internal {
 
-struct render_target {
-    ecs_entity_t entity = 0;
-    CGPUSwapChainId swapchain = CGPU_NULLPTR;
-    uint32_t backbuffer_index = 0;
-};
-
 struct frame_data {
     CGPUFenceId fence = CGPU_NULLPTR;
     CGPUCommandPoolId pool = CGPU_NULLPTR;
@@ -43,9 +37,7 @@ struct render_frame_context {
     std::unique_ptr<std::pmr::unsynchronized_pool_resource> graph_memory;
     std::unique_ptr<HGEGraphics::rendergraph_t> graph;
     std::vector<ecs_entity_t> prepared_entities;
-    std::vector<render_target> targets;
-    std::vector<HGEGraphics::Backbuffer> backbuffers;
-    std::vector<HGEGraphics::texture_handle_t> target_textures;
+    std::vector<pulse_cgpu_render_window_target> targets;
     std::vector<CGPUSemaphoreId> wait_semaphores;
     std::vector<CGPUSemaphoreId> signal_semaphores;
 

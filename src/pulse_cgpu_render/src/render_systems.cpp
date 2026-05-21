@@ -97,8 +97,6 @@ void render_frame_context::reset() {
     graph_memory.reset();
     prepared_entities.clear();
     targets.clear();
-    backbuffers.clear();
-    target_textures.clear();
     wait_semaphores.clear();
     signal_semaphores.clear();
 }
@@ -138,42 +136,6 @@ bool ensure_frame_graph(render_frame_context& frame_context) {
         );
     }
     return frame_context.graph != nullptr;
-}
-
-HGEGraphics::texture_handle_t import_render_target(
-    render_frame_context& frame_context,
-    uint32_t target_index
-) {
-    if (!frame_context.graph ||
-        target_index >= frame_context.targets.size() ||
-        target_index >= frame_context.target_textures.size()) {
-        return {};
-    }
-
-    HGEGraphics::texture_handle_t& cached =
-        frame_context.target_textures[target_index];
-    if (HGEGraphics::rendergraph_texture_handle_valid(cached)) {
-        return cached;
-    }
-
-    const render_target& target = frame_context.targets[target_index];
-    if (!target.swapchain) {
-        return {};
-    }
-
-    frame_context.backbuffers.emplace_back();
-    HGEGraphics::Backbuffer& backbuffer = frame_context.backbuffers.back();
-    HGEGraphics::init_backbuffer(
-        &backbuffer,
-        target.swapchain,
-        static_cast<int>(target.backbuffer_index)
-    );
-
-    cached = HGEGraphics::rendergraph_import_backbuffer(
-        frame_context.graph.get(),
-        &backbuffer
-    );
-    return cached;
 }
 
 void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
@@ -240,7 +202,18 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
         }
 
         if (acquire_window_image(swapchain, frame.frame_index)) {
+            const uint32_t image_index = swapchain->current_backbuffer_index;
+            pulse_cgpu_render_window_target target{};
+            target.entity = entity;
+            target.swapchain = swapchain->swapchain;
+            target.texture = swapchain->swapchain->p_back_buffers[image_index];
+            target.texture_view = swapchain->backbuffer_views[image_index];
+            target.width = swapchain->width;
+            target.height = swapchain->height;
+            target.backbuffer_index = image_index;
+
             frame.prepared_entities.push_back(entity);
+            frame.targets.push_back(target);
             frame.wait_semaphores.push_back(
                 swapchain->image_available_semaphores[
                     frame.frame_index % swapchain->backbuffer_count
@@ -263,36 +236,10 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     }
 
     render_frame_context& frame_context = state->frame_context;
-    if (frame_context.prepared_entities.empty() || !frame_context.frame) {
+    if (frame_context.targets.empty() || !frame_context.frame) {
         return;
     }
     if (!state->desc.record_callback) {
-        return;
-    }
-
-    ecs_world_t* world = it->world;
-    frame_context.targets.reserve(frame_context.prepared_entities.size());
-    frame_context.backbuffers.reserve(frame_context.prepared_entities.size());
-
-    for (ecs_entity_t entity : frame_context.prepared_entities) {
-        pulse_cgpu_swapchain* swapchain =
-            ecs_get_mut(world, entity, pulse_cgpu_swapchain);
-        if (!swapchain ||
-            !swapchain->swapchain ||
-            swapchain->current_backbuffer_index >= swapchain->backbuffer_count) {
-            continue;
-        }
-
-        const uint32_t image_index = swapchain->current_backbuffer_index;
-        render_target target{};
-        target.entity = entity;
-        target.swapchain = swapchain->swapchain;
-        target.backbuffer_index = image_index;
-        frame_context.targets.push_back(target);
-        frame_context.target_textures.push_back({});
-    }
-
-    if (frame_context.targets.empty()) {
         return;
     }
     if (!ensure_frame_graph(frame_context)) {
@@ -300,20 +247,12 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
         return;
     }
 
-    for (uint32_t i = 0; i < frame_context.targets.size(); ++i) {
-        HGEGraphics::texture_handle_t target =
-            import_render_target(frame_context, i);
-        if (!HGEGraphics::rendergraph_texture_handle_valid(target)) {
-            frame_context.failed = true;
-            return;
-        }
-
-        state->desc.record_callback(
-            *frame_context.graph,
-            target,
-            state->desc.record_user_data
-        );
-    }
+    state->desc.record_callback(
+        *frame_context.graph.get(),
+        static_cast<uint32_t>(frame_context.targets.size()),
+        frame_context.targets.data(),
+        state->desc.record_user_data
+    );
 }
 
 void render_execute_graph_system_run(ecs_iter_t* it) {
@@ -360,7 +299,7 @@ void render_submit_system_run(ecs_iter_t* it) {
     }
 
     render_frame_context& frame_context = state->frame_context;
-    if (frame_context.prepared_entities.empty()) {
+    if (frame_context.targets.empty()) {
         return;
     }
 
