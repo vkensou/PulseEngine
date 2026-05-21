@@ -158,6 +158,7 @@ void on_window_set(ecs_iter_t* it)
 		}
 
         pulse_sdl_window* sdl_window = ecs_get_mut(world, entity, pulse_sdl_window);
+        bool sdl_window_changed = false;
 
 		if (sdl_window->handle == nullptr) {
 			SDL_Window* raw_window = create_sdl_window(
@@ -170,6 +171,7 @@ void on_window_set(ecs_iter_t* it)
 				sdl_window->handle = raw_window;
 				sdl_window->window_id = SDL_GetWindowID(raw_window);
 				sdl_window->native_view = native_view_from_window(raw_window);
+                sdl_window_changed = true;
 				SDL_PropertiesID props = SDL_GetWindowProperties(raw_window);
 				SDL_SetNumberProperty(props, "sdl.window.entity", entity);
 
@@ -181,6 +183,10 @@ void on_window_set(ecs_iter_t* it)
 				window.height = height;
 			}
 		}
+
+        if (sdl_window_changed) {
+            ecs_modified(world, entity, pulse_sdl_window);
+        }
     }
 }
 
