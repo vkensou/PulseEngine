@@ -1,11 +1,24 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "cgpu/api.h"
 #include "flecs.h"
 #include "pulse_app.h"
+
+#ifdef __cplusplus
+#include "rendergraph.h"
+
+typedef void (*pulse_cgpu_render_record_callback)(
+    HGEGraphics::rendergraph_t* graph,
+    HGEGraphics::texture_handle_t target,
+    void* user_data
+);
+#else
+typedef void (*pulse_cgpu_render_record_callback)(void);
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,7 +35,8 @@ typedef struct pulse_cgpu_render_plugin_desc {
     bool enable_debug_layer;
     bool enable_gpu_based_validation;
     bool enable_vsync;
-    float clear_color[4];
+    pulse_cgpu_render_record_callback record_callback;
+    void* record_user_data;
 } pulse_cgpu_render_plugin_desc;
 
 typedef struct pulse_cgpu_renderer {
@@ -65,6 +79,12 @@ pulse_cgpu_render_plugin_desc pulse_cgpu_render_plugin_desc_default(void);
 pulse_result_t pulse_cgpu_render_add_plugin(
     pulse_app_t app,
     const pulse_cgpu_render_plugin_desc* desc
+);
+
+pulse_result_t pulse_cgpu_render_set_record_callback(
+    pulse_app_t app,
+    pulse_cgpu_render_record_callback record_callback,
+    void* user_data
 );
 
 const pulse_cgpu_renderer* pulse_cgpu_renderer_get(pulse_app_t app);

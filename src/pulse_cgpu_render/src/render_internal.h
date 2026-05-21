@@ -3,15 +3,29 @@
 #include "pulse_cgpu_render.h"
 #include "pulse_window.h"
 
+#include "rendergraph_compiler.h"
+#include "rendergraph_executor.h"
+#include "renderer.h"
+
+#include <memory>
+#include <memory_resource>
 #include <vector>
 
 namespace pulse_cgpu_render_internal {
+
+struct render_target {
+    ecs_entity_t entity = 0;
+    CGPUSwapChainId swapchain = CGPU_NULLPTR;
+    uint32_t backbuffer_index = 0;
+};
 
 struct frame_data {
     CGPUFenceId fence = CGPU_NULLPTR;
     CGPUCommandPoolId pool = CGPU_NULLPTR;
     std::vector<CGPUCommandBufferId> available_cmds;
     std::vector<CGPUCommandBufferId> submitted_cmds;
+    std::unique_ptr<std::pmr::unsynchronized_pool_resource> exec_memory;
+    std::unique_ptr<HGEGraphics::ExecutorContext> exec_context;
 
     bool init(CGPUDeviceId device, CGPUQueueId queue);
     void begin_frame();
@@ -25,7 +39,12 @@ struct render_frame_context {
     bool active = false;
     bool submitted = false;
     bool failed = false;
+    std::unique_ptr<std::pmr::unsynchronized_pool_resource> graph_memory;
+    std::unique_ptr<HGEGraphics::rendergraph_t> graph;
     std::vector<ecs_entity_t> prepared_entities;
+    std::vector<render_target> targets;
+    std::vector<HGEGraphics::Backbuffer> backbuffers;
+    std::vector<HGEGraphics::texture_handle_t> target_textures;
     std::vector<CGPUSemaphoreId> wait_semaphores;
     std::vector<CGPUSemaphoreId> signal_semaphores;
 
@@ -43,6 +62,8 @@ struct pulse_cgpu_render_state {
     ecs_entity_t window_on_set_observer = 0;
     ecs_entity_t begin_frame_system = 0;
     ecs_entity_t prepare_windows_system = 0;
+    ecs_entity_t build_graph_system = 0;
+    ecs_entity_t execute_graph_system = 0;
     ecs_entity_t submit_system = 0;
     ecs_entity_t present_system = 0;
     bool existing_sdl_windows_bootstrapped = false;
@@ -53,6 +74,13 @@ typedef struct pulse_cgpu_render_state_resource {
 } pulse_cgpu_render_state_resource;
 
 extern ECS_COMPONENT_DECLARE(pulse_cgpu_render_state_resource);
+
+extern ecs_entity_t pulse_cgpu_render_begin_frame_phase;
+extern ecs_entity_t pulse_cgpu_render_prepare_windows_phase;
+extern ecs_entity_t pulse_cgpu_render_record_graph_phase;
+extern ecs_entity_t pulse_cgpu_render_execute_graph_phase;
+extern ecs_entity_t pulse_cgpu_render_submit_phase;
+extern ecs_entity_t pulse_cgpu_render_present_phase;
 
 pulse_cgpu_render_state* state_from_world(ecs_world_t* world);
 
@@ -82,11 +110,6 @@ bool ensure_cgpu_swapchain(
     pulse_cgpu_swapchain** out_swapchain
 );
 bool acquire_window_image(pulse_cgpu_swapchain* swapchain, uint32_t frame_index);
-void encode_clear_pass(
-    const pulse_cgpu_render_state* state,
-    CGPUCommandBufferId cmd,
-    pulse_cgpu_swapchain* swapchain
-);
 
 void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world);
 void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world);

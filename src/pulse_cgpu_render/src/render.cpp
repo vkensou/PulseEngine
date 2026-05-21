@@ -555,72 +555,6 @@ bool acquire_window_image(
     return swapchain->current_backbuffer_index < swapchain->backbuffer_count;
 }
 
-void encode_clear_pass(
-    const pulse_cgpu_render_state* state,
-    CGPUCommandBufferId cmd,
-    pulse_cgpu_swapchain* swapchain
-) {
-    const uint32_t image_index = swapchain->current_backbuffer_index;
-    CGPUTextureId backbuffer = swapchain->swapchain->p_back_buffers[image_index];
-
-    CGPUTextureBarrier draw_barrier{};
-    draw_barrier.texture = backbuffer;
-    draw_barrier.src_state = CGPU_RESOURCE_STATE_UNDEFINED;
-    draw_barrier.dst_state = CGPU_RESOURCE_STATE_RENDER_TARGET;
-    CGPUResourceBarrierDescriptor draw_barrier_desc{};
-    draw_barrier_desc.texture_barrier_count = 1;
-    draw_barrier_desc.p_texture_barriers = &draw_barrier;
-    cgpu_command_buffer_resource_barrier(cmd, &draw_barrier_desc);
-
-    CGPUClearValue clear{};
-    clear.color[0] = state->desc.clear_color[0];
-    clear.color[1] = state->desc.clear_color[1];
-    clear.color[2] = state->desc.clear_color[2];
-    clear.color[3] = state->desc.clear_color[3];
-    clear.is_color = true;
-
-    CGPUBeginRenderPassInfo begin_info{};
-    begin_info.render_pass = state->renderer.render_pass;
-    begin_info.framebuffer = swapchain->framebuffers[image_index];
-    begin_info.clear_value_count = 1;
-    begin_info.p_clear_values = &clear;
-
-    CGPURenderPassEncoderId encoder =
-        cgpu_command_buffer_begin_render_pass(cmd, &begin_info);
-    cgpu_render_pass_encoder_set_shading_rate(
-        encoder,
-        CGPU_SHADING_RATE_FULL,
-        CGPU_SHADING_RATE_COMBINER_PASS_THROUGH,
-        CGPU_SHADING_RATE_COMBINER_PASS_THROUGH
-    );
-    cgpu_render_pass_encoder_set_viewport(
-        encoder,
-        0.0f,
-        0.0f,
-        static_cast<float>(swapchain->width),
-        static_cast<float>(swapchain->height),
-        0.0f,
-        1.0f
-    );
-    cgpu_render_pass_encoder_set_scissor(
-        encoder,
-        0,
-        0,
-        swapchain->width,
-        swapchain->height
-    );
-    cgpu_command_buffer_end_render_pass(cmd, encoder);
-
-    CGPUTextureBarrier present_barrier{};
-    present_barrier.texture = backbuffer;
-    present_barrier.src_state = CGPU_RESOURCE_STATE_RENDER_TARGET;
-    present_barrier.dst_state = CGPU_RESOURCE_STATE_PRESENT;
-    CGPUResourceBarrierDescriptor present_barrier_desc{};
-    present_barrier_desc.texture_barrier_count = 1;
-    present_barrier_desc.p_texture_barriers = &present_barrier;
-    cgpu_command_buffer_resource_barrier(cmd, &present_barrier_desc);
-}
-
 pulse_result_t render_plugin_build(pulse_app_t app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_cgpu_render_state* state =
@@ -686,6 +620,12 @@ void delete_render_components(ecs_world_t* world) {
     delete_entity_if_alive(world, ecs_id(pulse_cgpu_surface));
     delete_registered_entity(world, ecs_id(pulse_cgpu_renderer));
     delete_registered_entity(world, ecs_id(pulse_cgpu_render_state_resource));
+    delete_registered_entity(world, pulse_cgpu_render_present_phase);
+    delete_registered_entity(world, pulse_cgpu_render_submit_phase);
+    delete_registered_entity(world, pulse_cgpu_render_execute_graph_phase);
+    delete_registered_entity(world, pulse_cgpu_render_record_graph_phase);
+    delete_registered_entity(world, pulse_cgpu_render_prepare_windows_phase);
+    delete_registered_entity(world, pulse_cgpu_render_begin_frame_phase);
 
     ecs_id(pulse_cgpu_swapchain) = 0;
     ecs_id(pulse_cgpu_surface) = 0;
@@ -735,10 +675,8 @@ pulse_cgpu_render_plugin_desc pulse_cgpu_render_plugin_desc_default(void) {
     desc.enable_debug_layer = false;
     desc.enable_gpu_based_validation = false;
     desc.enable_vsync = true;
-    desc.clear_color[0] = 0.02f;
-    desc.clear_color[1] = 0.02f;
-    desc.clear_color[2] = 0.025f;
-    desc.clear_color[3] = 1.0f;
+    desc.record_callback = nullptr;
+    desc.record_user_data = nullptr;
     return desc;
 }
 
@@ -772,6 +710,25 @@ pulse_result_t pulse_cgpu_render_add_plugin(
         delete state;
     }
     return result;
+}
+
+pulse_result_t pulse_cgpu_render_set_record_callback(
+    pulse_app_t app,
+    pulse_cgpu_render_record_callback record_callback,
+    void* user_data
+) {
+    if (!app) {
+        return PULSE_ERROR_INVALID_ARGUMENT;
+    }
+
+    pulse_cgpu_render_state* state = state_from_world(pulse_app_world(app));
+    if (!state) {
+        return PULSE_ERROR_NOT_FOUND;
+    }
+
+    state->desc.record_callback = record_callback;
+    state->desc.record_user_data = user_data;
+    return PULSE_OK;
 }
 
 const pulse_cgpu_renderer* pulse_cgpu_renderer_get(pulse_app_t app) {

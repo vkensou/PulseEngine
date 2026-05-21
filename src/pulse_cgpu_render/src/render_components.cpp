@@ -8,6 +8,13 @@ namespace pulse_cgpu_render_internal {
 
 ECS_COMPONENT_DECLARE(pulse_cgpu_render_state_resource);
 
+ecs_entity_t pulse_cgpu_render_begin_frame_phase = 0;
+ecs_entity_t pulse_cgpu_render_prepare_windows_phase = 0;
+ecs_entity_t pulse_cgpu_render_record_graph_phase = 0;
+ecs_entity_t pulse_cgpu_render_execute_graph_phase = 0;
+ecs_entity_t pulse_cgpu_render_submit_phase = 0;
+ecs_entity_t pulse_cgpu_render_present_phase = 0;
+
 void reset_surface_handles(pulse_cgpu_surface* surface) {
     surface->instance = CGPU_NULLPTR;
     surface->surface = CGPU_NULLPTR;
@@ -26,6 +33,21 @@ void release_surface_resources(pulse_cgpu_surface* surface) {
 }
 
 namespace {
+
+ecs_entity_t create_phase(
+    ecs_world_t* world,
+    const char* name,
+    ecs_entity_t depends_on
+) {
+    ecs_entity_desc_t desc{};
+    desc.name = name;
+    ecs_entity_t phase = ecs_entity_init(world, &desc);
+    ecs_add_id(world, phase, EcsPhase);
+    if (depends_on) {
+        ecs_add_pair(world, phase, EcsDependsOn, depends_on);
+    }
+    return phase;
+}
 
 ECS_CTOR(pulse_cgpu_surface, ptr, {
     reset_surface_handles(ptr);
@@ -148,6 +170,34 @@ void register_components(ecs_world_t* world) {
     ECS_COMPONENT_DEFINE(world, pulse_cgpu_surface);
     ECS_COMPONENT_DEFINE(world, pulse_cgpu_swapchain);
     ECS_COMPONENT_DEFINE(world, pulse_cgpu_render_state_resource);
+
+    pulse_cgpu_render_begin_frame_phase =
+        create_phase(world, "PulseCgpuRenderBeginFrame", EcsOnStore);
+    pulse_cgpu_render_prepare_windows_phase = create_phase(
+        world,
+        "PulseCgpuRenderPrepareWindows",
+        pulse_cgpu_render_begin_frame_phase
+    );
+    pulse_cgpu_render_record_graph_phase = create_phase(
+        world,
+        "PulseCgpuRenderRecordGraph",
+        pulse_cgpu_render_prepare_windows_phase
+    );
+    pulse_cgpu_render_execute_graph_phase = create_phase(
+        world,
+        "PulseCgpuRenderExecuteGraph",
+        pulse_cgpu_render_record_graph_phase
+    );
+    pulse_cgpu_render_submit_phase = create_phase(
+        world,
+        "PulseCgpuRenderSubmit",
+        pulse_cgpu_render_execute_graph_phase
+    );
+    pulse_cgpu_render_present_phase = create_phase(
+        world,
+        "PulseCgpuRenderPresent",
+        pulse_cgpu_render_submit_phase
+    );
 
     ecs_type_hooks_t surface_hooks = {
         .ctor = ecs_ctor(pulse_cgpu_surface),

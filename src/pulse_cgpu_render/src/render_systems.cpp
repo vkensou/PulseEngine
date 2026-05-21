@@ -11,7 +11,19 @@ bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue) {
     CGPUCommandPoolDescriptor pool_desc{};
     pool_desc.name = "pulse_cgpu_render_frame_pool";
     pool = cgpu_queue_create_command_pool(queue, &pool_desc);
-    return pool != CGPU_NULLPTR;
+    if (!pool) {
+        return false;
+    }
+
+    exec_memory = std::make_unique<std::pmr::unsynchronized_pool_resource>();
+    exec_context =
+        std::make_unique<HGEGraphics::ExecutorContext>(
+            device,
+            queue,
+            false,
+            exec_memory.get()
+        );
+    return exec_context != nullptr;
 }
 
 void frame_data::begin_frame() {
@@ -26,6 +38,10 @@ void frame_data::begin_frame() {
         available_cmds.push_back(cmd);
     }
     submitted_cmds.clear();
+
+    if (exec_context) {
+        exec_context->newFrame();
+    }
 }
 
 CGPUCommandBufferId frame_data::request_command_buffer() {
@@ -46,6 +62,12 @@ CGPUCommandBufferId frame_data::request_command_buffer() {
 }
 
 void frame_data::destroy() {
+    if (exec_context) {
+        exec_context->destroy();
+        exec_context.reset();
+    }
+    exec_memory.reset();
+
     if (pool) {
         for (CGPUCommandBufferId cmd : available_cmds) {
             cgpu_command_pool_free_command_buffer(pool, cmd);
@@ -71,12 +93,88 @@ void render_frame_context::reset() {
     active = false;
     submitted = false;
     failed = false;
+    graph.reset();
+    graph_memory.reset();
     prepared_entities.clear();
+    targets.clear();
+    backbuffers.clear();
+    target_textures.clear();
     wait_semaphores.clear();
     signal_semaphores.clear();
 }
 
 namespace {
+
+constexpr size_t kGraphResourceEstimate = 32;
+constexpr size_t kGraphPassEstimate = 32;
+constexpr size_t kGraphEdgeEstimate = 64;
+
+bool ensure_frame_graph(render_frame_context& frame_context) {
+    if (!frame_context.graph_memory) {
+        frame_context.graph_memory =
+            std::make_unique<std::pmr::unsynchronized_pool_resource>();
+    }
+    if (!frame_context.graph) {
+        const size_t target_count = frame_context.targets.size();
+        const size_t resource_estimate =
+            target_count * 4 > kGraphResourceEstimate
+                ? target_count * 4
+                : kGraphResourceEstimate;
+        const size_t pass_estimate =
+            target_count * 4 > kGraphPassEstimate
+                ? target_count * 4
+                : kGraphPassEstimate;
+        const size_t edge_estimate =
+            target_count * 8 > kGraphEdgeEstimate
+                ? target_count * 8
+                : kGraphEdgeEstimate;
+        frame_context.graph = std::make_unique<HGEGraphics::rendergraph_t>(
+            resource_estimate,
+            pass_estimate,
+            edge_estimate,
+            nullptr,
+            CGPU_NULLPTR,
+            frame_context.graph_memory.get()
+        );
+    }
+    return frame_context.graph != nullptr;
+}
+
+HGEGraphics::texture_handle_t import_render_target(
+    render_frame_context& frame_context,
+    uint32_t target_index
+) {
+    if (!frame_context.graph ||
+        target_index >= frame_context.targets.size() ||
+        target_index >= frame_context.target_textures.size()) {
+        return {};
+    }
+
+    HGEGraphics::texture_handle_t& cached =
+        frame_context.target_textures[target_index];
+    if (HGEGraphics::rendergraph_texture_handle_valid(cached)) {
+        return cached;
+    }
+
+    const render_target& target = frame_context.targets[target_index];
+    if (!target.swapchain) {
+        return {};
+    }
+
+    frame_context.backbuffers.emplace_back();
+    HGEGraphics::Backbuffer& backbuffer = frame_context.backbuffers.back();
+    HGEGraphics::init_backbuffer(
+        &backbuffer,
+        target.swapchain,
+        static_cast<int>(target.backbuffer_index)
+    );
+
+    cached = HGEGraphics::rendergraph_import_backbuffer(
+        frame_context.graph.get(),
+        &backbuffer
+    );
+    return cached;
+}
 
 void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
     if (world && entity && ecs_is_alive(world, entity)) {
@@ -117,6 +215,9 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
     if (!state || !state->frame_context.active) {
         return;
     }
+    if (!state->desc.record_callback) {
+        return;
+    }
 
     ecs_world_t* world = it->world;
     pulse_window* windows = ecs_field(it, pulse_window, 0);
@@ -154,10 +255,106 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
     }
 }
 
-void render_submit_system_run(ecs_iter_t* it) {
+void render_begin_graph_system_run(ecs_iter_t* it) {
     pulse_cgpu_render_state* state =
         static_cast<pulse_cgpu_render_state*>(it->ctx);
     if (!state || !state->frame_context.active) {
+        return;
+    }
+
+    render_frame_context& frame_context = state->frame_context;
+    if (frame_context.prepared_entities.empty() || !frame_context.frame) {
+        return;
+    }
+    if (!state->desc.record_callback) {
+        return;
+    }
+
+    ecs_world_t* world = it->world;
+    frame_context.targets.reserve(frame_context.prepared_entities.size());
+    frame_context.backbuffers.reserve(frame_context.prepared_entities.size());
+
+    for (ecs_entity_t entity : frame_context.prepared_entities) {
+        pulse_cgpu_swapchain* swapchain =
+            ecs_get_mut(world, entity, pulse_cgpu_swapchain);
+        if (!swapchain ||
+            !swapchain->swapchain ||
+            swapchain->current_backbuffer_index >= swapchain->backbuffer_count) {
+            continue;
+        }
+
+        const uint32_t image_index = swapchain->current_backbuffer_index;
+        render_target target{};
+        target.entity = entity;
+        target.swapchain = swapchain->swapchain;
+        target.backbuffer_index = image_index;
+        frame_context.targets.push_back(target);
+        frame_context.target_textures.push_back({});
+    }
+
+    if (frame_context.targets.empty()) {
+        return;
+    }
+    if (!ensure_frame_graph(frame_context)) {
+        frame_context.failed = true;
+        return;
+    }
+
+    for (uint32_t i = 0; i < frame_context.targets.size(); ++i) {
+        HGEGraphics::texture_handle_t target =
+            import_render_target(frame_context, i);
+        if (!HGEGraphics::rendergraph_texture_handle_valid(target)) {
+            frame_context.failed = true;
+            return;
+        }
+
+        state->desc.record_callback(
+            frame_context.graph.get(),
+            target,
+            state->desc.record_user_data
+        );
+    }
+}
+
+void render_execute_graph_system_run(ecs_iter_t* it) {
+    pulse_cgpu_render_state* state =
+        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    if (!state || !state->frame_context.active || state->frame_context.failed) {
+        return;
+    }
+
+    render_frame_context& frame_context = state->frame_context;
+    if (!frame_context.graph || !frame_context.graph_memory) {
+        return;
+    }
+    if (!frame_context.frame || !frame_context.frame->exec_context) {
+        frame_context.failed = true;
+        return;
+    }
+
+    HGEGraphics::CompiledRenderGraph compiled =
+        HGEGraphics::Compiler::Compile(
+            *frame_context.graph,
+            frame_context.graph_memory.get()
+        );
+    HGEGraphics::Executor::Execute(compiled, *frame_context.frame->exec_context);
+
+    for (HGEGraphics::Texture* imported : frame_context.graph->imported_textures) {
+        if (imported) {
+            imported->dynamic_handle = {};
+        }
+    }
+    for (HGEGraphics::Buffer* imported : frame_context.graph->imported_buffers) {
+        if (imported) {
+            imported->dynamic_handle = {};
+        }
+    }
+}
+
+void render_submit_system_run(ecs_iter_t* it) {
+    pulse_cgpu_render_state* state =
+        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    if (!state || !state->frame_context.active || state->frame_context.failed) {
         return;
     }
 
@@ -166,31 +363,20 @@ void render_submit_system_run(ecs_iter_t* it) {
         return;
     }
 
-    if (!frame_context.frame) {
+    if (!frame_context.frame || !frame_context.frame->exec_context) {
         frame_context.failed = true;
         return;
     }
 
-    ecs_world_t* world = it->world;
-    CGPUCommandBufferId cmd = frame_context.frame->request_command_buffer();
-    if (!cmd) {
-        frame_context.failed = true;
+    std::pmr::vector<CGPUCommandBufferId>& cmds =
+        frame_context.frame->exec_context->allocated_cmds;
+    if (cmds.empty()) {
         return;
     }
-
-    cgpu_command_buffer_begin(cmd);
-    for (ecs_entity_t entity : frame_context.prepared_entities) {
-        pulse_cgpu_swapchain* swapchain =
-            ecs_get_mut(world, entity, pulse_cgpu_swapchain);
-        if (swapchain) {
-            encode_clear_pass(state, cmd, swapchain);
-        }
-    }
-    cgpu_command_buffer_end(cmd);
 
     CGPUQueueSubmitDescriptor submit_desc{};
-    submit_desc.cmd_count = 1;
-    submit_desc.p_cmds = &cmd;
+    submit_desc.cmd_count = static_cast<uint32_t>(cmds.size());
+    submit_desc.p_cmds = cmds.data();
     submit_desc.signal_fence = frame_context.frame->fence;
     submit_desc.wait_semaphore_count =
         static_cast<uint32_t>(frame_context.wait_semaphores.size());
@@ -257,11 +443,11 @@ ecs_entity_t install_render_run_system(
     const char* name,
     ecs_run_action_t run,
     pulse_cgpu_render_state* state,
-    ecs_entity_t depends_on
+    ecs_entity_t phase
 ) {
     ecs_system_desc_t system_desc{};
-    system_desc.entity = create_render_system_entity(world, name, depends_on);
-    system_desc.phase = EcsOnStore;
+    system_desc.entity = create_render_system_entity(world, name, 0);
+    system_desc.phase = phase;
     system_desc.run = run;
     system_desc.ctx = state;
     system_desc.immediate = true;
@@ -271,15 +457,15 @@ ecs_entity_t install_render_run_system(
 ecs_entity_t install_prepare_windows_system(
     ecs_world_t* world,
     pulse_cgpu_render_state* state,
-    ecs_entity_t depends_on
+    ecs_entity_t phase
 ) {
     ecs_system_desc_t system_desc{};
     system_desc.entity = create_render_system_entity(
         world,
         "PulseCgpuPrepareWindowsSystem",
-        depends_on
+        0
     );
-    system_desc.phase = EcsOnStore;
+    system_desc.phase = phase;
     system_desc.query.terms[0].id = ecs_id(pulse_window);
     system_desc.query.terms[1].id = ecs_id(pulse_cgpu_surface);
     system_desc.query.terms[2].id = ecs_id(pulse_cgpu_swapchain);
@@ -304,23 +490,41 @@ void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) 
         "PulseCgpuBeginFrameSystem",
         render_begin_frame_system_run,
         state,
-        0
+        pulse_cgpu_render_begin_frame_phase
     );
     state->prepare_windows_system =
-        install_prepare_windows_system(world, state, state->begin_frame_system);
+        install_prepare_windows_system(
+            world,
+            state,
+            pulse_cgpu_render_prepare_windows_phase
+        );
+    state->build_graph_system = install_render_run_system(
+        world,
+        "PulseCgpuRecordGraphSystem",
+        render_begin_graph_system_run,
+        state,
+        pulse_cgpu_render_record_graph_phase
+    );
+    state->execute_graph_system = install_render_run_system(
+        world,
+        "PulseCgpuExecuteGraphSystem",
+        render_execute_graph_system_run,
+        state,
+        pulse_cgpu_render_execute_graph_phase
+    );
     state->submit_system = install_render_run_system(
         world,
         "PulseCgpuSubmitSystem",
         render_submit_system_run,
         state,
-        state->prepare_windows_system
+        pulse_cgpu_render_submit_phase
     );
     state->present_system = install_render_run_system(
         world,
         "PulseCgpuPresentSystem",
         render_present_system_run,
         state,
-        state->submit_system
+        pulse_cgpu_render_present_phase
     );
 }
 
@@ -331,6 +535,8 @@ void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world
 
     delete_registered_entity(world, state->present_system);
     delete_registered_entity(world, state->submit_system);
+    delete_registered_entity(world, state->execute_graph_system);
+    delete_registered_entity(world, state->build_graph_system);
     delete_registered_entity(world, state->prepare_windows_system);
     delete_registered_entity(world, state->begin_frame_system);
 }
