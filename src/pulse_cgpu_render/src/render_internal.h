@@ -41,6 +41,10 @@ struct pulse_cgpu_render_state {
     ecs_entity_t sdl_window_on_set_observer = 0;
     ecs_entity_t sdl_window_on_remove_observer = 0;
     ecs_entity_t window_on_set_observer = 0;
+    ecs_entity_t begin_frame_system = 0;
+    ecs_entity_t prepare_windows_system = 0;
+    ecs_entity_t submit_system = 0;
+    ecs_entity_t present_system = 0;
     bool existing_sdl_windows_bootstrapped = false;
 };
 
@@ -85,5 +89,6 @@ void encode_clear_pass(
 );
 
 void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world);
+void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world);
 
 } // namespace pulse_cgpu_render_internal

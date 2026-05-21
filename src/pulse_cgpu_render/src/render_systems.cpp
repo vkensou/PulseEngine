@@ -78,6 +78,13 @@ void render_frame_context::reset() {
 
 namespace {
 
+void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
+    if (world && entity && ecs_is_alive(world, entity)) {
+        ecs_delete(world, entity);
+    }
+    entity = 0;
+}
+
 void render_begin_frame_system_run(ecs_iter_t* it) {
     pulse_cgpu_render_state* state =
         static_cast<pulse_cgpu_render_state*>(it->ctx);
@@ -288,28 +295,44 @@ ecs_entity_t install_prepare_windows_system(
 } // namespace
 
 void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) {
-    ecs_entity_t begin = install_render_run_system(
+    if (!state || !world || state->begin_frame_system) {
+        return;
+    }
+
+    state->begin_frame_system = install_render_run_system(
         world,
         "PulseCgpuBeginFrameSystem",
         render_begin_frame_system_run,
         state,
         0
     );
-    ecs_entity_t prepare = install_prepare_windows_system(world, state, begin);
-    ecs_entity_t submit = install_render_run_system(
+    state->prepare_windows_system =
+        install_prepare_windows_system(world, state, state->begin_frame_system);
+    state->submit_system = install_render_run_system(
         world,
         "PulseCgpuSubmitSystem",
         render_submit_system_run,
         state,
-        prepare
+        state->prepare_windows_system
     );
-    install_render_run_system(
+    state->present_system = install_render_run_system(
         world,
         "PulseCgpuPresentSystem",
         render_present_system_run,
         state,
-        submit
+        state->submit_system
     );
+}
+
+void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) {
+    if (!state) {
+        return;
+    }
+
+    delete_registered_entity(world, state->present_system);
+    delete_registered_entity(world, state->submit_system);
+    delete_registered_entity(world, state->prepare_windows_system);
+    delete_registered_entity(world, state->begin_frame_system);
 }
 
 } // namespace pulse_cgpu_render_internal

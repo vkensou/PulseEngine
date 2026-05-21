@@ -1,10 +1,68 @@
 #include "window_internal.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace pulse_window_internal {
 
 constexpr const char* kPluginName = "PulseWindowPlugin";
+
+namespace {
+
+void delete_entity_if_alive(ecs_world_t* world, ecs_entity_t entity) {
+    if (world && entity && ecs_is_alive(world, entity)) {
+        ecs_delete(world, entity);
+    }
+}
+
+void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
+    delete_entity_if_alive(world, entity);
+    entity = 0;
+}
+
+void delete_registered_tag(
+    ecs_world_t* world,
+    ecs_entity_t& tag,
+    ecs_entity_t& tag_id
+) {
+    ecs_entity_t entity = tag ? tag : tag_id;
+    if (world && entity && ecs_is_alive(world, entity)) {
+        ecs_delete(world, entity);
+    }
+    tag = 0;
+    tag_id = 0;
+}
+
+void remove_id_from_all_entities(ecs_world_t* world, ecs_entity_t id) {
+    if (!world || id == 0) {
+        return;
+    }
+
+    ecs_query_desc_t query_desc{};
+    query_desc.terms[0].id = id;
+    query_desc.cache_kind = EcsQueryCacheAuto;
+    ecs_query_t* query = ecs_query_init(world, &query_desc);
+    if (!query) {
+        return;
+    }
+
+    std::vector<ecs_entity_t> entities;
+    ecs_iter_t it = ecs_query_iter(world, query);
+    while (ecs_query_next(&it)) {
+        for (int32_t i = 0; i < it.count; ++i) {
+            entities.push_back(it.entities[i]);
+        }
+    }
+    ecs_query_fini(query);
+
+    for (ecs_entity_t entity : entities) {
+        if (ecs_is_alive(world, entity)) {
+            ecs_remove_id(world, entity, id);
+        }
+    }
+}
+
+} // namespace
 
 pulse_window_desc normalize_window_desc(const pulse_window_desc* desc) {
     pulse_window_desc normalized = pulse_window_desc_default();
@@ -104,7 +162,7 @@ pulse_result_t pulse_window_create(
     return PULSE_OK;
 }
 
-void destroy_all_windows(pulse_window_plugin_state* state) {
+void remove_window_components(pulse_window_plugin_state* state) {
     if (!state) {
         return;
     }
@@ -114,13 +172,23 @@ void destroy_all_windows(pulse_window_plugin_state* state) {
         return;
     }
 
-    ecs_iter_t it = ecs_query_iter(world, state->window_query);
-    while (ecs_query_next(&it)) {
-        for (int i = 0; i < it.count; i++) {
-            auto entity = it.entities[i];
-			ecs_remove_id(world, entity, ecs_id(pulse_window));
-        }
-    }
+    remove_id_from_all_entities(world, ecs_id(pulse_sdl_window));
+    remove_id_from_all_entities(world, ecs_id(pulse_window));
+    remove_id_from_all_entities(world, PulseWindowCloseRequested);
+    remove_id_from_all_entities(world, PulseWindowResized);
+    remove_id_from_all_entities(world, PulsePrimaryWindow);
+}
+
+void delete_window_components(ecs_world_t* world) {
+    delete_entity_if_alive(world, ecs_id(pulse_sdl_window));
+    delete_entity_if_alive(world, ecs_id(pulse_window));
+    delete_registered_tag(world, PulseWindowCloseRequested, ecs_id(PulseWindowCloseRequested));
+    delete_registered_tag(world, PulseWindowResized, ecs_id(PulseWindowResized));
+    delete_registered_tag(world, PulsePrimaryWindow, ecs_id(PulsePrimaryWindow));
+    delete_registered_entity(world, ecs_id(pulse_window_state_resource));
+
+    ecs_id(pulse_sdl_window) = 0;
+    ecs_id(pulse_window) = 0;
 }
 
 void mark_window_close_requested(
@@ -241,15 +309,6 @@ pulse_result_t window_plugin_build(pulse_app_t app, void* ctx) {
     }
     state->initialized_sdl_flags = missing_flags;
 
-    ecs_query_desc_t window_query_desc = {
-        .terms = {
-            {.id = ecs_id(pulse_window) }
-        },
-        .cache_kind = EcsQueryCacheAuto
-    };
-
-    state->window_query = ecs_query_init(world, &window_query_desc);
-
     if (state->desc.flags & PULSE_WINDOW_PLUGIN_CREATE_PRIMARY) {
         ecs_entity_t primary = 0;
         pulse_result_t result =
@@ -289,14 +348,14 @@ void window_plugin_shutdown(pulse_app_t app, void* ctx) {
     }
 
     ecs_world_t* world = pulse_app_world(app);
-    destroy_all_windows(state);
-
-    if (state->window_query)
-        ecs_query_fini(state->window_query);
+    delete_registered_entity(world, state->post_frame_system);
+    remove_window_components(state);
 
     if (world && ecs_id(pulse_window_state_resource) != 0) {
         ecs_singleton_remove(world, pulse_window_state_resource);
     }
+
+    delete_window_components(world);
 
     if (state->initialized_sdl_flags) {
         SDL_QuitSubSystem(state->initialized_sdl_flags);

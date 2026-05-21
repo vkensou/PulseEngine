@@ -7,6 +7,21 @@ namespace pulse_cgpu_render_internal {
 constexpr const char* kPluginName = "PulseCgpuRenderPlugin";
 constexpr uint32_t kDefaultImageCount = 3;
 
+namespace {
+
+void delete_entity_if_alive(ecs_world_t* world, ecs_entity_t entity) {
+    if (world && entity && ecs_is_alive(world, entity)) {
+        ecs_delete(world, entity);
+    }
+}
+
+void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
+    delete_entity_if_alive(world, entity);
+    entity = 0;
+}
+
+} // namespace
+
 pulse_cgpu_render_state* state_from_world(ecs_world_t* world) {
     if (!world || ecs_id(pulse_cgpu_render_state_resource) == 0) {
         return nullptr;
@@ -208,6 +223,17 @@ void install_observers(pulse_cgpu_render_state* state, ecs_world_t* world) {
         bootstrap_existing_sdl_windows(state, world);
         state->existing_sdl_windows_bootstrapped = true;
     }
+}
+
+void uninstall_observers(pulse_cgpu_render_state* state, ecs_world_t* world) {
+    if (!state) {
+        return;
+    }
+
+    delete_registered_entity(world, state->window_on_set_observer);
+    delete_registered_entity(world, state->sdl_window_on_remove_observer);
+    delete_registered_entity(world, state->sdl_window_on_set_observer);
+    state->existing_sdl_windows_bootstrapped = false;
 }
 
 bool create_renderer(pulse_cgpu_render_state* state) {
@@ -651,8 +677,18 @@ void remove_component_from_all_entities(ecs_world_t* world, ecs_entity_t compone
 }
 
 void remove_render_window_components(ecs_world_t* world) {
-    remove_component_from_all_entities(world, ecs_id(pulse_cgpu_surface));
     remove_component_from_all_entities(world, ecs_id(pulse_cgpu_swapchain));
+    remove_component_from_all_entities(world, ecs_id(pulse_cgpu_surface));
+}
+
+void delete_render_components(ecs_world_t* world) {
+    delete_entity_if_alive(world, ecs_id(pulse_cgpu_swapchain));
+    delete_entity_if_alive(world, ecs_id(pulse_cgpu_surface));
+    delete_registered_entity(world, ecs_id(pulse_cgpu_renderer));
+    delete_registered_entity(world, ecs_id(pulse_cgpu_render_state_resource));
+
+    ecs_id(pulse_cgpu_swapchain) = 0;
+    ecs_id(pulse_cgpu_surface) = 0;
 }
 
 void render_plugin_shutdown(pulse_app_t app, void* ctx) {
@@ -667,6 +703,8 @@ void render_plugin_shutdown(pulse_app_t app, void* ctx) {
         cgpu_queue_wait_idle(state->renderer.graphics_queue);
     }
 
+    uninstall_render_systems(state, world);
+    uninstall_observers(state, world);
     remove_render_window_components(world);
 
     if (world && ecs_id(pulse_cgpu_renderer) != 0) {
@@ -676,6 +714,7 @@ void render_plugin_shutdown(pulse_app_t app, void* ctx) {
         ecs_singleton_remove(world, pulse_cgpu_render_state_resource);
     }
 
+    delete_render_components(world);
     destroy_renderer(state);
     delete state;
 }
