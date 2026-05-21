@@ -6,26 +6,26 @@
 #include "pulse_cgpu_render.h"
 
 static void record_test_rendergraph(
-    HGEGraphics::rendergraph_t* graph,
-    HGEGraphics::texture_handle_t target,
+    pulse_rendergraph_t* graph,
+    pulse_texture_handle_t target,
     void* user_data
 ) {
     (void)user_data;
 
-    if (!graph || !HGEGraphics::rendergraph_texture_handle_valid(target)) {
+    if (!graph || !pulse_rendergraph_texture_handle_valid(target)) {
         return;
     }
 
-    HGEGraphics::renderpass_builder_t pass =
-        HGEGraphics::rendergraph_add_renderpass(graph, "TestCallbackPass");
-    HGEGraphics::renderpass_add_color_attachment(
+    pulse_renderpass_builder_t pass =
+        pulse_rendergraph_add_renderpass(graph, "TestCallbackPass");
+    pulse_renderpass_add_color_attachment(
         &pass,
         target,
         CGPU_LOAD_ACTION_CLEAR,
         0xff00ffff,
         CGPU_STORE_ACTION_STORE
     );
-    HGEGraphics::rendergraph_present(graph, target);
+    pulse_rendergraph_present(graph, target);
 }
 
 int main(void) {

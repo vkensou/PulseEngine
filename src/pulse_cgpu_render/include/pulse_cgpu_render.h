@@ -7,22 +7,17 @@
 #include "cgpu/api.h"
 #include "flecs.h"
 #include "pulse_app.h"
-
-#ifdef __cplusplus
 #include "rendergraph.h"
-
-typedef void (*pulse_cgpu_render_record_callback)(
-    HGEGraphics::rendergraph_t* graph,
-    HGEGraphics::texture_handle_t target,
-    void* user_data
-);
-#else
-typedef void (*pulse_cgpu_render_record_callback)(void);
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef void (*pulse_cgpu_render_record_callback)(
+    pulse_rendergraph_t* graph,
+    pulse_texture_handle_t target,
+    void* user_data
+);
 
 #define PULSE_CGPU_RENDER_PLUGIN_DESC_VERSION 1u
 

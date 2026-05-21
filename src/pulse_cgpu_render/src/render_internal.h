@@ -3,6 +3,7 @@
 #include "pulse_cgpu_render.h"
 #include "pulse_window.h"
 
+#include "rendergraph_cpp.h"
 #include "rendergraph_compiler.h"
 #include "rendergraph_executor.h"
 #include "renderer.h"

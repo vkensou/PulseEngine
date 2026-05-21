@@ -309,7 +309,7 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
         }
 
         state->desc.record_callback(
-            frame_context.graph.get(),
+            *frame_context.graph,
             target,
             state->desc.record_user_data
         );
@@ -339,12 +339,13 @@ void render_execute_graph_system_run(ecs_iter_t* it) {
         );
     HGEGraphics::Executor::Execute(compiled, *frame_context.frame->exec_context);
 
-    for (HGEGraphics::Texture* imported : frame_context.graph->imported_textures) {
+    auto* graph_impl = HGEGraphics::to_impl(*frame_context.graph);
+    for (HGEGraphics::Texture* imported : graph_impl->imported_textures) {
         if (imported) {
             imported->dynamic_handle = {};
         }
     }
-    for (HGEGraphics::Buffer* imported : frame_context.graph->imported_buffers) {
+    for (HGEGraphics::Buffer* imported : graph_impl->imported_buffers) {
         if (imported) {
             imported->dynamic_handle = {};
         }
