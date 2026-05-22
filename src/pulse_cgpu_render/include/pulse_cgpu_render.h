@@ -19,6 +19,12 @@ typedef void (*pulse_cgpu_render_record_callback)(
     void* user_data
 );
 
+typedef struct pulse_cgpu_renderer_record_callback_desc {
+    pulse_cgpu_render_record_callback callback;
+    void* user_data;
+    int32_t priority;
+} pulse_cgpu_renderer_record_callback_desc;
+
 pulse_texture_handle_t pulse_cgpu_render_import_window_backbuffer(
     pulse_app_t app,
     pulse_rendergraph_t* graph,
@@ -89,6 +95,14 @@ pulse_result_t pulse_cgpu_render_set_record_callback(
     pulse_cgpu_render_record_callback record_callback,
     void* user_data
 );
+
+pulse_result_t pulse_cgpu_render_add_record_callback(
+    pulse_app_t app,
+    const pulse_cgpu_renderer_record_callback_desc* desc);
+
+pulse_result_t pulse_cgpu_render_remove_record_callback(
+    pulse_app_t app,
+    pulse_cgpu_render_record_callback callback);
 
 const pulse_cgpu_renderer* pulse_cgpu_renderer_get(pulse_app_t app);
 const pulse_cgpu_surface* pulse_cgpu_surface_get(pulse_app_t app, ecs_entity_t entity);

@@ -60,6 +60,9 @@ struct pulse_cgpu_render_state {
     ecs_entity_t submit_system = 0;
     ecs_entity_t present_system = 0;
     bool existing_sdl_windows_bootstrapped = false;
+    std::vector<pulse_cgpu_renderer_record_callback_desc> record_callbacks;
+
+    void sort_record_callbacks();
 };
 
 typedef struct pulse_cgpu_render_state_resource {

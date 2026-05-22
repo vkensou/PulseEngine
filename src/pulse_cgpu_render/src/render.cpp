@@ -1,6 +1,7 @@
 #include "render_internal.h"
 
 #include <new>
+#include <algorithm>
 
 namespace pulse_cgpu_render_internal {
 
@@ -21,6 +22,14 @@ void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
 }
 
 } // namespace
+
+void pulse_cgpu_render_state::sort_record_callbacks() {
+    std::stable_sort(record_callbacks.begin(), record_callbacks.end(),
+        [](const pulse_cgpu_renderer_record_callback_desc& a,
+           const pulse_cgpu_renderer_record_callback_desc& b) {
+            return a.priority < b.priority;
+        });
+}
 
 pulse_cgpu_render_state* state_from_world(ecs_world_t* world) {
     if (!world || ecs_id(pulse_cgpu_render_state_resource) == 0) {
@@ -729,17 +738,51 @@ pulse_result_t pulse_cgpu_render_set_record_callback(
     pulse_cgpu_render_record_callback record_callback,
     void* user_data
 ) {
-    if (!app) {
+    pulse_cgpu_render_state* state = pulse_cgpu_render_internal::state_from_world(pulse_app_world(app));
+    if (!state) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
-
-    pulse_cgpu_render_state* state = state_from_world(pulse_app_world(app));
-    if (!state) {
-        return PULSE_ERROR_NOT_FOUND;
-    }
-
     state->desc.record_callback = record_callback;
     state->desc.record_user_data = user_data;
+    state->record_callbacks.clear();
+    if (record_callback) {
+        pulse_cgpu_renderer_record_callback_desc desc{};
+        desc.callback = record_callback;
+        desc.user_data = user_data;
+        desc.priority = 0;
+        state->record_callbacks.push_back(desc);
+    }
+    return PULSE_OK;
+}
+
+pulse_result_t pulse_cgpu_render_add_record_callback(
+    pulse_app_t app,
+    const pulse_cgpu_renderer_record_callback_desc* desc
+) {
+    pulse_cgpu_render_state* state = pulse_cgpu_render_internal::state_from_world(pulse_app_world(app));
+    if (!state || !desc || !desc->callback) {
+        return PULSE_ERROR_INVALID_ARGUMENT;
+    }
+    state->record_callbacks.push_back(*desc);
+    state->sort_record_callbacks();
+    return PULSE_OK;
+}
+
+pulse_result_t pulse_cgpu_render_remove_record_callback(
+    pulse_app_t app,
+    pulse_cgpu_render_record_callback callback
+) {
+    pulse_cgpu_render_state* state = pulse_cgpu_render_internal::state_from_world(pulse_app_world(app));
+    if (!state || !callback) {
+        return PULSE_ERROR_INVALID_ARGUMENT;
+    }
+    auto it = std::find_if(state->record_callbacks.begin(), state->record_callbacks.end(),
+        [callback](const pulse_cgpu_renderer_record_callback_desc& d) {
+            return d.callback == callback;
+        });
+    if (it != state->record_callbacks.end()) {
+        state->record_callbacks.erase(it);
+    }
     return PULSE_OK;
 }
 

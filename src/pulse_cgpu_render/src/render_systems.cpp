@@ -238,7 +238,7 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     if (frame_context.prepared_entities.empty() || !frame_context.frame) {
         return;
     }
-    if (!state->desc.record_callback) {
+    if (state->record_callbacks.empty()) {
         return;
     }
     if (!ensure_frame_graph(frame_context)) {
@@ -246,11 +246,14 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
         return;
     }
 
-    state->desc.record_callback(
-        state->app,
-        *frame_context.graph.get(),
-        state->desc.record_user_data
-    );
+    for (auto& cb : state->record_callbacks) {
+        if (!cb.callback) continue;
+        cb.callback(
+            state->app,
+            *frame_context.graph.get(),
+            cb.user_data
+        );
+    }
 }
 
 void render_execute_graph_system_run(ecs_iter_t* it) {
