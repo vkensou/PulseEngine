@@ -235,7 +235,6 @@ pulse_result_t App::run() {
         set_error("runner failed");
     }
 
-    shutdown();
     return result;
 }
 

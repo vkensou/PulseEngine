@@ -236,6 +236,7 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     }
 
     state->desc.record_callback(
+        state->app,
         *frame_context.graph.get(),
         state->desc.record_user_data
     );

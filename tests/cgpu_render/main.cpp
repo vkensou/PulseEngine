@@ -7,38 +7,30 @@
 #include "rendergraph_cpp.h"
 
 struct test_render_state {
-    pulse_app_t app;
+    ecs_query_t* window_query;
 };
 
 static void record_test_rendergraph(
+    pulse_app_t app,
     pulse_rendergraph_t* graph,
     void* user_data
 ) {
     test_render_state* state = static_cast<test_render_state*>(user_data);
-    if (!graph || !state || !state->app) {
+    if (!graph || !state) {
         return;
     }
 
-    ecs_world_t* world = pulse_app_world(state->app);
-    if (!world) {
+    if (!state->window_query) {
         return;
     }
 
-    ecs_query_t* query = ecs_query_init(world, &(ecs_query_desc_t){
-        .terms[0] = { .id = ecs_id(pulse_cgpu_swapchain) },
-        .cache_kind = EcsQueryCacheAuto,
-    });
-    if (!query) {
-        return;
-    }
-
-    ecs_iter_t it = ecs_query_iter(query);
+    ecs_iter_t it = ecs_query_iter(state->window_query->world, state->window_query);
     while (ecs_query_next(&it)) {
         for (int i = 0; i < it.count; ++i) {
             ecs_entity_t entity = it.entities[i];
 
             pulse_texture_handle_t target_handle =
-                pulse_cgpu_render_import_window_backbuffer(state->app, graph, entity);
+                pulse_cgpu_render_import_window_backbuffer(app, graph, entity);
             if (!pulse_rendergraph_texture_handle_valid(target_handle)) {
                 continue;
             }
@@ -55,7 +47,6 @@ static void record_test_rendergraph(
             pulse_rendergraph_present(graph, target_handle);
         }
     }
-    ecs_query_fini(query);
 }
 
 int main(void) {
@@ -68,7 +59,13 @@ int main(void) {
     auto cgpu_render_plugin_desc = pulse_cgpu_render_plugin_desc_default();
     assert(pulse_cgpu_render_add_plugin(app, &cgpu_render_plugin_desc) == PULSE_OK);
 
-    test_render_state render_state{ app };
+    test_render_state render_state{};
+
+    ecs_query_desc_t window_query_desc{};
+    window_query_desc.terms[0] = { .id = ecs_id(pulse_window) };
+    window_query_desc.cache_kind = EcsQueryCacheAuto;
+    render_state.window_query = ecs_query_init(pulse_app_world(app), &window_query_desc);
+
     assert(
         pulse_cgpu_render_set_record_callback(
             app,
@@ -78,6 +75,8 @@ int main(void) {
     );
 
     pulse_app_run(app);
+
+    ecs_query_fini(render_state.window_query);
 
     pulse_app_destroy(app);
 

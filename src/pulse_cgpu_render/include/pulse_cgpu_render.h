@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 typedef void (*pulse_cgpu_render_record_callback)(
+    pulse_app_t app,
     pulse_rendergraph_t* graph,
     void* user_data
 );
