@@ -112,6 +112,28 @@ CGPUDeviceId get_device(pulse_app_t app) {
     return renderer ? renderer->device : CGPUDeviceId{CGPU_NULLPTR};
 }
 
+bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+    pulse_graphic_state* st = state_from_app(app);
+    if (!st) return false;
+    uint64_t key = (uint64_t)handle.type_id << 32 | handle.index;
+    auto it = st->upload_pending_map.find(key);
+    return it != st->upload_pending_map.end() && it->second;
+}
+
+void mark_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+    pulse_graphic_state* st = state_from_app(app);
+    if (!st) return;
+    uint64_t key = (uint64_t)handle.type_id << 32 | handle.index;
+    st->upload_pending_map[key] = true;
+}
+
+void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+    pulse_graphic_state* st = state_from_app(app);
+    if (!st) return;
+    uint64_t key = (uint64_t)handle.type_id << 32 | handle.index;
+    st->upload_pending_map[key] = false;
+}
+
 } // namespace pulse_graphic_internal
 
 using namespace pulse_graphic_internal;

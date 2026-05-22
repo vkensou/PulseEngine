@@ -22,6 +22,7 @@ struct pulse_graphic_state {
     };
     std::vector<UploadEntry> pending_uploads;
     std::vector<UploadEntry> dynamic_updates;
+    std::unordered_map<uint64_t, bool> upload_pending_map;
 };
 
 pulse_graphic_state* state_from_app(pulse_app_t app);

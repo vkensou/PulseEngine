@@ -116,6 +116,21 @@ pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_
 pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_shader_t* handle);
 void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle);
 
+pulse_buffer_t pulse_graphic_buffer_create(
+    pulse_app_t app,
+    const CGPUBufferDescriptor* desc,
+    const void* data, uint64_t data_size);
+
+pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t* handle);
+void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t* handle);
+
+pulse_sampler_t pulse_graphic_sampler_create(
+    pulse_app_t app,
+    const CGPUSamplerDescriptor* desc);
+
+pulse_sampler_data_t* pulse_graphic_sampler_acquire(pulse_app_t app, pulse_sampler_t* handle);
+void pulse_graphic_sampler_release(pulse_app_t app, pulse_sampler_t* handle);
+
 #ifdef __cplusplus
 }
 #endif
