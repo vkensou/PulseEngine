@@ -211,6 +211,8 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
             target.width = swapchain->width;
             target.height = swapchain->height;
             target.backbuffer_index = image_index;
+            target.backbuffer =
+                &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[image_index];
 
             frame.prepared_entities.push_back(entity);
             frame.targets.push_back(target);
