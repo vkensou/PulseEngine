@@ -67,12 +67,15 @@ struct PathKeyHash {
 
 struct LoadRequest {
     pulse_asset_handle handle{};
+    bool from_memory = false;
+    std::vector<uint8_t> memory_data;
 };
 
 struct ActiveLoad {
     pulse_asset_handle handle{};
     std::vector<uint8_t> bytes;
     pulse_asset_load_task ctx{};
+    bool from_memory = false;
 };
 
 struct pulse_asset_state_o {
@@ -107,6 +110,11 @@ pulse_asset_handle allocate_slot(
     pulse_asset_state_o* state,
     uint64_t type_id,
     const std::string& path
+);
+pulse_asset_handle allocate_memory_slot(
+    pulse_asset_state_o* state,
+    uint64_t type_id,
+    const std::string& name
 );
 void destroy_slot(AssetBucket& bucket, AssetSlot& slot);
 void destroy_all_assets(pulse_asset_state_o* state);

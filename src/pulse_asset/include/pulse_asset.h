@@ -131,6 +131,13 @@ pulse_asset_handle pulse_asset_load(
     const char* path
 );
 
+pulse_asset_handle pulse_asset_load_from_memory(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* name,
+    const void* data,
+    uint64_t size);
+
 pulse_asset_state_t pulse_asset_get_state(
     pulse_app_t app,
     pulse_asset_handle handle

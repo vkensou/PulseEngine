@@ -96,7 +96,21 @@ void process_load_requests_system(ecs_iter_t* it) {
         slot->loader = loader;
         ActiveLoad active{};
         active.handle = request.handle;
-        active.bytes = std::move(bytes.value());
+        active.from_memory = request.from_memory;
+
+        if (request.from_memory) {
+            active.bytes = std::move(request.memory_data);
+        } else {
+            std::string full_path = join_asset_path(state->root_path, slot->path);
+            auto bytes = read_file_sdl(full_path.c_str());
+            if (!bytes.has_value()) {
+                slot->state = PULSE_ASSET_STATE_FAILED;
+                slot->error = "failed to read asset file";
+                continue;
+            }
+            active.bytes = std::move(bytes.value());
+        }
+
         active.ctx.app = state->app;
         active.ctx.type_id = request.handle.type_id;
         active.ctx.path = slot->path.c_str();

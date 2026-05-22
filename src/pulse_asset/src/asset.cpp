@@ -263,6 +263,45 @@ pulse_asset_handle pulse_asset_load(
     return handle;
 }
 
+pulse_asset_handle pulse_asset_load_from_memory(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* name,
+    const void* data,
+    uint64_t size
+) {
+    pulse_asset_state_o* state = state_from_app(app);
+    if (!state || type_id == 0 || !name || !name[0] || !data || size == 0) {
+        return invalid_handle();
+    }
+    if (state->types.find(type_id) == state->types.end()) {
+        return invalid_handle();
+    }
+    std::string normalized_name = normalize_path(name);
+    if (normalized_name.empty()) {
+        return invalid_handle();
+    }
+
+    PathKey key{type_id, normalized_name};
+    auto cached = state->path_cache.find(key);
+    if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
+        return cached->second;
+    }
+
+    pulse_asset_handle handle = allocate_memory_slot(state, type_id, normalized_name);
+    if (is_invalid_handle(handle)) {
+        return handle;
+    }
+    state->path_cache[key] = handle;
+
+    LoadRequest request{handle};
+    request.from_memory = true;
+    request.memory_data.assign(static_cast<const uint8_t*>(data),
+                               static_cast<const uint8_t*>(data) + size);
+    state->pending_requests.push_back(std::move(request));
+    return handle;
+}
+
 pulse_asset_state_t pulse_asset_get_state(
     pulse_app_t app,
     pulse_asset_handle handle
