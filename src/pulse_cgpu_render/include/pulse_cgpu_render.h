@@ -21,6 +21,7 @@ typedef struct pulse_cgpu_render_window_target {
     uint32_t width;
     uint32_t height;
     uint32_t backbuffer_index;
+    void* backbuffer;
 } pulse_cgpu_render_window_target;
 
 typedef void (*pulse_cgpu_render_record_callback)(
@@ -74,6 +75,7 @@ typedef struct pulse_cgpu_swapchain {
     uint32_t width;
     uint32_t height;
     uint32_t current_backbuffer_index;
+    void* backbuffers;
 } pulse_cgpu_swapchain;
 
 extern ECS_COMPONENT_DECLARE(pulse_cgpu_renderer);
