@@ -9,6 +9,7 @@ namespace pulse_cgpu_render_internal {
 ECS_COMPONENT_DECLARE(pulse_cgpu_render_state_resource);
 
 ecs_entity_t pulse_cgpu_render_begin_frame_phase = 0;
+ecs_entity_t pulse_cgpu_render_reset_backbuffer_phase = 0;
 ecs_entity_t pulse_cgpu_render_prepare_windows_phase = 0;
 ecs_entity_t pulse_cgpu_render_record_graph_phase = 0;
 ecs_entity_t pulse_cgpu_render_execute_graph_phase = 0;
@@ -121,6 +122,7 @@ void reset_swapchain_handles(pulse_cgpu_swapchain* swapchain) {
     swapchain->height = 0;
     swapchain->current_backbuffer_index = 0;
     swapchain->backbuffers = nullptr;
+    swapchain->current_backbuffer = nullptr;
 }
 
 void release_swapchain_resources(pulse_cgpu_swapchain* swapchain) {
@@ -176,10 +178,15 @@ void register_components(ecs_world_t* world) {
 
     pulse_cgpu_render_begin_frame_phase =
         create_phase(world, "PulseCgpuRenderBeginFrame", EcsOnStore);
+    pulse_cgpu_render_reset_backbuffer_phase = create_phase(
+        world,
+        "PulseCgpuRenderResetBackbuffer",
+        pulse_cgpu_render_begin_frame_phase
+    );
     pulse_cgpu_render_prepare_windows_phase = create_phase(
         world,
         "PulseCgpuRenderPrepareWindows",
-        pulse_cgpu_render_begin_frame_phase
+        pulse_cgpu_render_reset_backbuffer_phase
     );
     pulse_cgpu_render_record_graph_phase = create_phase(
         world,

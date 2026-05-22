@@ -170,6 +170,13 @@ void render_begin_frame_system_run(ecs_iter_t* it) {
     state->frame_context.active = true;
 }
 
+void render_reset_current_backbuffer_run(ecs_iter_t* it) {
+    pulse_cgpu_swapchain* swapchains = ecs_field(it, pulse_cgpu_swapchain, 0);
+    for (int32_t i = 0; i < it->count; ++i) {
+        swapchains[i].current_backbuffer = nullptr;
+    }
+}
+
 void render_prepare_windows_system_run(ecs_iter_t* it) {
     pulse_cgpu_render_state* state =
         static_cast<pulse_cgpu_render_state*>(it->ctx);
@@ -201,6 +208,10 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
         }
 
         if (acquire_window_image(swapchain, frame.frame_index)) {
+            swapchain->current_backbuffer =
+                &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[
+                    swapchain->current_backbuffer_index];
+
             frame.prepared_entities.push_back(entity);
             frame.wait_semaphores.push_back(
                 swapchain->image_available_semaphores[
@@ -381,6 +392,26 @@ ecs_entity_t install_render_run_system(
     return ecs_system_init(world, &system_desc);
 }
 
+ecs_entity_t install_reset_backbuffer_system(
+    ecs_world_t* world,
+    pulse_cgpu_render_state* state,
+    ecs_entity_t phase
+) {
+    ecs_system_desc_t system_desc{};
+    system_desc.entity = create_render_system_entity(
+        world,
+        "PulseCgpuResetBackbufferSystem",
+        0
+    );
+    system_desc.phase = phase;
+    system_desc.query.terms[0].id = ecs_id(pulse_cgpu_swapchain);
+    system_desc.query.cache_kind = EcsQueryCacheAuto;
+    system_desc.callback = render_reset_current_backbuffer_run;
+    system_desc.ctx = state;
+    system_desc.immediate = true;
+    return ecs_system_init(world, &system_desc);
+}
+
 ecs_entity_t install_prepare_windows_system(
     ecs_world_t* world,
     pulse_cgpu_render_state* state,
@@ -418,6 +449,11 @@ void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) 
         render_begin_frame_system_run,
         state,
         pulse_cgpu_render_begin_frame_phase
+    );
+    state->reset_backbuffer_system = install_reset_backbuffer_system(
+        world,
+        state,
+        pulse_cgpu_render_reset_backbuffer_phase
     );
     state->prepare_windows_system =
         install_prepare_windows_system(
@@ -465,6 +501,7 @@ void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world
     delete_registered_entity(world, state->execute_graph_system);
     delete_registered_entity(world, state->build_graph_system);
     delete_registered_entity(world, state->prepare_windows_system);
+    delete_registered_entity(world, state->reset_backbuffer_system);
     delete_registered_entity(world, state->begin_frame_system);
 }
 
@@ -477,11 +514,8 @@ pulse_texture_handle_t pulse_cgpu_render_import_window_backbuffer(
 ) {
     const pulse_cgpu_swapchain* swapchain =
         pulse_cgpu_swapchain_get(app, window_entity);
-    if (!swapchain || !swapchain->backbuffers) {
+    if (!swapchain || !swapchain->current_backbuffer) {
         return pulse_texture_handle_t{};
     }
-    void* backbuffer =
-        &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[
-            swapchain->current_backbuffer_index];
-    return pulse_rendergraph_import_backbuffer(graph, backbuffer);
+    return pulse_rendergraph_import_backbuffer(graph, swapchain->current_backbuffer);
 }

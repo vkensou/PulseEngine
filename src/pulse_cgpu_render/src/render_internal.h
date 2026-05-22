@@ -53,6 +53,7 @@ struct pulse_cgpu_render_state {
     ecs_entity_t sdl_window_on_remove_observer = 0;
     ecs_entity_t window_on_set_observer = 0;
     ecs_entity_t begin_frame_system = 0;
+    ecs_entity_t reset_backbuffer_system = 0;
     ecs_entity_t prepare_windows_system = 0;
     ecs_entity_t build_graph_system = 0;
     ecs_entity_t execute_graph_system = 0;
@@ -68,6 +69,7 @@ typedef struct pulse_cgpu_render_state_resource {
 extern ECS_COMPONENT_DECLARE(pulse_cgpu_render_state_resource);
 
 extern ecs_entity_t pulse_cgpu_render_begin_frame_phase;
+extern ecs_entity_t pulse_cgpu_render_reset_backbuffer_phase;
 extern ecs_entity_t pulse_cgpu_render_prepare_windows_phase;
 extern ecs_entity_t pulse_cgpu_render_record_graph_phase;
 extern ecs_entity_t pulse_cgpu_render_execute_graph_phase;
