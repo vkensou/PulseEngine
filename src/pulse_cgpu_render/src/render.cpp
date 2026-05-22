@@ -425,6 +425,18 @@ bool create_or_resize_swapchain(
         }
     }
 
+    swapchain->backbuffers = new (std::nothrow) HGEGraphics::Backbuffer[count]{};
+    if (!swapchain->backbuffers) {
+        return false;
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+        HGEGraphics::init_backbuffer(
+            &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[i],
+            swapchain->swapchain,
+            static_cast<int>(i)
+        );
+    }
+
     return true;
 }
 
