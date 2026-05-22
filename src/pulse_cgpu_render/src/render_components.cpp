@@ -120,6 +120,7 @@ void reset_swapchain_handles(pulse_cgpu_swapchain* swapchain) {
     swapchain->width = 0;
     swapchain->height = 0;
     swapchain->current_backbuffer_index = 0;
+    swapchain->backbuffers = nullptr;
 }
 
 void release_swapchain_resources(pulse_cgpu_swapchain* swapchain) {
@@ -161,6 +162,8 @@ void release_swapchain_resources(pulse_cgpu_swapchain* swapchain) {
     delete[] swapchain->framebuffers;
     delete[] swapchain->image_available_semaphores;
     delete[] swapchain->render_finished_semaphores;
+    delete[] static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers);
+    swapchain->backbuffers = nullptr;
 
     reset_swapchain_handles(swapchain);
 }
