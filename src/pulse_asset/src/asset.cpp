@@ -271,10 +271,28 @@ pulse_asset_handle pulse_asset_load_from_memory(
     uint64_t size
 ) {
     pulse_asset_state_o* state = state_from_app(app);
-    if (!state || type_id == 0 || !name || !name[0] || !data || size == 0) {
+    if (!state || type_id == 0) {
         return invalid_handle();
     }
     if (state->types.find(type_id) == state->types.end()) {
+        return invalid_handle();
+    }
+
+    // Anonymous slot: empty name with no data → allocate and mark LOADED immediately
+    if ((!name || !name[0]) && (!data || size == 0)) {
+        pulse_asset_handle handle = allocate_memory_slot(state, type_id, "");
+        if (is_invalid_handle(handle)) {
+            return handle;
+        }
+        AssetSlot* slot = get_slot(state, handle);
+        if (slot) {
+            slot->state = PULSE_ASSET_STATE_LOADED;
+            slot->constructed = true;
+        }
+        return handle;
+    }
+
+    if (!name || !name[0] || !data || size == 0) {
         return invalid_handle();
     }
     std::string normalized_name = normalize_path(name);

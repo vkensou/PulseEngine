@@ -88,6 +88,34 @@ pulse_result_t pulse_graphic_add_plugin(pulse_app_t app, const pulse_graphic_plu
 
 bool pulse_graphic_is_available(pulse_app_t app, pulse_shader_t handle);
 
+pulse_shader_t pulse_graphic_shader_create_from_binary(
+    pulse_app_t app,
+    const void* vs_data, uint32_t vs_size,
+    const void* fs_data, uint32_t fs_size,
+    const CGPUBlendStateDescriptor* blend_desc,
+    const CGPUDepthStateDescriptor* depth_desc,
+    const CGPURasterizerStateDescriptor* rasterizer_state);
+
+pulse_shader_t pulse_graphic_compute_shader_create_from_binary(
+    pulse_app_t app,
+    const void* cs_data, uint32_t cs_size);
+
+pulse_shader_t pulse_graphic_shader_load(
+    pulse_app_t app,
+    const char* vert_path,
+    const char* frag_path,
+    const CGPUBlendStateDescriptor* blend_desc,
+    const CGPUDepthStateDescriptor* depth_desc,
+    const CGPURasterizerStateDescriptor* rasterizer_state);
+
+pulse_shader_t pulse_graphic_compute_shader_load(
+    pulse_app_t app,
+    const char* comp_path);
+
+pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_t* handle);
+pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_shader_t* handle);
+void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle);
+
 #ifdef __cplusplus
 }
 #endif
