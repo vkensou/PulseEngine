@@ -13,22 +13,15 @@
 extern "C" {
 #endif
 
-typedef struct pulse_cgpu_render_window_target {
-    ecs_entity_t entity;
-    CGPUSwapChainId swapchain;
-    CGPUTextureId texture;
-    CGPUTextureViewId texture_view;
-    uint32_t width;
-    uint32_t height;
-    uint32_t backbuffer_index;
-    void* backbuffer;
-} pulse_cgpu_render_window_target;
-
 typedef void (*pulse_cgpu_render_record_callback)(
     pulse_rendergraph_t* graph,
-    uint32_t target_count,
-    const pulse_cgpu_render_window_target* targets,
     void* user_data
+);
+
+pulse_texture_handle_t pulse_cgpu_render_import_window_backbuffer(
+    pulse_app_t app,
+    pulse_rendergraph_t* graph,
+    ecs_entity_t window_entity
 );
 
 #define PULSE_CGPU_RENDER_PLUGIN_DESC_VERSION 1u

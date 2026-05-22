@@ -96,7 +96,6 @@ void render_frame_context::reset() {
     graph.reset();
     graph_memory.reset();
     prepared_entities.clear();
-    targets.clear();
     wait_semaphores.clear();
     signal_semaphores.clear();
 }
@@ -113,18 +112,18 @@ bool ensure_frame_graph(render_frame_context& frame_context) {
             std::make_unique<std::pmr::unsynchronized_pool_resource>();
     }
     if (!frame_context.graph) {
-        const size_t target_count = frame_context.targets.size();
+        const size_t window_count = frame_context.prepared_entities.size();
         const size_t resource_estimate =
-            target_count * 4 > kGraphResourceEstimate
-                ? target_count * 4
+            window_count * 4 > kGraphResourceEstimate
+                ? window_count * 4
                 : kGraphResourceEstimate;
         const size_t pass_estimate =
-            target_count * 4 > kGraphPassEstimate
-                ? target_count * 4
+            window_count * 4 > kGraphPassEstimate
+                ? window_count * 4
                 : kGraphPassEstimate;
         const size_t edge_estimate =
-            target_count * 8 > kGraphEdgeEstimate
-                ? target_count * 8
+            window_count * 8 > kGraphEdgeEstimate
+                ? window_count * 8
                 : kGraphEdgeEstimate;
         frame_context.graph = std::make_unique<HGEGraphics::rendergraph_t>(
             resource_estimate,
@@ -202,20 +201,7 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
         }
 
         if (acquire_window_image(swapchain, frame.frame_index)) {
-            const uint32_t image_index = swapchain->current_backbuffer_index;
-            pulse_cgpu_render_window_target target{};
-            target.entity = entity;
-            target.swapchain = swapchain->swapchain;
-            target.texture = swapchain->swapchain->p_back_buffers[image_index];
-            target.texture_view = swapchain->backbuffer_views[image_index];
-            target.width = swapchain->width;
-            target.height = swapchain->height;
-            target.backbuffer_index = image_index;
-            target.backbuffer =
-                &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[image_index];
-
             frame.prepared_entities.push_back(entity);
-            frame.targets.push_back(target);
             frame.wait_semaphores.push_back(
                 swapchain->image_available_semaphores[
                     frame.frame_index % swapchain->backbuffer_count
@@ -238,7 +224,7 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     }
 
     render_frame_context& frame_context = state->frame_context;
-    if (frame_context.targets.empty() || !frame_context.frame) {
+    if (frame_context.prepared_entities.empty() || !frame_context.frame) {
         return;
     }
     if (!state->desc.record_callback) {
@@ -251,8 +237,6 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
 
     state->desc.record_callback(
         *frame_context.graph.get(),
-        static_cast<uint32_t>(frame_context.targets.size()),
-        frame_context.targets.data(),
         state->desc.record_user_data
     );
 }
@@ -301,7 +285,7 @@ void render_submit_system_run(ecs_iter_t* it) {
     }
 
     render_frame_context& frame_context = state->frame_context;
-    if (frame_context.targets.empty()) {
+    if (frame_context.prepared_entities.empty()) {
         return;
     }
 
@@ -484,3 +468,19 @@ void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world
 }
 
 } // namespace pulse_cgpu_render_internal
+
+pulse_texture_handle_t pulse_cgpu_render_import_window_backbuffer(
+    pulse_app_t app,
+    pulse_rendergraph_t* graph,
+    ecs_entity_t window_entity
+) {
+    const pulse_cgpu_swapchain* swapchain =
+        pulse_cgpu_swapchain_get(app, window_entity);
+    if (!swapchain || !swapchain->backbuffers) {
+        return pulse_texture_handle_t{};
+    }
+    void* backbuffer =
+        &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[
+            swapchain->current_backbuffer_index];
+    return pulse_rendergraph_import_backbuffer(graph, backbuffer);
+}

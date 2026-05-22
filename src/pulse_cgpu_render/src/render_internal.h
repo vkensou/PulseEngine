@@ -37,7 +37,6 @@ struct render_frame_context {
     std::unique_ptr<std::pmr::unsynchronized_pool_resource> graph_memory;
     std::unique_ptr<HGEGraphics::rendergraph_t> graph;
     std::vector<ecs_entity_t> prepared_entities;
-    std::vector<pulse_cgpu_render_window_target> targets;
     std::vector<CGPUSemaphoreId> wait_semaphores;
     std::vector<CGPUSemaphoreId> signal_semaphores;
 
