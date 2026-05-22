@@ -84,6 +84,8 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     GraphStateResource res{gstate};
     ecs_singleton_set_ptr(world, GraphStateResource, &res);
 
+    pulse_graphic_internal::install_upload_callback(app);
+
     return PULSE_OK;
 }
 

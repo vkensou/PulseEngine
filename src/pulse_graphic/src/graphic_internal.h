@@ -31,5 +31,6 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void mark_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void material_internal_destroy(void* data);
+void install_upload_callback(pulse_app_t app);
 
 } // namespace pulse_graphic_internal
