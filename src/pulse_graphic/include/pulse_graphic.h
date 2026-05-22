@@ -72,6 +72,7 @@ typedef struct pulse_buffer_data {
 
 typedef struct pulse_material_data {
     pulse_asset_handle shader;
+    pulse_asset_handle self;
 } pulse_material_data_t;
 
 typedef struct pulse_sampler_data {
@@ -167,6 +168,28 @@ void pulse_graphic_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, cons
 
 pulse_mesh_data_t* pulse_graphic_mesh_acquire(pulse_app_t app, pulse_mesh_t* handle);
 void pulse_graphic_mesh_release(pulse_app_t app, pulse_mesh_t* handle);
+
+pulse_material_t pulse_graphic_material_create(
+    pulse_app_t app,
+    pulse_shader_t shader);
+
+void pulse_graphic_material_bind_buffer(
+    pulse_app_t app, pulse_material_t* material,
+    uint32_t set, uint32_t binding,
+    pulse_buffer_t buffer);
+
+void pulse_graphic_material_bind_texture(
+    pulse_app_t app, pulse_material_t* material,
+    uint32_t set, uint32_t binding,
+    pulse_texture_t texture);
+
+void pulse_graphic_material_bind_sampler(
+    pulse_app_t app, pulse_material_t* material,
+    uint32_t set, uint32_t binding,
+    pulse_sampler_t sampler);
+
+pulse_material_data_t* pulse_graphic_material_acquire(pulse_app_t app, pulse_material_t* handle);
+void pulse_graphic_material_release(pulse_app_t app, pulse_material_t* handle);
 
 #ifdef __cplusplus
 }

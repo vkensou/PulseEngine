@@ -46,8 +46,7 @@ static void destroy_sampler(void* ptr, void* user_data) {
 }
 
 static void destroy_material(void* ptr, void*) {
-    pulse_material_data_t* data = static_cast<pulse_material_data_t*>(ptr);
-    (void)data;
+    pulse_graphic_internal::material_internal_destroy(ptr);
 }
 
 struct GraphStateResource {

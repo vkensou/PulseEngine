@@ -30,5 +30,6 @@ CGPUDeviceId get_device(pulse_app_t app);
 bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void mark_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
+void material_internal_destroy(void* data);
 
 } // namespace pulse_graphic_internal
