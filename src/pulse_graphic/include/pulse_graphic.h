@@ -116,20 +116,18 @@ pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_
 pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_shader_t* handle);
 void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle);
 
-pulse_buffer_t pulse_graphic_buffer_create(
+pulse_texture_t pulse_graphic_texture_create_from_data(
     pulse_app_t app,
-    const CGPUBufferDescriptor* desc,
-    const void* data, uint64_t data_size);
+    const CGPUTextureDescriptor* desc,
+    const void* pixel_data, uint64_t pixel_data_size);
 
-pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t* handle);
-void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t* handle);
-
-pulse_sampler_t pulse_graphic_sampler_create(
+pulse_texture_t pulse_graphic_texture_load(
     pulse_app_t app,
-    const CGPUSamplerDescriptor* desc);
+    const char* filepath,
+    bool mipmap);
 
-pulse_sampler_data_t* pulse_graphic_sampler_acquire(pulse_app_t app, pulse_sampler_t* handle);
-void pulse_graphic_sampler_release(pulse_app_t app, pulse_sampler_t* handle);
+pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t* handle);
+void pulse_graphic_texture_release(pulse_app_t app, pulse_texture_t* handle);
 
 #ifdef __cplusplus
 }

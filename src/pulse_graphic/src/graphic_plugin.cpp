@@ -113,25 +113,35 @@ CGPUDeviceId get_device(pulse_app_t app) {
 }
 
 bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
-    pulse_graphic_state* st = state_from_app(app);
-    if (!st) return false;
-    uint64_t key = (uint64_t)handle.type_id << 32 | handle.index;
-    auto it = st->upload_pending_map.find(key);
-    return it != st->upload_pending_map.end() && it->second;
+    pulse_graphic_state* state = state_from_app(app);
+    if (!state) return false;
+    for (const auto& entry : state->pending_uploads) {
+        if (entry.handle.index == handle.index) return true;
+    }
+    return false;
 }
 
 void mark_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
-    pulse_graphic_state* st = state_from_app(app);
-    if (!st) return;
-    uint64_t key = (uint64_t)handle.type_id << 32 | handle.index;
-    st->upload_pending_map[key] = true;
+    pulse_graphic_state* state = state_from_app(app);
+    if (!state) return;
+    state->upload_pending = true;
+    pulse_graphic_state::UploadEntry entry{};
+    entry.handle = handle;
+    entry.is_texture = true;
+    state->pending_uploads.push_back(entry);
 }
 
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
-    pulse_graphic_state* st = state_from_app(app);
-    if (!st) return;
-    uint64_t key = (uint64_t)handle.type_id << 32 | handle.index;
-    st->upload_pending_map[key] = false;
+    pulse_graphic_state* state = state_from_app(app);
+    if (!state) return;
+    auto& vec = state->pending_uploads;
+    for (size_t i = 0; i < vec.size(); ) {
+        if (vec[i].handle.index == handle.index) {
+            vec.erase(vec.begin() + i);
+        } else {
+            ++i;
+        }
+    }
 }
 
 } // namespace pulse_graphic_internal
