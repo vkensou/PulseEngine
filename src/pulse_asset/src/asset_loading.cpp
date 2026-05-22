@@ -171,6 +171,67 @@ void process_load_requests_system(ecs_iter_t* it) {
         slot->loader_state = nullptr;
         state->active_loads.erase(state->active_loads.begin() + i);
     }
+
+    for (auto& bucket_pair : state->buckets) {
+        uint64_t type_id = bucket_pair.first;
+        AssetBucket& bucket = bucket_pair.second;
+        for (size_t slot_idx = 0; slot_idx < bucket.slots.size(); ++slot_idx) {
+            AssetSlot& slot = bucket.slots[slot_idx];
+            if (slot.state != PULSE_ASSET_STATE_WAITING_DEPENDENCIES) {
+                continue;
+            }
+
+            bool all_loaded = true;
+            bool any_failed = false;
+            for (const pulse_asset_handle& dep : slot.dependencies) {
+                const AssetSlot* dep_slot = get_slot_const(state, dep);
+                if (!dep_slot) {
+                    any_failed = true;
+                    break;
+                }
+                if (dep_slot->state == PULSE_ASSET_STATE_FAILED) {
+                    any_failed = true;
+                    break;
+                }
+                if (dep_slot->state != PULSE_ASSET_STATE_LOADED) {
+                    all_loaded = false;
+                }
+            }
+
+            if (any_failed) {
+                slot.state = PULSE_ASSET_STATE_FAILED;
+                slot.error = "dependency asset failed to load";
+            } else if (all_loaded) {
+                slot.unresolved_count = 0;
+                pulse_asset_handle slot_handle = {type_id, static_cast<uint32_t>(slot_idx), slot.generation};
+                AssetLoader* loader = find_loader(state, type_id, slot.path);
+                if (loader) {
+                    ActiveLoad active{};
+                    active.handle = slot_handle;
+                    active.ctx.app = state->app;
+                    active.ctx.type_id = type_id;
+                    active.ctx.path = slot.path.c_str();
+                    active.ctx.bytes = nullptr;
+                    active.ctx.byte_size = 0;
+
+                    void* loader_state = nullptr;
+                    pulse_result_t begin_result = loader->desc.start(&active.ctx, &loader_state, loader->desc.user_data);
+                    if (begin_result == PULSE_OK) {
+                        slot.loader_state = loader_state;
+                        slot.loader = loader;
+                        slot.state = PULSE_ASSET_STATE_PROCESSING;
+                        state->active_loads.push_back(std::move(active));
+                    } else {
+                        slot.state = PULSE_ASSET_STATE_FAILED;
+                        slot.error = "asset loader begin failed for dependency resolve";
+                    }
+                } else {
+                    slot.constructed = true;
+                    slot.state = PULSE_ASSET_STATE_LOADED;
+                }
+            }
+        }
+    }
 }
 
 void install_process_system(pulse_asset_state_o* state, ecs_world_t* world) {

@@ -138,6 +138,13 @@ pulse_asset_handle pulse_asset_load_from_memory(
     const void* data,
     uint64_t size);
 
+pulse_asset_handle pulse_asset_load_with_deps(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* path,
+    const pulse_asset_handle* dependencies,
+    uint32_t dependency_count);
+
 pulse_asset_state_t pulse_asset_get_state(
     pulse_app_t app,
     pulse_asset_handle handle
