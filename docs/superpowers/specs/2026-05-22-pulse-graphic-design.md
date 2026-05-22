@@ -104,13 +104,35 @@ typedef struct pulse_sampler_data {
 
 ---
 
-## 3. Creation API (同步，从内存立即创建)
+## 3. Creation API（同步返回 handle，GPU 资源可能异步就绪）
 
-所有创建函数内部：
-1. 从 `pulse_cgpu_render` 获取 `CGPUDeviceId`
-2. 调用 `cgpu_*` 分配 GPU 对象
-3. 向 `pulse_asset` 注册 slot → 状态直接 `LOADED`
-4. 返回 typed handle
+创建函数全部同步返回 handle，但就绪时机分两类：
+
+| 资源类型 | 创建后 pulse_asset 状态 | pulse_graphic upload_pending |
+|----------|------------------------|------------------------------|
+| Shader / ComputeShader | LOADED | false |
+| Sampler | LOADED | false |
+| Material | LOADED | false |
+| Mesh (静态) | LOADED | true |
+| Mesh (动态) | LOADED | false |
+| Texture | LOADED | true |
+| Buffer (带 data) | LOADED | true |
+
+创建流程（以静态 Mesh 为例）：
+```
+pulse_graphic_mesh_create_from_data(app, ...)
+  → 从 pulse_cgpu_render 获取 device
+  → cgpu_create_buffer (vertex + index) → GPU 空缓冲
+  → 用户提供的 vertex/index 数据暂存到内部 staging 区域
+  → pulse_asset 注册 slot → 状态 LOADED
+  → pulse_graphic 内部标记 upload_pending = true
+  → 返回 pulse_mesh_t handle
+
+  [下一帧 upload callback (-1000)]
+  → rendergraph_add_uploadbufferpass (vertex + index)
+  [ExecuteGraph: upload passes 执行]
+  → upload_pending → false
+```
 
 ```c
 // Shader
@@ -318,22 +340,45 @@ uint32_t unresolved_count;
 
 ---
 
-## 9. Internal: Upload Callback
+## 9. Internal: Upload Callback & State Machine
 
-pulse_graphic 在插件初始化时注册一个 priority=-1000 的 record callback。它负责：
+### 状态流转
 
-1. **动态资源上传**：遍历 pulse_graphic 内部维护的 "pending upload" 队列
-   - `pulse_graphic_mesh_update_vertices(mesh, data, count)` 将上传请求入队
-   - upload callback 中为每个 pending item 创建 `rendergraph_add_uploadbufferpass`
-2. **资源缓存同步**：更新内部 handle → C++ 对象映射，为后续 encoder resolve 做准备
+`WAITING_UPLOAD` 是 pulse_graphic 内部概念（非 pulse_asset 状态）。对 pulse_asset 而言 loader step 返回 DONE 后状态即为 LOADED。pulse_graphic 额外追踪 GPU 上传是否完成。
 
-用户也可主动调用：
+```
+pulse_asset 状态:    LOADED (CPU work done)
+pulse_graphic 内部:  upload_pending = true
+                     → upload callback → upload pass executed
+                     → upload_pending = false (渲染可用)
+```
+
+`pulse_graphic_is_available()` 返回 true 当且仅当：pulse_asset LOADED **且** upload 完成。
+
+### Upload Callback (priority=-1000)
+
+pulse_graphic 的 upload callback 每帧执行：
+
+1. **初始上传**：遍历 `pending_initial_upload` 队列（创建时入队的 WAITING_UPLOAD 资源）
+   - 为每个资源创建 `rendergraph_add_uploadbufferpass` 或 `rendergraph_add_uploadtexturepass`
+   - ExecuteGraph 中 upload pass 执行后，资源标记为 LOADED
+   - 用户主 render pass 在同一帧 execute 阶段晚于 upload pass 执行，所以首帧即可用
+
+2. **动态更新**：处理用户在帧间调用的 `pulse_graphic_mesh_update_vertices/indices`
+   - 为更新创建 upload pass，数据写入 staging buffer → GPU
+   - 动态 mesh 始终 LOADED，update 不影响状态
+
+3. **生命周期同步**：将已 LOADED 的 pulse_graphic 资源 import 到 rendergraph
+   - 通过 `pulse_rendergraph_import_texture/import_buffer` 使其对后续 render pass 可见
+
+### 动态 Mesh Update API
+
 ```c
 void pulse_graphic_mesh_update_vertices(pulse_app_t, pulse_mesh_t* mesh, const void* data, uint32_t count);
 void pulse_graphic_mesh_update_indices(pulse_app_t, pulse_mesh_t* mesh, const void* data, uint32_t count);
 ```
 
-这些操作在 record_callback 之外调用（如 ECS system 中），pulse_graphic 将其排队，upload callback 中执行。
+在 record_callback 之外调用（如 ECS system 中），pulse_graphic 内部排队，upload callback 中创建 upload pass。
 
 ### Registered Type IDs
 
@@ -402,11 +447,24 @@ pulse_graphic_add_plugin(app)
 
 ### Sync Create (memory)
 ```
+// Shader: 立即 LOADED
 shader = pulse_graphic_shader_create_from_binary(app, vs_data, fs_data, ...)
   → 获取 CGPUDeviceId
   → cgpu_create_shader → GPU handle
-  → pulse_asset 分配 slot → LOADED
-  → return pulse_shader_t{.asset = slot}
+  → pulse_asset slot → 状态 LOADED
+
+// Mesh: 异步上传
+mesh = pulse_graphic_mesh_create_from_data(app, verts, idxs, ...)
+  → 获取 device → cgpu_create_buffer (vertex + index)
+  → staging 区域暂存用户数据
+  → pulse_asset slot → 状态 WAITING_UPLOAD
+  → 加入 pending_initial_upload 队列
+
+  [下一帧 upload callback (-1000)]
+  → rendergraph_add_uploadbufferpass (vertex)
+  → rendergraph_add_uploadbufferpass (index)
+  [ExecuteGraph: upload passes 执行]
+  → 状态 → LOADED
 ```
 
 ### Async Load (file)
@@ -415,7 +473,17 @@ shader = pulse_graphic_shader_load(app, "vs.spv", "fs.spv", ...)
   → vs_handle = pulse_asset_load(TYPE_BYTECODE, "vs.spv")
   → fs_handle = pulse_asset_load(TYPE_BYTECODE, "fs.spv")
   → handle = pulse_asset_load_with_deps(SHADER_TYPE, NULL, {vs, fs})
-  → WAITING_DEPENDENCIES → (vs+fs LOADED) → PROCESSING → LOADED
+  → WAITING_DEPENDENCIES (等待 vs/fs LOADED)
+  → PROCESSING (loader: compile GPU shader from deps' byte data)
+  → LOADED (shader 无数据上传)
+
+mesh = pulse_graphic_mesh_load(app, "model.obj")
+  → raw_handle = pulse_asset_load(TYPE_RAWDATA, "model.obj")
+  → handle = pulse_asset_load_with_deps(MESH_TYPE, NULL, {raw})
+  → WAITING_DEPENDENCIES → PROCESSING (loader: 解析 OBJ, 创建 GPU buffer shell)
+  → pulse_asset: LOADED
+  → pulse_graphic: upload_pending = true
+  → [upload callback] → upload pass → upload_pending = false
 ```
 
 ### Per-Frame Render
