@@ -1,15 +1,12 @@
 #include <assert.h>
 #include <stdio.h>
-#include <vector>
 
 #include "pulse_app.h"
 #include "pulse_window.h"
 #include "pulse_cgpu_render.h"
-#include "renderer.h"
 #include "rendergraph_cpp.h"
 
 struct test_render_state {
-    std::vector<HGEGraphics::Backbuffer> backbuffers;
 };
 
 static void record_test_rendergraph(
@@ -24,22 +21,12 @@ static void record_test_rendergraph(
         return;
     }
 
-    state->backbuffers.clear();
-    state->backbuffers.reserve(target_count);
-
     for (uint32_t i = 0; i < target_count; ++i) {
         const pulse_cgpu_render_window_target& window_target = targets[i];
-        state->backbuffers.emplace_back();
-        HGEGraphics::Backbuffer& backbuffer = state->backbuffers.back();
-        HGEGraphics::init_backbuffer(
-            &backbuffer,
-            window_target.swapchain,
-            static_cast<int>(window_target.backbuffer_index)
-        );
 
-        HGEGraphics::texture_handle_t target =
-            pulse_rendergraph_import_backbuffer(graph, &backbuffer);
-        if (!HGEGraphics::rendergraph_texture_handle_valid(target)) {
+        pulse_texture_handle_t target_handle =
+            pulse_rendergraph_import_backbuffer(graph, window_target.backbuffer);
+        if (!pulse_rendergraph_texture_handle_valid(target_handle)) {
             continue;
         }
 
@@ -47,12 +34,12 @@ static void record_test_rendergraph(
             pulse_rendergraph_add_renderpass(graph, "TestCallbackPass");
         pulse_renderpass_add_color_attachment(
             &pass,
-            target,
+            target_handle,
             CGPU_LOAD_ACTION_CLEAR,
             0xff00ffff,
             CGPU_STORE_ACTION_STORE
         );
-        pulse_rendergraph_present(graph, target);
+        pulse_rendergraph_present(graph, target_handle);
     }
 }
 
