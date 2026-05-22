@@ -1,2 +1,3 @@
-所有新 worktree，先 git submodule update --init --recursive，再 build。
-任何修改经过审批才能提交
+- 所有新 worktree，先update submodule。`git submodule update --init --recursive`，再 build。
+- 在worktree中执行xmake命令必须添加`-P <path>`参数，举例：build命令（`xmake build -P "path" target_name`），run命令（xmake run -P "path" target_name），即`-P <path>`参数放在`命令`和`taget_name`之间。
+- 任何修改经过审批才能提交
