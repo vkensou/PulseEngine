@@ -64,6 +64,7 @@ namespace HGEGraphics
 		cgpu_device_free_texture(device, resource->texture->handle);
 		resource->texture->handle = CGPU_NULLPTR;
 		resource->texture->cur_states.clear();
+		free_texture(resource->texture);
 		allocator.delete_object(resource->texture);
 		allocator.delete_object(resource);
 	}

@@ -63,8 +63,6 @@ namespace HGEGraphics
 
 	struct pulse_texture_data_t
 	{
-		~pulse_texture_data_t();
-
 		CGPUTextureId handle;
 		CGPUTextureViewId view;
 		std::vector<ECGPUResourceStateFlags> cur_states;
@@ -73,9 +71,10 @@ namespace HGEGraphics
 		pulse_texture_handle_t dynamic_handle;
 	};
 
-	std::unique_ptr<pulse_texture_data_t> create_empty_texture();
+	pulse_texture_data_t* create_empty_texture();
 	void init_texture(pulse_texture_data_t* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
-	std::unique_ptr<pulse_texture_data_t> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
+	pulse_texture_data_t* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
+	void free_texture(pulse_texture_data_t* texture);
 
 	class Material
 	{

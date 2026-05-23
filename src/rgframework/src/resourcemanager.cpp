@@ -122,7 +122,7 @@ HGEGraphics::pulse_texture_data_t* oval_load_texture(oval_device_t* device, cons
 	memcpy(path, filepath, path_size);
 	resource.path = path;
 	resource.path_size = path_size;
-	auto texture = HGEGraphics::create_empty_texture();
+	std::unique_ptr<HGEGraphics::pulse_texture_data_t> texture(HGEGraphics::create_empty_texture());
 	auto ptr = texture.get();
 	D->textures.push_back(std::move(texture));
 	resource.textureResource = {

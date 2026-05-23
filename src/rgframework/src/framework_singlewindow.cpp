@@ -1015,6 +1015,10 @@ void oval_free_device(oval_device_t* device)
 	D->meshes.clear();
 	D->shaders.clear();
 	D->computeShaders.clear();
+	for (size_t i = 0; i < D->textures.size(); ++i)
+	{
+		HGEGraphics::free_texture(D->textures[i].get());
+	}
 	D->textures.clear();
 	for (auto sampler : D->samplers)
 		cgpu_device_free_sampler(D->device, sampler);

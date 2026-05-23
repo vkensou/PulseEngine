@@ -244,7 +244,7 @@ namespace HGEGraphics
 		}
 	}
 
-	std::unique_ptr<pulse_texture_data_t> create_empty_texture()
+	pulse_texture_data_t* create_empty_texture()
 	{
 		auto texture = new pulse_texture_data_t();
 		texture->handle = CGPU_NULLPTR;
@@ -253,7 +253,7 @@ namespace HGEGraphics
 		texture->states_consistent = false;
 		texture->prepared = false;
 		texture->dynamic_handle = {};
-		return std::unique_ptr<pulse_texture_data_t>(texture);
+		return texture;
 	}
 
 	void init_texture(pulse_texture_data_t* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc)
@@ -287,19 +287,19 @@ namespace HGEGraphics
 		texture->prepared = false;
 	}
 
-	std::unique_ptr<pulse_texture_data_t> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)
+	pulse_texture_data_t* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)
 	{
 		auto texture = create_empty_texture();
-		init_texture(texture.get(), device, desc);
+		init_texture(texture, device, desc);
 		return texture;
 	}
 
-	pulse_texture_data_t::~pulse_texture_data_t()
+	void free_texture(pulse_texture_data_t* texture)
 	{
-		if (view)
-			cgpu_device_free_texture_view(view->device, view);
-		if (handle)
-			cgpu_device_free_texture(handle->device, handle);
+		if (texture->view)
+			cgpu_device_free_texture_view(texture->view->device, texture->view);
+		if (texture->handle)
+			cgpu_device_free_texture(texture->handle->device, texture->handle);
 	}
 
 	Material::Material(CGPUDeviceId device, Shader* shader)
