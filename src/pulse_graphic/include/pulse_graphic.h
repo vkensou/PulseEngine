@@ -5,6 +5,7 @@
 #include "cgpu/api.h"
 #include "pulse_asset.h"
 #include "rendergraph.h"
+#include "pulse_renderer_asset.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +20,7 @@ extern "C" {
 #define PULSE_TYPE_BUFFER          UINT64_C(0x1004)
 #define PULSE_TYPE_MATERIAL        UINT64_C(0x1005)
 #define PULSE_TYPE_SAMPLER         UINT64_C(0x1006)
+#define PULSE_TYPE_BYTECODE        UINT64_C(0x1007)
 
 typedef struct pulse_shader_t   { pulse_asset_handle asset; } pulse_shader_t;
 typedef struct pulse_mesh_t     { pulse_asset_handle asset; } pulse_mesh_t;
@@ -42,18 +44,6 @@ typedef struct pulse_compute_shader_data {
     CGPUShaderEntryDescriptor cs;
 } pulse_compute_shader_data_t;
 
-typedef struct pulse_mesh_data {
-    CGPUVertexLayout vertex_layout;
-    uint32_t vertex_stride;
-    uint32_t index_stride;
-    uint32_t vertices_count;
-    uint32_t index_count;
-    ECGPUPrimitiveTopology prim_topology;
-    CGPUBufferId vertex_buffer;
-    CGPUBufferId index_buffer;
-    bool has_index_buffer;
-} pulse_mesh_data_t;
-
 typedef struct pulse_texture_data {
     CGPUTextureId handle;
     CGPUTextureViewId view;
@@ -63,12 +53,6 @@ typedef struct pulse_texture_data {
     uint32_t mip_levels;
     ECGPUTextureFormat format;
 } pulse_texture_data_t;
-
-typedef struct pulse_buffer_data {
-    CGPUBufferId handle;
-    ECGPUResourceTypeFlags type;
-    uint64_t size;
-} pulse_buffer_data_t;
 
 typedef struct pulse_material_data {
     pulse_asset_handle shader;

@@ -109,6 +109,37 @@ pulse_shader_t pulse_graphic_compute_shader_create_from_binary(
         true, cs_data, cs_size, nullptr, nullptr, nullptr);
 }
 
+pulse_shader_t pulse_graphic_shader_load(
+    pulse_app_t app,
+    const char* vert_path,
+    const char* frag_path,
+    const CGPUBlendStateDescriptor* blend_desc,
+    const CGPUDepthStateDescriptor* depth_desc,
+    const CGPURasterizerStateDescriptor* rasterizer_state)
+{
+    (void)blend_desc; (void)depth_desc; (void)rasterizer_state;
+    pulse_asset_handle vs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, vert_path);
+    if (vs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    pulse_asset_handle fs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, frag_path);
+    if (fs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    pulse_asset_handle deps[] = {vs, fs};
+    pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_SHADER, nullptr, deps, 2);
+    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    return pulse_shader_t{h};
+}
+
+pulse_shader_t pulse_graphic_compute_shader_load(
+    pulse_app_t app,
+    const char* comp_path)
+{
+    pulse_asset_handle cs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, comp_path);
+    if (cs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    pulse_asset_handle deps[] = {cs};
+    pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1);
+    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    return pulse_shader_t{h};
+}
+
 pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_t* handle) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, handle->asset, &ref)) {

@@ -66,6 +66,8 @@ typedef struct pulse_asset_load_task {
     const char* path;
     const uint8_t* bytes;
     uint64_t byte_size;
+    const pulse_asset_handle* dependency_handles;
+    uint32_t dependency_count;
 } pulse_asset_load_task;
 
 typedef struct pulse_asset_progress {

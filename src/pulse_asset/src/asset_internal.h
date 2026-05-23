@@ -77,6 +77,7 @@ struct LoadRequest {
 struct ActiveLoad {
     pulse_asset_handle handle{};
     std::vector<uint8_t> bytes;
+    std::vector<pulse_asset_handle> dep_handles;
     pulse_asset_load_task ctx{};
     bool from_memory = false;
 };

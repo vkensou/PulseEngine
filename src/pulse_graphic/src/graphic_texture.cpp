@@ -42,6 +42,20 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
     return result;
 }
 
+pulse_texture_t pulse_graphic_texture_load(
+    pulse_app_t app,
+    const char* filepath,
+    bool mipmap)
+{
+    (void)mipmap;
+    pulse_asset_handle img = pulse_asset_load(app, PULSE_TYPE_BYTECODE, filepath);
+    if (img.index == PULSE_ASSET_INVALID_INDEX) return pulse_texture_t{};
+    pulse_asset_handle deps[] = {img};
+    pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_TEXTURE, nullptr, deps, 1);
+    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_texture_t{};
+    return pulse_texture_t{h};
+}
+
 pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t* handle) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, handle->asset, &ref)) {
