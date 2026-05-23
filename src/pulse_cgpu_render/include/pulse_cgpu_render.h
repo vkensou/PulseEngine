@@ -90,12 +90,6 @@ pulse_result_t pulse_cgpu_render_add_plugin(
     const pulse_cgpu_render_plugin_desc* desc
 );
 
-pulse_result_t pulse_cgpu_render_set_record_callback(
-    pulse_app_t app,
-    pulse_cgpu_render_record_callback record_callback,
-    void* user_data
-);
-
 pulse_result_t pulse_cgpu_render_add_record_callback(
     pulse_app_t app,
     const pulse_cgpu_renderer_record_callback_desc* desc);

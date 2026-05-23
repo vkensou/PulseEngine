@@ -183,7 +183,7 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
     if (!state || !state->frame_context.active) {
         return;
     }
-    if (!state->desc.record_callback) {
+    if (state->record_callbacks.empty()) {
         return;
     }
 

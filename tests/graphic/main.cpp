@@ -189,7 +189,11 @@ int main(void) {
 
     // ---- Register record callback with graphic resources ----
     test_graphic_resources resources{shader, compute, buffer, sampler, texture, mesh, material};
-    pulse_cgpu_render_set_record_callback(app, record_test_graphic, &resources);
+    pulse_cgpu_renderer_record_callback_desc cb_desc{};
+    cb_desc.callback = record_test_graphic;
+    cb_desc.user_data = &resources;
+    cb_desc.priority = 0;
+    pulse_cgpu_render_add_record_callback(app, &cb_desc);
 
     // Run a single update to exercise plugin pipeline
     pulse_app_update(app);

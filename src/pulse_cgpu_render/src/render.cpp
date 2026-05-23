@@ -733,28 +733,6 @@ pulse_result_t pulse_cgpu_render_add_plugin(
     return result;
 }
 
-pulse_result_t pulse_cgpu_render_set_record_callback(
-    pulse_app_t app,
-    pulse_cgpu_render_record_callback record_callback,
-    void* user_data
-) {
-    pulse_cgpu_render_state* state = pulse_cgpu_render_internal::state_from_world(pulse_app_world(app));
-    if (!state) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
-    }
-    state->desc.record_callback = record_callback;
-    state->desc.record_user_data = user_data;
-    state->record_callbacks.clear();
-    if (record_callback) {
-        pulse_cgpu_renderer_record_callback_desc desc{};
-        desc.callback = record_callback;
-        desc.user_data = user_data;
-        desc.priority = 0;
-        state->record_callbacks.push_back(desc);
-    }
-    return PULSE_OK;
-}
-
 pulse_result_t pulse_cgpu_render_add_record_callback(
     pulse_app_t app,
     const pulse_cgpu_renderer_record_callback_desc* desc

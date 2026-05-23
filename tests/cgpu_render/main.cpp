@@ -66,13 +66,11 @@ int main(void) {
     window_query_desc.cache_kind = EcsQueryCacheAuto;
     render_state.window_query = ecs_query_init(pulse_app_world(app), &window_query_desc);
 
-    assert(
-        pulse_cgpu_render_set_record_callback(
-            app,
-            record_test_rendergraph,
-            &render_state
-        ) == PULSE_OK
-    );
+    pulse_cgpu_renderer_record_callback_desc cb_desc{};
+    cb_desc.callback = record_test_rendergraph;
+    cb_desc.user_data = &render_state;
+    cb_desc.priority = 0;
+    assert(pulse_cgpu_render_add_record_callback(app, &cb_desc) == PULSE_OK);
 
     pulse_app_run(app);
 
