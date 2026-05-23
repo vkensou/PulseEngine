@@ -61,9 +61,9 @@ namespace HGEGraphics
 	void dynamic_mesh_reset(pulse_mesh_data_t* mesh);
 	void free_mesh(pulse_mesh_data_t* mesh);
 
-	struct Texture
+	struct pulse_texture_data_t
 	{
-		~Texture();
+		~pulse_texture_data_t();
 
 		CGPUTextureId handle;
 		CGPUTextureViewId view;
@@ -73,9 +73,9 @@ namespace HGEGraphics
 		pulse_texture_handle_t dynamic_handle;
 	};
 
-	std::unique_ptr<Texture> create_empty_texture();
-	void init_texture(Texture* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
-	std::unique_ptr<Texture> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
+	std::unique_ptr<pulse_texture_data_t> create_empty_texture();
+	void init_texture(pulse_texture_data_t* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
+	std::unique_ptr<pulse_texture_data_t> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
 
 	class Material
 	{
@@ -91,7 +91,7 @@ namespace HGEGraphics
 		{
 			int set;
 			int bind;
-			Texture* texture;
+			pulse_texture_data_t* texture;
 		};
 
 		struct BindSampler
@@ -112,7 +112,7 @@ namespace HGEGraphics
 		Material(CGPUDeviceId device, Shader* shader);
 		~Material();
 
-		void bindTexture(int set, int bind, Texture* texture);
+		void bindTexture(int set, int bind, pulse_texture_data_t* texture);
 		void bindSampler(int set, int bind, CGPUSamplerId sampler);
 
 		template<typename T>
@@ -128,7 +128,7 @@ namespace HGEGraphics
 	{
 		~Backbuffer();
 
-		Texture texture;
+		pulse_texture_data_t texture;
 	};
 
 	void init_backbuffer(Backbuffer* backbuffer, CGPUSwapChainId swapchain, int index);
@@ -137,7 +137,7 @@ namespace HGEGraphics
 
 	struct ShaderTextureBinder
 	{
-		Texture* texture;
+		pulse_texture_data_t* texture;
 		pulse_texture_handle_t texture_handle;
 		int set, bind;
 	};

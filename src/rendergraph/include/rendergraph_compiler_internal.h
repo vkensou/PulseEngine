@@ -52,7 +52,7 @@ namespace HGEGraphics
 		const char* name;
 		ResourceType resourceType;
 		ManageType manageType;
-		Texture* texture;
+		pulse_texture_data_t* texture;
 		pulse_buffer_data_t* buffer;
 		uint16_t width;
 		uint16_t height;
@@ -147,7 +147,7 @@ namespace HGEGraphics
 		allocator_type allocator;
 		Shader* blitShader;
 		CGPUSamplerId blitSampler;
-		std::pmr::vector<Texture*> imported_textures;
+		std::pmr::vector<pulse_texture_data_t*> imported_textures;
 		std::pmr::vector<pulse_buffer_data_t*> imported_buffers;
 	};
 

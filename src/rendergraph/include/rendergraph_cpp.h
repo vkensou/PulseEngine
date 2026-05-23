@@ -96,7 +96,7 @@ namespace HGEGraphics
 		return { h.index };
 	}
 
-	inline texture_handle_t rendergraph_import_texture(rendergraph_t* self, Texture* imported)
+	inline texture_handle_t rendergraph_import_texture(rendergraph_t* self, pulse_texture_data_t* imported)
 	{
 		pulse_texture_handle_t h = pulse_rendergraph_import_texture(*self, imported);
 		return { h.index };

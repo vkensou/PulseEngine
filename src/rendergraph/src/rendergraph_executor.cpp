@@ -13,7 +13,7 @@ namespace HGEGraphics
 		Framebuffer* framebuffer;
 	};
 
-	Texture* getTexture(std::pmr::vector<CompiledResourceNode>& resources, CompiledResourceNode& resource)
+	pulse_texture_data_t* getTexture(std::pmr::vector<CompiledResourceNode>& resources, CompiledResourceNode& resource)
 	{
 		if (resource.manageType == ManageType::Managed)
 			return resource.managered_texture->texture;

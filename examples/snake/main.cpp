@@ -172,7 +172,7 @@ struct BindTexture
 {
 	int set;
 	int bind;
-	HGEGraphics::Texture* texture;
+	HGEGraphics::pulse_texture_data_t* texture;
 };
 
 struct BindSampler

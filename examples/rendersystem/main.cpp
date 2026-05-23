@@ -171,7 +171,7 @@ struct BindTexture
 {
 	int set;
 	int bind;
-	HGEGraphics::Texture* texture;
+	HGEGraphics::pulse_texture_data_t* texture;
 };
 
 struct BindSampler
@@ -528,7 +528,7 @@ struct TexturedVertex
 	HMM_Vec2 texCoord;
 };
 
-HGEGraphics::Texture* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
+HGEGraphics::pulse_texture_data_t* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
 {
 	return oval_load_texture(app.device, (path + gltf_image.uri).c_str(), true);
 
@@ -778,7 +778,7 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		samplers.push_back(sampler);
 	}
 
-	std::vector<HGEGraphics::Texture*> textures;
+	std::vector<HGEGraphics::pulse_texture_data_t*> textures;
 	for (size_t i = 0; i < model.images.size(); ++i)
 	{
 		auto& gltf_image = model.images[i];

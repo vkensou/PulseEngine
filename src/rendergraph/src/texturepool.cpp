@@ -51,7 +51,7 @@ namespace HGEGraphics
 
 		TextureWrap* resource = allocator.new_object<TextureWrap>();
 		resource->_descriptor = descriptor;
-		resource->texture = allocator.new_object<Texture>();
+		resource->texture = allocator.new_object<pulse_texture_data_t>();
 		resource->texture->handle = texture;
 		resource->texture->view = nullptr;
 		resource->texture->cur_states.resize(descriptor.depth * descriptor.mipLevels);

@@ -215,7 +215,7 @@ namespace HGEGraphics
 
 		return compiled;
 	}
-	CompiledResourceNode::CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, Texture* imported_texture, uint8_t mipCount, uint8_t arraySize, index_type_t parent, uint8_t mipLevel, uint8_t arraySlice)
+	CompiledResourceNode::CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, pulse_texture_data_t* imported_texture, uint8_t mipCount, uint8_t arraySize, index_type_t parent, uint8_t mipLevel, uint8_t arraySlice)
 		: name(name), resourceType(ResourceType::Texture), manageType(type), width(width), height(height), depth(depth), format(format), imported_texture(imported_texture), imported_buffer(CGPU_NULLPTR), managered_texture(nullptr), size(0), managed_buffer(nullptr), bufferType(CGPU_RESOURCE_TYPE_NONE), memoryUsage(CGPU_MEMORY_USAGE_UNKNOWN)
 		, mipCount(mipCount), arraySize(arraySize), parent(parent), mipLevel(mipLevel), arraySlice(arraySlice)
 	{
@@ -263,7 +263,7 @@ CGPUTextureViewId pulse_rendergraph_resolve_texture_view(pulse_renderpass_encode
 	auto crg = enc->compiled_graph;
 	auto& resourceNode = crg->resources[texture_handle.index];
 	CGPUTextureViewDescriptor desc = {};
-	Texture* texture;
+	pulse_texture_data_t* texture;
 	if (resourceNode.manageType == ManageType::Managed)
 		texture = resourceNode.managered_texture->texture;
 	else if (resourceNode.manageType == ManageType::Imported)

@@ -280,7 +280,7 @@ void render_execute_graph_system_run(ecs_iter_t* it) {
     HGEGraphics::Executor::Execute(compiled, *frame_context.frame->exec_context);
 
     auto* graph_impl = HGEGraphics::to_impl(*frame_context.graph);
-    for (HGEGraphics::Texture* imported : graph_impl->imported_textures) {
+    for (HGEGraphics::pulse_texture_data_t* imported : graph_impl->imported_textures) {
         if (imported) {
             imported->dynamic_handle = {};
         }

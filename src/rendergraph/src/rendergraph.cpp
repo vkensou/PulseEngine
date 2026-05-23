@@ -132,7 +132,7 @@ pulse_texture_handle_t pulse_rendergraph_declare_texture(pulse_rendergraph_t* se
 pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, void* imported)
 {
 	auto* impl = to_impl(self);
-	auto* tex = (Texture*)imported;
+	auto* tex = (pulse_texture_data_t*)imported;
 	if (is_valid_dynamic_texture_handle(impl->resources, tex->dynamic_handle))
 		return tex->dynamic_handle;
 

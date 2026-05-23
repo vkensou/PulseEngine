@@ -244,19 +244,19 @@ namespace HGEGraphics
 		}
 	}
 
-	std::unique_ptr<Texture> create_empty_texture()
+	std::unique_ptr<pulse_texture_data_t> create_empty_texture()
 	{
-		auto texture = new Texture();
+		auto texture = new pulse_texture_data_t();
 		texture->handle = CGPU_NULLPTR;
 		texture->view = CGPU_NULLPTR;
 		texture->cur_states.clear();
 		texture->states_consistent = false;
 		texture->prepared = false;
 		texture->dynamic_handle = {};
-		return std::unique_ptr<Texture>(texture);
+		return std::unique_ptr<pulse_texture_data_t>(texture);
 	}
 
-	void init_texture(Texture* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc)
+	void init_texture(pulse_texture_data_t* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc)
 	{
 		CGPUTextureDescriptor new_desc = desc;
 		if (desc.depth == 1 && desc.height == 1)
@@ -287,14 +287,14 @@ namespace HGEGraphics
 		texture->prepared = false;
 	}
 
-	std::unique_ptr<Texture> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)
+	std::unique_ptr<pulse_texture_data_t> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)
 	{
 		auto texture = create_empty_texture();
 		init_texture(texture.get(), device, desc);
 		return texture;
 	}
 
-	Texture::~Texture()
+	pulse_texture_data_t::~pulse_texture_data_t()
 	{
 		if (view)
 			cgpu_device_free_texture_view(view->device, view);
@@ -322,7 +322,7 @@ namespace HGEGraphics
 		device = nullptr;
 	}
 
-	void Material::bindTexture(int set, int bind, Texture* texture)
+	void Material::bindTexture(int set, int bind, pulse_texture_data_t* texture)
 	{
 		textures.emplace_back(set, bind, texture);
 	}
@@ -670,7 +670,7 @@ namespace HGEGraphics
 		cgpu_compute_pass_encoder_dispatch(encoder->compute_encoder, thread_x, thread_y, thread_z);
 	}
 
-	void set_global_texture(RenderPassEncoder* encoder, Texture* texture, int set, int slot)
+	void set_global_texture(RenderPassEncoder* encoder, pulse_texture_data_t* texture, int set, int slot)
 	{
 		encoder->context->global_texture_table.push_back({ texture, {}, set, slot });
 	}

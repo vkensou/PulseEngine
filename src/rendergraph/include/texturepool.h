@@ -32,7 +32,7 @@ namespace HGEGraphics
 		}
 	};
 
-	struct Texture;
+	struct pulse_texture_data_t;
 	struct TextureWrap
 	{
 		TextureDescriptor descriptor() const
@@ -40,7 +40,7 @@ namespace HGEGraphics
 			return _descriptor;
 		}
 		TextureDescriptor _descriptor;
-		Texture* texture;
+		pulse_texture_data_t* texture;
 	};
 
 	class TexturePool

@@ -14,7 +14,7 @@ namespace HGEGraphics
 	struct UploadEncoder;
 	struct Shader;
 	struct ComputeShader;
-	struct Texture;
+	struct pulse_texture_data_t;
 	struct Material;
 
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth);
@@ -27,7 +27,7 @@ namespace HGEGraphics
 	void draw_submesh(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
 	void draw_procedure(RenderPassEncoder* encoder, Material* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
 	void dispatch(RenderPassEncoder* encoder, ComputeShader* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z);
-	void set_global_texture(RenderPassEncoder* encoder, Texture* texture, int set, int slot);
+	void set_global_texture(RenderPassEncoder* encoder, pulse_texture_data_t* texture, int set, int slot);
 	void set_global_texture_handle(RenderPassEncoder* encoder, pulse_texture_handle_t texture, int set, int slot);
 	void set_global_sampler(RenderPassEncoder* encoder, CGPUSamplerId sampler, int set, int slot);
 	void set_global_buffer(RenderPassEncoder* encoder, pulse_buffer_data_t* buffer, int set, int slot);
