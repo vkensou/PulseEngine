@@ -35,7 +35,15 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
     }
 
     if (pixel_data && pixel_data_size > 0) {
-        pulse_graphic_internal::mark_upload_pending(app, asset_handle);
+        auto* gstate = pulse_graphic_internal::state_from_app(app);
+        if (gstate) {
+            auto& blk = gstate->staging_pool[gstate->staging_write].emplace_back(pixel_data_size);
+            memcpy(blk.data(), pixel_data, pixel_data_size);
+            gstate->pending_uploads.push_back({
+                pulse_graphic_internal::UPLOAD_TEXTURE, pulse_texture_t{asset_handle}, {},
+                nullptr, blk.data(), pixel_data_size, nullptr
+            });
+        }
     }
 
     result.asset = asset_handle;

@@ -30,7 +30,21 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
     }
 
     if (vertex_data && vertex_count > 0) {
-        pulse_graphic_internal::mark_upload_pending(app, asset_handle);
+        auto* gstate = pulse_graphic_internal::state_from_app(app);
+        if (gstate) {
+            uint64_t vb_bytes = vertex_count * vertex_stride;
+            auto& blk = gstate->staging_pool[gstate->staging_write].emplace_back(vb_bytes);
+            memcpy(blk.data(), vertex_data, vb_bytes);
+            pulse_asset_ref ref2{};
+            pulse_asset_acquire(app, asset_handle, &ref2);
+            auto* mesh = static_cast<pulse_mesh_data_t*>(ref2.ptr);
+            gstate->pending_uploads.push_back({
+                pulse_graphic_internal::UPLOAD_BUFFER_DATA, {}, {},
+                mesh->vertex_buffer,
+                blk.data(), vb_bytes, nullptr
+            });
+            pulse_asset_release(app, &ref2);
+        }
     }
 
     result.asset = asset_handle;
@@ -80,16 +94,34 @@ pulse_mesh_t pulse_graphic_mesh_create_dynamic(
 void pulse_graphic_mesh_update_vertices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count) {
     pulse_graphic_internal::pulse_graphic_state* st = pulse_graphic_internal::state_from_app(app);
     if (st && mesh) {
-        pulse_graphic_internal::pulse_graphic_state::UploadEntry entry{mesh->asset, false, data, count};
-        st->dynamic_updates.push_back(entry);
+        pulse_asset_ref ref{};
+        if (pulse_asset_acquire(app, mesh->asset, &ref)) {
+            auto* m = static_cast<pulse_mesh_data_t*>(ref.ptr);
+            pulse_graphic_internal::UploadEntry entry{};
+            entry.content = pulse_graphic_internal::UPLOAD_BUFFER_DATA;
+            entry.buffer_data = m->vertex_buffer;
+            entry.data = data;
+            entry.data_size = count;
+            st->dynamic_updates.push_back(entry);
+            pulse_asset_release(app, &ref);
+        }
     }
 }
 
 void pulse_graphic_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count) {
     pulse_graphic_internal::pulse_graphic_state* st = pulse_graphic_internal::state_from_app(app);
     if (st && mesh) {
-        pulse_graphic_internal::pulse_graphic_state::UploadEntry entry{mesh->asset, false, data, count};
-        st->dynamic_updates.push_back(entry);
+        pulse_asset_ref ref{};
+        if (pulse_asset_acquire(app, mesh->asset, &ref)) {
+            auto* m = static_cast<pulse_mesh_data_t*>(ref.ptr);
+            pulse_graphic_internal::UploadEntry entry{};
+            entry.content = pulse_graphic_internal::UPLOAD_BUFFER_DATA;
+            entry.buffer_data = m->index_buffer;
+            entry.data = data;
+            entry.data_size = count;
+            st->dynamic_updates.push_back(entry);
+            pulse_asset_release(app, &ref);
+        }
     }
 }
 

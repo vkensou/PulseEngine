@@ -1,4 +1,4 @@
-#include "graphic_internal.h"
+﻿#include "graphic_internal.h"
 #include <cstdlib>
 #include <cstring>
 #include <vector>
@@ -389,7 +389,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
         return pulse_asset_register_loader(app, &ld);
     };
 
-    register_loader(PULSE_TYPE_BYTECODE, "spv,dxc,obj,gltf,dds,ktx,png,jpg,bmp,tga",
+    register_loader(PULSE_TYPE_BYTECODE, "spv,dxc,gltf,dds,ktx,png,jpg,bmp,tga",
                     start_bytecode, step_bytecode, nullptr, nullptr);
     register_loader(PULSE_TYPE_SHADER, "vert",
                     start_shader_from_deps, step_shader_from_deps, destroy_shader_loader_state,
@@ -399,6 +399,9 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
     register_loader(PULSE_TYPE_TEXTURE, "ktx,dds,png,jpg,bmp,tga",
                     start_texture_from_deps, step_texture_from_deps, nullptr,
+                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
+    register_loader(PULSE_TYPE_MESH, "obj",
+                    start_mesh, step_mesh, destroy_mesh_loader_state,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
 
     GraphStateResource res{gstate};
@@ -437,19 +440,10 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     pulse_graphic_state* state = state_from_app(app);
     if (!state) return false;
     for (const auto& entry : state->pending_uploads) {
-        if (entry.handle.index == handle.index) return true;
+        if (entry.content == UPLOAD_TEXTURE && entry.texture.asset.index == handle.index) return true;
+        if (entry.content == UPLOAD_BUFFER && entry.buffer.asset.index == handle.index) return true;
     }
     return false;
-}
-
-void mark_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
-    pulse_graphic_state* state = state_from_app(app);
-    if (!state) return;
-    state->upload_pending = true;
-    pulse_graphic_state::UploadEntry entry{};
-    entry.handle = handle;
-    entry.is_texture = true;
-    state->pending_uploads.push_back(entry);
 }
 
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
@@ -457,7 +451,10 @@ void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     if (!state) return;
     auto& vec = state->pending_uploads;
     for (size_t i = 0; i < vec.size(); ) {
-        if (vec[i].handle.index == handle.index) {
+        bool match = false;
+        if (vec[i].content == UPLOAD_TEXTURE && vec[i].texture.asset.index == handle.index) match = true;
+        if (vec[i].content == UPLOAD_BUFFER && vec[i].buffer.asset.index == handle.index) match = true;
+        if (match) {
             vec.erase(vec.begin() + i);
         } else {
             ++i;

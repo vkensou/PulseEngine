@@ -68,6 +68,7 @@ typedef struct pulse_asset_load_task {
     uint64_t byte_size;
     const pulse_asset_handle* dependency_handles;
     uint32_t dependency_count;
+    pulse_asset_handle handle;
 } pulse_asset_load_task;
 
 typedef struct pulse_asset_progress {

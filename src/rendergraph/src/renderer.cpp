@@ -139,6 +139,7 @@ namespace HGEGraphics
 		mesh->prim_topology = prim_topology;
 		mesh->vertices_count = vertex_count;
 		mesh->index_count = index_count;
+		mesh->vertex_stride = 0;
 		for (auto i = 0; i < vertex_layout.attribute_count; ++i)
 		{
 			mesh->vertex_stride += vertex_layout.p_attributes[i].elem_stride;

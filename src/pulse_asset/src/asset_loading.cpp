@@ -116,6 +116,7 @@ void process_load_requests_system(ecs_iter_t* it) {
         active.ctx.path = slot->path.c_str();
         active.ctx.bytes = active.bytes.data();
         active.ctx.byte_size = static_cast<uint64_t>(active.bytes.size());
+        active.ctx.handle = active.handle;
 
         void* loader_state = nullptr;
         pulse_result_t begin_result = loader->desc.start(&active.ctx, &loader_state, loader->desc.user_data);
@@ -216,6 +217,7 @@ void process_load_requests_system(ecs_iter_t* it) {
                     active.ctx.byte_size = 0;
                     active.ctx.dependency_handles = active.dep_handles.data();
                     active.ctx.dependency_count = static_cast<uint32_t>(active.dep_handles.size());
+                    active.ctx.handle = slot_handle;
 
                     void* loader_state = nullptr;
                     pulse_result_t begin_result = loader->desc.start(&active.ctx, &loader_state, loader->desc.user_data);
