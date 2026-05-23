@@ -90,17 +90,17 @@ namespace HGEGraphics
 		cgpu_device_free_shader_library(cs.library->device, cs.library);
 	}
 
-	std::unique_ptr<Buffer> create_empty_buffer()
+	std::unique_ptr<pulse_buffer_data_t> create_empty_buffer()
 	{
-		auto buffer = new Buffer();
+		auto buffer = new pulse_buffer_data_t();
 		buffer->handle = CGPU_NULLPTR;
 		buffer->type = CGPU_RESOURCE_TYPE_NONE;
 		buffer->cur_state = CGPU_RESOURCE_STATE_UNDEFINED;
 		buffer->dynamic_handle = {};
-		return std::unique_ptr<Buffer>(buffer);
+		return std::unique_ptr<pulse_buffer_data_t>(buffer);
 	}
 
-	std::unique_ptr<Buffer> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc)
+	std::unique_ptr<pulse_buffer_data_t> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc)
 	{
 		auto buffer = create_empty_buffer();
 		buffer->handle = cgpu_device_create_buffer(device, &desc);
@@ -108,10 +108,10 @@ namespace HGEGraphics
 		return buffer;
 	}
 
-	Buffer::~Buffer()
+	void free_buffer(pulse_buffer_data_t* buffer)
 	{
-		if (handle)
-			cgpu_device_free_buffer(handle->device, handle);
+		if (buffer->handle)
+			cgpu_device_free_buffer(buffer->handle->device, buffer->handle);
 	}
 
 	std::unique_ptr<Mesh> create_empty_mesh()
@@ -222,6 +222,18 @@ namespace HGEGraphics
 		mesh->index_buffer->dynamic_handle = {};
 	}
 
+	void free_mesh(Mesh* mesh)
+	{
+		if (mesh->vertex_buffer)
+		{
+			free_buffer(mesh->vertex_buffer.get());
+		}
+		if (mesh->index_buffer)
+		{
+			free_buffer(mesh->index_buffer.get());
+		}
+	}
+
 	std::unique_ptr<Texture> create_empty_texture()
 	{
 		auto texture = new Texture();
@@ -290,6 +302,10 @@ namespace HGEGraphics
 	{
 		textures.clear();
 		samplers.clear();
+		for (auto binder : buffers)
+		{
+			free_buffer(binder.buffer);
+		}
 		buffers.clear();
 		shader = nullptr;
 		device = nullptr;
@@ -658,7 +674,7 @@ namespace HGEGraphics
 		encoder->context->global_sampler_table.push_back({ sampler, set, slot });
 	}
 
-	void set_global_buffer(RenderPassEncoder* encoder, Buffer* buffer, int set, int slot)
+	void set_global_buffer(RenderPassEncoder* encoder, pulse_buffer_data_t* buffer, int set, int slot)
 	{
 		encoder->context->global_buffer_table.push_back({ buffer, {}, set, slot, 0, 0 });
 	}

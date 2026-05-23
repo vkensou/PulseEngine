@@ -220,7 +220,7 @@ namespace HGEGraphics
 		, mipCount(mipCount), arraySize(arraySize), parent(parent), mipLevel(mipLevel), arraySlice(arraySlice)
 	{
 	}
-	CompiledResourceNode::CompiledResourceNode(const char* name, ManageType type, uint32_t size, Buffer* imported_buffer, ECGPUResourceTypeFlags bufferType, ECGPUMemoryUsage memoryUsage)
+	CompiledResourceNode::CompiledResourceNode(const char* name, ManageType type, uint32_t size, pulse_buffer_data_t* imported_buffer, ECGPUResourceTypeFlags bufferType, ECGPUMemoryUsage memoryUsage)
 		: name(name), resourceType(ResourceType::Buffer), manageType(type), size(size), width(0), height(0), depth(0), format(CGPU_TEXTURE_FORMAT_UNDEFINED), imported_texture(CGPU_NULLPTR), imported_buffer(imported_buffer), managered_texture(nullptr), managed_buffer(nullptr), bufferType(bufferType), memoryUsage(memoryUsage)
 		, mipCount(0), arraySize(0), parent(0), mipLevel(0), arraySlice(0)
 	{

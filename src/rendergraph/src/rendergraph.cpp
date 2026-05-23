@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include "drawer.h"
+#include "pulse_renderer_asset.h"
 
 using namespace HGEGraphics;
 
@@ -181,7 +182,7 @@ pulse_buffer_handle_t pulse_rendergraph_declare_buffer(pulse_rendergraph_t* self
 pulse_buffer_handle_t pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, void* imported)
 {
 	auto* impl = to_impl(self);
-	auto* buf = (Buffer*)imported;
+	auto* buf = (pulse_buffer_data_t*)imported;
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
@@ -199,7 +200,7 @@ pulse_buffer_handle_t pulse_rendergraph_import_buffer(pulse_rendergraph_t* self,
 pulse_buffer_handle_t pulse_rendergraph_import_dynamic_buffer(pulse_rendergraph_t* self, void* imported)
 {
 	auto* impl = to_impl(self);
-	auto* buf = (Buffer*)imported;
+	auto* buf = (pulse_buffer_data_t*)imported;
 	if (is_valid_dynamic_buffer_handle(impl->resources, buf->dynamic_handle))
 		return buf->dynamic_handle;
 

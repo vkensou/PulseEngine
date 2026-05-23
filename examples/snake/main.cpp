@@ -165,7 +165,7 @@ struct BindBuffer
 {
 	int set;
 	int bind;
-	HGEGraphics::Buffer* buffer;
+	pulse_buffer_data_t* buffer;
 };
 
 struct BindTexture

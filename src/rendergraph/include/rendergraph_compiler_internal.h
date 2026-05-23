@@ -53,7 +53,7 @@ namespace HGEGraphics
 		ResourceType resourceType;
 		ManageType manageType;
 		Texture* texture;
-		Buffer* buffer;
+		pulse_buffer_data_t* buffer;
 		uint16_t width;
 		uint16_t height;
 		uint16_t depth;
@@ -148,7 +148,7 @@ namespace HGEGraphics
 		Shader* blitShader;
 		CGPUSamplerId blitSampler;
 		std::pmr::vector<Texture*> imported_textures;
-		std::pmr::vector<Buffer*> imported_buffers;
+		std::pmr::vector<pulse_buffer_data_t*> imported_buffers;
 	};
 
 	inline pulse_rendergraph_impl_t* to_impl(pulse_rendergraph_t* h) { return (pulse_rendergraph_impl_t*)h; }

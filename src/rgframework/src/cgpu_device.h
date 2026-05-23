@@ -23,7 +23,7 @@ struct oval_transfer_data_to_texture
 
 struct oval_transfer_data_to_buffer
 {
-	HGEGraphics::Buffer* buffer;
+	pulse_buffer_data_t* buffer;
 	uint8_t* data;
 	uint64_t size;
 };

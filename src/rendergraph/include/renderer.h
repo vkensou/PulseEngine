@@ -17,6 +17,7 @@
 #include "profiler.h"
 #include "resource_type.h"
 #include "rendergraph.h"
+#include "pulse_renderer_asset.h"
 
 namespace HGEGraphics
 {
@@ -47,17 +48,8 @@ namespace HGEGraphics
 
 	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length);
 
-	struct Buffer
-	{
-		~Buffer();
-
-		CGPUBufferId handle;
-		ECGPUResourceTypeFlags type;
-		ECGPUResourceStateFlags cur_state;
-		pulse_buffer_handle_t dynamic_handle;
-	};
-
-	std::unique_ptr<Buffer> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
+	std::unique_ptr<pulse_buffer_data_t> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
+	void free_buffer(pulse_buffer_data_t* buffer);
 
 	struct Mesh
 	{
@@ -68,8 +60,8 @@ namespace HGEGraphics
 		uint32_t index_stride;
 		uint32_t vertices_count;
 		uint32_t index_count;
-		std::unique_ptr<Buffer> vertex_buffer;
-		std::unique_ptr<Buffer> index_buffer;
+		std::unique_ptr<pulse_buffer_data_t> vertex_buffer;
+		std::unique_ptr<pulse_buffer_data_t> index_buffer;
 		bool prepared;
 	};
 
@@ -80,6 +72,7 @@ namespace HGEGraphics
 	pulse_buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
 	pulse_buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
 	void dynamic_mesh_reset(Mesh* mesh);
+	void free_mesh(Mesh* mesh);
 
 	struct Texture
 	{
@@ -104,7 +97,7 @@ namespace HGEGraphics
 		{
 			int set;
 			int bind;
-			Buffer* buffer;
+			pulse_buffer_data_t* buffer;
 		};
 
 		struct BindTexture
@@ -126,7 +119,7 @@ namespace HGEGraphics
 		std::vector<BindBuffer> buffers;
 		std::vector<BindTexture> textures;
 		std::vector<BindSampler> samplers;
-		std::vector<std::unique_ptr<Buffer>> ownedBuffers;
+		std::vector<std::unique_ptr<pulse_buffer_data_t>> ownedBuffers;
 
 	public:
 		Material(CGPUDeviceId device, Shader* shader);
@@ -170,7 +163,7 @@ namespace HGEGraphics
 
 	struct ShaderBufferBinder
 	{
-		Buffer* buffer;
+		pulse_buffer_data_t* buffer;
 		pulse_buffer_handle_t buffer_handle;
 		int set, bind;
 		uint64_t offset, size;

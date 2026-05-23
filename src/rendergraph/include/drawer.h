@@ -5,6 +5,8 @@
 #include "cgpu/api.h"
 #include "renderer.h"
 
+struct pulse_buffer_data_t;
+
 namespace HGEGraphics
 {
 	struct RenderPassEncoder;
@@ -13,7 +15,6 @@ namespace HGEGraphics
 	struct ComputeShader;
 	struct Mesh;
 	struct Texture;
-	struct Buffer;
 	struct Material;
 
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth);
@@ -29,7 +30,7 @@ namespace HGEGraphics
 	void set_global_texture(RenderPassEncoder* encoder, Texture* texture, int set, int slot);
 	void set_global_texture_handle(RenderPassEncoder* encoder, pulse_texture_handle_t texture, int set, int slot);
 	void set_global_sampler(RenderPassEncoder* encoder, CGPUSamplerId sampler, int set, int slot);
-	void set_global_buffer(RenderPassEncoder* encoder, Buffer* buffer, int set, int slot);
+	void set_global_buffer(RenderPassEncoder* encoder, pulse_buffer_data_t* buffer, int set, int slot);
 	void set_global_dynamic_buffer(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot);
 	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size);
 	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data);

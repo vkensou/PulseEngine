@@ -114,13 +114,13 @@ namespace HGEGraphics
 		return { h.index };
 	}
 
-	inline buffer_handle_t rendergraph_import_buffer(rendergraph_t* self, Buffer* imported)
+	inline buffer_handle_t rendergraph_import_buffer(rendergraph_t* self, pulse_buffer_data_t* imported)
 	{
 		pulse_buffer_handle_t h = pulse_rendergraph_import_buffer(*self, imported);
 		return { h.index };
 	}
 
-	inline buffer_handle_t rendergraph_import_dynamic_buffer(rendergraph_t* self, Buffer* imported)
+	inline buffer_handle_t rendergraph_import_dynamic_buffer(rendergraph_t* self, pulse_buffer_data_t* imported)
 	{
 		pulse_buffer_handle_t h = pulse_rendergraph_import_dynamic_buffer(*self, imported);
 		return { h.index };

@@ -1008,6 +1008,10 @@ void oval_free_device(oval_device_t* device)
 	}
 
 	D->materials.clear();
+	for (size_t i = 0; i < D->meshes.size(); ++i)
+	{
+		free_mesh(D->meshes[i].get());
+	}
 	D->meshes.clear();
 	D->shaders.clear();
 	D->computeShaders.clear();

@@ -69,7 +69,7 @@ void oval_free_sampler(oval_device_t* device, CGPUSamplerId sampler)
 	//cgpu_device_free_sampler(sampler->device, sampler);
 }
 
-HGEGraphics::Buffer* oval_create_buffer(oval_device_t* device, const CGPUBufferDescriptor* desc)
+pulse_buffer_data_t* oval_create_buffer(oval_device_t* device, const CGPUBufferDescriptor* desc)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto buffer = HGEGraphics::create_buffer(D->device, *desc);
@@ -77,7 +77,7 @@ HGEGraphics::Buffer* oval_create_buffer(oval_device_t* device, const CGPUBufferD
 	return ptr;
 }
 
-void oval_free_buffer(oval_device_t* device, HGEGraphics::Buffer* buffer)
+void oval_free_buffer(oval_device_t* device, pulse_buffer_data_t* buffer)
 {
 	delete buffer;
 }
@@ -106,7 +106,7 @@ bool oval_mesh_prepared(oval_device_t* device, HGEGraphics::Mesh* mesh)
 	return mesh->prepared;
 }
 
-HGEGraphics::Buffer* oval_mesh_get_vertex_buffer(oval_device_t* device, HGEGraphics::Mesh* mesh)
+pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, HGEGraphics::Mesh* mesh)
 {
 	return mesh->vertex_buffer.get();
 }

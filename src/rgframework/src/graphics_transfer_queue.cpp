@@ -19,7 +19,7 @@ void oval_graphics_transfer_queue_submit(oval_device_t* device, oval_graphics_tr
 	D->transfer_queue.push_back(queue);
 }
 
-uint8_t* oval_graphics_transfer_queue_transfer_data_to_buffer(oval_graphics_transfer_queue_t queue, uint64_t size, HGEGraphics::Buffer* buffer)
+uint8_t* oval_graphics_transfer_queue_transfer_data_to_buffer(oval_graphics_transfer_queue_t queue, uint64_t size, pulse_buffer_data_t* buffer)
 {
 	assert(size > 0);
 	assert(buffer != nullptr);
