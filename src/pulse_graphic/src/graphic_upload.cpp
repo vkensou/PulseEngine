@@ -19,7 +19,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
             (void)tex_handle;
         } else {
             pulse_mesh_data_t* mesh = static_cast<pulse_mesh_data_t*>(ref.ptr);
-            pulse_buffer_handle_t vbuf = pulse_rendergraph_import_buffer(graph, (void*)mesh->vertex_buffer);
+            pulse_buffer_handle_t vbuf = pulse_rendergraph_import_buffer(graph, mesh->vertex_buffer);
             (void)vbuf;
         }
         pulse_asset_release(app, &ref);
@@ -30,7 +30,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
         pulse_asset_ref ref{};
         if (!pulse_asset_acquire(app, entry.handle, &ref)) continue;
         pulse_mesh_data_t* mesh = static_cast<pulse_mesh_data_t*>(ref.ptr);
-        pulse_buffer_handle_t vbuf = pulse_rendergraph_import_buffer(graph, (void*)mesh->vertex_buffer);
+        pulse_buffer_handle_t vbuf = pulse_rendergraph_import_buffer(graph, mesh->vertex_buffer);
         (void)vbuf;
         pulse_asset_release(app, &ref);
     }

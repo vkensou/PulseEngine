@@ -18,10 +18,6 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
     CGPUVertexLayout use_layout = *layout;
     uint32_t use_idx_stride = (index_stride == 0 && index_count > 0) ? sizeof(uint32_t) : index_stride;
 
-    auto cpp_mesh = HGEGraphics::create_mesh(device, vertex_count, index_count,
-        topology, use_layout, use_idx_stride, false, false);
-    if (!cpp_mesh) return result;
-
     pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
         app, PULSE_TYPE_MESH, "", nullptr, 0);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
@@ -29,17 +25,7 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, asset_handle, &ref)) {
         pulse_mesh_data_t* mesh = static_cast<pulse_mesh_data_t*>(ref.ptr);
-        mesh->vertex_layout = use_layout;
-        mesh->vertex_stride = vertex_stride;
-        mesh->index_stride = use_idx_stride;
-        mesh->vertices_count = vertex_count;
-        mesh->index_count = index_count;
-        mesh->prim_topology = topology;
-        mesh->vertex_buffer = cpp_mesh->vertex_buffer->handle;
-        mesh->index_buffer = cpp_mesh->index_buffer ? cpp_mesh->index_buffer->handle : CGPU_NULLPTR;
-        mesh->has_index_buffer = (index_data && index_count > 0);
-        cpp_mesh->vertex_buffer->handle = CGPU_NULLPTR;
-        if (cpp_mesh->index_buffer) cpp_mesh->index_buffer->handle = CGPU_NULLPTR;
+        HGEGraphics::init_mesh(mesh, device, vertex_count, index_count, topology, use_layout, use_idx_stride, false, false);
         pulse_asset_release(app, &ref);
     }
 
@@ -62,10 +48,6 @@ pulse_mesh_t pulse_graphic_mesh_create_dynamic(
     CGPUDeviceId device = pulse_graphic_internal::get_device(app);
     if (!device || !layout) return result;
 
-    uint32_t use_idx_stride = (index_stride == 0) ? sizeof(uint32_t) : index_stride;
-    auto cpp_mesh = HGEGraphics::create_dynamic_mesh(topology, *layout, use_idx_stride);
-    if (!cpp_mesh) return result;
-
     pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
         app, PULSE_TYPE_MESH, "", nullptr, 0);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
@@ -74,16 +56,20 @@ pulse_mesh_t pulse_graphic_mesh_create_dynamic(
     if (pulse_asset_acquire(app, asset_handle, &ref)) {
         pulse_mesh_data_t* mesh = static_cast<pulse_mesh_data_t*>(ref.ptr);
         mesh->vertex_layout = *layout;
-        mesh->vertex_stride = vertex_stride;
-        mesh->index_stride = use_idx_stride;
-        mesh->vertices_count = max_vertex_count;
-        mesh->index_count = max_index_count;
+        mesh->p_vertex_attributes = new CGPUVertexAttribute[layout->attribute_count];
+        std::copy(layout->p_attributes, layout->p_attributes + layout->attribute_count, mesh->p_vertex_attributes);
+        mesh->vertex_layout.p_attributes = mesh->p_vertex_attributes;
         mesh->prim_topology = topology;
-        mesh->vertex_buffer = cpp_mesh->vertex_buffer->handle;
-        mesh->index_buffer = cpp_mesh->index_buffer ? cpp_mesh->index_buffer->handle : CGPU_NULLPTR;
-        mesh->has_index_buffer = (max_index_count > 0);
-        cpp_mesh->vertex_buffer->handle = CGPU_NULLPTR;
-        if (cpp_mesh->index_buffer) cpp_mesh->index_buffer->handle = CGPU_NULLPTR;
+        mesh->vertices_count = 0;
+        mesh->vertex_stride = 0;
+        for (auto i = 0; i < layout->attribute_count; ++i)
+        {
+            mesh->vertex_stride += layout->p_attributes[i].elem_stride;
+        }
+        mesh->index_stride = index_stride;
+        mesh->vertex_buffer = HGEGraphics::create_empty_buffer();
+        mesh->index_buffer = HGEGraphics::create_empty_buffer();
+        mesh->prepared = true;
         pulse_asset_release(app, &ref);
     }
 

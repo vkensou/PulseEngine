@@ -310,8 +310,8 @@ static void destroy_compute_shader(void* ptr, void* user_data) {
 static void destroy_mesh(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_mesh_data_t* data = static_cast<pulse_mesh_data_t*>(ptr);
-    if (data->vertex_buffer) cgpu_device_free_buffer(device, data->vertex_buffer);
-    if (data->index_buffer) cgpu_device_free_buffer(device, data->index_buffer);
+    if (data->vertex_buffer) cgpu_device_free_buffer(device, data->vertex_buffer->handle);
+    if (data->index_buffer) cgpu_device_free_buffer(device, data->index_buffer->handle);
 }
 
 static void destroy_texture(void* ptr, void* user_data) {

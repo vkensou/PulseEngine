@@ -186,9 +186,8 @@ pulse_mesh_t pulse_graphic_mesh_load(pulse_app_t app, const char* filepath)
         mesh->vertices_count = vcount;
         mesh->index_count    = icount;
         mesh->prim_topology  = CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        mesh->vertex_buffer  = vbuf;
-        mesh->index_buffer   = ibuf;
-        mesh->has_index_buffer = icount > 0;
+        mesh->vertex_buffer  = nullptr;
+        mesh->index_buffer   = nullptr;
         pulse_asset_release(app, &ref);
     }
 

@@ -109,7 +109,7 @@ void pulse_graphic_material_bind_buffer(
     MaterialInternal* internal = get_material_internal(material->asset);
     if (internal) {
         internal->bindings.push_back({0, set, binding, buffer.asset});
-        internal->cpp_material->bindBuffer((int)set, (int)binding, buf_data->size, nullptr);
+        internal->cpp_material->bindBuffer((int)set, (int)binding, buf_data->handle->info->size, nullptr);
     }
 
     pulse_asset_release(app, &mat_ref);

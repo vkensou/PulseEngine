@@ -285,7 +285,7 @@ void render_execute_graph_system_run(ecs_iter_t* it) {
             imported->dynamic_handle = {};
         }
     }
-    for (HGEGraphics::Buffer* imported : graph_impl->imported_buffers) {
+    for (pulse_buffer_data_t* imported : graph_impl->imported_buffers) {
         if (imported) {
             imported->dynamic_handle = {};
         }

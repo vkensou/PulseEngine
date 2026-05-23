@@ -24,7 +24,6 @@ pulse_buffer_t pulse_graphic_buffer_create(
         pulse_buffer_data_t* buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
         buf->handle = cpp_buffer->handle;
         buf->type = desc->descriptors;
-        buf->size = desc->size;
         cpp_buffer->handle = CGPU_NULLPTR;
         pulse_asset_release(app, &ref);
     }

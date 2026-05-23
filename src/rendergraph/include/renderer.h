@@ -48,6 +48,7 @@ namespace HGEGraphics
 
 	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length);
 
+	pulse_buffer_data_t* create_empty_buffer();
 	pulse_buffer_data_t* create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
 	void free_buffer(pulse_buffer_data_t* buffer);
 
