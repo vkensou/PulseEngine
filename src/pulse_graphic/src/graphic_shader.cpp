@@ -1,24 +1,6 @@
 #include "graphic_internal.h"
 #include "renderer.h"
 #include <cstring>
-#include <vector>
-#include <cstdio>
-
-static std::vector<uint8_t> read_file_to_bytes(const char* path) {
-    std::vector<uint8_t> result;
-    if (!path || !path[0]) return result;
-    FILE* f = nullptr;
-    fopen_s(&f, path, "rb");
-    if (!f) return result;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    if (len <= 0) { fclose(f); return result; }
-    fseek(f, 0, SEEK_SET);
-    result.resize(static_cast<size_t>(len));
-    fread(result.data(), 1, result.size(), f);
-    fclose(f);
-    return result;
-}
 
 namespace pulse_graphic_internal {
 
@@ -125,32 +107,6 @@ pulse_shader_t pulse_graphic_compute_shader_create_from_binary(
 {
     return create_shader_impl(app, nullptr, 0, nullptr, 0,
         true, cs_data, cs_size, nullptr, nullptr, nullptr);
-}
-
-pulse_shader_t pulse_graphic_shader_load(
-    pulse_app_t app,
-    const char* vert_path,
-    const char* frag_path,
-    const CGPUBlendStateDescriptor* blend_desc,
-    const CGPUDepthStateDescriptor* depth_desc,
-    const CGPURasterizerStateDescriptor* rasterizer_state)
-{
-    auto vs = read_file_to_bytes(vert_path);
-    auto fs = read_file_to_bytes(frag_path);
-    if (vs.empty() || fs.empty()) return pulse_shader_t{};
-    return pulse_graphic_shader_create_from_binary(
-        app, vs.data(), (uint32_t)vs.size(), fs.data(), (uint32_t)fs.size(),
-        blend_desc, depth_desc, rasterizer_state);
-}
-
-pulse_shader_t pulse_graphic_compute_shader_load(
-    pulse_app_t app,
-    const char* comp_path)
-{
-    auto cs = read_file_to_bytes(comp_path);
-    if (cs.empty()) return pulse_shader_t{};
-    return pulse_graphic_compute_shader_create_from_binary(
-        app, cs.data(), (uint32_t)cs.size());
 }
 
 pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_t* handle) {

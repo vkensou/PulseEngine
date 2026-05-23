@@ -13,6 +13,7 @@ static uint8_t dummy_spv[16] = {0x03, 0x02, 0x23, 0x07, 0x00, 0x00, 0x00, 0x00,
 
 struct test_graphic_resources {
     pulse_shader_t shader;
+    pulse_shader_t compute;
     pulse_buffer_t buffer;
     pulse_sampler_t sampler;
     pulse_texture_t texture;
@@ -25,6 +26,7 @@ struct test_render_passdata {
     pulse_material_t material;
     pulse_mesh_t mesh;
     pulse_shader_t shader;
+    pulse_shader_t compute;
     pulse_texture_t texture;
     pulse_buffer_t buffer;
 };
@@ -42,6 +44,7 @@ static void on_test_render(pulse_renderpass_encoder_t* encoder, void* userdata) 
     pulse_encoder_draw(encoder, data->material, data->mesh);
     pulse_encoder_draw_submesh(encoder, data->material, data->mesh, 3, 0, 3, 0);
     pulse_encoder_draw_procedure(encoder, data->material, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
+    pulse_encoder_dispatch(encoder, data->compute, 1, 1, 1);
     pulse_encoder_set_global_texture(encoder, data->texture, 0, 0);
     pulse_encoder_set_global_buffer(encoder, data->buffer, 0, 0);
     pulse_encoder_set_global_sampler(encoder, pulse_sampler_t{}, 0, 0);
@@ -77,6 +80,7 @@ static void record_test_graphic(
         passdata->material = resources->material;
         passdata->mesh = resources->mesh;
         passdata->shader = resources->shader;
+        passdata->compute = resources->compute;
         passdata->texture = resources->texture;
         passdata->buffer = resources->buffer;
     }
@@ -104,9 +108,12 @@ int main(void) {
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
     // ---- Create resources ----
-    pulse_shader_t shader = pulse_graphic_shader_load(
-        app, "color.vert.spv", "color.frag.spv",
+    pulse_shader_t shader = pulse_graphic_shader_create_from_binary(
+        app, dummy_spv, sizeof(dummy_spv), dummy_spv, sizeof(dummy_spv),
         nullptr, nullptr, nullptr);
+
+    pulse_shader_t compute = pulse_graphic_compute_shader_create_from_binary(
+        app, dummy_spv, sizeof(dummy_spv));
 
     CGPUBufferDescriptor buf_desc{};
     buf_desc.size = 256;
@@ -153,6 +160,9 @@ int main(void) {
     if (shader_data) pulse_graphic_shader_release(app, &shader);
     pulse_graphic_is_available(app, shader);
 
+    pulse_compute_shader_data_t* cs_data = pulse_graphic_compute_shader_acquire(app, &compute);
+    if (cs_data) pulse_graphic_shader_release(app, &compute);
+
     pulse_buffer_data_t* buf_data = pulse_graphic_buffer_acquire(app, &buffer);
     if (buf_data) pulse_graphic_buffer_release(app, &buffer);
 
@@ -178,7 +188,7 @@ int main(void) {
     if (dyn_data) pulse_graphic_mesh_release(app, &dyn_mesh);
 
     // ---- Register record callback with graphic resources ----
-    test_graphic_resources resources{shader, buffer, sampler, texture, mesh, material};
+    test_graphic_resources resources{shader, compute, buffer, sampler, texture, mesh, material};
     pulse_cgpu_renderer_record_callback_desc cb_desc{};
     cb_desc.callback = record_test_graphic;
     cb_desc.user_data = &resources;
@@ -187,12 +197,6 @@ int main(void) {
 
     // Run a single update to exercise plugin pipeline
     pulse_app_update(app);
-
-    // ---- Load API (linkage test: files don't exist on disk) ----
-    pulse_graphic_shader_load(app, "vert.spv", "frag.spv", nullptr, nullptr, nullptr);
-    pulse_graphic_compute_shader_load(app, "comp.spv");
-    pulse_graphic_texture_load(app, "tex.dds", false);
-    pulse_graphic_mesh_load(app, "model.obj");
 
     pulse_app_destroy(app);
 

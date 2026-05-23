@@ -107,14 +107,6 @@ void pulse_graphic_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, cons
     }
 }
 
-pulse_mesh_t pulse_graphic_mesh_load(
-    pulse_app_t app,
-    const char* filepath)
-{
-    (void)app; (void)filepath;
-    return pulse_mesh_t{};
-}
-
 pulse_mesh_data_t* pulse_graphic_mesh_acquire(pulse_app_t app, pulse_mesh_t* handle) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, handle->asset, &ref)) {
