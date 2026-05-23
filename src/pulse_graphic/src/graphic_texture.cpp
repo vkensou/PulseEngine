@@ -42,6 +42,15 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
     return result;
 }
 
+pulse_texture_t pulse_graphic_texture_load(
+    pulse_app_t app,
+    const char* filepath,
+    bool mipmap)
+{
+    (void)app; (void)filepath; (void)mipmap;
+    return pulse_texture_t{};
+}
+
 pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t* handle) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, handle->asset, &ref)) {
