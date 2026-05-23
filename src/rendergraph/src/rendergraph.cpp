@@ -179,21 +179,20 @@ pulse_buffer_handle_t pulse_rendergraph_declare_buffer(pulse_rendergraph_t* self
 	return make_buffer_handle(impl->resources.size() - 1);
 }
 
-pulse_buffer_handle_t pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, void* imported)
+pulse_buffer_handle_t pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, pulse_buffer_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	auto* buf = (pulse_buffer_data_t*)imported;
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	resourceNode.resourceType = ResourceType::Buffer;
 	resourceNode.width = 0;
 	resourceNode.memoryUsage = CGPU_MEMORY_USAGE_UNKNOWN;
-	resourceNode.buffer = buf;
+	resourceNode.buffer = imported;
 	resourceNode.manageType = ManageType::Imported;
-	resourceNode.size = buf->handle->info->size;
-	resourceNode.bufferType = buf->type;
-	resourceNode.memoryUsage = (ECGPUMemoryUsage)buf->handle->info->memory_usage;
+	resourceNode.size = imported->handle->info->size;
+	resourceNode.bufferType = imported->type;
+	resourceNode.memoryUsage = (ECGPUMemoryUsage)imported->handle->info->memory_usage;
 	return make_buffer_handle(impl->resources.size() - 1);
 }
 

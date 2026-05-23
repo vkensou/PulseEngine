@@ -73,7 +73,7 @@ pulse_buffer_data_t* oval_create_buffer(oval_device_t* device, const CGPUBufferD
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto buffer = HGEGraphics::create_buffer(D->device, *desc);
-	auto ptr = buffer.release();
+	auto ptr = buffer;
 	return ptr;
 }
 
@@ -108,7 +108,7 @@ bool oval_mesh_prepared(oval_device_t* device, pulse_mesh_data_t* mesh)
 
 pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
-	return mesh->vertex_buffer.get();
+	return mesh->vertex_buffer;
 }
 
 HGEGraphics::Texture* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap)
@@ -205,7 +205,7 @@ uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, pulse_mesh_da
 	uint64_t vertex_data_size = mesh->vertices_count * mesh->vertex_stride;
 	if (size)
 		*size = vertex_data_size;
-	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, vertex_data_size, mesh->vertex_buffer.get());
+	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, vertex_data_size, mesh->vertex_buffer);
 }
 
 uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size)
@@ -220,7 +220,7 @@ uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, pulse_mesh_dat
 
 	if (size)
 		*size = index_data_size;
-	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, index_data_size, mesh->index_buffer.get());
+	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, index_data_size, mesh->index_buffer);
 }
 
 uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::Texture* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)

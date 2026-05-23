@@ -48,7 +48,7 @@ namespace HGEGraphics
 
 	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length);
 
-	std::unique_ptr<pulse_buffer_data_t> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
+	pulse_buffer_data_t* create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
 	void free_buffer(pulse_buffer_data_t* buffer);
 
 	std::unique_ptr<pulse_mesh_data_t> create_empty_mesh();
@@ -105,7 +105,7 @@ namespace HGEGraphics
 		std::vector<BindBuffer> buffers;
 		std::vector<BindTexture> textures;
 		std::vector<BindSampler> samplers;
-		std::vector<std::unique_ptr<pulse_buffer_data_t>> ownedBuffers;
+		std::vector<pulse_buffer_data_t*> ownedBuffers;
 
 	public:
 		Material(CGPUDeviceId device, Shader* shader);

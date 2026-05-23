@@ -18,14 +18,14 @@ struct pulse_buffer_data_t
 struct pulse_mesh_data_t
 {
 	CGPUVertexLayout vertex_layout;
-	std::vector<CGPUVertexAttribute> vertex_attributes;
+	CGPUVertexAttribute* p_vertex_attributes;
 	ECGPUPrimitiveTopology prim_topology;
 	uint32_t vertex_stride;
 	uint32_t index_stride;
 	uint32_t vertices_count;
 	uint32_t index_count;
-	std::unique_ptr<pulse_buffer_data_t> vertex_buffer;
-	std::unique_ptr<pulse_buffer_data_t> index_buffer;
+	pulse_buffer_data_t* vertex_buffer;
+	pulse_buffer_data_t* index_buffer;
 	bool prepared;
 };
 

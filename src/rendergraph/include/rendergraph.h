@@ -2,6 +2,7 @@
 
 #include "cgpu/api.h"
 #include "resource_type.h"
+#include "pulse_renderer_asset.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,7 +41,7 @@ pulse_texture_handle_t pulse_rendergraph_declare_texture(pulse_rendergraph_t* se
 pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, void* imported);
 pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, void* imported_backbuffer);
 pulse_buffer_handle_t  pulse_rendergraph_declare_buffer(pulse_rendergraph_t* self);
-pulse_buffer_handle_t  pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, void* imported);
+pulse_buffer_handle_t  pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, pulse_buffer_data_t* imported);
 pulse_buffer_handle_t  pulse_rendergraph_import_dynamic_buffer(pulse_rendergraph_t* self, void* imported);
 pulse_buffer_handle_t  pulse_rendergraph_declare_uniform_buffer_quick(pulse_rendergraph_t* self, uint32_t size, void* data);
 pulse_texture_handle_t pulse_rendergraph_declare_texture_subresource(pulse_rendergraph_t* self, pulse_texture_handle_t parent, uint8_t mip_level, uint8_t array_slice);
