@@ -6,6 +6,7 @@
 #include "renderer.h"
 
 struct pulse_buffer_data_t;
+struct pulse_mesh_data_t;
 
 namespace HGEGraphics
 {
@@ -13,18 +14,17 @@ namespace HGEGraphics
 	struct UploadEncoder;
 	struct Shader;
 	struct ComputeShader;
-	struct Mesh;
 	struct Texture;
 	struct Material;
 
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth);
 	void set_scissor(RenderPassEncoder* encoder, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 	void push_constants(RenderPassEncoder* encoder, Shader* shader, const char* name, const void* data);
-	void draw(RenderPassEncoder* encoder, Shader* shader, Mesh* mesh);
-	void draw_submesh(RenderPassEncoder* encoder, Shader* shader, Mesh* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
+	void draw(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh);
+	void draw_submesh(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
 	void draw_procedure(RenderPassEncoder* encoder, Shader* shader, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
-	void draw(RenderPassEncoder* encoder, Material* material, Mesh* mesh);
-	void draw_submesh(RenderPassEncoder* encoder, Material* material, Mesh* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
+	void draw(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh);
+	void draw_submesh(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
 	void draw_procedure(RenderPassEncoder* encoder, Material* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
 	void dispatch(RenderPassEncoder* encoder, ComputeShader* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z);
 	void set_global_texture(RenderPassEncoder* encoder, Texture* texture, int set, int slot);

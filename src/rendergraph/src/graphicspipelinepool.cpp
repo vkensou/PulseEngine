@@ -16,7 +16,7 @@ namespace HGEGraphics
 			dynamic_state_t3 = (_dynamic_state_features & CGPU_DYNAMIC_STATE_FEATURES_TIER3) != 0;
 		}
 	}
-	GraphicsPipeline* GraphicsPipelinePool::getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, Mesh* mesh)
+	GraphicsPipeline* GraphicsPipelinePool::getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh)
     {
 		return getGraphicsPipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
 	}

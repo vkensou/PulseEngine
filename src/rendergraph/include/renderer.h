@@ -51,28 +51,14 @@ namespace HGEGraphics
 	std::unique_ptr<pulse_buffer_data_t> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
 	void free_buffer(pulse_buffer_data_t* buffer);
 
-	struct Mesh
-	{
-		CGPUVertexLayout vertex_layout;
-		std::vector<CGPUVertexAttribute> vertex_attributes;
-		ECGPUPrimitiveTopology prim_topology;
-		uint32_t vertex_stride;
-		uint32_t index_stride;
-		uint32_t vertices_count;
-		uint32_t index_count;
-		std::unique_ptr<pulse_buffer_data_t> vertex_buffer;
-		std::unique_ptr<pulse_buffer_data_t> index_buffer;
-		bool prepared;
-	};
-
-	std::unique_ptr<Mesh> create_empty_mesh();
-	void init_mesh(Mesh* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
-	std::unique_ptr<Mesh> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
-	std::unique_ptr<Mesh> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
-	pulse_buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
-	pulse_buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
-	void dynamic_mesh_reset(Mesh* mesh);
-	void free_mesh(Mesh* mesh);
+	std::unique_ptr<pulse_mesh_data_t> create_empty_mesh();
+	void init_mesh(pulse_mesh_data_t* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
+	std::unique_ptr<pulse_mesh_data_t> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
+	std::unique_ptr<pulse_mesh_data_t> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
+	pulse_buffer_handle_t declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count);
+	pulse_buffer_handle_t declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count);
+	void dynamic_mesh_reset(pulse_mesh_data_t* mesh);
+	void free_mesh(pulse_mesh_data_t* mesh);
 
 	struct Texture
 	{

@@ -13,7 +13,7 @@ namespace pulse
 	{
 		oval_device_t* device;
 		std::vector<HGEGraphics::Shader*> shaders;
-		std::vector<HGEGraphics::Mesh*> meshes;
+		std::vector<pulse_mesh_data_t*> meshes;
 		std::vector<HGEGraphics::Material*> materials;
 	};
 

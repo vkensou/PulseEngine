@@ -105,7 +105,7 @@ std::tuple<std::pmr::vector<TexturedVertex>*, std::pmr::vector<uint32_t>*> LoadO
 	return { vertices, indices };
 }
 
-uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Mesh* mesh, const char* filepath)
+uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_mesh_data_t* mesh, const char* filepath)
 {
 	auto [data, indices] = LoadObjModel(filepath, true, device->memory_resource);
 

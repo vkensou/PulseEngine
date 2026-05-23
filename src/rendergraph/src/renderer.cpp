@@ -114,9 +114,9 @@ namespace HGEGraphics
 			cgpu_device_free_buffer(buffer->handle->device, buffer->handle);
 	}
 
-	std::unique_ptr<Mesh> create_empty_mesh()
+	std::unique_ptr<pulse_mesh_data_t> create_empty_mesh()
 	{
-		auto mesh = new Mesh();
+		auto mesh = new pulse_mesh_data_t();
 		mesh->vertex_layout = {};
 		mesh->prim_topology = CGPU_PRIMITIVE_TOPOLOGY_POINT_LIST;
 		mesh->vertices_count = 0;
@@ -125,10 +125,10 @@ namespace HGEGraphics
 		mesh->vertex_buffer = nullptr;
 		mesh->index_buffer = nullptr;
 		mesh->prepared = false;
-		return std::unique_ptr<Mesh>(mesh);
+		return std::unique_ptr<pulse_mesh_data_t>(mesh);
 	}
 
-	void init_mesh(Mesh* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
+	void init_mesh(pulse_mesh_data_t* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
 	{
 		mesh->vertex_layout = vertex_layout;
 		mesh->vertex_attributes.resize(vertex_layout.attribute_count);
@@ -164,14 +164,14 @@ namespace HGEGraphics
 		mesh->prepared = false;
 	}
 
-	std::unique_ptr<Mesh> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
+	std::unique_ptr<pulse_mesh_data_t> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
 	{
 		auto mesh = create_empty_mesh();
 		init_mesh(mesh.get(), device, vertex_count, index_count, prim_topology, vertex_layout, index_stride, update_vertex_data_from_compute_shader, update_index_data_from_compute_shader);
 		return mesh;
 	}
 
-	std::unique_ptr<Mesh> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
+	std::unique_ptr<pulse_mesh_data_t> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
 	{
 		auto mesh = create_empty_mesh();
 		mesh->vertex_layout = vertex_layout;
@@ -192,7 +192,7 @@ namespace HGEGraphics
 		return mesh;
 	}
 
-	pulse_buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count)
+	pulse_buffer_handle_t declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count)
 	{
 		auto dynamic_vertex_buffer = pulse_rendergraph_import_dynamic_buffer(rg, mesh->vertex_buffer.get());
 		pulse_rendergraph_buffer_set_size(rg, dynamic_vertex_buffer, count * mesh->vertex_stride);
@@ -203,7 +203,7 @@ namespace HGEGraphics
 		return mesh->vertex_buffer->dynamic_handle;
 	}
 
-	pulse_buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count)
+	pulse_buffer_handle_t declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count)
 	{
 		auto dynamic_index_buffer = pulse_rendergraph_import_dynamic_buffer(rg, mesh->index_buffer.get());
 		pulse_rendergraph_buffer_set_size(rg, dynamic_index_buffer, count * mesh->index_stride);
@@ -214,7 +214,7 @@ namespace HGEGraphics
 		return mesh->index_buffer->dynamic_handle;
 	}
 
-	void dynamic_mesh_reset(Mesh* mesh)
+	void dynamic_mesh_reset(pulse_mesh_data_t* mesh)
 	{
 		mesh->vertices_count = 0;
 		mesh->index_count = 0;
@@ -222,7 +222,7 @@ namespace HGEGraphics
 		mesh->index_buffer->dynamic_handle = {};
 	}
 
-	void free_mesh(Mesh* mesh)
+	void free_mesh(pulse_mesh_data_t* mesh)
 	{
 		if (mesh->vertex_buffer)
 		{
@@ -524,7 +524,7 @@ namespace HGEGraphics
 			set_global_sampler(encoder, bind.sampler, bind.set, bind.bind);
 	}
 
-	void update_mesh(RenderPassEncoder* encoder, Mesh* mesh)
+	void update_mesh(RenderPassEncoder* encoder, pulse_mesh_data_t* mesh)
 	{
 		CGPUBufferId vertex_buffer = CGPU_NULLPTR;
 		if (pulse_rendergraph_buffer_handle_valid(mesh->vertex_buffer->dynamic_handle))
@@ -568,7 +568,7 @@ namespace HGEGraphics
 		}
 	}
 
-	void draw(RenderPassEncoder* encoder, Shader* shader, Mesh* mesh)
+	void draw(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh)
 	{
 		if (!mesh->prepared)
 			return;
@@ -581,7 +581,7 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, mesh->vertices_count, 0);
 	}
 
-	void draw_submesh(RenderPassEncoder* encoder, Shader* shader, Mesh* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
+	void draw_submesh(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
 	{
 		if (!mesh->prepared)
 			return;
@@ -602,7 +602,7 @@ namespace HGEGraphics
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);
 	}
 
-	void draw(RenderPassEncoder* encoder, Material* material, Mesh* mesh)
+	void draw(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh)
 	{
 		if (!mesh->prepared || !material)
 			return;
@@ -617,7 +617,7 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, mesh->vertices_count, 0);
 	}
 
-	void draw_submesh(RenderPassEncoder* encoder, Material* material, Mesh* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
+	void draw_submesh(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
 	{
 		if (!mesh->prepared)
 			return;

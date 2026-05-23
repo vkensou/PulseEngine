@@ -25,7 +25,7 @@ void oval_free_texture(oval_device_t* device, HGEGraphics::Texture* texture)
 	//HGEGraphics::free_texture(texture);
 }
 
-HGEGraphics::Mesh* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, const uint8_t* vertex_data, const uint8_t* index_data, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
+pulse_mesh_data_t* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, const uint8_t* vertex_data, const uint8_t* index_data, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto mesh = HGEGraphics::create_mesh(D->device, vertex_count, index_count, prim_topology, vertex_layout, index_stride, update_vertex_data_from_compute_shader, update_index_data_from_compute_shader);
@@ -42,7 +42,7 @@ HGEGraphics::Mesh* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t 
 	return ptr;
 }
 
-HGEGraphics::Mesh* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
+pulse_mesh_data_t* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto mesh = HGEGraphics::create_dynamic_mesh(prim_topology, vertex_layout, index_stride);
@@ -51,7 +51,7 @@ HGEGraphics::Mesh* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiv
 	return ptr;
 }
 
-void oval_free_mesh(oval_device_t* device, HGEGraphics::Mesh* mesh)
+void oval_free_mesh(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
 	//HGEGraphics::free_mesh(mesh);
 }
@@ -101,12 +101,12 @@ bool oval_texture_prepared(oval_device_t* device, HGEGraphics::Texture* texture)
 	return texture->prepared;
 }
 
-bool oval_mesh_prepared(oval_device_t* device, HGEGraphics::Mesh* mesh)
+bool oval_mesh_prepared(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
 	return mesh->prepared;
 }
 
-pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, HGEGraphics::Mesh* mesh)
+pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
 	return mesh->vertex_buffer.get();
 }
@@ -134,7 +134,7 @@ HGEGraphics::Texture* oval_load_texture(oval_device_t* device, const char* filep
 	return resource.textureResource.texture;
 }
 
-HGEGraphics::Mesh* oval_load_mesh(oval_device_t* device, const char* filepath)
+pulse_mesh_data_t* oval_load_mesh(oval_device_t* device, const char* filepath)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
@@ -196,7 +196,7 @@ void oval_ensure_cur_transfer_queue(oval_cgpu_device_t* device)
 	device->cur_transfer_queue = oval_graphics_transfer_queue_alloc(&device->super);
 }
 
-uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size)
+uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
@@ -208,7 +208,7 @@ uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::
 	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, vertex_data_size, mesh->vertex_buffer.get());
 }
 
-uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size)
+uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size)
 {
 	uint64_t index_data_size = mesh->index_count * mesh->index_stride;
 	if (index_data_size == 0)

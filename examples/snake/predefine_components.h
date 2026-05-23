@@ -10,7 +10,7 @@ PULSE_ECS_RESOURCE
 struct ResourceManager
 {
 	oval_device_t* device;
-	std::vector<HGEGraphics::Mesh*> meshes;
+	std::vector<pulse_mesh_data_t*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
 };
 

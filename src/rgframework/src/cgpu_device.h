@@ -94,7 +94,7 @@ struct WaitLoadResource
 			bool mipmap;
 		} textureResource;
 		struct {
-			HGEGraphics::Mesh* mesh;
+			pulse_mesh_data_t* mesh;
 		} meshResource;
 	};
 };
@@ -153,7 +153,7 @@ struct oval_window_impl_t : oval_window_t {
 	ImGuiViewport* imgui_viewport;
 	ImDrawDataSnapshot snapshot;
 	ImDrawData* imgui_draw_data = nullptr;
-	HGEGraphics::Mesh* imgui_mesh = nullptr;
+	pulse_mesh_data_t* imgui_mesh = nullptr;
 	ecs_entity_t entity;
 
 	void RequestResize()
@@ -252,7 +252,7 @@ typedef struct oval_cgpu_device_t {
 
 	enki::TaskScheduler taskScheduler;
 
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Mesh>> meshes;
+	std::pmr::vector<std::unique_ptr<pulse_mesh_data_t>> meshes;
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Shader>> shaders;
 	std::pmr::vector<std::unique_ptr<HGEGraphics::ComputeShader>> computeShaders;
 	std::pmr::vector<CGPUSamplerId> samplers;
@@ -266,7 +266,7 @@ typedef struct oval_cgpu_device_t {
 void oval_process_load_queue(oval_cgpu_device_t* device);
 void oval_graphics_transfer_queue_execute_all(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg);
 void oval_graphics_transfer_queue_release_all(oval_cgpu_device_t* device);
-uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Mesh* mesh, const char* filepath);
+uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_mesh_data_t* mesh, const char* filepath);
 uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Texture* texture, const char* filepath, bool mipmap);
 std::vector<uint8_t> readfile(const char* filename);
 oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);

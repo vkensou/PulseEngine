@@ -1,0 +1,34 @@
+#pragma once
+
+#include "cgpu/api.h"
+#include "resource_type.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct pulse_buffer_data_t
+{
+	CGPUBufferId handle;
+	ECGPUResourceTypeFlags type;
+	ECGPUResourceStateFlags cur_state;
+	pulse_buffer_handle_t dynamic_handle;
+};
+
+struct pulse_mesh_data_t
+{
+	CGPUVertexLayout vertex_layout;
+	std::vector<CGPUVertexAttribute> vertex_attributes;
+	ECGPUPrimitiveTopology prim_topology;
+	uint32_t vertex_stride;
+	uint32_t index_stride;
+	uint32_t vertices_count;
+	uint32_t index_count;
+	std::unique_ptr<pulse_buffer_data_t> vertex_buffer;
+	std::unique_ptr<pulse_buffer_data_t> index_buffer;
+	bool prepared;
+};
+
+#ifdef __cplusplus
+}
+#endif

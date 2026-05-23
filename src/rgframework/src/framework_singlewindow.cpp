@@ -294,7 +294,7 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	return (oval_device_t*)device_cgpu;
 }
 
-HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, ImDrawData* drawData, HGEGraphics::Mesh* imgui_mesh)
+pulse_mesh_data_t* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, ImDrawData* drawData, pulse_mesh_data_t* imgui_mesh)
 {
 	using namespace HGEGraphics;
 
@@ -1010,7 +1010,7 @@ void oval_free_device(oval_device_t* device)
 	D->materials.clear();
 	for (size_t i = 0; i < D->meshes.size(); ++i)
 	{
-		free_mesh(D->meshes[i].get());
+		HGEGraphics::free_mesh(D->meshes[i].get());
 	}
 	D->meshes.clear();
 	D->shaders.clear();

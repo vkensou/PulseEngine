@@ -6,10 +6,11 @@
 #include <string.h>
 #include "compare.h"
 
+struct pulse_mesh_data_t;
+
 namespace HGEGraphics
 {
 	struct Shader;
-	struct Mesh;
 	struct RenderPassEncoder;
 
 	struct PSOKey
@@ -71,7 +72,7 @@ namespace HGEGraphics
 	public:
 		GraphicsPipelinePool(CGPUDeviceId device, GraphicsPipelinePool* upstream, std::pmr::memory_resource* const memory_resource);
 
-		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, Mesh* mesh);
+		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh);
 		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout);
 
 		// 通过ResourcePool继承
