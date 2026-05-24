@@ -78,8 +78,8 @@ static pulse_asset_loader_status_t step_shader_from_deps(
     // Acquire dep slots to get bytecode
     pulse_asset_ref vs_ref{}, fs_ref{};
     if (ctx->dependency_count < 2 ||
-        !pulse_asset_acquire(ctx->app, ctx->dependency_handles[0], &vs_ref) ||
-        !pulse_asset_acquire(ctx->app, ctx->dependency_handles[1], &fs_ref))
+        !pulse_asset_acquire(ctx->app, ctx->dependencies[0].handle, &vs_ref) ||
+        !pulse_asset_acquire(ctx->app, ctx->dependencies[1].handle, &fs_ref))
     {
         *out_error = "shader loader: missing deps";
         return PULSE_ASSET_LOADER_FAILED;
@@ -139,7 +139,7 @@ static pulse_asset_loader_status_t step_compute_shader_from_deps(
 
     pulse_asset_ref cs_ref{};
     if (ctx->dependency_count < 1 ||
-        !pulse_asset_acquire(ctx->app, ctx->dependency_handles[0], &cs_ref))
+        !pulse_asset_acquire(ctx->app, ctx->dependencies[0].handle, &cs_ref))
     {
         *out_error = "cs loader: missing dep";
         return PULSE_ASSET_LOADER_FAILED;

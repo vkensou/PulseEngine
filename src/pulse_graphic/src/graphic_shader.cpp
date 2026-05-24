@@ -121,7 +121,10 @@ pulse_shader_t pulse_graphic_shader_load(
     if (vs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
     pulse_asset_handle fs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, frag_path);
     if (fs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
-    pulse_asset_handle deps[] = {vs, fs};
+    pulse_asset_dependency deps[] = {
+        { vs, PULSE_DEP_REQUIRED },
+        { fs, PULSE_DEP_REQUIRED },
+    };
     pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_SHADER, nullptr, deps, 2);
     if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
     return pulse_shader_t{h};
@@ -133,7 +136,9 @@ pulse_compute_shader_t pulse_graphic_compute_shader_load(
 {
     pulse_asset_handle cs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, comp_path);
     if (cs.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
-    pulse_asset_handle deps[] = {cs};
+    pulse_asset_dependency deps[] = {
+        { cs, PULSE_DEP_REQUIRED },
+    };
     pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1);
     if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
     return pulse_compute_shader_t{h};
