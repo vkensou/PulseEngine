@@ -324,7 +324,7 @@ pulse_asset_handle pulse_asset_load_with_deps(
     pulse_app_t app,
     uint64_t type_id,
     const char* path,
-    const pulse_asset_handle* dependencies,
+    const pulse_asset_dependency* dependencies,
     uint32_t dependency_count
 ) {
     pulse_asset_state_o* state = state_from_app(app);
@@ -358,15 +358,43 @@ pulse_asset_handle pulse_asset_load_with_deps(
     if (!slot) return invalid_handle();
 
     if (dependency_count > 0 && dependencies) {
-        slot->state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
         slot->dependencies.assign(dependencies, dependencies + dependency_count);
-        slot->unresolved_count = dependency_count;
 
+        uint32_t unresolved = 0;
         for (uint32_t i = 0; i < dependency_count; ++i) {
-            AssetSlot* dep_slot = get_slot(state, dependencies[i]);
+            const auto& dep = dependencies[i];
+
+            if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) {
+                if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
+                    slot->state = PULSE_ASSET_STATE_FAILED;
+                    slot->error = "required dependency has null handle";
+                    return handle;
+                }
+                continue;
+            }
+
+            AssetSlot* dep_slot = get_slot(state, dep.handle);
             if (dep_slot) {
                 dep_slot->dependents.push_back(handle);
+                if (dep_slot->state != PULSE_ASSET_STATE_LOADED) {
+                    ++unresolved;
+                }
+            } else {
+                if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
+                    slot->state = PULSE_ASSET_STATE_FAILED;
+                    slot->error = "required dependency handle is invalid";
+                    return handle;
+                }
+                continue;
             }
+        }
+
+        if (unresolved > 0) {
+            slot->state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
+            slot->unresolved_count = unresolved;
+        } else {
+            slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
+            state->pending_requests.push_back({handle});
         }
     } else {
         slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
@@ -431,8 +459,9 @@ bool pulse_asset_acquire(
         return false;
     }
     slot->pin_count += 1;
-    for (const pulse_asset_handle& dep : slot->dependencies) {
-        AssetSlot* dep_slot = get_slot(state, dep);
+    for (const auto& dep : slot->dependencies) {
+        if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) continue;
+        AssetSlot* dep_slot = get_slot(state, dep.handle);
         if (dep_slot && dep_slot->state == PULSE_ASSET_STATE_LOADED) {
             dep_slot->pin_count += 1;
         }
@@ -450,8 +479,9 @@ void pulse_asset_release(pulse_app_t app, pulse_asset_ref* ref) {
     AssetSlot* slot = get_slot(state, ref->handle);
     if (slot && slot->pin_count > 0) {
         slot->pin_count -= 1;
-        for (const pulse_asset_handle& dep : slot->dependencies) {
-            AssetSlot* dep_slot = get_slot(state, dep);
+        for (const auto& dep : slot->dependencies) {
+            if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) continue;
+            AssetSlot* dep_slot = get_slot(state, dep.handle);
             if (dep_slot && dep_slot->pin_count > 0) {
                 dep_slot->pin_count -= 1;
             }

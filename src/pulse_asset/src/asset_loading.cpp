@@ -184,13 +184,17 @@ void process_load_requests_system(ecs_iter_t* it) {
 
             bool all_loaded = true;
             bool any_failed = false;
-            for (const pulse_asset_handle& dep : slot.dependencies) {
-                const AssetSlot* dep_slot = get_slot_const(state, dep);
+            for (const auto& dep : slot.dependencies) {
+                if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) continue;
+
+                const AssetSlot* dep_slot = get_slot_const(state, dep.handle);
                 if (!dep_slot) {
+                    if (dep.flags & PULSE_DEP_OPTIONAL) continue;
                     any_failed = true;
                     break;
                 }
                 if (dep_slot->state == PULSE_ASSET_STATE_FAILED) {
+                    if (dep.flags & PULSE_DEP_OPTIONAL) continue;
                     any_failed = true;
                     break;
                 }
@@ -209,14 +213,14 @@ void process_load_requests_system(ecs_iter_t* it) {
                 if (loader) {
                     ActiveLoad active{};
                     active.handle = slot_handle;
-                    active.dep_handles = slot.dependencies;
+                    active.dependencies = slot.dependencies;
                     active.ctx.app = state->app;
                     active.ctx.type_id = type_id;
                     active.ctx.path = slot.path.c_str();
                     active.ctx.bytes = nullptr;
                     active.ctx.byte_size = 0;
-                    active.ctx.dependency_handles = active.dep_handles.data();
-                    active.ctx.dependency_count = static_cast<uint32_t>(active.dep_handles.size());
+                    active.ctx.dependencies = active.dependencies.data();
+                    active.ctx.dependency_count = static_cast<uint32_t>(active.dependencies.size());
                     active.ctx.handle = slot_handle;
 
                     void* loader_state = nullptr;
