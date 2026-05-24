@@ -102,30 +102,27 @@ struct MeshLoaderState {
     bool ib_completed = false;
 };
 
-pulse_result_t start_mesh(const pulse_asset_load_task* ctx, void** out_state, void* user_data) {
-    (void)ctx; (void)user_data;
+pulse_result_t load_mesh(const pulse_asset_load_task* ctx, void** out_state) {
+    (void)ctx;
     *out_state = new MeshLoaderState();
     return PULSE_OK;
 }
 
-void destroy_mesh_loader_state(void* state, void*) {
-    delete static_cast<MeshLoaderState*>(state);
-}
-
 pulse_asset_loader_status_t step_mesh(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data)
+    void* state, const pulse_asset_load_task* ctx,
+    const char** out_error)
 {
     auto* s = static_cast<MeshLoaderState*>(state);
 
     if (!s->upload_requested) {
-        CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-        auto* mesh = static_cast<pulse_mesh_data_t*>(out_asset);
+        CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
+        auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
 
         std::vector<MeshTexturedVertex> verts;
         std::vector<uint32_t> indices;
         if (!parse_obj_mesh(ctx->bytes, ctx->byte_size, verts, indices)) {
             *out_error = "mesh loader: OBJ parse failed";
+            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -165,6 +162,7 @@ pulse_asset_loader_status_t step_mesh(
 
     // Wait for uploads to be queued by upload_record_callback
     if (s->vb_completed && (!s->has_ib || s->ib_completed)) {
+        delete s;
         return PULSE_ASSET_LOADER_DONE;
     }
 
@@ -181,7 +179,7 @@ pulse_mesh_t pulse_graphic_mesh_load(pulse_app_t app, const char* filepath)
 {
     pulse_mesh_t result{};
     if (!app || !filepath || !filepath[0]) return result;
-    result.asset = pulse_asset_load(app, PULSE_TYPE_MESH, filepath);
+    result.asset = pulse_asset_load(app, PULSE_TYPE_MESH, filepath, NULL);
     return result;
 }
 

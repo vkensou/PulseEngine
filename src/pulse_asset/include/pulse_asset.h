@@ -79,34 +79,20 @@ typedef struct pulse_asset_load_task {
     const pulse_asset_dependency* dependencies;
     uint32_t dependency_count;
     pulse_asset_handle handle;
+    void* user_data;
+    void* out_asset;
+    const void* settings;
 } pulse_asset_load_task;
 
-typedef struct pulse_asset_progress {
-    const char* stage;
-    float progress;
-    const char* detail;
-} pulse_asset_progress;
-
-typedef pulse_result_t (*pulse_asset_loader_start_fn)(
+typedef pulse_result_t (*pulse_asset_loader_load_fn)(
     const pulse_asset_load_task* ctx,
-    void** out_state,
-    void* user_data
+    void** out_state
 );
 
 typedef pulse_asset_loader_status_t (*pulse_asset_loader_step_fn)(
+    void* state,
     const pulse_asset_load_task* ctx,
-    void* state,
-    void* out_asset,
-    const char** out_error,
-    void* user_data
-);
-
-typedef void (*pulse_asset_loader_finally_fn)(void* state, void* user_data);
-
-typedef bool (*pulse_asset_loader_progress_fn)(
-    void* state,
-    pulse_asset_progress* out_progress,
-    void* user_data
+    const char** out_error
 );
 
 typedef struct pulse_asset_loader_desc {
@@ -114,10 +100,9 @@ typedef struct pulse_asset_loader_desc {
     uint32_t version;
     uint64_t type_id;
     const char* extensions;
-    pulse_asset_loader_start_fn start;
+    pulse_asset_loader_load_fn load;
     pulse_asset_loader_step_fn step;
-    pulse_asset_loader_finally_fn finally;
-    pulse_asset_loader_progress_fn progress;
+    uint32_t settings_size;
     void* user_data;
 } pulse_asset_loader_desc;
 
@@ -141,7 +126,17 @@ pulse_result_t pulse_asset_register_loader(
 pulse_asset_handle pulse_asset_load(
     pulse_app_t app,
     uint64_t type_id,
-    const char* path
+    const char* path,
+    const void* settings
+);
+
+pulse_asset_handle pulse_asset_load_with_deps(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* path,
+    const pulse_asset_dependency* dependencies,
+    uint32_t dependency_count,
+    const void* settings
 );
 
 pulse_asset_handle pulse_asset_load_from_memory(
@@ -149,14 +144,20 @@ pulse_asset_handle pulse_asset_load_from_memory(
     uint64_t type_id,
     const char* name,
     const void* data,
-    uint64_t size);
+    uint64_t size,
+    const void* settings
+);
 
-pulse_asset_handle pulse_asset_load_with_deps(
+pulse_asset_handle pulse_asset_load_from_memory_with_deps(
     pulse_app_t app,
     uint64_t type_id,
-    const char* path,
+    const char* name,
+    const void* data,
+    uint64_t size,
     const pulse_asset_dependency* dependencies,
-    uint32_t dependency_count);
+    uint32_t dependency_count,
+    const void* settings
+);
 
 pulse_asset_state_t pulse_asset_get_state(
     pulse_app_t app,
@@ -173,12 +174,6 @@ const char* pulse_asset_get_error(
     pulse_asset_handle handle
 );
 
-bool pulse_asset_get_progress(
-    pulse_app_t app,
-    pulse_asset_handle handle,
-    pulse_asset_progress* out_progress
-);
-
 bool pulse_asset_acquire(
     pulse_app_t app,
     pulse_asset_handle handle,
@@ -188,6 +183,11 @@ bool pulse_asset_acquire(
 void pulse_asset_release(
     pulse_app_t app,
     pulse_asset_ref* ref
+);
+
+void pulse_asset_unload(
+    pulse_app_t app,
+    pulse_asset_handle handle
 );
 
 void pulse_asset_mark_modified(

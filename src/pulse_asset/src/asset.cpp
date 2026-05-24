@@ -132,6 +132,18 @@ static void asset_plugin_shutdown(pulse_app_t app, void* ctx) {
     delete state;
 }
 
+static pulse_asset_handle load_impl(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* path_or_name,
+    const void* settings,
+    bool from_memory,
+    const void* data,
+    uint64_t size,
+    const pulse_asset_dependency* dependencies,
+    uint32_t dependency_count
+);
+
 } // namespace pulse_asset_internal
 
 using namespace pulse_asset_internal;
@@ -210,7 +222,7 @@ pulse_result_t pulse_asset_register_loader(
     pulse_asset_state_o* state = state_from_app(app);
     if (!state || !desc || desc->struct_size != sizeof(pulse_asset_loader_desc) ||
         desc->version != PULSE_ASSET_LOADER_DESC_VERSION || desc->type_id == 0 ||
-        !desc->extensions || !desc->start || !desc->step) {
+        !desc->extensions || !desc->load || !desc->step) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
     if (state->types.find(desc->type_id) == state->types.end()) {
@@ -233,91 +245,10 @@ pulse_result_t pulse_asset_register_loader(
 pulse_asset_handle pulse_asset_load(
     pulse_app_t app,
     uint64_t type_id,
-    const char* path
+    const char* path,
+    const void* settings
 ) {
-    pulse_asset_state_o* state = state_from_app(app);
-    if (!state || type_id == 0 || !path || !path[0]) {
-        return invalid_handle();
-    }
-    if (state->types.find(type_id) == state->types.end()) {
-        return invalid_handle();
-    }
-
-    std::string normalized_path = normalize_path(path);
-    if (normalized_path.empty()) {
-        return invalid_handle();
-    }
-
-    PathKey key{type_id, normalized_path};
-    auto cached = state->path_cache.find(key);
-    if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
-        return cached->second;
-    }
-
-    pulse_asset_handle handle = allocate_slot(state, type_id, normalized_path);
-    if (is_invalid_handle(handle)) {
-        return handle;
-    }
-    state->path_cache[key] = handle;
-    state->pending_requests.push_back({handle});
-    return handle;
-}
-
-pulse_asset_handle pulse_asset_load_from_memory(
-    pulse_app_t app,
-    uint64_t type_id,
-    const char* name,
-    const void* data,
-    uint64_t size
-) {
-    pulse_asset_state_o* state = state_from_app(app);
-    if (!state || type_id == 0) {
-        return invalid_handle();
-    }
-    if (state->types.find(type_id) == state->types.end()) {
-        return invalid_handle();
-    }
-
-    // Anonymous slot: empty name with no data → allocate and mark LOADED immediately
-    if ((!name || !name[0]) && (!data || size == 0)) {
-        pulse_asset_handle handle = allocate_memory_slot(state, type_id, "");
-        if (is_invalid_handle(handle)) {
-            return handle;
-        }
-        AssetSlot* slot = get_slot(state, handle);
-        if (slot) {
-            slot->state = PULSE_ASSET_STATE_LOADED;
-            slot->constructed = true;
-        }
-        return handle;
-    }
-
-    if (!name || !name[0] || !data || size == 0) {
-        return invalid_handle();
-    }
-    std::string normalized_name = normalize_path(name);
-    if (normalized_name.empty()) {
-        return invalid_handle();
-    }
-
-    PathKey key{type_id, normalized_name};
-    auto cached = state->path_cache.find(key);
-    if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
-        return cached->second;
-    }
-
-    pulse_asset_handle handle = allocate_memory_slot(state, type_id, normalized_name);
-    if (is_invalid_handle(handle)) {
-        return handle;
-    }
-    state->path_cache[key] = handle;
-
-    LoadRequest request{handle};
-    request.from_memory = true;
-    request.memory_data.assign(static_cast<const uint8_t*>(data),
-                               static_cast<const uint8_t*>(data) + size);
-    state->pending_requests.push_back(std::move(request));
-    return handle;
+    return load_impl(app, type_id, path, settings, false, nullptr, 0, nullptr, 0);
 }
 
 pulse_asset_handle pulse_asset_load_with_deps(
@@ -325,83 +256,34 @@ pulse_asset_handle pulse_asset_load_with_deps(
     uint64_t type_id,
     const char* path,
     const pulse_asset_dependency* dependencies,
-    uint32_t dependency_count
+    uint32_t dependency_count,
+    const void* settings
 ) {
-    pulse_asset_state_o* state = state_from_app(app);
-    if (!state || type_id == 0) {
-        return invalid_handle();
-    }
-    if (state->types.find(type_id) == state->types.end()) {
-        return invalid_handle();
-    }
+    return load_impl(app, type_id, path, settings, false, nullptr, 0, dependencies, dependency_count);
+}
 
-    std::string slot_path = path ? normalize_path(path) : "";
-    pulse_asset_handle handle;
+pulse_asset_handle pulse_asset_load_from_memory(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* name,
+    const void* data,
+    uint64_t size,
+    const void* settings
+) {
+    return load_impl(app, type_id, name, settings, true, data, size, nullptr, 0);
+}
 
-    if (!slot_path.empty()) {
-        PathKey key{type_id, slot_path};
-        auto cached = state->path_cache.find(key);
-        if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
-            return cached->second;
-        }
-    }
-
-    handle = allocate_slot(state, type_id, slot_path);
-    if (is_invalid_handle(handle)) {
-        return handle;
-    }
-    if (!slot_path.empty()) {
-        state->path_cache[{type_id, slot_path}] = handle;
-    }
-
-    AssetSlot* slot = get_slot(state, handle);
-    if (!slot) return invalid_handle();
-
-    if (dependency_count > 0 && dependencies) {
-        slot->dependencies.assign(dependencies, dependencies + dependency_count);
-
-        uint32_t unresolved = 0;
-        for (uint32_t i = 0; i < dependency_count; ++i) {
-            const auto& dep = dependencies[i];
-
-            if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) {
-                if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
-                    slot->state = PULSE_ASSET_STATE_FAILED;
-                    slot->error = "required dependency has null handle";
-                    return handle;
-                }
-                continue;
-            }
-
-            AssetSlot* dep_slot = get_slot(state, dep.handle);
-            if (dep_slot) {
-                dep_slot->dependents.push_back(handle);
-                if (dep_slot->state != PULSE_ASSET_STATE_LOADED) {
-                    ++unresolved;
-                }
-            } else {
-                if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
-                    slot->state = PULSE_ASSET_STATE_FAILED;
-                    slot->error = "required dependency handle is invalid";
-                    return handle;
-                }
-                continue;
-            }
-        }
-
-        if (unresolved > 0) {
-            slot->state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
-            slot->unresolved_count = unresolved;
-        } else {
-            slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
-            state->pending_requests.push_back({handle});
-        }
-    } else {
-        slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
-        state->pending_requests.push_back({handle});
-    }
-
-    return handle;
+pulse_asset_handle pulse_asset_load_from_memory_with_deps(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* name,
+    const void* data,
+    uint64_t size,
+    const pulse_asset_dependency* dependencies,
+    uint32_t dependency_count,
+    const void* settings
+) {
+    return load_impl(app, type_id, name, settings, true, data, size, dependencies, dependency_count);
 }
 
 pulse_asset_state_t pulse_asset_get_state(
@@ -421,27 +303,6 @@ const char* pulse_asset_get_error(pulse_app_t app, pulse_asset_handle handle) {
     pulse_asset_state_o* state = state_from_app(app);
     const AssetSlot* slot = get_slot_const(state, handle);
     return slot && !slot->error.empty() ? slot->error.c_str() : nullptr;
-}
-
-bool pulse_asset_get_progress(
-    pulse_app_t app,
-    pulse_asset_handle handle,
-    pulse_asset_progress* out_progress
-) {
-    if (!out_progress) {
-        return false;
-    }
-    pulse_asset_state_o* state = state_from_app(app);
-    AssetSlot* slot = get_slot(state, handle);
-    if (!slot || slot->state != PULSE_ASSET_STATE_PROCESSING ||
-        !slot->loader || !slot->loader->desc.progress) {
-        return false;
-    }
-    return slot->loader->desc.progress(
-        slot->loader_state,
-        out_progress,
-        slot->loader->desc.user_data
-    );
 }
 
 bool pulse_asset_acquire(
@@ -491,6 +352,19 @@ void pulse_asset_release(pulse_app_t app, pulse_asset_ref* ref) {
     ref->ptr = nullptr;
 }
 
+void pulse_asset_unload(pulse_app_t app, pulse_asset_handle handle) {
+    pulse_asset_state_o* state = state_from_app(app);
+    if (!state || is_invalid_handle(handle)) {
+        return;
+    }
+    AssetSlot* slot = get_slot(state, handle);
+    if (!slot || slot->pin_count == 0) {
+        return;
+    }
+    slot->pin_count -= 1;
+    try_unload_slot(state, handle);
+}
+
 void pulse_asset_mark_modified(pulse_app_t app, pulse_asset_handle handle) {
     pulse_asset_state_o* state = state_from_app(app);
     AssetSlot* slot = get_slot(state, handle);
@@ -500,3 +374,143 @@ void pulse_asset_mark_modified(pulse_app_t app, pulse_asset_handle handle) {
 }
 
 } // extern "C"
+
+namespace pulse_asset_internal {
+
+static pulse_asset_handle load_impl(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* path_or_name,
+    const void* settings,
+    bool from_memory,
+    const void* data,
+    uint64_t size,
+    const pulse_asset_dependency* dependencies,
+    uint32_t dependency_count
+) {
+    pulse_asset_state_o* state = state_from_app(app);
+    if (!state || type_id == 0) {
+        return invalid_handle();
+    }
+    if (state->types.find(type_id) == state->types.end()) {
+        return invalid_handle();
+    }
+
+    std::string slot_path = path_or_name ? normalize_path(path_or_name) : "";
+    pulse_asset_handle handle;
+
+    if (from_memory) {
+        if ((!path_or_name || !path_or_name[0]) && (!data || size == 0)) {
+            handle = allocate_slot(state, type_id, "");
+            if (is_invalid_handle(handle)) {
+                return handle;
+            }
+            AssetSlot* slot = get_slot(state, handle);
+            if (slot) {
+                slot->state = PULSE_ASSET_STATE_LOADED;
+                slot->constructed = true;
+                slot->pin_count = 1;
+            }
+            return handle;
+        }
+
+        if (!path_or_name || !path_or_name[0] || !data || size == 0) {
+            return invalid_handle();
+        }
+
+        PathKey key{type_id, slot_path};
+        auto cached = state->path_cache.find(key);
+        if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
+            return cached->second;
+        }
+
+        handle = allocate_slot(state, type_id, slot_path);
+    } else {
+        if (!path_or_name || !path_or_name[0]) {
+            return invalid_handle();
+        }
+
+        PathKey key{type_id, slot_path};
+        auto cached = state->path_cache.find(key);
+        if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
+            return cached->second;
+        }
+
+        handle = allocate_slot(state, type_id, slot_path);
+    }
+
+    if (is_invalid_handle(handle)) {
+        return handle;
+    }
+
+    if (!slot_path.empty()) {
+        state->path_cache[{type_id, slot_path}] = handle;
+    }
+
+    AssetSlot* slot = get_slot(state, handle);
+    if (!slot) return invalid_handle();
+
+    slot->pin_count = 1;
+
+    if (dependency_count > 0 && dependencies) {
+        slot->dependencies.assign(dependencies, dependencies + dependency_count);
+
+        uint32_t unresolved = 0;
+        for (uint32_t i = 0; i < dependency_count; ++i) {
+            const auto& dep = dependencies[i];
+
+            if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) {
+                if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
+                    slot->state = PULSE_ASSET_STATE_FAILED;
+                    slot->error = "required dependency has null handle";
+                    return handle;
+                }
+                continue;
+            }
+
+            AssetSlot* dep_slot = get_slot(state, dep.handle);
+            if (dep_slot) {
+                dep_slot->dependents.push_back(handle);
+                if (dep_slot->state != PULSE_ASSET_STATE_LOADED) {
+                    ++unresolved;
+                }
+            } else {
+                if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
+                    slot->state = PULSE_ASSET_STATE_FAILED;
+                    slot->error = "required dependency handle is invalid";
+                    return handle;
+                }
+                continue;
+            }
+        }
+
+        if (unresolved > 0) {
+            slot->state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
+            slot->unresolved_count = unresolved;
+        } else {
+            slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
+            LoadRequest request{handle};
+            request.from_memory = from_memory;
+            request.settings = settings;
+            if (from_memory) {
+                request.memory_data.assign(static_cast<const uint8_t*>(data),
+                                           static_cast<const uint8_t*>(data) + size);
+            }
+            state->pending_requests.push_back(std::move(request));
+        }
+    } else {
+        slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
+        LoadRequest request{handle};
+        request.from_memory = from_memory;
+        request.settings = settings;
+        if (from_memory) {
+            request.memory_data.assign(static_cast<const uint8_t*>(data),
+                                       static_cast<const uint8_t*>(data) + size);
+        }
+        state->pending_requests.push_back(std::move(request));
+    }
+
+    return handle;
+}
+
+} // namespace pulse_asset_internal

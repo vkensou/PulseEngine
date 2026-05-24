@@ -19,7 +19,7 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
     uint32_t use_idx_stride = (index_stride == 0 && index_count > 0) ? sizeof(uint32_t) : index_stride;
 
     pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_MESH, "", nullptr, 0);
+        app, PULSE_TYPE_MESH, "", nullptr, 0, NULL);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
 
     pulse_asset_ref ref{};
@@ -59,7 +59,7 @@ pulse_mesh_t pulse_graphic_mesh_create_dynamic(
     if (!device || !layout) return result;
 
     pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_MESH, "", nullptr, 0);
+        app, PULSE_TYPE_MESH, "", nullptr, 0, NULL);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
 
     pulse_asset_ref ref{};

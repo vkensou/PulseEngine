@@ -72,6 +72,7 @@ struct LoadRequest {
     pulse_asset_handle handle{};
     bool from_memory = false;
     std::vector<uint8_t> memory_data;
+    const void* settings = nullptr;
 };
 
 struct ActiveLoad {
@@ -80,6 +81,7 @@ struct ActiveLoad {
     std::vector<pulse_asset_dependency> dependencies;
     pulse_asset_load_task ctx{};
     bool from_memory = false;
+    std::vector<uint8_t> settings_data;
 };
 
 struct pulse_asset_state_o {
@@ -115,13 +117,9 @@ pulse_asset_handle allocate_slot(
     uint64_t type_id,
     const std::string& path
 );
-pulse_asset_handle allocate_memory_slot(
-    pulse_asset_state_o* state,
-    uint64_t type_id,
-    const std::string& name
-);
 void destroy_slot(AssetBucket& bucket, AssetSlot& slot);
 void destroy_all_assets(pulse_asset_state_o* state);
+void try_unload_slot(pulse_asset_state_o* state, pulse_asset_handle handle);
 
 AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std::string& path);
 std::string join_asset_path(const std::string& root_path, const std::string& path);

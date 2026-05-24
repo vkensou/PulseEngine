@@ -60,6 +60,54 @@ std::optional<std::vector<uint8_t>> read_file_sdl(const char* filename) {
     return buffer;
 }
 
+static std::vector<uint8_t> copy_settings(const void* settings, uint32_t settings_size) {
+    if (!settings || settings_size == 0) {
+        return {};
+    }
+    std::vector<uint8_t> data(settings_size);
+    memcpy(data.data(), settings, settings_size);
+    return data;
+}
+
+static bool begin_active_load(
+    pulse_asset_state_o* state,
+    AssetLoader* loader,
+    const pulse_asset_handle& handle,
+    AssetSlot* slot,
+    const std::vector<uint8_t>& bytes,
+    const std::vector<pulse_asset_dependency>& dependencies,
+    const void* settings)
+{
+    ActiveLoad active{};
+    active.handle = handle;
+    active.dependencies = dependencies;
+    active.settings_data = copy_settings(settings, loader->desc.settings_size);
+    active.bytes = bytes;
+
+    active.ctx.app = state->app;
+    active.ctx.type_id = handle.type_id;
+    active.ctx.path = slot->path.c_str();
+    active.ctx.bytes = active.bytes.data();
+    active.ctx.byte_size = static_cast<uint64_t>(active.bytes.size());
+    active.ctx.dependencies = active.dependencies.data();
+    active.ctx.dependency_count = static_cast<uint32_t>(active.dependencies.size());
+    active.ctx.handle = handle;
+    active.ctx.user_data = loader->desc.user_data;
+    active.ctx.out_asset = slot->data;
+    active.ctx.settings = active.settings_data.data();
+
+    void* loader_state = nullptr;
+    pulse_result_t begin_result = loader->desc.load(&active.ctx, &loader_state);
+    if (begin_result != PULSE_OK) {
+        return false;
+    }
+    slot->loader_state = loader_state;
+    slot->loader = loader;
+    slot->state = PULSE_ASSET_STATE_PROCESSING;
+    state->active_loads.push_back(std::move(active));
+    return true;
+}
+
 void process_load_requests_system(ecs_iter_t* it) {
     pulse_asset_state_o* state = static_cast<pulse_asset_state_o*>(it->ctx);
     if (!state) {
@@ -85,49 +133,24 @@ void process_load_requests_system(ecs_iter_t* it) {
             continue;
         }
 
-        std::string full_path = join_asset_path(state->root_path, slot->path);
-        auto bytes = read_file_sdl(full_path.c_str());
-        if (!bytes.has_value()) {
-            slot->state = PULSE_ASSET_STATE_FAILED;
-            slot->error = "failed to read asset file";
-            continue;
-        }
-
-        slot->loader = loader;
-        ActiveLoad active{};
-        active.handle = request.handle;
-        active.from_memory = request.from_memory;
-
+        std::vector<uint8_t> bytes;
         if (request.from_memory) {
-            active.bytes = std::move(request.memory_data);
+            bytes = std::move(request.memory_data);
         } else {
             std::string full_path = join_asset_path(state->root_path, slot->path);
-            auto bytes = read_file_sdl(full_path.c_str());
-            if (!bytes.has_value()) {
+            auto file_bytes = read_file_sdl(full_path.c_str());
+            if (!file_bytes.has_value()) {
                 slot->state = PULSE_ASSET_STATE_FAILED;
                 slot->error = "failed to read asset file";
                 continue;
             }
-            active.bytes = std::move(bytes.value());
+            bytes = std::move(file_bytes.value());
         }
 
-        active.ctx.app = state->app;
-        active.ctx.type_id = request.handle.type_id;
-        active.ctx.path = slot->path.c_str();
-        active.ctx.bytes = active.bytes.data();
-        active.ctx.byte_size = static_cast<uint64_t>(active.bytes.size());
-        active.ctx.handle = active.handle;
-
-        void* loader_state = nullptr;
-        pulse_result_t begin_result = loader->desc.start(&active.ctx, &loader_state, loader->desc.user_data);
-        if (begin_result != PULSE_OK) {
+        if (!begin_active_load(state, loader, request.handle, slot, bytes, {}, request.settings)) {
             slot->state = PULSE_ASSET_STATE_FAILED;
             slot->error = "asset loader begin failed";
-            continue;
         }
-        slot->loader_state = loader_state;
-        slot->state = PULSE_ASSET_STATE_PROCESSING;
-        state->active_loads.push_back(std::move(active));
     }
 
     for (size_t i = 0; i < state->active_loads.size();) {
@@ -144,11 +167,9 @@ void process_load_requests_system(ecs_iter_t* it) {
 
         const char* error = nullptr;
         pulse_asset_loader_status_t status = slot->loader->desc.step(
-            &active.ctx,
             slot->loader_state,
-            slot->data,
-            &error,
-            slot->loader->desc.user_data
+            &active.ctx,
+            &error
         );
 
         if (status == PULSE_ASSET_LOADER_PENDING) {
@@ -163,10 +184,6 @@ void process_load_requests_system(ecs_iter_t* it) {
         } else {
             slot->state = PULSE_ASSET_STATE_FAILED;
             slot->error = error ? error : "asset loader step failed";
-        }
-
-        if (slot->loader->desc.finally && slot->loader_state) {
-            slot->loader->desc.finally(slot->loader_state, slot->loader->desc.user_data);
         }
 
         slot->loader_state = nullptr;
@@ -219,26 +236,7 @@ void process_load_requests_system(ecs_iter_t* it) {
                     }
                 }
                 if (loader) {
-                    ActiveLoad active{};
-                    active.handle = slot_handle;
-                    active.dependencies = slot.dependencies;
-                    active.ctx.app = state->app;
-                    active.ctx.type_id = type_id;
-                    active.ctx.path = slot.path.c_str();
-                    active.ctx.bytes = nullptr;
-                    active.ctx.byte_size = 0;
-                    active.ctx.dependencies = active.dependencies.data();
-                    active.ctx.dependency_count = static_cast<uint32_t>(active.dependencies.size());
-                    active.ctx.handle = slot_handle;
-
-                    void* loader_state = nullptr;
-                    pulse_result_t begin_result = loader->desc.start(&active.ctx, &loader_state, loader->desc.user_data);
-                    if (begin_result == PULSE_OK) {
-                        slot.loader_state = loader_state;
-                        slot.loader = loader;
-                        slot.state = PULSE_ASSET_STATE_PROCESSING;
-                        state->active_loads.push_back(std::move(active));
-                    } else {
+                    if (!begin_active_load(state, loader, slot_handle, &slot, {}, slot.dependencies, nullptr)) {
                         slot.state = PULSE_ASSET_STATE_FAILED;
                         slot.error = "asset loader begin failed for dependency resolve";
                     }
@@ -246,6 +244,17 @@ void process_load_requests_system(ecs_iter_t* it) {
                     slot.constructed = true;
                     slot.state = PULSE_ASSET_STATE_LOADED;
                 }
+            }
+        }
+    }
+
+    for (auto& bucket_pair : state->buckets) {
+        AssetBucket& bucket = bucket_pair.second;
+        for (size_t slot_idx = 0; slot_idx < bucket.slots.size(); ++slot_idx) {
+            AssetSlot& slot = bucket.slots[slot_idx];
+            if (slot.pin_count == 0 && slot.state == PULSE_ASSET_STATE_FAILED && slot.data && bucket.type) {
+                destroy_slot(bucket, slot);
+                bucket.free_indices.push_back(static_cast<uint32_t>(slot_idx));
             }
         }
     }
@@ -278,8 +287,7 @@ void cancel_active_loads(pulse_asset_state_o* state) {
     }
     for (ActiveLoad& active : state->active_loads) {
         AssetSlot* slot = get_slot(state, active.handle);
-        if (slot && slot->loader && slot->loader->desc.finally && slot->loader_state) {
-            slot->loader->desc.finally(slot->loader_state, slot->loader->desc.user_data);
+        if (slot && slot->loader_state) {
             slot->loader_state = nullptr;
             slot->state = PULSE_ASSET_STATE_FAILED;
             slot->error = "asset load cancelled";

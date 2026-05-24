@@ -12,31 +12,27 @@ struct TextureLoaderState {
     bool upload_completed = false;
 };
 
-pulse_result_t start_texture(const pulse_asset_load_task* ctx, void** out_state, void* user_data) {
-    (void)ctx; (void)user_data;
+pulse_result_t load_texture(const pulse_asset_load_task* ctx, void** out_state) {
+    (void)ctx;
     *out_state = new TextureLoaderState();
     return PULSE_OK;
 }
 
-void destroy_texture_loader_state(void* state, void*) {
-    delete static_cast<TextureLoaderState*>(state);
-}
-
 pulse_asset_loader_status_t step_texture_stb(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data)
+    void* state, const pulse_asset_load_task* ctx,
+    const char** out_error)
 {
     auto* s = static_cast<TextureLoaderState*>(state);
 
     if (!s->upload_requested) {
-        CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-        auto* texture = static_cast<pulse_texture_data_t*>(out_asset);
-
+        CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
+        auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
         int w = 0, h = 0, comp = 0;
         auto* pixels = stbi_load_from_memory(ctx->bytes, ctx->byte_size, &w, &h, &comp, 4);
         if (!pixels) {
             *out_error = "texture stb loader: texture parse failed";
+            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -64,6 +60,7 @@ pulse_asset_loader_status_t step_texture_stb(
             memcpy(staging, pixels, w * h * 4);
         } else {
             stbi_image_free(pixels);
+            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -73,8 +70,8 @@ pulse_asset_loader_status_t step_texture_stb(
         return PULSE_ASSET_LOADER_PENDING;
     }
 
-    // Wait for uploads to be queued by upload_record_callback
     if (s->upload_completed) {
+        delete s;
         return PULSE_ASSET_LOADER_DONE;
     }
 
@@ -113,14 +110,14 @@ std::pair<ECGPUTextureFormat, int> detectKtxTextureFormat(ktxTexture* ktxTexture
 }
 
 pulse_asset_loader_status_t step_texture_ktx(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data)
+    void* state, const pulse_asset_load_task* ctx,
+    const char** out_error)
 {
     auto* s = static_cast<TextureLoaderState*>(state);
 
     if (!s->upload_requested) {
-        CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-        auto* texture = static_cast<pulse_texture_data_t*>(out_asset);
+        CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
+        auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
         ktxResult result = KTX_SUCCESS;
         ktxTexture* ktxTexture;
@@ -128,14 +125,15 @@ pulse_asset_loader_status_t step_texture_ktx(
         if (result != KTX_SUCCESS)
         {
             *out_error = "texture ktx loader: texture parse failed";
+            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
         auto [format, component] = detectKtxTextureFormat(ktxTexture);
-        // TODO: support compressed ktxTexture
         if (ktxTexture->isCompressed || format == CGPU_TEXTURE_FORMAT_UNDEFINED)
         {
             ktxTexture_Destroy(ktxTexture);
+            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -175,6 +173,7 @@ pulse_asset_loader_status_t step_texture_ktx(
         auto* gstate = state_from_app(ctx->app);
         if (!gstate) {
             ktxTexture_Destroy(ktxTexture);
+            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -214,8 +213,8 @@ pulse_asset_loader_status_t step_texture_ktx(
         return PULSE_ASSET_LOADER_PENDING;
     }
 
-    // Wait for uploads to be queued by upload_record_callback
     if (s->upload_completed) {
+        delete s;
         return PULSE_ASSET_LOADER_DONE;
     }
 

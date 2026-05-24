@@ -115,49 +115,6 @@ pulse_asset_handle allocate_slot(
     return {type_id, index, slot.generation};
 }
 
-pulse_asset_handle allocate_memory_slot(
-    pulse_asset_state_o* state,
-    uint64_t type_id,
-    const std::string& name
-) {
-    AssetBucket* bucket = ensure_bucket(state, type_id);
-    if (!bucket) {
-        return invalid_handle();
-    }
-
-    uint32_t index = 0;
-    bool reusing = false;
-    if (!bucket->free_indices.empty()) {
-        index = bucket->free_indices.back();
-        bucket->free_indices.pop_back();
-        reusing = true;
-    } else {
-        index = static_cast<uint32_t>(bucket->slots.size());
-        bucket->slots.push_back(AssetSlot{});
-    }
-
-    AssetSlot& slot = bucket->slots[index];
-    if (reusing) {
-        slot.generation += 1;
-        if (slot.generation == 0) {
-            slot.generation = 1;
-        }
-    }
-    if (!slot.data) {
-        slot.data = allocate_asset_memory(bucket->type->desc);
-    }
-    slot.state = PULSE_ASSET_STATE_WAITING_LOAD;
-    slot.pin_count = 0;
-    slot.path = name;
-    slot.error.clear();
-    slot.loader_state = nullptr;
-    slot.loader = nullptr;
-    slot.version = 0;
-    slot.constructed = false;
-
-    return {type_id, index, slot.generation};
-}
-
 void destroy_slot(AssetBucket& bucket, AssetSlot& slot) {
     if (slot.constructed && bucket.type && bucket.type->desc.destroy) {
         bucket.type->desc.destroy(slot.data, bucket.type->desc.user_data);
@@ -174,6 +131,31 @@ void destroy_slot(AssetBucket& bucket, AssetSlot& slot) {
     slot.loader_state = nullptr;
     slot.loader = nullptr;
     slot.version = 0;
+    slot.dependencies.clear();
+    slot.dependents.clear();
+    slot.unresolved_count = 0;
+}
+
+void try_unload_slot(pulse_asset_state_o* state, pulse_asset_handle handle) {
+    if (!state || is_invalid_handle(handle)) {
+        return;
+    }
+    auto bucket_it = state->buckets.find(handle.type_id);
+    if (bucket_it == state->buckets.end()) {
+        return;
+    }
+    AssetBucket& bucket = bucket_it->second;
+    if (handle.index >= bucket.slots.size()) {
+        return;
+    }
+    AssetSlot& slot = bucket.slots[handle.index];
+    if (slot.generation != handle.generation) {
+        return;
+    }
+    if (slot.pin_count == 0) {
+        destroy_slot(bucket, slot);
+        bucket.free_indices.push_back(handle.index);
+    }
 }
 
 void destroy_all_assets(pulse_asset_state_o* state) {

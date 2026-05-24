@@ -68,7 +68,7 @@ pulse_material_t pulse_graphic_material_create(
     if (!mat) return result;
 
     pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_MATERIAL, "", nullptr, 0);
+        app, PULSE_TYPE_MATERIAL, "", nullptr, 0, NULL);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) {
         delete mat;
         return result;

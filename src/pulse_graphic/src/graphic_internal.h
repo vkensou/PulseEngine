@@ -71,20 +71,17 @@ uint8_t* queue_staging_buffer_full(
     uint64_t size,
     bool* completed);
 
-pulse_result_t start_texture(const pulse_asset_load_task* ctx, void** out_state, void* user_data);
+pulse_result_t load_texture(const pulse_asset_load_task* ctx, void** out_state);
 pulse_asset_loader_status_t step_texture_stb(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data);
+    void* state, const pulse_asset_load_task* ctx,
+    const char** out_error);
 pulse_asset_loader_status_t step_texture_ktx(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data);
-void destroy_texture_loader_state(void* state, void*);
+    void* state, const pulse_asset_load_task* ctx,
+    const char** out_error);
 
-// Mesh loader entry points (defined in load_mesh.cpp)
-pulse_result_t start_mesh(const pulse_asset_load_task* ctx, void** out_state, void* user_data);
+pulse_result_t load_mesh(const pulse_asset_load_task* ctx, void** out_state);
 pulse_asset_loader_status_t step_mesh(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data);
-void destroy_mesh_loader_state(void* state, void* user_data);
+    void* state, const pulse_asset_load_task* ctx,
+    const char** out_error);
 
 } // namespace pulse_graphic_internal
