@@ -151,7 +151,7 @@ pulse_asset_loader_status_t step_mesh(
             auto& vb_blk = gstate->staging_pool[gstate->staging_write].emplace_back(vb_bytes);
             memcpy(vb_blk.data(), verts.data(), vb_bytes);
             gstate->pending_uploads.push_back({
-                UPLOAD_BUFFER_DATA, {}, {},
+                UPLOAD_BUFFER_DATA, {}, {}, nullptr,
                 mesh->vertex_buffer,
                 vb_blk.data(), vb_bytes,
                 &s->vb_completed
@@ -164,7 +164,7 @@ pulse_asset_loader_status_t step_mesh(
                 memcpy(ib_blk.data(), indices.data(), ib_bytes);
                 gstate->pending_uploads.push_back({
                     UPLOAD_BUFFER_DATA, {}, {},
-                    mesh->index_buffer,
+                    {}, mesh->index_buffer,
                     ib_blk.data(), ib_bytes,
                     &s->ib_completed
                 });

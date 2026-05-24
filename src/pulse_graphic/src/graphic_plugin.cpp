@@ -5,11 +5,6 @@
 
 #include "renderer.h"
 
-// For texture loading
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#include "ktx.h"
-
 namespace pulse_graphic_internal {
 
 // ── Bytecode type ─────────────────────────────────────────────
@@ -163,133 +158,6 @@ static pulse_asset_loader_status_t step_compute_shader_from_deps(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-// ── Texture loader (dependency-based) ──────────────────────────
-static pulse_result_t start_texture_from_deps(const pulse_asset_load_task* ctx, void** out_state, void* user_data) {
-    (void)ctx; (void)user_data;
-    *out_state = nullptr;
-    return PULSE_OK;
-}
-
-static pulse_asset_loader_status_t step_texture_from_deps(
-    const pulse_asset_load_task* ctx, void* state, void* out_asset,
-    const char** out_error, void* user_data)
-{
-    (void)state;
-    if (ctx->dependency_count < 1) {
-        *out_error = "texture loader: no deps";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    if (!device) { *out_error = "texture loader: no device"; return PULSE_ASSET_LOADER_FAILED; }
-
-    pulse_asset_ref img_ref{};
-    if (!pulse_asset_acquire(ctx->app, ctx->dependency_handles[0], &img_ref)) {
-        *out_error = "texture loader: dep not found";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-    auto* bc = static_cast<PulseBytecodeSlot*>(img_ref.ptr);
-
-    auto* tex = static_cast<pulse_texture_data_t*>(out_asset);
-
-    // Try ktx first
-    ktxTexture* kt = nullptr;
-    bool is_ktx = ktxTexture_CreateFromMemory(bc->data, bc->size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &kt) == KTX_SUCCESS;
-
-    if (is_ktx) {
-        ECGPUTextureFormat fmt = CGPU_TEXTURE_FORMAT_UNDEFINED;
-        int comp = 0;
-        if (kt->classId == ktxTexture1_c) {
-            auto* k1 = (ktxTexture1*)kt;
-            if (k1->glInternalformat == 0x8058) { fmt = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM; comp = 4; }
-            else if (k1->glInternalformat == 0x1908) { fmt = CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB; comp = 4; }
-            else if (k1->glInternalformat == 0x881A) { fmt = CGPU_TEXTURE_FORMAT_R16G16B16A16_SFLOAT; comp = 8; }
-        } else if (kt->classId == ktxTexture2_c) {
-            auto* k2 = (ktxTexture2*)kt;
-            if (k2->vkFormat == 37) { fmt = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM; comp = 4; }
-            else if (k2->vkFormat == 23) { fmt = CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB; comp = 4; }
-        }
-        if (fmt == CGPU_TEXTURE_FORMAT_UNDEFINED || kt->isCompressed) {
-            ktxTexture_Destroy(kt);
-            pulse_asset_release(ctx->app, &img_ref);
-            *out_error = "texture loader: unsupported ktx format";
-            return PULSE_ASSET_LOADER_FAILED;
-        }
-        CGPUTextureDescriptor td{};
-        td.width = kt->baseWidth;
-        td.height = kt->baseHeight;
-        td.depth = 1;
-        td.array_size = 1;
-        td.format = fmt;
-        td.mip_levels = kt->numLevels;
-        td.descriptors = CGPU_RESOURCE_TYPE_TEXTURE;
-        td.start_state = CGPU_RESOURCE_STATE_UNDEFINED;
-
-        auto cpp_tex = HGEGraphics::create_texture(device, td);
-        if (!cpp_tex) {
-            ktxTexture_Destroy(kt);
-            pulse_asset_release(ctx->app, &img_ref);
-            *out_error = "texture loader: create_texture failed";
-            return PULSE_ASSET_LOADER_FAILED;
-        }
-        tex->handle = cpp_tex->handle;
-        tex->view = cpp_tex->view;
-        tex->width = (uint32_t)kt->baseWidth;
-        tex->height = (uint32_t)kt->baseHeight;
-        tex->depth = 1;
-        tex->mip_levels = kt->numLevels;
-        tex->format = fmt;
-        cpp_tex->handle = CGPU_NULLPTR;
-        cpp_tex->view = CGPU_NULLPTR;
-
-        ktxTexture_Destroy(kt);
-        pulse_asset_release(ctx->app, &img_ref);
-        return PULSE_ASSET_LOADER_DONE;
-    }
-
-    // Fallback to stb_image
-    int w = 0, h = 0, comp = 0;
-    auto* pixels = stbi_load_from_memory(bc->data, (int)bc->size, &w, &h, &comp, 4);
-    if (!pixels) {
-        pulse_asset_release(ctx->app, &img_ref);
-        *out_error = "texture loader: stb decode failed";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-
-    CGPUTextureDescriptor td{};
-    td.width = (uint64_t)w;
-    td.height = (uint64_t)h;
-    td.depth = 1;
-    td.array_size = 1;
-    td.format = CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB;
-    td.mip_levels = 1;
-    td.descriptors = CGPU_RESOURCE_TYPE_TEXTURE;
-    td.start_state = CGPU_RESOURCE_STATE_UNDEFINED;
-
-    auto cpp_tex = HGEGraphics::create_texture(device, td);
-    if (!cpp_tex) {
-        stbi_image_free(pixels);
-        pulse_asset_release(ctx->app, &img_ref);
-        *out_error = "texture loader: create_texture failed";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-    tex->handle = cpp_tex->handle;
-    tex->view = cpp_tex->view;
-    tex->width = (uint32_t)w;
-    tex->height = (uint32_t)h;
-    tex->depth = 1;
-    tex->mip_levels = 1;
-    tex->format = CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB;
-
-    // TODO: upload pixel data via staging buffer in upload callback
-    stbi_image_free(pixels);
-
-    cpp_tex->handle = CGPU_NULLPTR;
-    cpp_tex->view = CGPU_NULLPTR;
-
-    pulse_asset_release(ctx->app, &img_ref);
-    return PULSE_ASSET_LOADER_DONE;
-}
-
 const char* kPluginName = "PulseGraphicPlugin";
 
 static void destroy_shader(void* ptr, void* user_data) {
@@ -389,7 +257,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
         return pulse_asset_register_loader(app, &ld);
     };
 
-    register_loader(PULSE_TYPE_BYTECODE, "spv,dxc,gltf,dds,ktx,png,jpg,bmp,tga",
+    register_loader(PULSE_TYPE_BYTECODE, "spv,dxc,gltf",
                     start_bytecode, step_bytecode, nullptr, nullptr);
     register_loader(PULSE_TYPE_SHADER, "vert",
                     start_shader_from_deps, step_shader_from_deps, destroy_shader_loader_state,
@@ -397,8 +265,11 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_loader(PULSE_TYPE_COMPUTE_SHADER, "comp",
                     start_compute_shader_from_deps, step_compute_shader_from_deps, destroy_shader_loader_state,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_TEXTURE, "ktx,dds,png,jpg,bmp,tga",
-                    start_texture_from_deps, step_texture_from_deps, nullptr,
+    register_loader(PULSE_TYPE_TEXTURE, "png,jpg,bmp,tga",
+                    start_texture, step_texture_stb, destroy_texture_loader_state,
+                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
+    register_loader(PULSE_TYPE_TEXTURE, "ktx",
+                    start_texture, step_texture_ktx, destroy_texture_loader_state,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
     register_loader(PULSE_TYPE_MESH, "obj",
                     start_mesh, step_mesh, destroy_mesh_loader_state,

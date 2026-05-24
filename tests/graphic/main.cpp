@@ -130,8 +130,8 @@ int main(void) {
     //tex_desc.depth = 1;
     //tex_desc.mip_levels = 1;
     //tex_desc.format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM;
-    //pulse_texture_t texture = pulse_graphic_texture_create_from_data(
-    //    app, &tex_desc, nullptr, 0);
+    pulse_texture_t texture = pulse_graphic_texture_load(
+        app, "TilesGray512.jpg", false);
 
     //float verts[] = {0,0,0, 1,0,0, 0,1,0};
     //uint16_t idxs[] = {0, 1, 2};

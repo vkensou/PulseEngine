@@ -35,7 +35,7 @@ pulse_buffer_t pulse_graphic_buffer_create(
             memcpy(blk.data(), data, data_size);
             gstate->pending_uploads.push_back({
                 pulse_graphic_internal::UPLOAD_BUFFER, {}, pulse_buffer_t{asset_handle},
-                nullptr, blk.data(), data_size, nullptr
+                nullptr, nullptr, blk.data(), data_size, nullptr
             });
         }
     }

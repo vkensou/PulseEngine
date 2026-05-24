@@ -20,7 +20,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
             pulse_asset_ref ref{};
             if (pulse_asset_acquire(app, entry.texture.asset, &ref)) {
                 auto* tex = static_cast<pulse_texture_data_t*>(ref.ptr);
-                auto tex_rh = pulse_rendergraph_import_texture(graph, (void*)tex->handle);
+                auto tex_rh = pulse_rendergraph_import_texture(graph, tex);
                 if (entry.data && entry.data_size > 0) {
                     pulse_rendergraph_add_uploadtexturepass_ex(
                         graph, "tex_up", tex_rh,
@@ -44,6 +44,19 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
                         const_cast<void*>(entry.data), nullptr, 0, nullptr);
                 }
                 pulse_asset_release(app, &ref);
+                done = true;
+            }
+            break;
+        }
+        case UPLOAD_TEXTURE_DATA: {
+            if (entry.texture_data) {
+                auto tex_rh = pulse_rendergraph_import_texture(graph, entry.texture_data);
+                if (entry.data && entry.data_size > 0) {
+                    pulse_rendergraph_add_uploadtexturepass_ex(
+                        graph, "tex_up", tex_rh,
+                        0, 0, entry.data_size, 0,
+                        const_cast<void*>(entry.data), nullptr, 0, nullptr);
+                }
                 done = true;
             }
             break;

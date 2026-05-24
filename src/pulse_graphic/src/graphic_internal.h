@@ -14,13 +14,15 @@ extern const char* kPluginName;
 enum UploadContentType {
     UPLOAD_TEXTURE = 0,
     UPLOAD_BUFFER = 1,
-    UPLOAD_BUFFER_DATA = 2,
+    UPLOAD_TEXTURE_DATA = 2,
+    UPLOAD_BUFFER_DATA = 3,
 };
 
 struct UploadEntry {
     int content;  // UploadContentType
     pulse_texture_t texture;
     pulse_buffer_t buffer;
+    pulse_texture_data_t* texture_data = nullptr;
     pulse_buffer_data_t* buffer_data = nullptr;
     const void* data = nullptr;
     uint64_t data_size = 0;
@@ -46,6 +48,15 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void material_internal_destroy(void* data);
 void install_upload_callback(pulse_app_t app);
+
+pulse_result_t start_texture(const pulse_asset_load_task* ctx, void** out_state, void* user_data);
+pulse_asset_loader_status_t step_texture_stb(
+    const pulse_asset_load_task* ctx, void* state, void* out_asset,
+    const char** out_error, void* user_data);
+pulse_asset_loader_status_t step_texture_ktx(
+    const pulse_asset_load_task* ctx, void* state, void* out_asset,
+    const char** out_error, void* user_data);
+void destroy_texture_loader_state(void* state, void*);
 
 // Mesh loader entry points (defined in load_mesh.cpp)
 pulse_result_t start_mesh(const pulse_asset_load_task* ctx, void** out_state, void* user_data);

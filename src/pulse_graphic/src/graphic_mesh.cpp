@@ -39,7 +39,7 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
             pulse_asset_acquire(app, asset_handle, &ref2);
             auto* mesh = static_cast<pulse_mesh_data_t*>(ref2.ptr);
             gstate->pending_uploads.push_back({
-                pulse_graphic_internal::UPLOAD_BUFFER_DATA, {}, {},
+                pulse_graphic_internal::UPLOAD_BUFFER_DATA, {}, {}, nullptr,
                 mesh->vertex_buffer,
                 blk.data(), vb_bytes, nullptr
             });

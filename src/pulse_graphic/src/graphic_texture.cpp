@@ -24,11 +24,11 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
         pulse_texture_data_t* tex = static_cast<pulse_texture_data_t*>(ref.ptr);
         tex->handle = cpp_texture->handle;
         tex->view = cpp_texture->view;
-        tex->width = desc->width;
-        tex->height = desc->height;
-        tex->depth = desc->depth;
-        tex->mip_levels = desc->mip_levels;
-        tex->format = desc->format;
+        //tex->width = desc->width;
+        //tex->height = desc->height;
+        //tex->depth = desc->depth;
+        //tex->mip_levels = desc->mip_levels;
+        //tex->format = desc->format;
         cpp_texture->handle = CGPU_NULLPTR;
         cpp_texture->view = CGPU_NULLPTR;
         pulse_asset_release(app, &ref);
@@ -40,7 +40,7 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
             auto& blk = gstate->staging_pool[gstate->staging_write].emplace_back(pixel_data_size);
             memcpy(blk.data(), pixel_data, pixel_data_size);
             gstate->pending_uploads.push_back({
-                pulse_graphic_internal::UPLOAD_TEXTURE, pulse_texture_t{asset_handle}, {},
+                pulse_graphic_internal::UPLOAD_TEXTURE, pulse_texture_t{asset_handle}, {}, nullptr,
                 nullptr, blk.data(), pixel_data_size, nullptr
             });
         }
@@ -56,10 +56,7 @@ pulse_texture_t pulse_graphic_texture_load(
     bool mipmap)
 {
     (void)mipmap;
-    pulse_asset_handle img = pulse_asset_load(app, PULSE_TYPE_BYTECODE, filepath);
-    if (img.index == PULSE_ASSET_INVALID_INDEX) return pulse_texture_t{};
-    pulse_asset_handle deps[] = {img};
-    pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_TEXTURE, nullptr, deps, 1);
+    pulse_asset_handle h = pulse_asset_load(app, PULSE_TYPE_TEXTURE, filepath);
     if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_texture_t{};
     return pulse_texture_t{h};
 }

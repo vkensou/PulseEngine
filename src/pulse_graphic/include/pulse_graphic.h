@@ -44,16 +44,6 @@ typedef struct pulse_compute_shader_data {
     CGPUShaderEntryDescriptor cs;
 } pulse_compute_shader_data_t;
 
-typedef struct pulse_texture_data {
-    CGPUTextureId handle;
-    CGPUTextureViewId view;
-    uint32_t width;
-    uint32_t height;
-    uint32_t depth;
-    uint32_t mip_levels;
-    ECGPUTextureFormat format;
-} pulse_texture_data_t;
-
 typedef struct pulse_material_data {
     pulse_asset_handle shader;
     pulse_asset_handle self;
