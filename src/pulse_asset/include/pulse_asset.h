@@ -32,7 +32,7 @@ typedef enum pulse_dependency_flags {
 
 typedef struct pulse_asset_dependency {
     pulse_asset_handle handle;
-    uint32_t flags;
+    pulse_dependency_flags_t flags;
 } pulse_asset_dependency_t;
 
 typedef enum pulse_asset_state {
