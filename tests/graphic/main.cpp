@@ -26,7 +26,7 @@ struct test_render_passdata {
     pulse_material_t material;
     pulse_mesh_t mesh;
     pulse_shader_t shader;
-    pulse_shader_t compute;
+    pulse_compute_shader_t compute;
     pulse_texture_t texture;
     pulse_buffer_t buffer;
 };

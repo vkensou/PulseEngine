@@ -61,7 +61,7 @@ void pulse_encoder_draw_procedure(pulse_renderpass_encoder_t* encoder, pulse_mat
     (void)encoder; (void)material; (void)topology; (void)vertex_count;
 }
 
-void pulse_encoder_dispatch(pulse_renderpass_encoder_t* encoder, pulse_shader_t compute_shader, uint32_t x, uint32_t y, uint32_t z) {
+void pulse_encoder_dispatch(pulse_renderpass_encoder_t* encoder, pulse_compute_shader_t compute_shader, uint32_t x, uint32_t y, uint32_t z) {
     (void)encoder; (void)compute_shader; (void)x; (void)y; (void)z;
 }
 

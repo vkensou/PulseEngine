@@ -101,12 +101,11 @@ pulse_shader_t pulse_graphic_shader_create_from_binary(
         false, nullptr, 0, blend_desc, depth_desc, rasterizer_state);
 }
 
-pulse_shader_t pulse_graphic_compute_shader_create_from_binary(
+pulse_compute_shader_t pulse_graphic_compute_shader_create_from_binary(
     pulse_app_t app,
     const void* cs_data, uint32_t cs_size)
 {
-    return create_shader_impl(app, nullptr, 0, nullptr, 0,
-        true, cs_data, cs_size, nullptr, nullptr, nullptr);
+    return {};
 }
 
 pulse_shader_t pulse_graphic_shader_load(
@@ -128,16 +127,16 @@ pulse_shader_t pulse_graphic_shader_load(
     return pulse_shader_t{h};
 }
 
-pulse_shader_t pulse_graphic_compute_shader_load(
+pulse_compute_shader_t pulse_graphic_compute_shader_load(
     pulse_app_t app,
     const char* comp_path)
 {
     pulse_asset_handle cs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, comp_path);
-    if (cs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    if (cs.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
     pulse_asset_handle deps[] = {cs};
     pulse_asset_handle h = pulse_asset_load_with_deps(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1);
-    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
-    return pulse_shader_t{h};
+    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
+    return pulse_compute_shader_t{h};
 }
 
 pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_t* handle) {
@@ -148,7 +147,12 @@ pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_
     return nullptr;
 }
 
-pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_shader_t* handle) {
+void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle) {
+    pulse_asset_ref ref{handle->asset, nullptr};
+    pulse_asset_release(app, &ref);
+}
+
+pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_compute_shader_t* handle) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, handle->asset, &ref)) {
         return static_cast<pulse_compute_shader_data_t*>(ref.ptr);
@@ -156,8 +160,8 @@ pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t ap
     return nullptr;
 }
 
-void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle) {
-    pulse_asset_ref ref{handle->asset, nullptr};
+void pulse_graphic_compute_shader_release(pulse_app_t app, pulse_compute_shader_t* handle) {
+    pulse_asset_ref ref{ handle->asset, nullptr };
     pulse_asset_release(app, &ref);
 }
 

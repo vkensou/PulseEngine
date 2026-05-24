@@ -23,6 +23,7 @@ extern "C" {
 #define PULSE_TYPE_BYTECODE        UINT64_C(0x1007)
 
 typedef struct pulse_shader_t   { pulse_asset_handle asset; } pulse_shader_t;
+typedef struct pulse_compute_shader_t { pulse_asset_handle asset; } pulse_compute_shader_t;
 typedef struct pulse_mesh_t     { pulse_asset_handle asset; } pulse_mesh_t;
 typedef struct pulse_texture_t  { pulse_asset_handle asset; } pulse_texture_t;
 typedef struct pulse_buffer_t   { pulse_asset_handle asset; } pulse_buffer_t;
@@ -71,7 +72,7 @@ pulse_shader_t pulse_graphic_shader_create_from_binary(
     const CGPUDepthStateDescriptor* depth_desc,
     const CGPURasterizerStateDescriptor* rasterizer_state);
 
-pulse_shader_t pulse_graphic_compute_shader_create_from_binary(
+pulse_compute_shader_t pulse_graphic_compute_shader_create_from_binary(
     pulse_app_t app,
     const void* cs_data, uint32_t cs_size);
 
@@ -83,13 +84,14 @@ pulse_shader_t pulse_graphic_shader_load(
     const CGPUDepthStateDescriptor* depth_desc,
     const CGPURasterizerStateDescriptor* rasterizer_state);
 
-pulse_shader_t pulse_graphic_compute_shader_load(
+pulse_compute_shader_t pulse_graphic_compute_shader_load(
     pulse_app_t app,
     const char* comp_path);
 
 pulse_shader_data_t* pulse_graphic_shader_acquire(pulse_app_t app, pulse_shader_t* handle);
-pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_shader_t* handle);
 void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle);
+pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_compute_shader_t* handle);
+void pulse_graphic_compute_shader_release(pulse_app_t app, pulse_compute_shader_t* handle);
 
 pulse_buffer_t pulse_graphic_buffer_create(
     pulse_app_t app,
@@ -168,7 +170,7 @@ void pulse_graphic_material_release(pulse_app_t app, pulse_material_t* handle);
 void pulse_encoder_draw(pulse_renderpass_encoder_t* encoder, pulse_material_t material, pulse_mesh_t mesh);
 void pulse_encoder_draw_submesh(pulse_renderpass_encoder_t* encoder, pulse_material_t material, pulse_mesh_t mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);
 void pulse_encoder_draw_procedure(pulse_renderpass_encoder_t* encoder, pulse_material_t material, ECGPUPrimitiveTopology topology, uint32_t vertex_count);
-void pulse_encoder_dispatch(pulse_renderpass_encoder_t* encoder, pulse_shader_t compute_shader, uint32_t x, uint32_t y, uint32_t z);
+void pulse_encoder_dispatch(pulse_renderpass_encoder_t* encoder, pulse_compute_shader_t compute_shader, uint32_t x, uint32_t y, uint32_t z);
 
 void pulse_encoder_set_global_texture(pulse_renderpass_encoder_t* encoder, pulse_texture_t texture, uint32_t set, uint32_t binding);
 void pulse_encoder_set_global_buffer(pulse_renderpass_encoder_t* encoder, pulse_buffer_t buffer, uint32_t set, uint32_t binding);
