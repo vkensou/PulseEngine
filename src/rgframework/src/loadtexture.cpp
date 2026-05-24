@@ -45,7 +45,7 @@ std::pair<ECGPUTextureFormat, int> detectKtxTextureFormat(ktxTexture* ktxTexture
 	return { CGPU_TEXTURE_FORMAT_UNDEFINED, 0 };
 }
 
-uint64_t load_texture_ktx(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, const char* filepath, bool mipmap)
+uint64_t load_texture_ktx(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, const char* filepath, bool mipmap)
 {
 	ktxResult result = KTX_SUCCESS;
 	ktxTexture* ktxTexture;
@@ -139,7 +139,7 @@ uint64_t load_texture_ktx(oval_cgpu_device_t* device, oval_graphics_transfer_que
 	return size;
 }
 
-uint64_t load_texture_raw(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, const char* filepath, bool mipmap)
+uint64_t load_texture_raw(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, const char* filepath, bool mipmap)
 {
 	int width = 0, height = 0, components = 0;
 	auto buffer = readfile(filepath);
@@ -187,7 +187,7 @@ uint64_t load_texture_raw(oval_cgpu_device_t* device, oval_graphics_transfer_que
 	return size;
 }
 
-uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, const char* filepath, bool mipmap)
+uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, const char* filepath, bool mipmap)
 {
 	if (endsWithKtx((const char*)filepath))
 		return load_texture_ktx(device, queue, texture, filepath, mipmap);

@@ -61,16 +61,6 @@ namespace HGEGraphics
 	void dynamic_mesh_reset(pulse_mesh_data_t* mesh);
 	void free_mesh(pulse_mesh_data_t* mesh);
 
-	struct pulse_texture_data_t
-	{
-		CGPUTextureId handle;
-		CGPUTextureViewId view;
-		std::vector<ECGPUResourceStateFlags> cur_states;
-		bool states_consistent;
-		bool prepared;
-		pulse_texture_handle_t dynamic_handle;
-	};
-
 	pulse_texture_data_t* create_empty_texture();
 	void init_texture(pulse_texture_data_t* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
 	pulse_texture_data_t* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);

@@ -5,6 +5,7 @@
 #include "cgpu/api.h"
 #include "renderer.h"
 
+struct pulse_texture_data_t;
 struct pulse_buffer_data_t;
 struct pulse_mesh_data_t;
 
@@ -14,7 +15,6 @@ namespace HGEGraphics
 	struct UploadEncoder;
 	struct Shader;
 	struct ComputeShader;
-	struct pulse_texture_data_t;
 	struct Material;
 
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth);

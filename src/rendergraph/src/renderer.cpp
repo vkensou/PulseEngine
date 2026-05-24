@@ -249,7 +249,8 @@ namespace HGEGraphics
 		auto texture = new pulse_texture_data_t();
 		texture->handle = CGPU_NULLPTR;
 		texture->view = CGPU_NULLPTR;
-		texture->cur_states.clear();
+		texture->cur_state_count = 0;
+		texture->p_cur_states = nullptr;
 		texture->states_consistent = false;
 		texture->prepared = false;
 		texture->dynamic_handle = {};
@@ -263,8 +264,9 @@ namespace HGEGraphics
 			new_desc.flags |= CGPU_TEXTURE_CREATION_USAGE_FORCE2D;
 
 		texture->handle = cgpu_device_create_texture(device, &new_desc);
-		texture->cur_states.resize(new_desc.array_size * new_desc.mip_levels);
-		std::fill(texture->cur_states.begin(), texture->cur_states.end(), CGPU_RESOURCE_STATE_UNDEFINED);
+		texture->cur_state_count = new_desc.array_size * new_desc.mip_levels;
+		texture->p_cur_states = new ECGPUResourceStateFlags[new_desc.array_size * new_desc.mip_levels];
+		std::fill(texture->p_cur_states, texture->p_cur_states + texture->cur_state_count, CGPU_RESOURCE_STATE_UNDEFINED);
 		texture->states_consistent = true;
 
 		uint32_t arrayCount = texture->handle->info->array_size_minus_one + 1;
@@ -300,6 +302,12 @@ namespace HGEGraphics
 			cgpu_device_free_texture_view(texture->view->device, texture->view);
 		if (texture->handle)
 			cgpu_device_free_texture(texture->handle->device, texture->handle);
+		if (texture->p_cur_states)
+		{
+			delete[] texture->p_cur_states;
+			texture->p_cur_states = nullptr;
+			texture->cur_state_count = 0;
+		}
 	}
 
 	Material::Material(CGPUDeviceId device, Shader* shader)
@@ -353,8 +361,9 @@ namespace HGEGraphics
 	{
 		backbuffer->texture.handle = swapchain->p_back_buffers[index];
 		backbuffer->texture.view = CGPU_NULLPTR;
-		backbuffer->texture.cur_states.resize(1);
-		backbuffer->texture.cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
+		backbuffer->texture.cur_state_count = 1;
+		backbuffer->texture.p_cur_states = new ECGPUResourceStateFlags[backbuffer->texture.cur_state_count];
+		backbuffer->texture.p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
 		backbuffer->texture.states_consistent = true;
 		backbuffer->texture.dynamic_handle = {};
 	}
@@ -363,7 +372,9 @@ namespace HGEGraphics
 	{
 		texture.handle = CGPU_NULLPTR;
 		texture.view = CGPU_NULLPTR;
-		texture.cur_states.clear();
+		texture.cur_state_count = 0;
+		delete[] texture.p_cur_states;
+		texture.p_cur_states = nullptr;
 		texture.states_consistent = false;
 	}
 

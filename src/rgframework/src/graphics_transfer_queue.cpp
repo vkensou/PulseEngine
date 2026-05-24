@@ -29,7 +29,7 @@ uint8_t* oval_graphics_transfer_queue_transfer_data_to_buffer(oval_graphics_tran
 	return data;
 }
 
-uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_full(oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, bool generate_mipmap, uint8_t generate_mipmap_from, uint64_t* size)
+uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_full(oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, bool generate_mipmap, uint8_t generate_mipmap_from, uint64_t* size)
 {
 	assert(texture != nullptr);
 
@@ -53,7 +53,7 @@ uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_full(oval_graphic
 	return data;
 }
 
-uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_slice(oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)
+uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_slice(oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)
 {
 	assert(texture != nullptr);
 

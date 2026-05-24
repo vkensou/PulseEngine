@@ -4,6 +4,8 @@
 #include "cgpu/api.h"
 #include "hash.h"
 
+struct pulse_texture_data_t;
+
 namespace HGEGraphics
 {
 	struct TextureDescriptor
@@ -32,7 +34,6 @@ namespace HGEGraphics
 		}
 	};
 
-	struct pulse_texture_data_t;
 	struct TextureWrap
 	{
 		TextureDescriptor descriptor() const

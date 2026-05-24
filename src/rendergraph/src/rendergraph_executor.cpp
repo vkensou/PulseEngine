@@ -56,9 +56,9 @@ namespace HGEGraphics
 					auto force_barrier = edge.usage == CGPU_RESOURCE_STATE_RENDER_TARGET || edge.usage == CGPU_RESOURCE_STATE_DEPTH_WRITE || edge.usage == CGPU_RESOURCE_STATE_COPY_DEST;
 					if (resource.manageType != ManageType::SubResource)
 					{
-						if (texture->states_consistent == true || texture->cur_states.size() == 1)
+						if (texture->states_consistent == true || texture->cur_state_count == 1)
 						{
-							auto cur_state = texture->cur_states[0];
+							auto cur_state = texture->p_cur_states[0];
 							if (cur_state != edge.usage || force_barrier)
 							{
 								texture_barriers[texture_barrier_count++] = {
@@ -70,15 +70,15 @@ namespace HGEGraphics
 									.array_layer = 0,
 								};
 								add_barrier(buffer_barrier_count, buffer_barriers, texture_barrier_count, texture_barriers, cmd);
-								for (auto& state : texture->cur_states)
-									state = edge.usage;
+								for (size_t i = 0; i < texture->cur_state_count; ++i)
+									texture->p_cur_states[i] = edge.usage;
 							}
 						}
 						else
 						{
-							for (size_t i = 0; i < texture->cur_states.size(); ++i)
+							for (size_t i = 0; i < texture->cur_state_count; ++i)
 							{
-								auto& cur_state = texture->cur_states[i];
+								auto& cur_state = texture->p_cur_states[i];
 								if (cur_state != edge.usage || force_barrier)
 								{
 									texture_barriers[texture_barrier_count++] = {
@@ -98,7 +98,7 @@ namespace HGEGraphics
 					}
 					else
 					{
-						auto& cur_state = texture->cur_states[resource.mipLevel + resource.arraySlice * resource.mipCount];
+						auto& cur_state = texture->p_cur_states[resource.mipLevel + resource.arraySlice * resource.mipCount];
 						if (cur_state != edge.usage || force_barrier)
 						{
 							texture_barriers[texture_barrier_count++] = {

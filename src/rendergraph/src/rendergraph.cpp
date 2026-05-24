@@ -129,28 +129,27 @@ pulse_texture_handle_t pulse_rendergraph_declare_texture(pulse_rendergraph_t* se
 	return make_texture_handle(impl->resources.size() - 1);
 }
 
-pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, void* imported)
+pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, pulse_texture_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	auto* tex = (pulse_texture_data_t*)imported;
-	if (is_valid_dynamic_texture_handle(impl->resources, tex->dynamic_handle))
-		return tex->dynamic_handle;
+	if (is_valid_dynamic_texture_handle(impl->resources, imported->dynamic_handle))
+		return imported->dynamic_handle;
 
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
-	resourceNode.texture = tex;
+	resourceNode.texture = imported;
 	resourceNode.manageType = ManageType::Imported;
-	resourceNode.width = tex->handle->info->width;
-	resourceNode.height = tex->handle->info->height;
-	resourceNode.depth = tex->handle->info->depth;
-	resourceNode.format = tex->handle->info->format;
-	resourceNode.mipCount = tex->handle->info->mip_levels;
-	resourceNode.arraySize = tex->handle->info->array_size_minus_one + 1;
+	resourceNode.width = imported->handle->info->width;
+	resourceNode.height = imported->handle->info->height;
+	resourceNode.depth = imported->handle->info->depth;
+	resourceNode.format = imported->handle->info->format;
+	resourceNode.mipCount = imported->handle->info->mip_levels;
+	resourceNode.arraySize = imported->handle->info->array_size_minus_one + 1;
 	resourceNode.mipLevel = 0;
 	resourceNode.arraySlice = 0;
-	auto handle = tex->dynamic_handle = make_texture_handle(impl->resources.size() - 1);
-	impl->imported_textures.push_back(tex);
+	auto handle = imported->dynamic_handle = make_texture_handle(impl->resources.size() - 1);
+	impl->imported_textures.push_back(imported);
 	return handle;
 }
 
@@ -162,7 +161,7 @@ pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* 
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	auto texture = &bb->texture;
-	texture->cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
+	texture->p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
 	texture->states_consistent = true;
 	return pulse_rendergraph_import_texture(self, texture);
 }

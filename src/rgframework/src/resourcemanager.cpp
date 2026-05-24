@@ -1,15 +1,15 @@
 ﻿#include "cgpu_device.h"
 
-HGEGraphics::pulse_texture_data_t* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc)
+pulse_texture_data_t* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	std::unique_ptr<HGEGraphics::pulse_texture_data_t> texture(HGEGraphics::create_texture(D->device, desc));
+	std::unique_ptr<pulse_texture_data_t> texture(HGEGraphics::create_texture(D->device, desc));
 	auto ptr = texture.get();
 	D->textures.push_back(std::move(texture));
 	return ptr;
 }
 
-HGEGraphics::pulse_texture_data_t* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size)
+pulse_texture_data_t* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto texture = oval_create_texture(device, desc);
@@ -20,7 +20,7 @@ HGEGraphics::pulse_texture_data_t* oval_create_texture_from_buffer(oval_device_t
 	return texture;
 }
 
-void oval_free_texture(oval_device_t* device, HGEGraphics::pulse_texture_data_t* texture)
+void oval_free_texture(oval_device_t* device, pulse_texture_data_t* texture)
 {
 	//HGEGraphics::free_texture(texture);
 }
@@ -96,7 +96,7 @@ void oval_free_material(oval_device_t* device, HGEGraphics::Material* material)
 	//delete material;
 }
 
-bool oval_texture_prepared(oval_device_t* device, HGEGraphics::pulse_texture_data_t* texture)
+bool oval_texture_prepared(oval_device_t* device, pulse_texture_data_t* texture)
 {
 	return texture->prepared;
 }
@@ -111,7 +111,7 @@ pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, pulse_me
 	return mesh->vertex_buffer;
 }
 
-HGEGraphics::pulse_texture_data_t* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap)
+pulse_texture_data_t* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
@@ -122,7 +122,7 @@ HGEGraphics::pulse_texture_data_t* oval_load_texture(oval_device_t* device, cons
 	memcpy(path, filepath, path_size);
 	resource.path = path;
 	resource.path_size = path_size;
-	std::unique_ptr<HGEGraphics::pulse_texture_data_t> texture(HGEGraphics::create_empty_texture());
+	std::unique_ptr<pulse_texture_data_t> texture(HGEGraphics::create_empty_texture());
 	auto ptr = texture.get();
 	D->textures.push_back(std::move(texture));
 	resource.textureResource = {
@@ -223,7 +223,7 @@ uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, pulse_mesh_dat
 	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, index_data_size, mesh->index_buffer);
 }
 
-uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)
+uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)
 {
 	auto D = (oval_cgpu_device_t*)device;
 

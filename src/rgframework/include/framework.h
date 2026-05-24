@@ -121,10 +121,10 @@ ecs_entity_t oval_create_window_entity(oval_device_t* device, const oval_window_
 void oval_free_window_entity(oval_device_t* device, ecs_entity_t window_entity);
 HGEGraphics::texture_handle_t oval_get_backbuffer_for_window(struct oval_device_t* device, ecs_entity_t window_entity, HGEGraphics::rendergraph_t& rg);
 
-HGEGraphics::pulse_texture_data_t* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
-HGEGraphics::pulse_texture_data_t* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size);
-HGEGraphics::pulse_texture_data_t* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap);
-void oval_free_texture(oval_device_t* device, HGEGraphics::pulse_texture_data_t* texture);
+pulse_texture_data_t* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc);
+pulse_texture_data_t* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size);
+pulse_texture_data_t* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap);
+void oval_free_texture(oval_device_t* device, pulse_texture_data_t* texture);
 pulse_mesh_data_t* oval_load_mesh(oval_device_t* device, const char* filepath);
 pulse_mesh_data_t* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, const uint8_t* vertex_data, const uint8_t* index_data, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
 pulse_mesh_data_t* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
@@ -140,16 +140,16 @@ pulse_buffer_data_t* oval_create_buffer(oval_device_t* device, const CGPUBufferD
 void oval_free_buffer(oval_device_t* device, pulse_buffer_data_t* buffer);
 HGEGraphics::Material* oval_create_material(oval_device_t* device, HGEGraphics::Shader* shader);
 void oval_free_material(oval_device_t* device, HGEGraphics::Material* material);
-bool oval_texture_prepared(oval_device_t* device, HGEGraphics::pulse_texture_data_t* texture);
+bool oval_texture_prepared(oval_device_t* device, pulse_texture_data_t* texture);
 bool oval_mesh_prepared(oval_device_t* device, pulse_mesh_data_t* mesh);
 pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, pulse_mesh_data_t* mesh);
 oval_graphics_transfer_queue_t oval_graphics_transfer_queue_alloc(oval_device_t* device);
 void oval_graphics_transfer_queue_submit(oval_device_t* device, oval_graphics_transfer_queue_t queue);
 uint8_t* oval_graphics_transfer_queue_transfer_data_to_buffer(oval_graphics_transfer_queue_t queue, uint64_t size, pulse_buffer_data_t* buffer);
-uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_full(oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, bool generate_mipmap, uint8_t generate_mipmap_from, uint64_t* size);
-uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_slice(oval_graphics_transfer_queue_t queue, HGEGraphics::pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
+uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_full(oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, bool generate_mipmap, uint8_t generate_mipmap_from, uint64_t* size);
+uint8_t* oval_graphics_transfer_queue_transfer_data_to_texture_slice(oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
 uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size);
 uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size);
-uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
+uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size);
 
 ecs_world_t* oval_get_world(oval_device_t* device);

@@ -7,6 +7,17 @@
 extern "C" {
 #endif
 
+struct pulse_texture_data_t
+{
+	CGPUTextureId handle;
+	CGPUTextureViewId view;
+	uint32_t cur_state_count;
+	ECGPUResourceStateFlags* p_cur_states;
+	bool states_consistent;
+	bool prepared;
+	pulse_texture_handle_t dynamic_handle;
+};
+
 struct pulse_buffer_data_t
 {
 	CGPUBufferId handle;
