@@ -41,7 +41,7 @@ struct AssetSlot {
     AssetLoader* loader = nullptr;
     uint64_t version = 0;
     bool constructed = false;
-    std::vector<pulse_asset_handle> dependencies;
+    std::vector<pulse_asset_dependency> dependencies;
     std::vector<pulse_asset_handle> dependents;
     uint32_t unresolved_count = 0;
 };
@@ -77,7 +77,7 @@ struct LoadRequest {
 struct ActiveLoad {
     pulse_asset_handle handle{};
     std::vector<uint8_t> bytes;
-    std::vector<pulse_asset_handle> dep_handles;
+    std::vector<pulse_asset_dependency> dep_handles;
     pulse_asset_load_task ctx{};
     bool from_memory = false;
 };

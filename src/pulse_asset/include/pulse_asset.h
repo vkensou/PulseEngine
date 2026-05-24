@@ -25,6 +25,16 @@ typedef struct pulse_asset_ref {
     void* ptr;
 } pulse_asset_ref;
 
+typedef enum pulse_dependency_flags {
+    PULSE_DEP_REQUIRED = 0x0,
+    PULSE_DEP_OPTIONAL = 0x1,
+} pulse_dependency_flags_t;
+
+typedef struct pulse_asset_dependency {
+    pulse_asset_handle handle;
+    uint32_t flags;
+} pulse_asset_dependency_t;
+
 typedef enum pulse_asset_state {
     PULSE_ASSET_STATE_EMPTY = 0,
     PULSE_ASSET_STATE_WAITING_LOAD,
@@ -66,7 +76,7 @@ typedef struct pulse_asset_load_task {
     const char* path;
     const uint8_t* bytes;
     uint64_t byte_size;
-    const pulse_asset_handle* dependency_handles;
+    const pulse_asset_dependency* dependencies;
     uint32_t dependency_count;
     pulse_asset_handle handle;
 } pulse_asset_load_task;
@@ -145,7 +155,7 @@ pulse_asset_handle pulse_asset_load_with_deps(
     pulse_app_t app,
     uint64_t type_id,
     const char* path,
-    const pulse_asset_handle* dependencies,
+    const pulse_asset_dependency* dependencies,
     uint32_t dependency_count);
 
 pulse_asset_state_t pulse_asset_get_state(
