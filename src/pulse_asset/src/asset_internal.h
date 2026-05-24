@@ -44,6 +44,9 @@ struct AssetSlot {
     std::vector<pulse_asset_dependency> dependencies;
     std::vector<pulse_asset_handle> dependents;
     uint32_t unresolved_count = 0;
+    std::vector<uint8_t> pending_load_bytes;
+    std::vector<uint8_t> pending_load_settings;
+    bool pending_from_memory = false;
 };
 
 struct AssetBucket {

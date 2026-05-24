@@ -236,10 +236,28 @@ void process_load_requests_system(ecs_iter_t* it) {
                     }
                 }
                 if (loader) {
-                    if (!begin_active_load(state, loader, slot_handle, &slot, {}, slot.dependencies, nullptr)) {
+                    std::vector<uint8_t> bytes;
+                    if (slot.pending_from_memory) {
+                        bytes = std::move(slot.pending_load_bytes);
+                    } else {
+                        std::string full_path = join_asset_path(state->root_path, slot.path);
+                        auto file_bytes = read_file_sdl(full_path.c_str());
+                        if (!file_bytes.has_value()) {
+                            slot.state = PULSE_ASSET_STATE_FAILED;
+                            slot.error = "failed to read asset file in dependency resolve";
+                            slot.pending_load_settings.clear();
+                            slot.pending_from_memory = false;
+                            continue;
+                        }
+                        bytes = std::move(file_bytes.value());
+                    }
+                    const void* settings = slot.pending_load_settings.empty() ? nullptr : slot.pending_load_settings.data();
+                    if (!begin_active_load(state, loader, slot_handle, &slot, bytes, slot.dependencies, settings)) {
                         slot.state = PULSE_ASSET_STATE_FAILED;
                         slot.error = "asset loader begin failed for dependency resolve";
                     }
+                    slot.pending_load_settings.clear();
+                    slot.pending_from_memory = false;
                 } else {
                     slot.constructed = true;
                     slot.state = PULSE_ASSET_STATE_LOADED;

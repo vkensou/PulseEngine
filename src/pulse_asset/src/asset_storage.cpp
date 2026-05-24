@@ -111,6 +111,9 @@ pulse_asset_handle allocate_slot(
     slot.loader = nullptr;
     slot.version = 0;
     slot.constructed = false;
+    slot.pending_load_bytes.clear();
+    slot.pending_load_settings.clear();
+    slot.pending_from_memory = false;
 
     return {type_id, index, slot.generation};
 }
@@ -134,6 +137,9 @@ void destroy_slot(AssetBucket& bucket, AssetSlot& slot) {
     slot.dependencies.clear();
     slot.dependents.clear();
     slot.unresolved_count = 0;
+    slot.pending_load_bytes.clear();
+    slot.pending_load_settings.clear();
+    slot.pending_from_memory = false;
 }
 
 void try_unload_slot(pulse_asset_state_o* state, pulse_asset_handle handle) {

@@ -1,5 +1,6 @@
 #include "asset_internal.h"
 
+#include <cstring>
 #include <new>
 
 namespace pulse_asset_internal {
@@ -487,6 +488,21 @@ static pulse_asset_handle load_impl(
         if (unresolved > 0) {
             slot->state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
             slot->unresolved_count = unresolved;
+            slot->pending_from_memory = from_memory;
+            if (from_memory && data && size > 0) {
+                slot->pending_load_bytes.assign(
+                    static_cast<const uint8_t*>(data),
+                    static_cast<const uint8_t*>(data) + size);
+            }
+            if (settings) {
+                for (const auto& loader : state->loaders) {
+                    if (loader.desc.type_id == type_id && loader.desc.settings_size > 0) {
+                        slot->pending_load_settings.resize(loader.desc.settings_size);
+                        memcpy(slot->pending_load_settings.data(), settings, loader.desc.settings_size);
+                        break;
+                    }
+                }
+            }
         } else {
             slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
             LoadRequest request{handle};
