@@ -117,9 +117,9 @@ pulse_shader_t pulse_graphic_shader_load(
     const CGPURasterizerStateDescriptor* rasterizer_state)
 {
     (void)blend_desc; (void)depth_desc; (void)rasterizer_state;
-    pulse_asset_handle vs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, vert_path);
+    pulse_asset_handle vs = pulse_asset_load(app, PULSE_TYPE_SHADER_LIBRARY, vert_path);
     if (vs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
-    pulse_asset_handle fs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, frag_path);
+    pulse_asset_handle fs = pulse_asset_load(app, PULSE_TYPE_SHADER_LIBRARY, frag_path);
     if (fs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
     pulse_asset_dependency deps[] = {
         { vs, PULSE_DEP_REQUIRED },
@@ -134,7 +134,7 @@ pulse_compute_shader_t pulse_graphic_compute_shader_load(
     pulse_app_t app,
     const char* comp_path)
 {
-    pulse_asset_handle cs = pulse_asset_load(app, PULSE_TYPE_BYTECODE, comp_path);
+    pulse_asset_handle cs = pulse_asset_load(app, PULSE_TYPE_SHADER_LIBRARY, comp_path);
     if (cs.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
     pulse_asset_dependency deps[] = {
         { cs, PULSE_DEP_REQUIRED },

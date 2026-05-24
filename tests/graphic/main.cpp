@@ -109,9 +109,9 @@ int main(void) {
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
     //// ---- Create resources ----
-    //pulse_shader_t shader = pulse_graphic_shader_create_from_binary(
-    //    app, dummy_spv, sizeof(dummy_spv), dummy_spv, sizeof(dummy_spv),
-    //    nullptr, nullptr, nullptr);
+    pulse_shader_t shader = pulse_graphic_shader_load(
+        app, "color.vert.spv", "color.frag.spv",
+        nullptr, nullptr, nullptr);
 
     //pulse_shader_t compute = pulse_graphic_compute_shader_create_from_binary(
     //    app, dummy_spv, sizeof(dummy_spv));

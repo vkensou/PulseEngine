@@ -25,13 +25,24 @@ namespace HGEGraphics
 		};
 		CGPUShaderLibraryId vertex_shader = cgpu_device_create_shader_library(device, &vs_desc);
 		CGPUShaderLibraryId fragment_shader = cgpu_device_create_shader_library(device, &ps_desc);
+		return create_shader_from_libraries(device, vertex_shader, fragment_shader, blend_desc, depth_desc, rasterizer_state);
+	}
+
+	std::unique_ptr<Shader> create_shader_from_libraries(
+		CGPUDeviceId device,
+		CGPUShaderLibraryId vs_library,
+		CGPUShaderLibraryId ps_library,
+		const CGPUBlendStateDescriptor& blend_desc,
+		const CGPUDepthStateDescriptor& depth_desc,
+		const CGPURasterizerStateDescriptor& rasterizer_state)
+	{
 		CGPUShaderEntryDescriptor ppl_shaders[2];
 		ppl_shaders[0].stage = CGPU_SHADER_STAGE_VERTEX;
 		ppl_shaders[0].entry = "main";
-		ppl_shaders[0].library = vertex_shader;
+		ppl_shaders[0].library = vs_library;
 		ppl_shaders[1].stage = CGPU_SHADER_STAGE_FRAGMENT;
 		ppl_shaders[1].entry = "main";
-		ppl_shaders[1].library = fragment_shader;
+		ppl_shaders[1].library = ps_library;
 		CGPURootSignatureDescriptor rs_desc = {
 			.shader_count = 2,
 			.p_shaders = ppl_shaders,
@@ -53,9 +64,12 @@ namespace HGEGraphics
 
 	Shader::~Shader()
 	{
-		cgpu_device_free_root_signature(root_sig->device, root_sig);
-		cgpu_device_free_shader_library(vs.library->device, vs.library);
-		cgpu_device_free_shader_library(ps.library->device, ps.library);
+		if (root_sig)
+			cgpu_device_free_root_signature(root_sig->device, root_sig);
+		if (vs.library)
+			cgpu_device_free_shader_library(vs.library->device, vs.library);
+		if (ps.library)
+			cgpu_device_free_shader_library(ps.library->device, ps.library);
 	}
 
 	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length)
@@ -67,11 +81,17 @@ namespace HGEGraphics
 			.stage = CGPU_SHADER_STAGE_COMPUTE,
 		};
 		CGPUShaderLibraryId comp_shader = cgpu_device_create_shader_library(device, &cs_desc);
+		return create_compute_shader_from_library(device, comp_shader);
+	}
 
+	std::unique_ptr<ComputeShader> create_compute_shader_from_library(
+		CGPUDeviceId device,
+		CGPUShaderLibraryId cs_library)
+	{
 		CGPUShaderEntryDescriptor ppl_shaders[1];
 		ppl_shaders[0].stage = CGPU_SHADER_STAGE_COMPUTE;
 		ppl_shaders[0].entry = "main";
-		ppl_shaders[0].library = comp_shader;
+		ppl_shaders[0].library = cs_library;
 		CGPURootSignatureDescriptor rs_desc = {
 			.shader_count = 1,
 			.p_shaders = ppl_shaders,

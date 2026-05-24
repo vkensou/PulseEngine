@@ -210,6 +210,14 @@ void process_load_requests_system(ecs_iter_t* it) {
                 slot.unresolved_count = 0;
                 pulse_asset_handle slot_handle = {type_id, static_cast<uint32_t>(slot_idx), slot.generation};
                 AssetLoader* loader = find_loader(state, type_id, slot.path);
+                if (!loader && slot.path.empty()) {
+                    for (AssetLoader& l : state->loaders) {
+                        if (l.desc.type_id == type_id) {
+                            loader = &l;
+                            break;
+                        }
+                    }
+                }
                 if (loader) {
                     ActiveLoad active{};
                     active.handle = slot_handle;

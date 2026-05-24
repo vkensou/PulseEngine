@@ -21,14 +21,20 @@ extern "C" {
 #define PULSE_TYPE_MATERIAL        UINT64_C(0x1005)
 #define PULSE_TYPE_SAMPLER         UINT64_C(0x1006)
 #define PULSE_TYPE_BYTECODE        UINT64_C(0x1007)
+#define PULSE_TYPE_SHADER_LIBRARY  UINT64_C(0x1008)
 
-typedef struct pulse_shader_t   { pulse_asset_handle asset; } pulse_shader_t;
-typedef struct pulse_compute_shader_t { pulse_asset_handle asset; } pulse_compute_shader_t;
-typedef struct pulse_mesh_t     { pulse_asset_handle asset; } pulse_mesh_t;
-typedef struct pulse_texture_t  { pulse_asset_handle asset; } pulse_texture_t;
-typedef struct pulse_buffer_t   { pulse_asset_handle asset; } pulse_buffer_t;
-typedef struct pulse_material_t { pulse_asset_handle asset; } pulse_material_t;
-typedef struct pulse_sampler_t  { pulse_asset_handle asset; } pulse_sampler_t;
+typedef struct pulse_shader_t          { pulse_asset_handle asset; } pulse_shader_t;
+typedef struct pulse_shader_library_t  { pulse_asset_handle asset; } pulse_shader_library_t;
+typedef struct pulse_compute_shader_t  { pulse_asset_handle asset; } pulse_compute_shader_t;
+typedef struct pulse_mesh_t            { pulse_asset_handle asset; } pulse_mesh_t;
+typedef struct pulse_texture_t         { pulse_asset_handle asset; } pulse_texture_t;
+typedef struct pulse_buffer_t          { pulse_asset_handle asset; } pulse_buffer_t;
+typedef struct pulse_material_t        { pulse_asset_handle asset; } pulse_material_t;
+typedef struct pulse_sampler_t         { pulse_asset_handle asset; } pulse_sampler_t;
+
+typedef struct pulse_shader_library_data {
+    CGPUShaderLibraryId library;
+} pulse_shader_library_data_t;
 
 typedef struct pulse_shader_data {
     CGPURootSignatureId root_sig;

@@ -38,6 +38,14 @@ namespace HGEGraphics
 
 	std::unique_ptr<Shader> create_shader(CGPUDeviceId device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state);
 
+	std::unique_ptr<Shader> create_shader_from_libraries(
+		CGPUDeviceId device,
+		CGPUShaderLibraryId vs_library,
+		CGPUShaderLibraryId ps_library,
+		const CGPUBlendStateDescriptor& blend_desc,
+		const CGPUDepthStateDescriptor& depth_desc,
+		const CGPURasterizerStateDescriptor& rasterizer_state);
+
 	struct ComputeShader
 	{
 		~ComputeShader();
@@ -47,6 +55,10 @@ namespace HGEGraphics
 	};
 
 	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length);
+
+	std::unique_ptr<ComputeShader> create_compute_shader_from_library(
+		CGPUDeviceId device,
+		CGPUShaderLibraryId cs_library);
 
 	pulse_buffer_data_t* create_empty_buffer();
 	pulse_buffer_data_t* create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
