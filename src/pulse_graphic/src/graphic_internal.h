@@ -4,8 +4,10 @@
 #include "pulse_cgpu_render.h"
 #include "pulse_asset.h"
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <cstdint>
+#include <memory_resource>
 
 namespace pulse_graphic_internal {
 
@@ -27,19 +29,25 @@ struct UploadEntry {
     const void* data = nullptr;
     uint64_t data_size = 0;
     bool* completed = nullptr;
+    uint8_t source_mip_levels = 1;
+    bool generate_mipmap = false;
 };
 
 struct pulse_graphic_state {
     pulse_app_t app = nullptr;
     bool upload_pending = false;
 
-    std::vector<UploadEntry> pending_uploads;
+    std::deque<UploadEntry> pending_uploads;
     std::vector<UploadEntry> dynamic_updates;
     std::unordered_map<uint64_t, bool> upload_pending_map;
 
-    // Deferred upload staging (double-buffered for GPU fence lifecycle)
-    std::vector<std::vector<uint8_t>> staging_pool[2];
-    int staging_write = 0;
+    std::pmr::unsynchronized_pool_resource staging_pool;
+
+    struct DeferredFree {
+        void* ptr;
+        size_t size;
+    };
+    std::vector<DeferredFree> pending_release;
 };
 
 pulse_graphic_state* state_from_app(pulse_app_t app);
@@ -48,6 +56,20 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void material_internal_destroy(void* data);
 void install_upload_callback(pulse_app_t app);
+
+uint8_t* queue_staging_texture_full(
+    pulse_graphic_state* gstate,
+    pulse_texture_data_t* texture,
+    uint8_t source_mip_levels,
+    bool generate_mipmap,
+    uint64_t* out_size,
+    bool* completed);
+
+uint8_t* queue_staging_buffer_full(
+    pulse_graphic_state* gstate,
+    pulse_buffer_data_t* buffer,
+    uint64_t size,
+    bool* completed);
 
 pulse_result_t start_texture(const pulse_asset_load_task* ctx, void** out_state, void* user_data);
 pulse_asset_loader_status_t step_texture_stb(

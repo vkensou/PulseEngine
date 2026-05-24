@@ -31,12 +31,13 @@ pulse_buffer_t pulse_graphic_buffer_create(
     if (data && data_size > 0) {
         auto* gstate = pulse_graphic_internal::state_from_app(app);
         if (gstate) {
-            auto& blk = gstate->staging_pool[gstate->staging_write].emplace_back(data_size);
-            memcpy(blk.data(), data, data_size);
-            gstate->pending_uploads.push_back({
-                pulse_graphic_internal::UPLOAD_BUFFER, {}, pulse_buffer_t{asset_handle},
-                nullptr, nullptr, blk.data(), data_size, nullptr
-            });
+            pulse_asset_ref ref2{};
+            if (pulse_asset_acquire(app, asset_handle, &ref2)) {
+                auto* buf = static_cast<pulse_buffer_data_t*>(ref2.ptr);
+                auto* staging = pulse_graphic_internal::queue_staging_buffer_full(gstate, buf, data_size, nullptr);
+                memcpy(staging, data, data_size);
+                pulse_asset_release(app, &ref2);
+            }
         }
     }
 

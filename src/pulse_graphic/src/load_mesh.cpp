@@ -148,26 +148,14 @@ pulse_asset_loader_status_t step_mesh(
             size_t ib_bytes = indices.size() * sizeof(uint32_t);
 
             // VB
-            auto& vb_blk = gstate->staging_pool[gstate->staging_write].emplace_back(vb_bytes);
-            memcpy(vb_blk.data(), verts.data(), vb_bytes);
-            gstate->pending_uploads.push_back({
-                UPLOAD_BUFFER_DATA, {}, {}, nullptr,
-                mesh->vertex_buffer,
-                vb_blk.data(), vb_bytes,
-                &s->vb_completed
-            });
+            auto* vb_staging = queue_staging_buffer_full(gstate, mesh->vertex_buffer, vb_bytes, &s->vb_completed);
+            memcpy(vb_staging, verts.data(), vb_bytes);
 
             // IB
             s->has_ib = ib_bytes > 0;
             if (s->has_ib) {
-                auto& ib_blk = gstate->staging_pool[gstate->staging_write].emplace_back(ib_bytes);
-                memcpy(ib_blk.data(), indices.data(), ib_bytes);
-                gstate->pending_uploads.push_back({
-                    UPLOAD_BUFFER_DATA, {}, {},
-                    {}, mesh->index_buffer,
-                    ib_blk.data(), ib_bytes,
-                    &s->ib_completed
-                });
+                auto* ib_staging = queue_staging_buffer_full(gstate, mesh->index_buffer, ib_bytes, &s->ib_completed);
+                memcpy(ib_staging, indices.data(), ib_bytes);
             }
         }
 

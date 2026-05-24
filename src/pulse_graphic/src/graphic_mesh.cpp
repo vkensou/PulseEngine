@@ -33,17 +33,13 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
         auto* gstate = pulse_graphic_internal::state_from_app(app);
         if (gstate) {
             uint64_t vb_bytes = vertex_count * vertex_stride;
-            auto& blk = gstate->staging_pool[gstate->staging_write].emplace_back(vb_bytes);
-            memcpy(blk.data(), vertex_data, vb_bytes);
             pulse_asset_ref ref2{};
-            pulse_asset_acquire(app, asset_handle, &ref2);
-            auto* mesh = static_cast<pulse_mesh_data_t*>(ref2.ptr);
-            gstate->pending_uploads.push_back({
-                pulse_graphic_internal::UPLOAD_BUFFER_DATA, {}, {}, nullptr,
-                mesh->vertex_buffer,
-                blk.data(), vb_bytes, nullptr
-            });
-            pulse_asset_release(app, &ref2);
+            if (pulse_asset_acquire(app, asset_handle, &ref2)) {
+                auto* mesh = static_cast<pulse_mesh_data_t*>(ref2.ptr);
+                auto* staging = pulse_graphic_internal::queue_staging_buffer_full(gstate, mesh->vertex_buffer, vb_bytes, nullptr);
+                memcpy(staging, vertex_data, vb_bytes);
+                pulse_asset_release(app, &ref2);
+            }
         }
     }
 
