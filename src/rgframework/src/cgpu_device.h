@@ -257,7 +257,7 @@ typedef struct oval_cgpu_device_t {
 	std::pmr::vector<std::unique_ptr<pulse_compute_shader_data_t>> computeShaders;
 	std::pmr::vector<CGPUSamplerId> samplers;
 	std::pmr::vector<std::unique_ptr<pulse_texture_data_t>> textures;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Material>> materials;
+	std::pmr::vector<std::unique_ptr<pulse_material_data_t>> materials;
 	
 	flecs::world world;
 	flecs::system system_sync_window_component_and_raw_handle;

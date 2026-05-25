@@ -82,16 +82,17 @@ void oval_free_buffer(oval_device_t* device, pulse_buffer_data_t* buffer)
 	delete buffer;
 }
 
-HGEGraphics::Material* oval_create_material(oval_device_t* device, pulse_shader_data_t* shader)
+pulse_material_data_t* oval_create_material(oval_device_t* device, pulse_shader_data_t* shader)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	std::unique_ptr<HGEGraphics::Material> material(new HGEGraphics::Material(D->device, shader));
+	std::unique_ptr<pulse_material_data_t> material(new pulse_material_data_t());
+	HGEGraphics::init_material(material.get(), D->device, shader);
 	auto ptr = material.get();
 	D->materials.push_back(std::move(material));
 	return ptr;
 }
 
-void oval_free_material(oval_device_t* device, HGEGraphics::Material* material)
+void oval_free_material(oval_device_t* device, pulse_material_data_t* material)
 {
 	//delete material;
 }

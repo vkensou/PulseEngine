@@ -138,8 +138,8 @@ CGPUSamplerId oval_create_sampler(oval_device_t* device, const struct CGPUSample
 void oval_free_sampler(oval_device_t* device, CGPUSamplerId sampler);
 pulse_buffer_data_t* oval_create_buffer(oval_device_t* device, const CGPUBufferDescriptor* desc);
 void oval_free_buffer(oval_device_t* device, pulse_buffer_data_t* buffer);
-HGEGraphics::Material* oval_create_material(oval_device_t* device, pulse_shader_data_t* shader);
-void oval_free_material(oval_device_t* device, HGEGraphics::Material* material);
+pulse_material_data_t* oval_create_material(oval_device_t* device, pulse_shader_data_t* shader);
+void oval_free_material(oval_device_t* device, pulse_material_data_t* material);
 bool oval_texture_prepared(oval_device_t* device, pulse_texture_data_t* texture);
 bool oval_mesh_prepared(oval_device_t* device, pulse_mesh_data_t* mesh);
 pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, pulse_mesh_data_t* mesh);

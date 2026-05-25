@@ -910,10 +910,10 @@ void oval_runloop(oval_device_t* device)
 		oval_update_context post_update_context
 		{
 			.delta_time = (float)fixed_update_time_step,
-			.time_since_startup = (float)time_since_startup,
-			.delta_time_double = fixed_update_time_step,
-			.time_since_startup_double = time_since_startup,
-			.fps = lastFPS,
+				.time_since_startup = (float)time_since_startup,
+				.delta_time_double = fixed_update_time_step,
+				.time_since_startup_double = time_since_startup,
+				.fps = lastFPS,
 		};
 
 		if (D->super.descriptor.on_post_update)
@@ -1007,6 +1007,10 @@ void oval_free_device(oval_device_t* device)
 		D->frameDatas[i].free();
 	}
 
+	for (size_t i = 0; i < D->materials.size(); ++i)
+	{
+		HGEGraphics::free_material(D->materials[i].get());
+	}
 	D->materials.clear();
 	for (size_t i = 0; i < D->meshes.size(); ++i)
 	{

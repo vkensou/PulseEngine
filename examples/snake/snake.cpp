@@ -333,7 +333,7 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 1, 1, 1),
 		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
+		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
 		boardMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}
@@ -343,7 +343,7 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 0, 0, 0),
 		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
+		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
 		appleMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}
@@ -353,7 +353,7 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 1, 0, 1),
 		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
+		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
 		snakeHeadMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}
@@ -363,7 +363,7 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(0, 1, 0, 1),
 		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
+		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
 		snakeBodyMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}

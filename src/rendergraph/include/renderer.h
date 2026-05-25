@@ -58,52 +58,18 @@ namespace HGEGraphics
 	pulse_texture_data_t* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
 	void free_texture(pulse_texture_data_t* texture);
 
-	class Material
+	void init_material(pulse_material_data_t* material, CGPUDeviceId device, pulse_shader_data_t* shader);
+	void free_material(pulse_material_data_t* material);
+
+	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture);
+	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler);
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data);
+
+	template<typename T>
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, const T& data)
 	{
-	public:
-		struct BindBuffer
-		{
-			int set;
-			int bind;
-			pulse_buffer_data_t* buffer;
-		};
-
-		struct BindTexture
-		{
-			int set;
-			int bind;
-			pulse_texture_data_t* texture;
-		};
-
-		struct BindSampler
-		{
-			int set;
-			int bind;
-			CGPUSamplerId sampler;
-		};
-
-		CGPUDeviceId device;
-		pulse_shader_data_t* shader;
-		std::vector<BindBuffer> buffers;
-		std::vector<BindTexture> textures;
-		std::vector<BindSampler> samplers;
-		std::vector<pulse_buffer_data_t*> ownedBuffers;
-
-	public:
-		Material(CGPUDeviceId device, pulse_shader_data_t* shader);
-		~Material();
-
-		void bindTexture(int set, int bind, pulse_texture_data_t* texture);
-		void bindSampler(int set, int bind, CGPUSamplerId sampler);
-
-		template<typename T>
-		void bindBuffer(int set, int bind, const T& data)
-		{
-			bindBuffer(set, bind, sizeof(T), &data);
-		}
-
-		void bindBuffer(int set, int bind, size_t size, const void* data);
-	};
+		material_bindBuffer(material, set, bind, sizeof(T), &data);
+	}
 
 	struct Backbuffer
 	{

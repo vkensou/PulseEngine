@@ -337,37 +337,84 @@ namespace HGEGraphics
 		}
 	}
 
-	Material::Material(CGPUDeviceId device, pulse_shader_data_t* shader)
-		: device(device), shader(shader)
-	{
-
+	template<typename T>
+	void simple_vector_init(T*& data, int& size, int& capacity) {
+		data = nullptr;
+		size = 0;
+		capacity = 0;
 	}
 
-	Material::~Material()
-	{
-		textures.clear();
-		samplers.clear();
-		buffers.clear();
-		for (auto buffer : ownedBuffers)
-		{
-			free_buffer(buffer);
+	template<typename T>
+	void simple_vector_push_back(T*& data, int& size, int& capacity, T& value) {
+		if (size >= capacity) {
+			// 需要扩容
+			int new_capacity = capacity == 0 ? 4 : capacity * 2;
+			T* new_data = (T*)realloc(data, new_capacity * sizeof(T));
+
+			if (new_data == nullptr) {
+				printf("内存分配失败！\n");
+				return;
+			}
+
+			data = new_data;
+			capacity = new_capacity;
 		}
-		ownedBuffers.clear();
-		shader = nullptr;
-		device = nullptr;
+
+		data[size] = value;
+		size++;
 	}
 
-	void Material::bindTexture(int set, int bind, pulse_texture_data_t* texture)
+	void simple_vector_clear(int& size) {
+		size = 0;
+	}
+
+	template<typename T>
+	void simple_vector_free(T*& data, int& size, int& capacity) {
+		if (data != nullptr) {
+			free(data);
+			data = nullptr;
+		}
+		size = 0;
+		capacity = 0;
+	}
+
+	void init_material(pulse_material_data_t* material, CGPUDeviceId device, pulse_shader_data_t* shader)
 	{
-		textures.emplace_back(set, bind, texture);
+		material->device = device;
+		material->shader = shader;
+		simple_vector_init(material->buffers_data, material->buffers_size, material->buffers_capacity);
+		simple_vector_init(material->textures_data, material->textures_size, material->textures_capacity);
+		simple_vector_init(material->samplers_data, material->samplers_size, material->samplers_capacity);
+		simple_vector_init(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity);
 	}
 
-	void Material::bindSampler(int set, int bind, CGPUSamplerId sampler)
+	void free_material(pulse_material_data_t* material)
 	{
-		samplers.emplace_back(set, bind, sampler);
+		material->shader = nullptr;
+		material->device = nullptr;
+		simple_vector_free(material->buffers_data, material->buffers_size, material->buffers_capacity);
+		simple_vector_free(material->textures_data, material->textures_size, material->textures_capacity);
+		simple_vector_free(material->samplers_data, material->samplers_size, material->samplers_capacity);
+		for (int i = 0; i < material->ownedBuffers_size; ++i)
+		{
+			free_buffer(material->ownedBuffers_data[i]);
+		}
+		simple_vector_free(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity);
 	}
 
-	void Material::bindBuffer(int set, int bind, size_t size, const void* data)
+	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture)
+	{
+		pulse_material_data_t::BindTexture bindbuffer = pulse_material_data_t::BindTexture(set, bind, texture);
+		simple_vector_push_back<pulse_material_data_t::BindTexture>(material->textures_data, material->textures_size, material->textures_capacity, bindbuffer);
+	}
+
+	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler)
+	{
+		pulse_material_data_t::BindSampler bindbuffer = pulse_material_data_t::BindSampler(set, bind, sampler);
+		simple_vector_push_back<pulse_material_data_t::BindSampler>(material->samplers_data, material->samplers_size, material->samplers_capacity, bindbuffer);
+	}
+
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data)
 	{
 		auto align_size = std::bit_ceil(size);
 		auto desc = CGPUBufferDescriptor{
@@ -376,12 +423,14 @@ namespace HGEGraphics
 			.descriptors = CGPU_RESOURCE_TYPE_UNIFORM_BUFFER,
 			.memory_usage = CGPU_MEMORY_USAGE_CPU_TO_GPU,
 		};
-		auto buffer = create_buffer(device, desc);
+		auto buffer = create_buffer(material->device, desc);
 		cgpu_buffer_map(buffer->handle, nullptr);
 		memcpy(buffer->handle->info->cpu_mapped_address, data, size);
 		cgpu_buffer_unmap(buffer->handle);
-		buffers.emplace_back(set, bind, buffer);
-		ownedBuffers.push_back(buffer);
+
+		pulse_material_data_t::BindBuffer bindbuffer = pulse_material_data_t::BindBuffer(set, bind, buffer);
+		simple_vector_push_back<pulse_material_data_t::BindBuffer>(material->buffers_data, material->buffers_size, material->buffers_capacity, bindbuffer);
+		simple_vector_push_back<pulse_buffer_data_t*>(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity, buffer);
 	}
 
 	void init_backbuffer(Backbuffer* backbuffer, CGPUSwapChainId swapchain, int index)
@@ -563,14 +612,23 @@ namespace HGEGraphics
 		}
 	}
 
-	void update_material(RenderPassEncoder* encoder, Material* material)
+	void update_material(RenderPassEncoder* encoder, pulse_material_data_t* material)
 	{
-		for (auto& bind : material->buffers)
+		for (int i = 0; i < material->buffers_size; ++i)
+		{
+			auto& bind = material->buffers_data[i];
 			set_global_buffer(encoder, bind.buffer, bind.set, bind.bind);
-		for (auto& bind : material->textures)
+		}
+		for (int i = 0; i < material->textures_size; ++i)
+		{
+			auto& bind = material->textures_data[i];
 			set_global_texture(encoder, bind.texture, bind.set, bind.bind);
-		for (auto& bind : material->samplers)
+		}
+		for (int i = 0; i < material->samplers_size; ++i)
+		{
+			auto& bind = material->samplers_data[i];
 			set_global_sampler(encoder, bind.sampler, bind.set, bind.bind);
+		}
 	}
 
 	void update_mesh(RenderPassEncoder* encoder, pulse_mesh_data_t* mesh)
@@ -651,7 +709,7 @@ namespace HGEGraphics
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);
 	}
 
-	void draw(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh)
+	void draw(RenderPassEncoder* encoder, pulse_material_data_t* material, pulse_mesh_data_t* mesh)
 	{
 		if (!mesh->prepared || !material)
 			return;
@@ -666,7 +724,7 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, mesh->vertices_count, 0);
 	}
 
-	void draw_submesh(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
+	void draw_submesh(RenderPassEncoder* encoder, pulse_material_data_t* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
 	{
 		if (!mesh->prepared)
 			return;
@@ -681,7 +739,7 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, first_vertex);
 	}
 
-	void draw_procedure(RenderPassEncoder* encoder, Material* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count)
+	void draw_procedure(RenderPassEncoder* encoder, pulse_material_data_t* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count)
 	{
 		update_material(encoder, material);
 		auto shader = material->shader;

@@ -10,12 +10,12 @@ struct pulse_buffer_data_t;
 struct pulse_mesh_data_t;
 struct pulse_shader_data_t;
 struct pulse_compute_shader_data_t;
+struct pulse_material_data_t;
 
 namespace HGEGraphics
 {
 	struct RenderPassEncoder;
 	struct UploadEncoder;
-	struct Material;
 
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth);
 	void set_scissor(RenderPassEncoder* encoder, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
@@ -23,9 +23,9 @@ namespace HGEGraphics
 	void draw(RenderPassEncoder* encoder, pulse_shader_data_t* shader, pulse_mesh_data_t* mesh);
 	void draw_submesh(RenderPassEncoder* encoder, pulse_shader_data_t* shader, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
 	void draw_procedure(RenderPassEncoder* encoder, pulse_shader_data_t* shader, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
-	void draw(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh);
-	void draw_submesh(RenderPassEncoder* encoder, Material* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
-	void draw_procedure(RenderPassEncoder* encoder, Material* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
+	void draw(RenderPassEncoder* encoder, pulse_material_data_t* material, pulse_mesh_data_t* mesh);
+	void draw_submesh(RenderPassEncoder* encoder, pulse_material_data_t* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
+	void draw_procedure(RenderPassEncoder* encoder, pulse_material_data_t* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
 	void dispatch(RenderPassEncoder* encoder, pulse_compute_shader_data_t* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z);
 	void set_global_texture(RenderPassEncoder* encoder, pulse_texture_data_t* texture, int set, int slot);
 	void set_global_texture_handle(RenderPassEncoder* encoder, pulse_texture_handle_t texture, int set, int slot);

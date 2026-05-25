@@ -431,7 +431,7 @@ struct Application
 	ecs_entity_t window1{};
 	ecs_entity_t window2{};
 	std::vector<pulse_mesh_data_t*> meshes;
-	std::vector<HGEGraphics::Material*> materials;
+	std::vector<pulse_material_data_t*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
 
@@ -795,8 +795,8 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, pul
 		{
 			auto& gltf_texture = model.textures[baseColorTexture.index];
 			auto tex = textures[gltf_texture.source];
-			material->bindTexture(1, 1, tex);
-			material->bindSampler(1, 2, samplers[0]);
+			HGEGraphics::material_bindTexture(material, 1, 1, tex);
+			HGEGraphics::material_bindSampler(material, 1, 2, samplers[0]);
 		}
 
 		float roughness = gltf_material.pbrMetallicRoughness.roughnessFactor;
@@ -811,7 +811,7 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, pul
 				gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
 				gltf_material.pbrMetallicRoughness.baseColorFactor[0]),
 		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
+		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
 		app.materials.push_back(material);
 	}
 
