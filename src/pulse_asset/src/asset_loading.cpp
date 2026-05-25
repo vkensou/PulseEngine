@@ -2,6 +2,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <cstring>
+
 namespace pulse_asset_internal {
 
 static std::string extension_from_path(const std::string& path) {
@@ -60,52 +62,342 @@ std::optional<std::vector<uint8_t>> read_file_sdl(const char* filename) {
     return buffer;
 }
 
-static std::vector<uint8_t> copy_settings(const void* settings, uint32_t settings_size) {
-    if (!settings || settings_size == 0) {
-        return {};
+void free_pooled_block(PooledBlock& block) {
+    if (block.data && block.resource) {
+        block.resource->deallocate(block.data, block.size, block.align);
     }
-    std::vector<uint8_t> data(settings_size);
-    memcpy(data.data(), settings, settings_size);
-    return data;
+    block.data = nullptr;
+    block.size = 0;
+    block.align = 0;
+    block.resource = nullptr;
 }
 
-static bool begin_active_load(
-    pulse_asset_state_o* state,
-    AssetLoader* loader,
-    const pulse_asset_handle& handle,
-    AssetSlot* slot,
-    const std::vector<uint8_t>& bytes,
-    const std::vector<pulse_asset_dependency>& dependencies,
-    const void* settings)
-{
-    ActiveLoad active{};
-    active.handle = handle;
-    active.dependencies = dependencies;
-    active.settings_data = copy_settings(settings, loader->desc.settings_size);
-    active.bytes = bytes;
-
-    active.ctx.app = state->app;
-    active.ctx.type_id = handle.type_id;
-    active.ctx.path = slot->path.c_str();
-    active.ctx.bytes = active.bytes.data();
-    active.ctx.byte_size = static_cast<uint64_t>(active.bytes.size());
-    active.ctx.dependencies = active.dependencies.data();
-    active.ctx.dependency_count = static_cast<uint32_t>(active.dependencies.size());
-    active.ctx.handle = handle;
-    active.ctx.user_data = loader->desc.user_data;
-    active.ctx.out_asset = slot->data;
-    active.ctx.settings = active.settings_data.data();
-
-    void* loader_state = nullptr;
-    pulse_result_t begin_result = loader->desc.load(&active.ctx, &loader_state);
-    if (begin_result != PULSE_OK) {
+bool allocate_pooled_block(pulse_asset_state_o* state, PooledBlock& out, uint32_t size, uint32_t align, bool zero_memory) {
+    free_pooled_block(out);
+    if (size == 0) {
+        return true;
+    }
+    if (!state || align == 0) {
         return false;
     }
-    slot->loader_state = loader_state;
-    slot->loader = loader;
-    slot->state = PULSE_ASSET_STATE_PROCESSING;
-    state->active_loads.push_back(std::move(active));
+    try {
+        out.data = state->memory_pool.allocate(size, align);
+    } catch (...) {
+        out.data = nullptr;
+    }
+    if (!out.data) {
+        return false;
+    }
+    out.size = size;
+    out.align = align;
+    out.resource = &state->memory_pool;
+    if (zero_memory) {
+        memset(out.data, 0, size);
+    }
     return true;
+}
+
+bool copy_pooled_block(pulse_asset_state_o* state, PooledBlock& out, const void* data, uint32_t size, uint32_t align) {
+    if (!data || size == 0) {
+        free_pooled_block(out);
+        return true;
+    }
+    if (!allocate_pooled_block(state, out, size, align, false)) {
+        return false;
+    }
+    memcpy(out.data, data, size);
+    return true;
+}
+
+static bool dependency_is_invalid(pulse_asset_handle handle) {
+    return handle.index == PULSE_ASSET_INVALID_INDEX || handle.type_id == 0;
+}
+
+static bool evaluate_dependencies(
+    pulse_asset_state_o* state,
+    const std::vector<pulse_asset_dependency>& dependencies,
+    bool& out_failed,
+    bool& out_ready
+) {
+    out_failed = false;
+    out_ready = true;
+    for (const pulse_asset_dependency& dep : dependencies) {
+        if (dependency_is_invalid(dep.handle)) {
+            if (dep.flags & PULSE_DEP_OPTIONAL) {
+                continue;
+            }
+            out_failed = true;
+            return true;
+        }
+        const AssetSlot* dep_slot = get_slot_const(state, dep.handle);
+        if (!dep_slot) {
+            if (dep.flags & PULSE_DEP_OPTIONAL) {
+                continue;
+            }
+            out_failed = true;
+            return true;
+        }
+        if (dep_slot->state == PULSE_ASSET_STATE_FAILED) {
+            if (dep.flags & PULSE_DEP_OPTIONAL) {
+                continue;
+            }
+            out_failed = true;
+            return true;
+        }
+        if (dep_slot->state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+            out_ready = false;
+        }
+    }
+    return true;
+}
+
+static void refresh_job_ctx(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot) {
+    job.ctx.app = state->app;
+    job.ctx.type_id = job.handle.type_id;
+    job.ctx.path = slot.path.c_str();
+    job.ctx.bytes = job.bytes.data();
+    job.ctx.byte_size = static_cast<uint64_t>(job.bytes.size());
+    job.ctx.dependencies = job.dependencies.data();
+    job.ctx.dependency_count = static_cast<uint32_t>(job.dependencies.size());
+    job.ctx.handle = job.handle;
+    job.ctx.user_data = job.loader ? job.loader->desc.user_data : nullptr;
+    job.ctx.out_asset = slot.data.data;
+    job.ctx.settings = job.settings.data;
+    job.ctx.job = &job;
+}
+
+static bool construct_job_loader(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot, const char*& out_error) {
+    if (!job.loader) {
+        job.loader = find_loader(state, job.handle.type_id, slot.path);
+        if (!job.loader && slot.path.empty()) {
+            for (AssetLoader& loader : state->loaders) {
+                if (loader.desc.type_id == job.handle.type_id) {
+                    job.loader = &loader;
+                    break;
+                }
+            }
+        }
+    }
+    if (!job.loader) {
+        out_error = "no loader registered for asset extension";
+        return false;
+    }
+    if (!allocate_pooled_block(state, job.loader_state, job.loader->desc.loader_size, job.loader->desc.loader_align, true)) {
+        out_error = "failed to allocate asset loader state";
+        return false;
+    }
+    refresh_job_ctx(state, job, slot);
+    if (job.loader->desc.ctor) {
+        job.in_callback = true;
+        pulse_result_t ctor_result = job.loader->desc.ctor(job.loader_state.data, &job.ctx);
+        job.in_callback = false;
+        if (ctor_result != PULSE_OK) {
+            free_pooled_block(job.loader_state);
+            out_error = "asset loader begin failed";
+            return false;
+        }
+        job.loader_constructed = true;
+        if (job.finished) {
+            out_error = "asset load cancelled";
+            return false;
+        }
+    } else {
+        job.loader_constructed = true;
+    }
+    return true;
+}
+
+void destroy_load_job(pulse_asset_state_o* state, LoadJob& job) {
+    AssetSlot* slot = get_slot(state, job.handle);
+    if (job.loader_constructed && job.loader && job.loader->desc.dtor) {
+        if (slot) {
+            refresh_job_ctx(state, job, *slot);
+        }
+        job.in_callback = true;
+        job.loader->desc.dtor(job.loader_state.data, &job.ctx);
+        job.in_callback = false;
+    }
+    free_pooled_block(job.loader_state);
+    free_pooled_block(job.settings);
+    job.loader = nullptr;
+    job.loader_constructed = false;
+    job.bytes.clear();
+    job.source.memory_data.clear();
+}
+
+void commit_asset_dependencies(pulse_asset_state_o* state, pulse_asset_handle handle, const std::vector<pulse_asset_dependency>& dependencies) {
+    AssetSlot* slot = get_slot(state, handle);
+    if (!slot) {
+        return;
+    }
+    for (pulse_asset_handle old_dep : slot->dependencies) {
+        AssetSlot* dep_slot = get_slot(state, old_dep);
+        if (!dep_slot) {
+            continue;
+        }
+        dep_slot->dependents.erase(
+            std::remove_if(dep_slot->dependents.begin(), dep_slot->dependents.end(), [&](pulse_asset_handle dependent) {
+                return dependent.type_id == handle.type_id && dependent.index == handle.index && dependent.generation == handle.generation;
+            }),
+            dep_slot->dependents.end());
+    }
+    slot->dependencies.clear();
+    for (const pulse_asset_dependency& dep : dependencies) {
+        if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) {
+            continue;
+        }
+        AssetSlot* dep_slot = get_slot(state, dep.handle);
+        if (!dep_slot) {
+            continue;
+        }
+        bool exists = std::any_of(slot->dependencies.begin(), slot->dependencies.end(), [&](pulse_asset_handle existing) {
+            return existing.type_id == dep.handle.type_id && existing.index == dep.handle.index && existing.generation == dep.handle.generation;
+        });
+        if (exists) {
+            continue;
+        }
+        slot->dependencies.push_back(dep.handle);
+        dep_slot->dependents.push_back(handle);
+    }
+}
+
+static void fail_job(LoadJob& job, AssetSlot& slot, const char* error) {
+    slot.state = PULSE_ASSET_STATE_FAILED;
+    slot.error = error ? error : "asset load failed";
+    job.finished = true;
+}
+
+static void process_processing(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot);
+
+static void process_pending_read(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot, bool process_immediately) {
+    bool deps_failed = false;
+    bool deps_ready = true;
+    evaluate_dependencies(state, job.dependencies, deps_failed, deps_ready);
+    if (deps_failed) {
+        fail_job(job, slot, "dependency asset failed to load");
+        return;
+    }
+    if (!deps_ready) {
+        slot.state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
+        job.phase = LoadJobPhase::WaitingDependencies;
+        return;
+    }
+
+    slot.state = PULSE_ASSET_STATE_LOADING;
+    if (job.source.from_memory) {
+        job.bytes = std::move(job.source.memory_data);
+    } else {
+        std::string full_path = join_asset_path(state->root_path, slot.path);
+        auto file_bytes = read_file_sdl(full_path.c_str());
+        if (!file_bytes.has_value()) {
+            fail_job(job, slot, "failed to read asset file");
+            return;
+        }
+        job.bytes = std::move(file_bytes.value());
+    }
+
+    const char* error = nullptr;
+    if (!construct_job_loader(state, job, slot, error)) {
+        fail_job(job, slot, error);
+        return;
+    }
+    slot.state = PULSE_ASSET_STATE_PROCESSING;
+    job.phase = LoadJobPhase::Processing;
+    if (process_immediately) {
+        process_processing(state, job, slot);
+    }
+}
+
+static void process_waiting_dependencies(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot) {
+    bool deps_failed = false;
+    bool deps_ready = true;
+    evaluate_dependencies(state, job.dependencies, deps_failed, deps_ready);
+    if (deps_failed) {
+        fail_job(job, slot, "dependency asset failed to load");
+        return;
+    }
+    if (!deps_ready) {
+        slot.state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
+        return;
+    }
+    if (!job.loader_constructed) {
+        job.phase = LoadJobPhase::PendingRead;
+        process_pending_read(state, job, slot, false);
+        return;
+    }
+    slot.state = PULSE_ASSET_STATE_PROCESSING;
+    job.phase = LoadJobPhase::Processing;
+    process_processing(state, job, slot);
+}
+
+static void process_processing(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot) {
+    refresh_job_ctx(state, job, slot);
+    const char* error = nullptr;
+    job.in_callback = true;
+    pulse_asset_loader_status_t status = job.loader->desc.step(job.loader_state.data, &job.ctx, &error);
+    job.in_callback = false;
+    if (job.finished) {
+        return;
+    }
+    if (status == PULSE_ASSET_LOADER_PENDING) {
+        return;
+    }
+    if (status == PULSE_ASSET_LOADER_WAIT_DEPENDENCIES) {
+        slot.state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
+        job.phase = LoadJobPhase::WaitingDependencies;
+        return;
+    }
+    if (status == PULSE_ASSET_LOADER_DONE) {
+        bool deps_failed = false;
+        bool deps_ready = true;
+        evaluate_dependencies(state, job.dependencies, deps_failed, deps_ready);
+        if (deps_failed) {
+            fail_job(job, slot, "dependency asset failed to load");
+            return;
+        }
+        if (!deps_ready) {
+            slot.state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
+            job.phase = LoadJobPhase::WaitingDependencies;
+            return;
+        }
+        commit_asset_dependencies(state, job.handle, job.dependencies);
+        slot.constructed = true;
+        slot.state = PULSE_ASSET_STATE_LOADED;
+        slot.error.clear();
+        job.finished = true;
+        return;
+    }
+    fail_job(job, slot, error ? error : "asset loader step failed");
+}
+
+static void process_load_job(pulse_asset_state_o* state, LoadJob& job) {
+    if (job.finished) {
+        return;
+    }
+    AssetSlot* slot = get_slot(state, job.handle);
+    if (!slot) {
+        job.finished = true;
+        return;
+    }
+    switch (job.phase) {
+    case LoadJobPhase::PendingRead:
+        process_pending_read(state, job, *slot, true);
+        break;
+    case LoadJobPhase::WaitingDependencies:
+        process_waiting_dependencies(state, job, *slot);
+        break;
+    case LoadJobPhase::Processing:
+        process_processing(state, job, *slot);
+        break;
+    }
+}
+
+static bool has_load_job_for_handle(pulse_asset_state_o* state, pulse_asset_handle handle) {
+    return std::any_of(state->load_jobs.begin(), state->load_jobs.end(), [&](const LoadJob& job) {
+        return job.handle.type_id == handle.type_id &&
+            job.handle.index == handle.index &&
+            job.handle.generation == handle.generation;
+    });
 }
 
 void process_load_requests_system(ecs_iter_t* it) {
@@ -114,164 +406,43 @@ void process_load_requests_system(ecs_iter_t* it) {
         return;
     }
 
-    uint32_t processed = 0;
-    while (processed < state->desc.max_requests_per_update && !state->pending_requests.empty()) {
-        LoadRequest request = state->pending_requests.front();
-        state->pending_requests.pop_front();
-        processed += 1;
-
-        AssetSlot* slot = get_slot(state, request.handle);
-        if (!slot || slot->state != PULSE_ASSET_STATE_WAITING_LOAD) {
-            continue;
-        }
-
-        slot->state = PULSE_ASSET_STATE_LOADING;
-        AssetLoader* loader = find_loader(state, request.handle.type_id, slot->path);
-        if (!loader) {
-            slot->state = PULSE_ASSET_STATE_FAILED;
-            slot->error = "no loader registered for asset extension";
-            continue;
-        }
-
-        std::vector<uint8_t> bytes;
-        if (request.from_memory) {
-            bytes = std::move(request.memory_data);
-        } else {
-            std::string full_path = join_asset_path(state->root_path, slot->path);
-            auto file_bytes = read_file_sdl(full_path.c_str());
-            if (!file_bytes.has_value()) {
-                slot->state = PULSE_ASSET_STATE_FAILED;
-                slot->error = "failed to read asset file";
-                continue;
-            }
-            bytes = std::move(file_bytes.value());
-        }
-
-        if (!begin_active_load(state, loader, request.handle, slot, bytes, {}, request.settings)) {
-            slot->state = PULSE_ASSET_STATE_FAILED;
-            slot->error = "asset loader begin failed";
-        }
+    size_t jobs_to_process = state->load_jobs.size();
+    if (state->desc.max_requests_per_update > 0 && jobs_to_process > state->desc.max_requests_per_update) {
+        jobs_to_process = state->desc.max_requests_per_update;
     }
+    auto job_it = state->load_jobs.begin();
+    state->processing_load_jobs = true;
+    while (jobs_to_process-- > 0 && job_it != state->load_jobs.end()) {
+        LoadJob& job = *job_it;
+        process_load_job(state, job);
 
-    for (size_t i = 0; i < state->active_loads.size();) {
-        ActiveLoad& active = state->active_loads[i];
-        AssetSlot* slot = get_slot(state, active.handle);
-        if (!slot || slot->state != PULSE_ASSET_STATE_PROCESSING || !slot->loader) {
-            state->active_loads.erase(state->active_loads.begin() + i);
+        if (job.finished) {
+            auto current = job_it++;
+            destroy_load_job(state, *current);
+            state->load_jobs.erase(current);
             continue;
         }
 
-        active.ctx.path = slot->path.c_str();
-        active.ctx.bytes = active.bytes.data();
-        active.ctx.byte_size = static_cast<uint64_t>(active.bytes.size());
-
-        const char* error = nullptr;
-        pulse_asset_loader_status_t status = slot->loader->desc.step(
-            slot->loader_state,
-            &active.ctx,
-            &error
-        );
-
-        if (status == PULSE_ASSET_LOADER_PENDING) {
-            ++i;
+        if (job.phase == LoadJobPhase::WaitingDependencies) {
+            auto current = job_it++;
+            state->load_jobs.splice(state->load_jobs.end(), state->load_jobs, current);
             continue;
         }
 
-        if (status == PULSE_ASSET_LOADER_DONE) {
-            slot->constructed = true;
-            slot->state = PULSE_ASSET_STATE_LOADED;
-            slot->error.clear();
-        } else {
-            slot->state = PULSE_ASSET_STATE_FAILED;
-            slot->error = error ? error : "asset loader step failed";
-        }
-
-        slot->loader_state = nullptr;
-        state->active_loads.erase(state->active_loads.begin() + i);
+        ++job_it;
     }
-
-    for (auto& bucket_pair : state->buckets) {
-        uint64_t type_id = bucket_pair.first;
-        AssetBucket& bucket = bucket_pair.second;
-        for (size_t slot_idx = 0; slot_idx < bucket.slots.size(); ++slot_idx) {
-            AssetSlot& slot = bucket.slots[slot_idx];
-            if (slot.state != PULSE_ASSET_STATE_WAITING_DEPENDENCIES) {
-                continue;
-            }
-
-            bool all_loaded = true;
-            bool any_failed = false;
-            for (const auto& dep : slot.dependencies) {
-                if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) continue;
-
-                const AssetSlot* dep_slot = get_slot_const(state, dep.handle);
-                if (!dep_slot) {
-                    if (dep.flags & PULSE_DEP_OPTIONAL) continue;
-                    any_failed = true;
-                    break;
-                }
-                if (dep_slot->state == PULSE_ASSET_STATE_FAILED) {
-                    if (dep.flags & PULSE_DEP_OPTIONAL) continue;
-                    any_failed = true;
-                    break;
-                }
-                if (dep_slot->state != PULSE_ASSET_STATE_LOADED) {
-                    all_loaded = false;
-                }
-            }
-
-            if (any_failed) {
-                slot.state = PULSE_ASSET_STATE_FAILED;
-                slot.error = "dependency asset failed to load";
-            } else if (all_loaded) {
-                slot.unresolved_count = 0;
-                pulse_asset_handle slot_handle = {type_id, static_cast<uint32_t>(slot_idx), slot.generation};
-                AssetLoader* loader = find_loader(state, type_id, slot.path);
-                if (!loader && slot.path.empty()) {
-                    for (AssetLoader& l : state->loaders) {
-                        if (l.desc.type_id == type_id) {
-                            loader = &l;
-                            break;
-                        }
-                    }
-                }
-                if (loader) {
-                    std::vector<uint8_t> bytes;
-                    if (slot.pending_from_memory) {
-                        bytes = std::move(slot.pending_load_bytes);
-                    } else {
-                        std::string full_path = join_asset_path(state->root_path, slot.path);
-                        auto file_bytes = read_file_sdl(full_path.c_str());
-                        if (!file_bytes.has_value()) {
-                            slot.state = PULSE_ASSET_STATE_FAILED;
-                            slot.error = "failed to read asset file in dependency resolve";
-                            slot.pending_load_settings.clear();
-                            slot.pending_from_memory = false;
-                            continue;
-                        }
-                        bytes = std::move(file_bytes.value());
-                    }
-                    const void* settings = slot.pending_load_settings.empty() ? nullptr : slot.pending_load_settings.data();
-                    if (!begin_active_load(state, loader, slot_handle, &slot, bytes, slot.dependencies, settings)) {
-                        slot.state = PULSE_ASSET_STATE_FAILED;
-                        slot.error = "asset loader begin failed for dependency resolve";
-                    }
-                    slot.pending_load_settings.clear();
-                    slot.pending_from_memory = false;
-                } else {
-                    slot.constructed = true;
-                    slot.state = PULSE_ASSET_STATE_LOADED;
-                }
-            }
-        }
-    }
+    state->processing_load_jobs = false;
 
     for (auto& bucket_pair : state->buckets) {
         AssetBucket& bucket = bucket_pair.second;
         for (size_t slot_idx = 0; slot_idx < bucket.slots.size(); ++slot_idx) {
             AssetSlot& slot = bucket.slots[slot_idx];
-            if (slot.pin_count == 0 && slot.state == PULSE_ASSET_STATE_FAILED && slot.data && bucket.type) {
-                destroy_slot(bucket, slot);
+            pulse_asset_handle handle{bucket_pair.first, static_cast<uint32_t>(slot_idx), slot.generation};
+            if (slot.pin_count == 0 && slot.state == PULSE_ASSET_STATE_FAILED && slot.data.data && bucket.type) {
+                if (has_load_job_for_handle(state, handle)) {
+                    continue;
+                }
+                destroy_slot(state, bucket, slot, handle);
                 bucket.free_indices.push_back(static_cast<uint32_t>(slot_idx));
             }
         }
@@ -299,20 +470,20 @@ void uninstall_process_system(pulse_asset_state_o* state, ecs_world_t* world) {
     }
 }
 
-void cancel_active_loads(pulse_asset_state_o* state) {
+void cancel_load_jobs(pulse_asset_state_o* state) {
     if (!state) {
         return;
     }
-    for (ActiveLoad& active : state->active_loads) {
-        AssetSlot* slot = get_slot(state, active.handle);
-        if (slot && slot->loader_state) {
-            slot->loader_state = nullptr;
+    for (LoadJob& job : state->load_jobs) {
+        AssetSlot* slot = get_slot(state, job.handle);
+        if (slot) {
             slot->state = PULSE_ASSET_STATE_FAILED;
             slot->error = "asset load cancelled";
         }
+        job.finished = true;
+        destroy_load_job(state, job);
     }
-    state->active_loads.clear();
-    state->pending_requests.clear();
+    state->load_jobs.clear();
 }
 
 } // namespace pulse_asset_internal

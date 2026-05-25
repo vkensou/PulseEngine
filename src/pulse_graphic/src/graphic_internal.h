@@ -71,7 +71,11 @@ uint8_t* queue_staging_buffer_full(
     uint64_t size,
     bool* completed);
 
-pulse_result_t load_texture(const pulse_asset_load_task* ctx, void** out_state);
+struct TextureLoaderState {
+    bool upload_requested = false;
+    bool upload_completed = false;
+};
+
 pulse_asset_loader_status_t step_texture_stb(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error);
@@ -79,7 +83,13 @@ pulse_asset_loader_status_t step_texture_ktx(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error);
 
-pulse_result_t load_mesh(const pulse_asset_load_task* ctx, void** out_state);
+struct MeshLoaderState {
+    bool upload_requested = false;
+    bool has_ib = false;
+    bool vb_completed = false;
+    bool ib_completed = false;
+};
+
 pulse_asset_loader_status_t step_mesh(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error);

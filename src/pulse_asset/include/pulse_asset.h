@@ -49,6 +49,7 @@ typedef enum pulse_asset_loader_status {
     PULSE_ASSET_LOADER_PENDING = 0,
     PULSE_ASSET_LOADER_DONE,
     PULSE_ASSET_LOADER_FAILED,
+    PULSE_ASSET_LOADER_WAIT_DEPENDENCIES,
 } pulse_asset_loader_status_t;
 
 typedef struct pulse_asset_plugin_desc {
@@ -82,11 +83,17 @@ typedef struct pulse_asset_load_task {
     void* user_data;
     void* out_asset;
     const void* settings;
+    void* job;
 } pulse_asset_load_task;
 
-typedef pulse_result_t (*pulse_asset_loader_load_fn)(
-    const pulse_asset_load_task* ctx,
-    void** out_state
+typedef pulse_result_t (*pulse_asset_loader_ctor_fn)(
+    void* loader,
+    const pulse_asset_load_task* ctx
+);
+
+typedef void (*pulse_asset_loader_dtor_fn)(
+    void* loader,
+    const pulse_asset_load_task* ctx
 );
 
 typedef pulse_asset_loader_status_t (*pulse_asset_loader_step_fn)(
@@ -100,9 +107,13 @@ typedef struct pulse_asset_loader_desc {
     uint32_t version;
     uint64_t type_id;
     const char* extensions;
-    pulse_asset_loader_load_fn load;
+    pulse_asset_loader_ctor_fn ctor;
+    pulse_asset_loader_dtor_fn dtor;
     pulse_asset_loader_step_fn step;
+    uint32_t loader_size;
+    uint32_t loader_align;
     uint32_t settings_size;
+    uint32_t settings_align;
     void* user_data;
 } pulse_asset_loader_desc;
 
@@ -157,6 +168,12 @@ pulse_asset_handle pulse_asset_load_from_memory_with_deps(
     const pulse_asset_dependency* dependencies,
     uint32_t dependency_count,
     const void* settings
+);
+
+pulse_result_t pulse_asset_add_load_dependency(
+    const pulse_asset_load_task* ctx,
+    pulse_asset_handle dependency,
+    pulse_dependency_flags_t flags
 );
 
 pulse_asset_state_t pulse_asset_get_state(

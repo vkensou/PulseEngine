@@ -119,7 +119,7 @@ static void asset_plugin_shutdown(pulse_app_t app, void* ctx) {
     pulse_asset_state_o* state = static_cast<pulse_asset_state_o*>(ctx);
     ecs_world_t* world = pulse_app_world(app);
 
-    cancel_active_loads(state);
+    cancel_load_jobs(state);
     destroy_all_assets(state);
     uninstall_process_system(state, world);
 
@@ -144,6 +144,8 @@ static pulse_asset_handle load_impl(
     const pulse_asset_dependency* dependencies,
     uint32_t dependency_count
 );
+static bool cancel_load_job_for_handle(pulse_asset_state_o* state, pulse_asset_handle handle);
+static bool is_finishing_load_job(pulse_asset_state_o* state, pulse_asset_handle handle);
 
 } // namespace pulse_asset_internal
 
@@ -223,7 +225,9 @@ pulse_result_t pulse_asset_register_loader(
     pulse_asset_state_o* state = state_from_app(app);
     if (!state || !desc || desc->struct_size != sizeof(pulse_asset_loader_desc) ||
         desc->version != PULSE_ASSET_LOADER_DESC_VERSION || desc->type_id == 0 ||
-        !desc->extensions || !desc->load || !desc->step) {
+        !desc->extensions || !desc->step ||
+        (desc->loader_size > 0 && desc->loader_align == 0) ||
+        (desc->settings_size > 0 && desc->settings_align == 0)) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
     if (state->types.find(desc->type_id) == state->types.end()) {
@@ -287,6 +291,49 @@ pulse_asset_handle pulse_asset_load_from_memory_with_deps(
     return load_impl(app, type_id, name, settings, true, data, size, dependencies, dependency_count);
 }
 
+pulse_result_t pulse_asset_add_load_dependency(
+    const pulse_asset_load_task* ctx,
+    pulse_asset_handle dependency,
+    pulse_dependency_flags_t flags
+) {
+    if (!ctx || !ctx->app || !ctx->job) {
+        return PULSE_ERROR_INVALID_ARGUMENT;
+    }
+    pulse_asset_state_o* state = state_from_app(ctx->app);
+    if (!state) {
+        return PULSE_ERROR_INVALID_STATE;
+    }
+    LoadJob* job = static_cast<LoadJob*>(ctx->job);
+    bool found = false;
+    for (LoadJob& candidate : state->load_jobs) {
+        if (&candidate == job) {
+            found = true;
+            break;
+        }
+    }
+    if (!found || job->phase != LoadJobPhase::Processing || !job->in_callback || job->finished ||
+        job->handle.type_id != ctx->handle.type_id ||
+        job->handle.index != ctx->handle.index ||
+        job->handle.generation != ctx->handle.generation) {
+        return PULSE_ERROR_INVALID_STATE;
+    }
+    auto existing_it = std::find_if(job->dependencies.begin(), job->dependencies.end(), [&](const pulse_asset_dependency& existing) {
+        return existing.handle.type_id == dependency.type_id &&
+            existing.handle.index == dependency.index &&
+            existing.handle.generation == dependency.generation;
+    });
+    if (existing_it != job->dependencies.end()) {
+        if (!(flags & PULSE_DEP_OPTIONAL)) {
+            existing_it->flags = PULSE_DEP_REQUIRED;
+        }
+    } else {
+        job->dependencies.push_back({dependency, flags});
+    }
+    job->ctx.dependencies = job->dependencies.data();
+    job->ctx.dependency_count = static_cast<uint32_t>(job->dependencies.size());
+    return PULSE_OK;
+}
+
 pulse_asset_state_t pulse_asset_get_state(
     pulse_app_t app,
     pulse_asset_handle handle
@@ -321,15 +368,15 @@ bool pulse_asset_acquire(
         return false;
     }
     slot->pin_count += 1;
-    for (const auto& dep : slot->dependencies) {
-        if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) continue;
-        AssetSlot* dep_slot = get_slot(state, dep.handle);
+    for (pulse_asset_handle dep_handle : slot->dependencies) {
+        if (dep_handle.index == PULSE_ASSET_INVALID_INDEX) continue;
+        AssetSlot* dep_slot = get_slot(state, dep_handle);
         if (dep_slot && dep_slot->state == PULSE_ASSET_STATE_LOADED) {
             dep_slot->pin_count += 1;
         }
     }
     out_ref->handle = handle;
-    out_ref->ptr = slot->data;
+    out_ref->ptr = slot->data.data;
     return true;
 }
 
@@ -341,9 +388,9 @@ void pulse_asset_release(pulse_app_t app, pulse_asset_ref* ref) {
     AssetSlot* slot = get_slot(state, ref->handle);
     if (slot && slot->pin_count > 0) {
         slot->pin_count -= 1;
-        for (const auto& dep : slot->dependencies) {
-            if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) continue;
-            AssetSlot* dep_slot = get_slot(state, dep.handle);
+        for (pulse_asset_handle dep_handle : slot->dependencies) {
+            if (dep_handle.index == PULSE_ASSET_INVALID_INDEX) continue;
+            AssetSlot* dep_slot = get_slot(state, dep_handle);
             if (dep_slot && dep_slot->pin_count > 0) {
                 dep_slot->pin_count -= 1;
             }
@@ -362,7 +409,13 @@ void pulse_asset_unload(pulse_app_t app, pulse_asset_handle handle) {
     if (!slot || slot->pin_count == 0) {
         return;
     }
+    if (is_finishing_load_job(state, handle)) {
+        return;
+    }
     slot->pin_count -= 1;
+    if (cancel_load_job_for_handle(state, handle)) {
+        return;
+    }
     try_unload_slot(state, handle);
 }
 
@@ -377,6 +430,47 @@ void pulse_asset_mark_modified(pulse_app_t app, pulse_asset_handle handle) {
 } // extern "C"
 
 namespace pulse_asset_internal {
+
+static bool cancel_load_job_for_handle(pulse_asset_state_o* state, pulse_asset_handle handle) {
+    if (!state) {
+        return false;
+    }
+    for (auto it = state->load_jobs.begin(); it != state->load_jobs.end(); ++it) {
+        if (it->handle.type_id == handle.type_id &&
+            it->handle.index == handle.index &&
+            it->handle.generation == handle.generation) {
+            AssetSlot* slot = get_slot(state, handle);
+            if (slot) {
+                slot->state = PULSE_ASSET_STATE_FAILED;
+                slot->error = "asset load cancelled";
+            }
+            if (state->processing_load_jobs || it->in_callback) {
+                it->finished = true;
+                return true;
+            }
+            it->finished = true;
+            destroy_load_job(state, *it);
+            state->load_jobs.erase(it);
+            return false;
+        }
+    }
+    return false;
+}
+
+static bool is_finishing_load_job(pulse_asset_state_o* state, pulse_asset_handle handle) {
+    if (!state) {
+        return false;
+    }
+    for (const LoadJob& job : state->load_jobs) {
+        if (job.handle.type_id == handle.type_id &&
+            job.handle.index == handle.index &&
+            job.handle.generation == handle.generation &&
+            job.finished && job.in_callback) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static pulse_asset_handle load_impl(
     pulse_app_t app,
@@ -398,6 +492,10 @@ static pulse_asset_handle load_impl(
     }
 
     std::string slot_path = path_or_name ? normalize_path(path_or_name) : "";
+    AssetLoader* request_loader = nullptr;
+    if (path_or_name && path_or_name[0]) {
+        request_loader = find_loader(state, type_id, slot_path);
+    }
     pulse_asset_handle handle;
 
     if (from_memory) {
@@ -453,13 +551,43 @@ static pulse_asset_handle load_impl(
 
     slot->pin_count = 1;
 
-    if (dependency_count > 0 && dependencies) {
-        slot->dependencies.assign(dependencies, dependencies + dependency_count);
+    auto copy_request_settings = [&](PooledBlock& out) -> bool {
+        if (!request_loader || request_loader->desc.settings_size == 0 || !settings) {
+            return true;
+        }
+        return copy_pooled_block(
+            state,
+            out,
+            settings,
+            request_loader->desc.settings_size,
+            request_loader->desc.settings_align);
+    };
 
-        uint32_t unresolved = 0;
+    auto enqueue_load_job = [&](LoadJobPhase phase) -> bool {
+        LoadJob job{};
+        job.handle = handle;
+        job.phase = phase;
+        job.source.from_memory = from_memory;
+        if (from_memory) {
+            job.source.memory_data.assign(
+                static_cast<const uint8_t*>(data),
+                static_cast<const uint8_t*>(data) + size);
+        }
+        if (dependency_count > 0 && dependencies) {
+            job.dependencies.assign(dependencies, dependencies + dependency_count);
+        }
+        if (!copy_request_settings(job.settings)) {
+            return false;
+        }
+        state->load_jobs.push_back(std::move(job));
+        return true;
+    };
+
+    LoadJobPhase initial_phase = LoadJobPhase::PendingRead;
+    if (dependency_count > 0 && dependencies) {
+        bool has_unresolved_required = false;
         for (uint32_t i = 0; i < dependency_count; ++i) {
             const auto& dep = dependencies[i];
-
             if (dep.handle.index == PULSE_ASSET_INVALID_INDEX) {
                 if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
                     slot->state = PULSE_ASSET_STATE_FAILED;
@@ -470,12 +598,7 @@ static pulse_asset_handle load_impl(
             }
 
             AssetSlot* dep_slot = get_slot(state, dep.handle);
-            if (dep_slot) {
-                dep_slot->dependents.push_back(handle);
-                if (dep_slot->state != PULSE_ASSET_STATE_LOADED) {
-                    ++unresolved;
-                }
-            } else {
+            if (!dep_slot) {
                 if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
                     slot->state = PULSE_ASSET_STATE_FAILED;
                     slot->error = "required dependency handle is invalid";
@@ -483,47 +606,26 @@ static pulse_asset_handle load_impl(
                 }
                 continue;
             }
+            if (dep_slot->state == PULSE_ASSET_STATE_FAILED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+                slot->state = PULSE_ASSET_STATE_FAILED;
+                slot->error = "dependency asset failed to load";
+                return handle;
+            }
+            if (dep_slot->state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+                has_unresolved_required = true;
+            }
         }
+        initial_phase = has_unresolved_required ? LoadJobPhase::WaitingDependencies : LoadJobPhase::PendingRead;
+    }
 
-        if (unresolved > 0) {
-            slot->state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
-            slot->unresolved_count = unresolved;
-            slot->pending_from_memory = from_memory;
-            if (from_memory && data && size > 0) {
-                slot->pending_load_bytes.assign(
-                    static_cast<const uint8_t*>(data),
-                    static_cast<const uint8_t*>(data) + size);
-            }
-            if (settings) {
-                for (const auto& loader : state->loaders) {
-                    if (loader.desc.type_id == type_id && loader.desc.settings_size > 0) {
-                        slot->pending_load_settings.resize(loader.desc.settings_size);
-                        memcpy(slot->pending_load_settings.data(), settings, loader.desc.settings_size);
-                        break;
-                    }
-                }
-            }
-        } else {
-            slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
-            LoadRequest request{handle};
-            request.from_memory = from_memory;
-            request.settings = settings;
-            if (from_memory) {
-                request.memory_data.assign(static_cast<const uint8_t*>(data),
-                                           static_cast<const uint8_t*>(data) + size);
-            }
-            state->pending_requests.push_back(std::move(request));
-        }
-    } else {
-        slot->state = PULSE_ASSET_STATE_WAITING_LOAD;
-        LoadRequest request{handle};
-        request.from_memory = from_memory;
-        request.settings = settings;
-        if (from_memory) {
-            request.memory_data.assign(static_cast<const uint8_t*>(data),
-                                       static_cast<const uint8_t*>(data) + size);
-        }
-        state->pending_requests.push_back(std::move(request));
+    slot->state = initial_phase == LoadJobPhase::WaitingDependencies
+        ? PULSE_ASSET_STATE_WAITING_DEPENDENCIES
+        : PULSE_ASSET_STATE_WAITING_LOAD;
+
+    if (!enqueue_load_job(initial_phase)) {
+        slot->state = PULSE_ASSET_STATE_FAILED;
+        slot->error = "failed to copy asset load settings";
+        return handle;
     }
 
     return handle;

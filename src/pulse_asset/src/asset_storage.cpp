@@ -1,6 +1,5 @@
 #include "asset_internal.h"
 
-#include <cstdlib>
 #include <new>
 
 namespace pulse_asset_internal {
@@ -26,14 +25,12 @@ std::string normalize_path(const char* path) {
     return out;
 }
 
-static void* allocate_asset_memory(const pulse_asset_type_desc& desc) {
-    (void)desc;
-    return std::malloc(desc.size);
+static bool allocate_asset_memory(pulse_asset_state_o* state, const pulse_asset_type_desc& desc, PooledBlock& out) {
+    return allocate_pooled_block(state, out, desc.size, desc.align, false);
 }
 
-static void free_asset_memory(const pulse_asset_type_desc& desc, void* ptr) {
-    (void)desc;
-    std::free(ptr);
+static void free_asset_memory(PooledBlock& block) {
+    free_pooled_block(block);
 }
 
 AssetBucket* ensure_bucket(pulse_asset_state_o* state, uint64_t type_id) {
@@ -85,12 +82,26 @@ pulse_asset_handle allocate_slot(
     bool reusing = false;
     if (!bucket->free_indices.empty()) {
         index = bucket->free_indices.back();
-        bucket->free_indices.pop_back();
         reusing = true;
+
+        AssetSlot& slot = bucket->slots[index];
+        if (!slot.data.data) {
+            PooledBlock data;
+            if (!allocate_asset_memory(state, bucket->type->desc, data)) {
+                return invalid_handle();
+            }
+            slot.data = std::move(data);
+        }
+        bucket->free_indices.pop_back();
     }
     else {
+        PooledBlock data;
+        if (!allocate_asset_memory(state, bucket->type->desc, data)) {
+            return invalid_handle();
+        }
         index = static_cast<uint32_t>(bucket->slots.size());
         bucket->slots.push_back(AssetSlot{});
+        bucket->slots[index].data = std::move(data);
     }
 
     AssetSlot& slot = bucket->slots[index];
@@ -100,27 +111,37 @@ pulse_asset_handle allocate_slot(
             slot.generation = 1;
         }
     }
-    if (!slot.data) {
-        slot.data = allocate_asset_memory(bucket->type->desc);
-    }
     slot.state = PULSE_ASSET_STATE_WAITING_LOAD;
     slot.pin_count = 0;
     slot.path = path;
     slot.error.clear();
-    slot.loader_state = nullptr;
-    slot.loader = nullptr;
     slot.version = 0;
     slot.constructed = false;
-    slot.pending_load_bytes.clear();
-    slot.pending_load_settings.clear();
-    slot.pending_from_memory = false;
+    slot.dependencies.clear();
+    slot.dependents.clear();
 
     return {type_id, index, slot.generation};
 }
 
-void destroy_slot(AssetBucket& bucket, AssetSlot& slot) {
+void destroy_slot(pulse_asset_state_o* state, AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle) {
     if (slot.constructed && bucket.type && bucket.type->desc.destroy) {
-        bucket.type->desc.destroy(slot.data, bucket.type->desc.user_data);
+        bucket.type->desc.destroy(slot.data.data, bucket.type->desc.user_data);
+    }
+    if (state) {
+        for (pulse_asset_handle dep_handle : slot.dependencies) {
+            AssetSlot* dep_slot = get_slot(state, dep_handle);
+            if (!dep_slot) {
+                continue;
+            }
+            dep_slot->dependents.erase(
+                std::remove_if(dep_slot->dependents.begin(), dep_slot->dependents.end(), [&](pulse_asset_handle dependent) {
+                    return dependent.type_id == handle.type_id &&
+                        dependent.index == handle.index &&
+                        dependent.generation == handle.generation;
+                }),
+                dep_slot->dependents.end());
+            try_unload_slot(state, dep_handle);
+        }
     }
     slot.constructed = false;
     slot.state = PULSE_ASSET_STATE_EMPTY;
@@ -131,15 +152,9 @@ void destroy_slot(AssetBucket& bucket, AssetSlot& slot) {
     slot.pin_count = 0;
     slot.path.clear();
     slot.error.clear();
-    slot.loader_state = nullptr;
-    slot.loader = nullptr;
     slot.version = 0;
     slot.dependencies.clear();
     slot.dependents.clear();
-    slot.unresolved_count = 0;
-    slot.pending_load_bytes.clear();
-    slot.pending_load_settings.clear();
-    slot.pending_from_memory = false;
 }
 
 void try_unload_slot(pulse_asset_state_o* state, pulse_asset_handle handle) {
@@ -158,8 +173,8 @@ void try_unload_slot(pulse_asset_state_o* state, pulse_asset_handle handle) {
     if (slot.generation != handle.generation) {
         return;
     }
-    if (slot.pin_count == 0) {
-        destroy_slot(bucket, slot);
+    if (slot.pin_count == 0 && slot.dependents.empty()) {
+        destroy_slot(state, bucket, slot, handle);
         bucket.free_indices.push_back(handle.index);
     }
 }
@@ -170,11 +185,12 @@ void destroy_all_assets(pulse_asset_state_o* state) {
     }
     for (auto& bucket_pair : state->buckets) {
         AssetBucket& bucket = bucket_pair.second;
-        for (AssetSlot& slot : bucket.slots) {
-            destroy_slot(bucket, slot);
-            if (slot.data && bucket.type) {
-                free_asset_memory(bucket.type->desc, slot.data);
-                slot.data = nullptr;
+        for (size_t slot_idx = 0; slot_idx < bucket.slots.size(); ++slot_idx) {
+            AssetSlot& slot = bucket.slots[slot_idx];
+            pulse_asset_handle handle{bucket_pair.first, static_cast<uint32_t>(slot_idx), slot.generation};
+            destroy_slot(state, bucket, slot, handle);
+            if (slot.data.data && bucket.type) {
+                free_asset_memory(slot.data);
             }
         }
     }

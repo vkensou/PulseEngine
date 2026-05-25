@@ -7,17 +7,6 @@
 
 namespace pulse_graphic_internal {
 
-struct TextureLoaderState {
-    bool upload_requested = false;
-    bool upload_completed = false;
-};
-
-pulse_result_t load_texture(const pulse_asset_load_task* ctx, void** out_state) {
-    (void)ctx;
-    *out_state = new TextureLoaderState();
-    return PULSE_OK;
-}
-
 pulse_asset_loader_status_t step_texture_stb(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error)
@@ -32,7 +21,6 @@ pulse_asset_loader_status_t step_texture_stb(
         auto* pixels = stbi_load_from_memory(ctx->bytes, ctx->byte_size, &w, &h, &comp, 4);
         if (!pixels) {
             *out_error = "texture stb loader: texture parse failed";
-            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -60,7 +48,6 @@ pulse_asset_loader_status_t step_texture_stb(
             memcpy(staging, pixels, w * h * 4);
         } else {
             stbi_image_free(pixels);
-            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -71,7 +58,6 @@ pulse_asset_loader_status_t step_texture_stb(
     }
 
     if (s->upload_completed) {
-        delete s;
         return PULSE_ASSET_LOADER_DONE;
     }
 
@@ -125,7 +111,6 @@ pulse_asset_loader_status_t step_texture_ktx(
         if (result != KTX_SUCCESS)
         {
             *out_error = "texture ktx loader: texture parse failed";
-            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -133,7 +118,6 @@ pulse_asset_loader_status_t step_texture_ktx(
         if (ktxTexture->isCompressed || format == CGPU_TEXTURE_FORMAT_UNDEFINED)
         {
             ktxTexture_Destroy(ktxTexture);
-            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -173,7 +157,6 @@ pulse_asset_loader_status_t step_texture_ktx(
         auto* gstate = state_from_app(ctx->app);
         if (!gstate) {
             ktxTexture_Destroy(ktxTexture);
-            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -214,7 +197,6 @@ pulse_asset_loader_status_t step_texture_ktx(
     }
 
     if (s->upload_completed) {
-        delete s;
         return PULSE_ASSET_LOADER_DONE;
     }
 

@@ -95,19 +95,6 @@ static bool parse_obj_mesh(const uint8_t* data, size_t size,
 
 // ── Mesh loader state machine ─────────────────────────────────
 
-struct MeshLoaderState {
-    bool upload_requested = false;
-    bool has_ib = false;
-    bool vb_completed = false;
-    bool ib_completed = false;
-};
-
-pulse_result_t load_mesh(const pulse_asset_load_task* ctx, void** out_state) {
-    (void)ctx;
-    *out_state = new MeshLoaderState();
-    return PULSE_OK;
-}
-
 pulse_asset_loader_status_t step_mesh(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error)
@@ -122,7 +109,6 @@ pulse_asset_loader_status_t step_mesh(
         std::vector<uint32_t> indices;
         if (!parse_obj_mesh(ctx->bytes, ctx->byte_size, verts, indices)) {
             *out_error = "mesh loader: OBJ parse failed";
-            delete s;
             return PULSE_ASSET_LOADER_FAILED;
         }
 
@@ -162,7 +148,6 @@ pulse_asset_loader_status_t step_mesh(
 
     // Wait for uploads to be queued by upload_record_callback
     if (s->vb_completed && (!s->has_ib || s->ib_completed)) {
-        delete s;
         return PULSE_ASSET_LOADER_DONE;
     }
 
