@@ -36,26 +36,6 @@ typedef struct pulse_shader_library_data {
     CGPUShaderLibraryId library;
 } pulse_shader_library_data_t;
 
-typedef struct pulse_shader_data {
-    CGPURootSignatureId root_sig;
-    CGPUShaderEntryDescriptor vs;
-    CGPUShaderEntryDescriptor ps;
-    CGPUBlendStateDescriptor blend_desc;
-    CGPUBlendAttachmentState blend_attachments[8];
-    CGPUDepthStateDescriptor depth_desc;
-    CGPURasterizerStateDescriptor rasterizer_state;
-} pulse_shader_data_t;
-
-typedef struct pulse_compute_shader_data {
-    CGPURootSignatureId root_sig;
-    CGPUShaderEntryDescriptor cs;
-} pulse_compute_shader_data_t;
-
-typedef struct pulse_material_data {
-    pulse_asset_handle shader;
-    pulse_asset_handle self;
-} pulse_material_data_t;
-
 typedef struct pulse_sampler_data {
     CGPUSamplerId handle;
 } pulse_sampler_data_t;

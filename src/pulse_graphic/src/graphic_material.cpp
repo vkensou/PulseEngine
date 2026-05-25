@@ -11,7 +11,7 @@ struct MaterialBinding {
 };
 
 struct MaterialInternal {
-    HGEGraphics::Material* cpp_material;
+    pulse_material_data_t* cpp_material;
     std::vector<MaterialBinding> bindings;
     uint64_t map_key;
 };
@@ -28,13 +28,13 @@ namespace pulse_graphic_internal {
 
 void material_internal_destroy(void* data) {
     pulse_material_data_t* mat_data = static_cast<pulse_material_data_t*>(data);
-    uint64_t key = (uint64_t)mat_data->self.type_id << 32 | mat_data->self.index;
-    auto it = s_material_map.find(key);
-    if (it != s_material_map.end()) {
-        delete it->second->cpp_material;
-        delete it->second;
-        s_material_map.erase(it);
-    }
+    //uint64_t key = (uint64_t)mat_data->self.type_id << 32 | mat_data->self.index;
+    //auto it = s_material_map.find(key);
+    //if (it != s_material_map.end()) {
+    //    delete it->second->cpp_material;
+    //    delete it->second;
+    //    s_material_map.erase(it);
+    //}
 }
 
 } // namespace pulse_graphic_internal
@@ -52,18 +52,18 @@ pulse_material_t pulse_graphic_material_create(
     pulse_shader_data_t* shader_data = pulse_graphic_shader_acquire(app, &shader);
     if (!shader_data) return result;
 
-    HGEGraphics::Shader cpp_shader;
+    pulse_shader_data_t cpp_shader;
     cpp_shader.root_sig = shader_data->root_sig;
     cpp_shader.vs = shader_data->vs;
     cpp_shader.ps = shader_data->ps;
     cpp_shader.blend_desc = shader_data->blend_desc;
-    cpp_shader.blend_attachment_states.assign(
-        shader_data->blend_attachments,
-        shader_data->blend_attachments + 8);
+    //cpp_shader.blend_attachment_states.assign(
+    //    shader_data->blend_attachments,
+    //    shader_data->blend_attachments + 8);
     cpp_shader.depth_desc = shader_data->depth_desc;
     cpp_shader.rasterizer_state = shader_data->rasterizer_state;
 
-    HGEGraphics::Material* mat = new HGEGraphics::Material(device, &cpp_shader);
+    pulse_material_data_t* mat = new pulse_material_data_t(device, &cpp_shader);
     pulse_graphic_shader_release(app, &shader);
     if (!mat) return result;
 
@@ -77,8 +77,8 @@ pulse_material_t pulse_graphic_material_create(
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, asset_handle, &ref)) {
         pulse_material_data_t* data = static_cast<pulse_material_data_t*>(ref.ptr);
-        data->shader = shader.asset;
-        data->self = asset_handle;
+        //data->shader = shader.asset;
+        //data->self = asset_handle;
 
         MaterialInternal* internal = new MaterialInternal();
         internal->cpp_material = mat;
@@ -109,7 +109,7 @@ void pulse_graphic_material_bind_buffer(
     MaterialInternal* internal = get_material_internal(material->asset);
     if (internal) {
         internal->bindings.push_back({0, set, binding, buffer.asset});
-        internal->cpp_material->bindBuffer((int)set, (int)binding, buf_data->handle->info->size, nullptr);
+        //internal->cpp_material->bindBuffer((int)set, (int)binding, buf_data->handle->info->size, nullptr);
     }
 
     pulse_asset_release(app, &mat_ref);
@@ -133,7 +133,7 @@ void pulse_graphic_material_bind_texture(
     MaterialInternal* internal = get_material_internal(material->asset);
     if (internal) {
         internal->bindings.push_back({1, set, binding, texture.asset});
-        internal->cpp_material->bindTexture((int)set, (int)binding, nullptr);
+        //internal->cpp_material->bindTexture((int)set, (int)binding, nullptr);
     }
 
     pulse_asset_release(app, &mat_ref);
@@ -157,7 +157,7 @@ void pulse_graphic_material_bind_sampler(
     MaterialInternal* internal = get_material_internal(material->asset);
     if (internal) {
         internal->bindings.push_back({2, set, binding, sampler.asset});
-        internal->cpp_material->bindSampler((int)set, (int)binding, smp_data->handle);
+        //internal->cpp_material->bindSampler((int)set, (int)binding, smp_data->handle);
     }
 
     pulse_asset_release(app, &mat_ref);

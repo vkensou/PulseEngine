@@ -119,11 +119,11 @@ static pulse_asset_loader_status_t step_shader_from_deps(
     data->vs = cpp_shader->vs;
     data->ps = cpp_shader->ps;
     data->blend_desc = cpp_shader->blend_desc;
-    for (size_t i = 0; i < cpp_shader->blend_attachment_states.size() && i < 8; ++i)
-        data->blend_attachments[i] = cpp_shader->blend_attachment_states[i];
-    data->blend_desc.p_attachments = data->blend_attachments;
-    data->blend_desc.attachment_count = (uint32_t)(cpp_shader->blend_attachment_states.size() < 8
-        ? cpp_shader->blend_attachment_states.size() : 8);
+    //for (size_t i = 0; i < cpp_shader->blend_attachment_states.size() && i < 8; ++i)
+    //    data->blend_attachments[i] = cpp_shader->blend_attachment_states[i];
+    //data->blend_desc.p_attachments = data->blend_attachments;
+    //data->blend_desc.attachment_count = (uint32_t)(cpp_shader->blend_attachment_states.size() < 8
+    //    ? cpp_shader->blend_attachment_states.size() : 8);
     data->depth_desc = cpp_shader->depth_desc;
     data->rasterizer_state = cpp_shader->rasterizer_state;
     cpp_shader->root_sig = CGPU_NULLPTR;
