@@ -53,7 +53,7 @@ static void allocate_passdata(pulse_rendergraph_impl_t* self, RenderPassNode* pa
 }
 
 // pulse_rendergraph_impl_t constructor
-pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, Shader* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
+pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, pulse_shader_data_t* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
 	: allocator(resource), resources(resource), passes(resource), edges(resource), blitShader(blitShader), blitSampler(blitSampler), imported_textures(resource), imported_buffers(resource)
 {
 	resources.reserve(estimate_resource_count);
@@ -85,7 +85,7 @@ pulse_rendergraph_t* pulse_rendergraph_create(uint32_t estimate_resource_count, 
 {
 	auto* impl = new pulse_rendergraph_impl_t(
 		estimate_resource_count, estimate_pass_count, estimate_edge_count,
-		(Shader*)blit_shader, blit_sampler,
+		(pulse_shader_data_t*)blit_shader, blit_sampler,
 		std::pmr::new_delete_resource());
 	return from_impl(impl);
 }
@@ -574,7 +574,7 @@ void pulse_rendergraph_add_generate_mipmap(pulse_rendergraph_t* self, pulse_text
 
 		struct BlitMipmapPassData
 		{
-			Shader* blitShader;
+			pulse_shader_data_t* blitShader;
 			CGPUSamplerId blitSampler;
 			pulse_texture_handle_t source;
 		};

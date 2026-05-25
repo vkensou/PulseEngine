@@ -36,7 +36,7 @@ namespace HGEGraphics
 
 		rendergraph_t() : m_handle(nullptr) {}
 
-		rendergraph_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, Shader* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
+		rendergraph_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, pulse_shader_data_t* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
 		{
 			auto* impl = new pulse_rendergraph_impl_t(estimate_resource_count, estimate_pass_count, estimate_edge_count, blitShader, blitSampler, resource);
 			m_handle = from_impl(impl);

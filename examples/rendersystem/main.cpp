@@ -164,14 +164,14 @@ struct BindBuffer
 {
 	int set;
 	int bind;
-	HGEGraphics::Buffer* buffer;
+	pulse_buffer_data_t* buffer;
 };
 
 struct BindTexture
 {
 	int set;
 	int bind;
-	HGEGraphics::pulse_texture_data_t* texture;
+	pulse_texture_data_t* texture;
 };
 
 struct BindSampler
@@ -430,7 +430,7 @@ struct Application
 	oval_device_t* device{ nullptr };
 	ecs_entity_t window1{};
 	ecs_entity_t window2{};
-	std::vector<HGEGraphics::Mesh*> meshes;
+	std::vector<pulse_mesh_data_t*> meshes;
 	std::vector<HGEGraphics::Material*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
@@ -528,7 +528,7 @@ struct TexturedVertex
 	HMM_Vec2 texCoord;
 };
 
-HGEGraphics::pulse_texture_data_t* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
+pulse_texture_data_t* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
 {
 	return oval_load_texture(app.device, (path + gltf_image.uri).c_str(), true);
 
@@ -550,7 +550,7 @@ HGEGraphics::pulse_texture_data_t* load_texture(Application& app, tinygltf::Imag
 	return texture;
 }
 
-HGEGraphics::Mesh* load_primitive(Application& app, const tinygltf::Primitive& gltf_primitive, const tinygltf::Model& model, bool right_hand)
+pulse_mesh_data_t* load_primitive(Application& app, const tinygltf::Primitive& gltf_primitive, const tinygltf::Model& model, bool right_hand)
 {
 	int rh = right_hand ? -1 : 1;
 
@@ -719,7 +719,7 @@ bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
 	return true;
 }
 
-void load_scene(Application& app, flecs::world& world, const char* filepath, HGEGraphics::Shader* shader)
+void load_scene(Application& app, flecs::world& world, const char* filepath, pulse_shader_data_t* shader)
 {
 	using namespace tinygltf;
 	Model model;
@@ -778,7 +778,7 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		samplers.push_back(sampler);
 	}
 
-	std::vector<HGEGraphics::pulse_texture_data_t*> textures;
+	std::vector<pulse_texture_data_t*> textures;
 	for (size_t i = 0; i < model.images.size(); ++i)
 	{
 		auto& gltf_image = model.images[i];

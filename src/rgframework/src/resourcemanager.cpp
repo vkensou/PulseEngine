@@ -82,7 +82,7 @@ void oval_free_buffer(oval_device_t* device, pulse_buffer_data_t* buffer)
 	delete buffer;
 }
 
-HGEGraphics::Material* oval_create_material(oval_device_t* device, HGEGraphics::Shader* shader)
+HGEGraphics::Material* oval_create_material(oval_device_t* device, pulse_shader_data_t* shader)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	std::unique_ptr<HGEGraphics::Material> material(new HGEGraphics::Material(D->device, shader));

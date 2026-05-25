@@ -233,12 +233,12 @@ typedef struct oval_cgpu_device_t {
 	std::vector<FrameData> frameDatas;
 	FrameInfo info;
 
-	HGEGraphics::Shader* blit_shader = nullptr;
+	pulse_shader_data_t* blit_shader = nullptr;
 	CGPUSamplerId blit_linear_sampler = CGPU_NULLPTR;
 
 	ImFontAtlas* imgui_font = nullptr;;
 	pulse_texture_data_t* imgui_font_texture = nullptr;
-	HGEGraphics::Shader* imgui_shader = nullptr;
+	pulse_shader_data_t* imgui_shader = nullptr;
 	CGPUSamplerId imgui_font_sampler = CGPU_NULLPTR;
 
 	bool rdc_capture = false;
@@ -253,8 +253,8 @@ typedef struct oval_cgpu_device_t {
 	enki::TaskScheduler taskScheduler;
 
 	std::pmr::vector<std::unique_ptr<pulse_mesh_data_t>> meshes;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Shader>> shaders;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::ComputeShader>> computeShaders;
+	std::pmr::vector<std::unique_ptr<pulse_shader_data_t>> shaders;
+	std::pmr::vector<std::unique_ptr<pulse_compute_shader_data_t>> computeShaders;
 	std::pmr::vector<CGPUSamplerId> samplers;
 	std::pmr::vector<std::unique_ptr<pulse_texture_data_t>> textures;
 	std::pmr::vector<std::unique_ptr<HGEGraphics::Material>> materials;

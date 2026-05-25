@@ -1,6 +1,6 @@
 #include "cgpu_device.h"
 
-HGEGraphics::Shader* oval_create_shader(oval_device_t* device, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+pulse_shader_data_t* oval_create_shader(oval_device_t* device, const char* vertPath, const char* fragPath, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 {
 	auto vertShaderCode = readfile(vertPath);
 	auto fragShaderCode = readfile(fragPath);
@@ -8,7 +8,7 @@ HGEGraphics::Shader* oval_create_shader(oval_device_t* device, const char* vertP
 		blend_desc, depth_desc, rasterizer_state);
 }
 
-HGEGraphics::Shader* oval_create_shader(oval_device_t* device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+pulse_shader_data_t* oval_create_shader(oval_device_t* device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto shader = HGEGraphics::create_shader(D->device, vert_data, vert_length, frag_data, frag_length,
@@ -18,12 +18,12 @@ HGEGraphics::Shader* oval_create_shader(oval_device_t* device, const uint8_t* ve
 	return ptr;
 }
 
-void oval_free_shader(oval_device_t* device, HGEGraphics::Shader* shader)
+void oval_free_shader(oval_device_t* device, pulse_shader_data_t* shader)
 {
 	//HGEGraphics::free_shader(shader);
 }
 
-HGEGraphics::ComputeShader* oval_create_compute_shader(oval_device_t* device, const std::string& compPath)
+pulse_compute_shader_data_t* oval_create_compute_shader(oval_device_t* device, const std::string& compPath)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto compShaderCode = readfile((const char*)compPath.c_str());
@@ -33,7 +33,7 @@ HGEGraphics::ComputeShader* oval_create_compute_shader(oval_device_t* device, co
 	return ptr;
 }
 
-void oval_free_compute_shader(oval_device_t* device, HGEGraphics::ComputeShader* shader)
+void oval_free_compute_shader(oval_device_t* device, pulse_compute_shader_data_t* shader)
 {
 	//HGEGraphics::free_compute_shader(shader);
 }

@@ -7,15 +7,15 @@
 #include "compare.h"
 
 struct pulse_mesh_data_t;
+struct pulse_shader_data_t;
 
 namespace HGEGraphics
 {
-	struct Shader;
 	struct RenderPassEncoder;
 
 	struct PSOKey
 	{
-		Shader* shader;
+		pulse_shader_data_t* shader;
 		CGPUVertexLayout vertex_layout;
 		ECGPUPrimitiveTopology prim_topology;
 		CGPUBlendStateDescriptor blend_desc;
@@ -72,8 +72,8 @@ namespace HGEGraphics
 	public:
 		GraphicsPipelinePool(CGPUDeviceId device, GraphicsPipelinePool* upstream, std::pmr::memory_resource* const memory_resource);
 
-		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh);
-		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, Shader* shader, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout);
+		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, pulse_shader_data_t* shader, pulse_mesh_data_t* mesh);
+		GraphicsPipeline* getGraphicsPipeline(RenderPassEncoder* encoder, pulse_shader_data_t* shader, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout);
 
 		// 通过ResourcePool继承
 		virtual GraphicsPipeline* getResource_impl(const PSOKey& descriptor) override;

@@ -580,8 +580,8 @@ void material_bind_buffer(pulse::ResourceManager& resourceManager, size_t materi
 	material->bindBuffer(set, bind, size, ptr);
 }
 
-MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
-IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
+MAKE_EXTERNAL_TYPE_FACTORY(Shader, pulse_shader_data_t);
+IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, pulse_shader_data_t);
 
 void Text(const char* txt) {
 	ImGui::Text("%s", txt);

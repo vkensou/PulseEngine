@@ -9,7 +9,7 @@
 
 namespace HGEGraphics
 {
-	std::unique_ptr<Shader> create_shader(CGPUDeviceId device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
+	std::unique_ptr<pulse_shader_data_t> create_shader(CGPUDeviceId device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state)
 	{
 		CGPUShaderLibraryDescriptor vs_desc = {
 			.name = "VertexShaderLibrary",
@@ -28,7 +28,7 @@ namespace HGEGraphics
 		return create_shader_from_libraries(device, vertex_shader, fragment_shader, blend_desc, depth_desc, rasterizer_state);
 	}
 
-	std::unique_ptr<Shader> create_shader_from_libraries(
+	std::unique_ptr<pulse_shader_data_t> create_shader_from_libraries(
 		CGPUDeviceId device,
 		CGPUShaderLibraryId vs_library,
 		CGPUShaderLibraryId ps_library,
@@ -49,30 +49,37 @@ namespace HGEGraphics
 		};
 		auto root_sig = cgpu_device_create_root_signature(device, &rs_desc);
 
-		auto shader = new Shader();
+		auto shader = new pulse_shader_data_t();
 		shader->root_sig = root_sig;
 		shader->vs = ppl_shaders[0];
 		shader->ps = ppl_shaders[1];
 		shader->blend_desc = blend_desc;
-		shader->blend_attachment_states.resize(blend_desc.attachment_count);
-		std::copy(blend_desc.p_attachments, blend_desc.p_attachments + blend_desc.attachment_count, shader->blend_attachment_states.begin());
-		shader->blend_desc.p_attachments = shader->blend_attachment_states.data();
+		shader->blend_attachment_states_count = blend_desc.attachment_count;
+		shader->p_blend_attachment_states = new CGPUBlendAttachmentState[shader->blend_attachment_states_count];
+		std::copy(blend_desc.p_attachments, blend_desc.p_attachments + blend_desc.attachment_count, shader->p_blend_attachment_states);
+		shader->blend_desc.p_attachments = shader->p_blend_attachment_states;
 		shader->depth_desc = depth_desc;
 		shader->rasterizer_state = rasterizer_state;
-		return std::unique_ptr<Shader>(shader);
+		return std::unique_ptr<pulse_shader_data_t>(shader);
 	}
 
-	Shader::~Shader()
+	void free_shader(pulse_shader_data_t* shader)
 	{
-		if (root_sig)
-			cgpu_device_free_root_signature(root_sig->device, root_sig);
-		if (vs.library)
-			cgpu_device_free_shader_library(vs.library->device, vs.library);
-		if (ps.library)
-			cgpu_device_free_shader_library(ps.library->device, ps.library);
+		if (shader->p_blend_attachment_states)
+		{
+			delete[] shader->p_blend_attachment_states;
+		}
+		shader->p_blend_attachment_states = nullptr;
+		shader->blend_attachment_states_count = 0;
+		if (shader->root_sig)
+			cgpu_device_free_root_signature(shader->root_sig->device, shader->root_sig);
+		if (shader->vs.library)
+			cgpu_device_free_shader_library(shader->vs.library->device, shader->vs.library);
+		if (shader->ps.library)
+			cgpu_device_free_shader_library(shader->ps.library->device, shader->ps.library);
 	}
 
-	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length)
+	std::unique_ptr<pulse_compute_shader_data_t> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length)
 	{
 		CGPUShaderLibraryDescriptor cs_desc = {
 			.name = "ComputeShaderLibrary",
@@ -84,7 +91,7 @@ namespace HGEGraphics
 		return create_compute_shader_from_library(device, comp_shader);
 	}
 
-	std::unique_ptr<ComputeShader> create_compute_shader_from_library(
+	std::unique_ptr<pulse_compute_shader_data_t> create_compute_shader_from_library(
 		CGPUDeviceId device,
 		CGPUShaderLibraryId cs_library)
 	{
@@ -98,16 +105,16 @@ namespace HGEGraphics
 		};
 		auto root_sig = cgpu_device_create_root_signature(device, &rs_desc);
 
-		auto shader = new ComputeShader();
+		auto shader = new pulse_compute_shader_data_t();
 		shader->root_sig = root_sig;
 		shader->cs = ppl_shaders[0];
-		return std::unique_ptr<ComputeShader>(shader);
+		return std::unique_ptr<pulse_compute_shader_data_t>(shader);
 	}
 
-	ComputeShader::~ComputeShader()
+	void free_compute_shader(pulse_compute_shader_data_t* compute_shader)
 	{
-		cgpu_device_free_root_signature(root_sig->device, root_sig);
-		cgpu_device_free_shader_library(cs.library->device, cs.library);
+		cgpu_device_free_root_signature(compute_shader->root_sig->device, compute_shader->root_sig);
+		cgpu_device_free_shader_library(compute_shader->cs.library->device, compute_shader->cs.library);
 	}
 
 	pulse_buffer_data_t* create_empty_buffer()
@@ -330,7 +337,7 @@ namespace HGEGraphics
 		}
 	}
 
-	Material::Material(CGPUDeviceId device, Shader* shader)
+	Material::Material(CGPUDeviceId device, pulse_shader_data_t* shader)
 		: device(device), shader(shader)
 	{
 
@@ -408,12 +415,12 @@ namespace HGEGraphics
 		cgpu_render_pass_encoder_set_scissor(encoder->encoder, x, y, width, height);
 	}
 
-	void push_constants(RenderPassEncoder* encoder, Shader* shader, const char* name, const void* data)
+	void push_constants(RenderPassEncoder* encoder, pulse_shader_data_t* shader, const char* name, const void* data)
 	{
 		cgpu_render_pass_encoder_push_constants(encoder->encoder, shader->root_sig, name, data);
 	}
 
-	void update_render_pipeline(RenderPassEncoder* encoder, Shader* shader, ECGPUPrimitiveTopology mesh_topology, const CGPUVertexLayout& vertex_layout)
+	void update_render_pipeline(RenderPassEncoder* encoder, pulse_shader_data_t* shader, ECGPUPrimitiveTopology mesh_topology, const CGPUVertexLayout& vertex_layout)
 	{
 		auto pipeline = encoder->context->pipelinePool.getGraphicsPipeline(encoder, shader, mesh_topology, vertex_layout);
 		if (pipeline && pipeline->handle != encoder->last_render_pipeline)
@@ -610,7 +617,7 @@ namespace HGEGraphics
 		}
 	}
 
-	void draw(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh)
+	void draw(RenderPassEncoder* encoder, pulse_shader_data_t* shader, pulse_mesh_data_t* mesh)
 	{
 		if (!mesh->prepared)
 			return;
@@ -623,7 +630,7 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, mesh->vertices_count, 0);
 	}
 
-	void draw_submesh(RenderPassEncoder* encoder, Shader* shader, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
+	void draw_submesh(RenderPassEncoder* encoder, pulse_shader_data_t* shader, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
 	{
 		if (!mesh->prepared)
 			return;
@@ -637,7 +644,7 @@ namespace HGEGraphics
 	}
 
 	static CGPUVertexLayout procedure_vertex_layout = { .attribute_count = 0 };
-	void draw_procedure(RenderPassEncoder* encoder, Shader* shader, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count)
+	void draw_procedure(RenderPassEncoder* encoder, pulse_shader_data_t* shader, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count)
 	{
 		update_render_pipeline(encoder, shader, mesh_topology, procedure_vertex_layout);
 		update_descriptor_set(encoder, shader->root_sig, true);
@@ -683,7 +690,7 @@ namespace HGEGraphics
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);
 	}
 
-	void update_compute_pipeline(RenderPassEncoder* encoder, ComputeShader* shader)
+	void update_compute_pipeline(RenderPassEncoder* encoder, pulse_compute_shader_data_t* shader)
 	{
 		auto pipeline = encoder->context->computePipelinePool.getComputePipeline(shader);
 		if (pipeline && pipeline->handle != encoder->last_compute_pipeline)
@@ -694,7 +701,7 @@ namespace HGEGraphics
 		}
 	}
 
-	void dispatch(RenderPassEncoder* encoder, ComputeShader* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z)
+	void dispatch(RenderPassEncoder* encoder, pulse_compute_shader_data_t* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z)
 	{
 		update_compute_pipeline(encoder, shader);
 		update_descriptor_set(encoder, shader->root_sig, false);

@@ -40,6 +40,24 @@ struct pulse_mesh_data_t
 	bool prepared;
 };
 
+struct pulse_shader_data_t
+{
+	CGPURootSignatureId root_sig;
+	CGPUShaderEntryDescriptor vs;
+	CGPUShaderEntryDescriptor ps;
+	CGPUBlendStateDescriptor blend_desc;
+	uint32_t blend_attachment_states_count;
+	CGPUBlendAttachmentState* p_blend_attachment_states;
+	CGPUDepthStateDescriptor depth_desc;
+	CGPURasterizerStateDescriptor rasterizer_state;
+};
+
+struct pulse_compute_shader_data_t
+{
+	CGPURootSignatureId root_sig;
+	CGPUShaderEntryDescriptor cs;
+};
+
 #ifdef __cplusplus
 }
 #endif

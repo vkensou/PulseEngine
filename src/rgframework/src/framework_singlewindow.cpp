@@ -1013,7 +1013,15 @@ void oval_free_device(oval_device_t* device)
 		HGEGraphics::free_mesh(D->meshes[i].get());
 	}
 	D->meshes.clear();
+	for (size_t i = 0; i < D->shaders.size();++i)
+	{
+		HGEGraphics::free_shader(D->shaders[i].get());
+	}
 	D->shaders.clear();
+	for (size_t i = 0; i < D->computeShaders.size();++i)
+	{
+		HGEGraphics::free_compute_shader(D->computeShaders[i].get());
+	}
 	D->computeShaders.clear();
 	for (size_t i = 0; i < D->textures.size(); ++i)
 	{
