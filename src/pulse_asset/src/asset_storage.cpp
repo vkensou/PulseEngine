@@ -1,7 +1,5 @@
 #include "asset_internal.h"
 
-#include <new>
-
 namespace pulse_asset_internal {
 
 pulse_asset_handle invalid_handle(void) {
@@ -12,8 +10,8 @@ bool is_invalid_handle(pulse_asset_handle handle) {
     return handle.type_id == 0 || handle.index == PULSE_ASSET_INVALID_INDEX;
 }
 
-std::string normalize_path(const char* path) {
-    std::string out = path ? path : "";
+std::pmr::string normalize_path(const char* path, std::pmr::memory_resource* resource) {
+    std::pmr::string out(path ? path : "", resource);
     for (char& c : out) {
         if (c == '\\') {
             c = '/';
@@ -38,7 +36,8 @@ AssetBucket* ensure_bucket(pulse_asset_state_o* state, uint64_t type_id) {
     if (type_it == state->types.end()) {
         return nullptr;
     }
-    AssetBucket& bucket = state->buckets[type_id];
+    auto bucket_result = state->buckets.try_emplace(type_id, &state->memory_pool);
+    AssetBucket& bucket = bucket_result.first->second;
     if (!bucket.type) {
         bucket.type = &type_it->second;
     }
@@ -71,7 +70,7 @@ const AssetSlot* get_slot_const(const pulse_asset_state_o* state, pulse_asset_ha
 pulse_asset_handle allocate_slot(
     pulse_asset_state_o* state,
     uint64_t type_id,
-    const std::string& path
+    const std::pmr::string& path
 ) {
     AssetBucket* bucket = ensure_bucket(state, type_id);
     if (!bucket) {
@@ -100,7 +99,7 @@ pulse_asset_handle allocate_slot(
             return invalid_handle();
         }
         index = static_cast<uint32_t>(bucket->slots.size());
-        bucket->slots.push_back(AssetSlot{});
+        bucket->slots.emplace_back(&state->memory_pool);
         bucket->slots[index].data = std::move(data);
     }
 

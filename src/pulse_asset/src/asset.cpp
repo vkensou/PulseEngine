@@ -39,8 +39,8 @@ pulse_asset_state_o* state_from_app(pulse_app_t app) {
     return resource ? resource->state : nullptr;
 }
 
-std::string normalize_extension(const char* extension) {
-    std::string out = extension ? extension : "";
+std::pmr::string normalize_extension(const char* extension, std::pmr::memory_resource* resource) {
+    std::pmr::string out(extension ? extension : "", resource);
     if (!out.empty() && out[0] == '.') {
         out.erase(out.begin());
     }
@@ -50,17 +50,17 @@ std::string normalize_extension(const char* extension) {
     return out;
 }
 
-std::vector<std::string> parse_extensions(const char* extensions) {
-    std::vector<std::string> out;
+std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std::pmr::memory_resource* resource) {
+    std::pmr::vector<std::pmr::string> out(resource);
     if (!extensions) {
         return out;
     }
-    std::string current;
+    std::pmr::string current(resource);
     for (const char* c = extensions; ; ++c) {
         if (*c == ',' || *c == '\0') {
-            std::string normalized = normalize_extension(current.c_str());
+            std::pmr::string normalized = normalize_extension(current.c_str(), resource);
             if (!normalized.empty()) {
-                out.push_back(normalized);
+                out.push_back(std::move(normalized));
             }
             current.clear();
             if (*c == '\0') {
@@ -77,14 +77,14 @@ std::vector<std::string> parse_extensions(const char* extensions) {
 static bool has_loader_for_extension(
     const pulse_asset_state_o* state,
     uint64_t type_id,
-    const std::vector<std::string>& extensions
+    const std::pmr::vector<std::pmr::string>& extensions
 ) {
     for (const AssetLoader& loader : state->loaders) {
         if (loader.desc.type_id != type_id) {
             continue;
         }
-        for (const std::string& existing : loader.extensions) {
-            for (const std::string& extension : extensions) {
+        for (const std::pmr::string& existing : loader.extensions) {
+            for (const std::pmr::string& extension : extensions) {
                 if (existing == extension) {
                     return true;
                 }
@@ -233,14 +233,14 @@ pulse_result_t pulse_asset_register_loader(
     if (state->types.find(desc->type_id) == state->types.end()) {
         return PULSE_ERROR_NOT_FOUND;
     }
-    std::vector<std::string> extensions = parse_extensions(desc->extensions);
+    std::pmr::vector<std::pmr::string> extensions = parse_extensions(desc->extensions, &state->memory_pool);
     if (extensions.empty()) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
     if (has_loader_for_extension(state, desc->type_id, extensions)) {
         return PULSE_ERROR_INVALID_STATE;
     }
-    AssetLoader loader{};
+    AssetLoader loader(&state->memory_pool);
     loader.desc = *desc;
     loader.extensions = std::move(extensions);
     state->loaders.push_back(std::move(loader));
@@ -455,7 +455,10 @@ static pulse_asset_handle load_impl(
         return invalid_handle();
     }
 
-    std::string slot_path = path_or_name ? normalize_path(path_or_name) : "";
+    std::pmr::string slot_path(&state->memory_pool);
+    if (path_or_name) {
+        slot_path = normalize_path(path_or_name, &state->memory_pool);
+    }
     AssetLoader* request_loader = nullptr;
     if (path_or_name && path_or_name[0]) {
         request_loader = find_loader(state, type_id, slot_path);
@@ -481,7 +484,7 @@ static pulse_asset_handle load_impl(
             return invalid_handle();
         }
 
-        PathKey key{type_id, slot_path};
+        PathKey key(type_id, slot_path, &state->memory_pool);
         auto cached = state->path_cache.find(key);
         if (cached != state->path_cache.end() && cached_slot_can_be_reused(state, cached->second)) {
             return cached->second;
@@ -493,7 +496,7 @@ static pulse_asset_handle load_impl(
             return invalid_handle();
         }
 
-        PathKey key{type_id, slot_path};
+        PathKey key(type_id, slot_path, &state->memory_pool);
         auto cached = state->path_cache.find(key);
         if (cached != state->path_cache.end() && cached_slot_can_be_reused(state, cached->second)) {
             return cached->second;
@@ -507,7 +510,8 @@ static pulse_asset_handle load_impl(
     }
 
     if (!slot_path.empty()) {
-        state->path_cache[{type_id, slot_path}] = handle;
+        PathKey key(type_id, slot_path, &state->memory_pool);
+        state->path_cache.insert_or_assign(std::move(key), handle);
     }
 
     AssetSlot* slot = get_slot(state, handle);
@@ -528,7 +532,7 @@ static pulse_asset_handle load_impl(
     };
 
     auto enqueue_load_job = [&](LoadJobPhase phase) -> bool {
-        LoadJob job{};
+        LoadJob job(&state->memory_pool);
         job.handle = handle;
         job.phase = phase;
         job.source.from_memory = from_memory;

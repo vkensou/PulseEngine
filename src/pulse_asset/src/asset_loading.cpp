@@ -6,17 +6,17 @@
 
 namespace pulse_asset_internal {
 
-static std::string extension_from_path(const std::string& path) {
+static std::pmr::string extension_from_path(const std::pmr::string& path, std::pmr::memory_resource* resource) {
     size_t slash = path.find_last_of("/");
     size_t dot = path.find_last_of('.');
-    if (dot == std::string::npos || (slash != std::string::npos && dot < slash)) {
-        return "";
+    if (dot == std::pmr::string::npos || (slash != std::pmr::string::npos && dot < slash)) {
+        return std::pmr::string(resource);
     }
-    return normalize_extension(path.c_str() + dot + 1);
+    return normalize_extension(path.c_str() + dot + 1, resource);
 }
 
-AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std::string& path) {
-    std::string extension = extension_from_path(path);
+AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std::pmr::string& path) {
+    std::pmr::string extension = extension_from_path(path, &state->memory_pool);
     if (extension.empty()) {
         return nullptr;
     }
@@ -24,7 +24,7 @@ AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std
         if (loader.desc.type_id != type_id) {
             continue;
         }
-        for (const std::string& candidate : loader.extensions) {
+        for (const std::pmr::string& candidate : loader.extensions) {
             if (candidate == extension) {
                 return &loader;
             }
@@ -33,33 +33,38 @@ AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std
     return nullptr;
 }
 
-std::string join_asset_path(const std::string& root_path, const std::string& path) {
+std::pmr::string join_asset_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource) {
     if (root_path.empty()) {
-        return path;
+        return std::pmr::string(path, resource);
     }
+    std::pmr::string out(root_path, resource);
     if (root_path.back() == '/' || root_path.back() == '\\') {
-        return root_path + path;
+        out += path;
+        return out;
     }
-    return root_path + "/" + path;
+    out.push_back('/');
+    out += path;
+    return out;
 }
 
-std::optional<std::vector<uint8_t>> read_file_sdl(const char* filename) {
+std::optional<std::pmr::vector<uint8_t>> read_file_sdl(const char* filename, std::pmr::memory_resource* resource) {
     SDL_IOStream* stream = SDL_IOFromFile(filename, "rb");
     if (!stream) {
-        return std::optional<std::vector<uint8_t>>{};
+        return std::optional<std::pmr::vector<uint8_t>>{};
     }
     Sint64 size = SDL_GetIOSize(stream);
     if (size < 0) {
         SDL_CloseIO(stream);
-        return std::optional<std::vector<uint8_t>>{};
+        return std::optional<std::pmr::vector<uint8_t>>{};
     }
-    std::vector<uint8_t> buffer(static_cast<size_t>(size));
+    std::pmr::vector<uint8_t> buffer(resource);
+    buffer.resize(static_cast<size_t>(size));
     size_t read = SDL_ReadIO(stream, buffer.data(), buffer.size());
     SDL_CloseIO(stream);
     if (read != buffer.size()) {
-        return std::optional<std::vector<uint8_t>>{};
+        return std::optional<std::pmr::vector<uint8_t>>{};
     }
-    return buffer;
+    return std::move(buffer);
 }
 
 void free_pooled_block(PooledBlock& block) {
@@ -115,7 +120,7 @@ static bool dependency_is_invalid(pulse_asset_handle handle) {
 
 static void evaluate_dependencies(
     pulse_asset_state_o* state,
-    const std::vector<pulse_asset_dependency>& dependencies,
+    const std::pmr::vector<pulse_asset_dependency>& dependencies,
     bool& out_failed,
     bool& out_ready
 ) {
@@ -259,7 +264,7 @@ void retire_load_job(pulse_asset_state_o* state, LoadJob& job) {
     job.source.memory_data.clear();
 }
 
-void commit_asset_dependencies(pulse_asset_state_o* state, pulse_asset_handle handle, const std::vector<pulse_asset_dependency>& dependencies) {
+void commit_asset_dependencies(pulse_asset_state_o* state, pulse_asset_handle handle, const std::pmr::vector<pulse_asset_dependency>& dependencies) {
     AssetSlot* slot = get_slot(state, handle);
     if (!slot) {
         return;
@@ -315,8 +320,8 @@ static void process_pending_read(pulse_asset_state_o* state, LoadJob& job, Asset
     if (job.source.from_memory) {
         job.bytes = std::move(job.source.memory_data);
     } else {
-        std::string full_path = join_asset_path(state->root_path, slot.path);
-        auto file_bytes = read_file_sdl(full_path.c_str());
+        std::pmr::string full_path = join_asset_path(state->root_path, slot.path, &state->memory_pool);
+        auto file_bytes = read_file_sdl(full_path.c_str(), &state->memory_pool);
         if (!file_bytes.has_value()) {
             finish_load_job(job, &slot, LoadJobOutcome::Failed, "failed to read asset file");
             return;
@@ -428,7 +433,7 @@ static void process_load_job(pulse_asset_state_o* state, LoadJob& job) {
     }
 }
 
-static void retire_and_erase_load_job(pulse_asset_state_o* state, std::list<LoadJob>::iterator job_it) {
+static void retire_and_erase_load_job(pulse_asset_state_o* state, std::pmr::list<LoadJob>::iterator job_it) {
     pulse_asset_handle handle = job_it->handle;
     retire_load_job(state, *job_it);
     state->load_jobs.erase(job_it);
