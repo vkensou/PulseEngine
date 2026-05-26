@@ -270,7 +270,7 @@ static pulse_asset_loader_status_t step_dynamic_parent_asset(
     dynamic_step_count += 1;
     dynamic_loader_state* s = (dynamic_loader_state*)state;
     s->step += 1;
-    assert(ctx->job != nullptr);
+    assert(ctx->dependency_hint != nullptr);
 
     if (s->step == 1) {
         assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_OK);

@@ -163,7 +163,7 @@ static void refresh_job_ctx(pulse_asset_state_o* state, LoadJob& job, AssetSlot&
     job.ctx.user_data = job.loader ? job.loader->desc.user_data : nullptr;
     job.ctx.out_asset = slot.data.data;
     job.ctx.settings = job.settings.data;
-    job.ctx.job = &job;
+    job.ctx.dependency_hint = nullptr;
 }
 
 static bool construct_job_loader(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot, const char*& out_error) {
@@ -332,10 +332,13 @@ static void process_waiting_dependencies(pulse_asset_state_o* state, LoadJob& jo
 
 static void process_processing(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot) {
     refresh_job_ctx(state, job, slot);
+    pulse_asset_load_dependency_hint dependency_hint{&job};
+    job.ctx.dependency_hint = &dependency_hint;
     const char* error = nullptr;
     job.in_callback = true;
     pulse_asset_loader_status_t status = job.loader->desc.step(job.loader_state.data, &job.ctx, &error);
     job.in_callback = false;
+    job.ctx.dependency_hint = nullptr;
     if (job.finished) {
         return;
     }

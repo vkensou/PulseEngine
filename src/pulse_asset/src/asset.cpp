@@ -296,27 +296,10 @@ pulse_result_t pulse_asset_add_load_dependency(
     pulse_asset_handle dependency,
     pulse_dependency_flags_t flags
 ) {
-    if (!ctx || !ctx->app || !ctx->job) {
+    if (!ctx || !ctx->app || !ctx->dependency_hint) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
-    pulse_asset_state_o* state = state_from_app(ctx->app);
-    if (!state) {
-        return PULSE_ERROR_INVALID_STATE;
-    }
-    LoadJob* job = static_cast<LoadJob*>(ctx->job);
-    bool found = false;
-    for (LoadJob& candidate : state->load_jobs) {
-        if (&candidate == job) {
-            found = true;
-            break;
-        }
-    }
-    if (!found || job->phase != LoadJobPhase::Processing || !job->in_callback || job->finished ||
-        job->handle.type_id != ctx->handle.type_id ||
-        job->handle.index != ctx->handle.index ||
-        job->handle.generation != ctx->handle.generation) {
-        return PULSE_ERROR_INVALID_STATE;
-    }
+    LoadJob* job = ctx->dependency_hint->parent;
     auto existing_it = std::find_if(job->dependencies.begin(), job->dependencies.end(), [&](const pulse_asset_dependency& existing) {
         return existing.handle.type_id == dependency.type_id &&
             existing.handle.index == dependency.index &&

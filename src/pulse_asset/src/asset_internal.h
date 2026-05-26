@@ -17,6 +17,15 @@
 #include <flecs.h>
 
 namespace pulse_asset_internal {
+struct pulse_asset_state_o;
+struct LoadJob;
+}
+
+struct pulse_asset_load_dependency_hint {
+    pulse_asset_internal::LoadJob* parent;
+};
+
+namespace pulse_asset_internal {
 
 constexpr const char* kPluginName = "PulseAssetPlugin";
 

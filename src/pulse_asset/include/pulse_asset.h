@@ -35,6 +35,8 @@ typedef struct pulse_asset_dependency {
     pulse_dependency_flags_t flags;
 } pulse_asset_dependency_t;
 
+typedef struct pulse_asset_load_dependency_hint pulse_asset_load_dependency_hint;
+
 typedef enum pulse_asset_state {
     PULSE_ASSET_STATE_EMPTY = 0,
     PULSE_ASSET_STATE_WAITING_LOAD,
@@ -83,7 +85,7 @@ typedef struct pulse_asset_load_task {
     void* user_data;
     void* out_asset;
     const void* settings;
-    void* job;
+    pulse_asset_load_dependency_hint* dependency_hint;
 } pulse_asset_load_task;
 
 typedef pulse_result_t (*pulse_asset_loader_ctor_fn)(
