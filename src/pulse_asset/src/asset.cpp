@@ -144,8 +144,8 @@ static pulse_asset_handle load_impl(
     const pulse_asset_dependency* dependencies,
     uint32_t dependency_count
 );
-static bool cancel_load_job_for_handle(pulse_asset_state_o* state, pulse_asset_handle handle);
-static bool is_finishing_load_job(pulse_asset_state_o* state, pulse_asset_handle handle);
+static bool is_load_in_progress_state(pulse_asset_state_t state);
+static bool cached_slot_can_be_reused(const pulse_asset_state_o* state, pulse_asset_handle handle);
 
 } // namespace pulse_asset_internal
 
@@ -392,11 +392,21 @@ void pulse_asset_unload(pulse_app_t app, pulse_asset_handle handle) {
     if (!slot || slot->pin_count == 0) {
         return;
     }
-    if (is_finishing_load_job(state, handle)) {
+    if (slot->retiring_load_job) {
+        // Defer unload requested from the loader dtor until the current job is fully retired.
+        slot->pin_count -= 1;
+        if (slot->pin_count == 0) {
+            slot->state = PULSE_ASSET_STATE_PENDING_DELETE;
+            slot->error = "asset unload pending";
+        }
         return;
     }
     slot->pin_count -= 1;
-    if (cancel_load_job_for_handle(state, handle)) {
+    if (is_load_in_progress_state(slot->state)) {
+        if (slot->pin_count == 0) {
+            slot->state = PULSE_ASSET_STATE_PENDING_DELETE;
+            slot->error = "asset unload pending";
+        }
         return;
     }
     try_unload_slot(state, handle);
@@ -414,45 +424,16 @@ void pulse_asset_mark_modified(pulse_app_t app, pulse_asset_handle handle) {
 
 namespace pulse_asset_internal {
 
-static bool cancel_load_job_for_handle(pulse_asset_state_o* state, pulse_asset_handle handle) {
-    if (!state) {
-        return false;
-    }
-    for (auto it = state->load_jobs.begin(); it != state->load_jobs.end(); ++it) {
-        if (it->handle.type_id == handle.type_id &&
-            it->handle.index == handle.index &&
-            it->handle.generation == handle.generation) {
-            AssetSlot* slot = get_slot(state, handle);
-            if (slot) {
-                slot->state = PULSE_ASSET_STATE_FAILED;
-                slot->error = "asset load cancelled";
-            }
-            if (state->processing_load_jobs || it->in_callback) {
-                it->finished = true;
-                return true;
-            }
-            it->finished = true;
-            destroy_load_job(state, *it);
-            state->load_jobs.erase(it);
-            return false;
-        }
-    }
-    return false;
+static bool is_load_in_progress_state(pulse_asset_state_t state) {
+    return state == PULSE_ASSET_STATE_WAITING_LOAD ||
+        state == PULSE_ASSET_STATE_LOADING ||
+        state == PULSE_ASSET_STATE_WAITING_DEPENDENCIES ||
+        state == PULSE_ASSET_STATE_PROCESSING;
 }
 
-static bool is_finishing_load_job(pulse_asset_state_o* state, pulse_asset_handle handle) {
-    if (!state) {
-        return false;
-    }
-    for (const LoadJob& job : state->load_jobs) {
-        if (job.handle.type_id == handle.type_id &&
-            job.handle.index == handle.index &&
-            job.handle.generation == handle.generation &&
-            job.finished && job.in_callback) {
-            return true;
-        }
-    }
-    return false;
+static bool cached_slot_can_be_reused(const pulse_asset_state_o* state, pulse_asset_handle handle) {
+    const AssetSlot* slot = get_slot_const(state, handle);
+    return slot && slot->state != PULSE_ASSET_STATE_PENDING_DELETE;
 }
 
 static pulse_asset_handle load_impl(
@@ -502,7 +483,7 @@ static pulse_asset_handle load_impl(
 
         PathKey key{type_id, slot_path};
         auto cached = state->path_cache.find(key);
-        if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
+        if (cached != state->path_cache.end() && cached_slot_can_be_reused(state, cached->second)) {
             return cached->second;
         }
 
@@ -514,7 +495,7 @@ static pulse_asset_handle load_impl(
 
         PathKey key{type_id, slot_path};
         auto cached = state->path_cache.find(key);
-        if (cached != state->path_cache.end() && get_slot(state, cached->second)) {
+        if (cached != state->path_cache.end() && cached_slot_can_be_reused(state, cached->second)) {
             return cached->second;
         }
 

@@ -13,6 +13,8 @@ const uint64_t cleanup_type = 5;
 const uint64_t aligned_type = 6;
 const uint64_t parent_type = 7;
 const uint64_t dynamic_parent_type = 8;
+const uint64_t self_cancel_type = 9;
+const uint64_t dtor_unload_type = 10;
 
 struct test_text_asset {
     uint64_t size;
@@ -72,6 +74,14 @@ struct dynamic_parent_asset {
     int value;
 };
 
+struct self_cancel_asset {
+    int value;
+};
+
+struct dtor_unload_asset {
+    int value;
+};
+
 struct dynamic_loader_state {
     int step;
     pulse_asset_handle required_dep;
@@ -88,6 +98,11 @@ static int parent_step_count = 0;
 static int dynamic_step_count = 0;
 static int dynamic_ctor_count = 0;
 static int dynamic_dtor_count = 0;
+static int self_cancel_step_count = 0;
+static int self_cancel_ctor_count = 0;
+static int self_cancel_dtor_count = 0;
+static int dtor_unload_step_count = 0;
+static int dtor_unload_dtor_count = 0;
 
 static void destroy_test_text(void* ptr, void* user_data) {
     (void)ptr;
@@ -245,10 +260,12 @@ static pulse_result_t ctor_dynamic_parent_asset(
     dynamic_ctor_count += 1;
     dynamic_loader_state* s = (dynamic_loader_state*)state;
     assert(s->step == 0);
+    assert(ctx->dependency_hint == nullptr);
     const pulse_asset_handle* handles = (const pulse_asset_handle*)ctx->settings;
     s->required_dep = handles[0];
     s->optional_dep = handles[1];
     s->add_optional = handles[1].index != PULSE_ASSET_INVALID_INDEX;
+    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_ERROR_INVALID_ARGUMENT);
     return PULSE_OK;
 }
 
@@ -256,8 +273,10 @@ static void dtor_dynamic_parent_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
-    (void)state;
-    (void)ctx;
+    dynamic_loader_state* s = (dynamic_loader_state*)state;
+    assert(s != nullptr);
+    assert(ctx->dependency_hint == nullptr);
+    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_ERROR_INVALID_ARGUMENT);
     dynamic_dtor_count += 1;
 }
 
@@ -282,6 +301,65 @@ static pulse_asset_loader_status_t step_dynamic_parent_asset(
 
     dynamic_parent_asset* asset = (dynamic_parent_asset*)ctx->out_asset;
     asset->value = (int)ctx->dependency_count;
+    return PULSE_ASSET_LOADER_DONE;
+}
+
+static pulse_result_t ctor_self_cancel_asset(
+    void* state,
+    const pulse_asset_load_task* ctx
+) {
+    (void)state;
+    self_cancel_ctor_count += 1;
+    assert(ctx->dependency_hint == nullptr);
+    assert(pulse_asset_add_load_dependency(ctx, ctx->handle, PULSE_DEP_OPTIONAL) == PULSE_ERROR_INVALID_ARGUMENT);
+    return PULSE_OK;
+}
+
+static void dtor_self_cancel_asset(
+    void* state,
+    const pulse_asset_load_task* ctx
+) {
+    (void)state;
+    self_cancel_dtor_count += 1;
+    assert(ctx->dependency_hint == nullptr);
+    assert(pulse_asset_add_load_dependency(ctx, ctx->handle, PULSE_DEP_OPTIONAL) == PULSE_ERROR_INVALID_ARGUMENT);
+}
+
+static pulse_asset_loader_status_t step_self_cancel_asset(
+    void* state,
+    const pulse_asset_load_task* ctx,
+    const char** out_error
+) {
+    (void)state;
+    (void)out_error;
+    self_cancel_step_count += 1;
+    assert(ctx->dependency_hint != nullptr);
+    pulse_asset_unload(ctx->app, ctx->handle);
+    self_cancel_asset* asset = (self_cancel_asset*)ctx->out_asset;
+    asset->value = 101;
+    return PULSE_ASSET_LOADER_DONE;
+}
+
+static void dtor_unload_asset_loader(
+    void* state,
+    const pulse_asset_load_task* ctx
+) {
+    (void)state;
+    dtor_unload_dtor_count += 1;
+    assert(ctx->dependency_hint == nullptr);
+    pulse_asset_unload(ctx->app, ctx->handle);
+}
+
+static pulse_asset_loader_status_t step_dtor_unload_asset(
+    void* state,
+    const pulse_asset_load_task* ctx,
+    const char** out_error
+) {
+    (void)state;
+    (void)out_error;
+    dtor_unload_step_count += 1;
+    dtor_unload_asset* asset = (dtor_unload_asset*)ctx->out_asset;
+    asset->value = 202;
     return PULSE_ASSET_LOADER_DONE;
 }
 
@@ -550,6 +628,10 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_OK);
     assert(pulse_asset_get_state(app, cleanup_unload) == PULSE_ASSET_STATE_PROCESSING);
     pulse_asset_unload(app, cleanup_unload);
+    assert(pulse_asset_get_state(app, cleanup_unload) == PULSE_ASSET_STATE_PENDING_DELETE);
+    assert(cleanup_dtor_count == 2);
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_asset_get_state(app, cleanup_unload) == PULSE_ASSET_STATE_EMPTY);
     assert(cleanup_dtor_count == 3);
 
     pulse_asset_handle cleanup_shutdown = pulse_asset_load_from_memory(app, cleanup_type, "cleanup_shutdown.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
@@ -648,6 +730,60 @@ int main(void) {
         nullptr,
     };
     assert(pulse_asset_register_loader(app, &dynamic_parent_loader_desc) == PULSE_OK);
+
+    pulse_asset_type_desc self_cancel_type_desc = {
+        sizeof(pulse_asset_type_desc),
+        PULSE_ASSET_TYPE_DESC_VERSION,
+        self_cancel_type,
+        sizeof(self_cancel_asset),
+        alignof(self_cancel_asset),
+        nullptr,
+        nullptr,
+    };
+    assert(pulse_asset_register_type(app, &self_cancel_type_desc) == PULSE_OK);
+
+    pulse_asset_loader_desc self_cancel_loader_desc = {
+        sizeof(pulse_asset_loader_desc),
+        PULSE_ASSET_LOADER_DESC_VERSION,
+        self_cancel_type,
+        "txt",
+        ctor_self_cancel_asset,
+        dtor_self_cancel_asset,
+        step_self_cancel_asset,
+        0,
+        0,
+        0,
+        0,
+        nullptr,
+    };
+    assert(pulse_asset_register_loader(app, &self_cancel_loader_desc) == PULSE_OK);
+
+    pulse_asset_type_desc dtor_unload_type_desc = {
+        sizeof(pulse_asset_type_desc),
+        PULSE_ASSET_TYPE_DESC_VERSION,
+        dtor_unload_type,
+        sizeof(dtor_unload_asset),
+        alignof(dtor_unload_asset),
+        nullptr,
+        nullptr,
+    };
+    assert(pulse_asset_register_type(app, &dtor_unload_type_desc) == PULSE_OK);
+
+    pulse_asset_loader_desc dtor_unload_loader_desc = {
+        sizeof(pulse_asset_loader_desc),
+        PULSE_ASSET_LOADER_DESC_VERSION,
+        dtor_unload_type,
+        "txt",
+        nullptr,
+        dtor_unload_asset_loader,
+        step_dtor_unload_asset,
+        0,
+        0,
+        0,
+        0,
+        nullptr,
+    };
+    assert(pulse_asset_register_loader(app, &dtor_unload_loader_desc) == PULSE_OK);
 
     parent_step_count = 0;
     const char dep_bytes[] = "dependency";
@@ -757,6 +893,24 @@ int main(void) {
     assert(pulse_asset_acquire(app, dynamic_optional_parent, &dynamic_optional_parent_ref));
     assert(((dynamic_parent_asset*)dynamic_optional_parent_ref.ptr)->value == 2);
     pulse_asset_release(app, &dynamic_optional_parent_ref);
+
+    self_cancel_step_count = 0;
+    self_cancel_ctor_count = 0;
+    self_cancel_dtor_count = 0;
+    pulse_asset_handle self_cancel_handle = pulse_asset_load_from_memory(app, self_cancel_type, "self_cancel.txt", parent_bytes, 6, NULL);
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(self_cancel_ctor_count == 1);
+    assert(self_cancel_step_count == 1);
+    assert(self_cancel_dtor_count == 1);
+    assert(pulse_asset_get_state(app, self_cancel_handle) == PULSE_ASSET_STATE_EMPTY);
+
+    dtor_unload_step_count = 0;
+    dtor_unload_dtor_count = 0;
+    pulse_asset_handle dtor_unload_handle = pulse_asset_load_from_memory(app, dtor_unload_type, "dtor_unload.txt", parent_bytes, 6, NULL);
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(dtor_unload_step_count == 1);
+    assert(dtor_unload_dtor_count == 1);
+    assert(pulse_asset_get_state(app, dtor_unload_handle) == PULSE_ASSET_STATE_EMPTY);
 
     // Bad generation
     pulse_asset_handle bad_generation = text_handle;

@@ -90,6 +90,7 @@ struct AssetSlot {
     std::string error;
     uint64_t version = 0;
     bool constructed = false;
+    bool retiring_load_job = false;
     std::vector<pulse_asset_handle> dependencies;
     std::vector<pulse_asset_handle> dependents;
 };
@@ -105,6 +106,13 @@ enum class LoadJobPhase {
     Processing,
 };
 
+enum class LoadJobOutcome {
+    None,
+    Loaded,
+    Failed,
+    Cancelled,
+};
+
 struct LoadJob {
     pulse_asset_handle handle{};
     LoadJobPhase phase = LoadJobPhase::PendingRead;
@@ -116,8 +124,7 @@ struct LoadJob {
     PooledBlock settings;
     std::vector<pulse_asset_dependency> dependencies;
     pulse_asset_load_task ctx{};
-    bool finished = false;
-    bool in_callback = false;
+    LoadJobOutcome outcome = LoadJobOutcome::None;
 };
 
 struct AssetBucket {
@@ -153,7 +160,6 @@ struct pulse_asset_state_o {
     std::unordered_map<uint64_t, AssetBucket> buckets;
     std::unordered_map<PathKey, pulse_asset_handle, PathKeyHash> path_cache;
     std::list<LoadJob> load_jobs;
-    bool processing_load_jobs = false;
 };
 
 extern ECS_COMPONENT_DECLARE(pulse_asset_state_resource);
@@ -190,7 +196,9 @@ void cancel_load_jobs(pulse_asset_state_o* state);
 void free_pooled_block(PooledBlock& block);
 bool copy_pooled_block(pulse_asset_state_o* state, PooledBlock& out, const void* data, uint32_t size, uint32_t align);
 bool allocate_pooled_block(pulse_asset_state_o* state, PooledBlock& out, uint32_t size, uint32_t align, bool zero_memory);
-void destroy_load_job(pulse_asset_state_o* state, LoadJob& job);
+bool load_job_is_terminal(const LoadJob& job);
+void finish_load_job(LoadJob& job, AssetSlot* slot, LoadJobOutcome outcome, const char* error);
+void retire_load_job(pulse_asset_state_o* state, LoadJob& job);
 void commit_asset_dependencies(pulse_asset_state_o* state, pulse_asset_handle handle, const std::vector<pulse_asset_dependency>& dependencies);
 
 } // namespace pulse_asset_internal

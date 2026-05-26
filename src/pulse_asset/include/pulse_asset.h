@@ -45,6 +45,7 @@ typedef enum pulse_asset_state {
     PULSE_ASSET_STATE_PROCESSING,
     PULSE_ASSET_STATE_LOADED,
     PULSE_ASSET_STATE_FAILED,
+    PULSE_ASSET_STATE_PENDING_DELETE,
 } pulse_asset_state_t;
 
 typedef enum pulse_asset_loader_status {

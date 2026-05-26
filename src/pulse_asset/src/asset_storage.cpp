@@ -117,6 +117,7 @@ pulse_asset_handle allocate_slot(
     slot.error.clear();
     slot.version = 0;
     slot.constructed = false;
+    slot.retiring_load_job = false;
     slot.dependencies.clear();
     slot.dependents.clear();
 
@@ -153,6 +154,7 @@ void destroy_slot(pulse_asset_state_o* state, AssetBucket& bucket, AssetSlot& sl
     slot.path.clear();
     slot.error.clear();
     slot.version = 0;
+    slot.retiring_load_job = false;
     slot.dependencies.clear();
     slot.dependents.clear();
 }
