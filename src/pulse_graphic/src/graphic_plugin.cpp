@@ -342,9 +342,10 @@ CGPUDeviceId get_device(pulse_app_t app) {
 bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     pulse_graphic_state* state = state_from_app(app);
     if (!state) return false;
+    if (!pulse_asset_handle_is_valid(handle)) return false;
     for (const auto& entry : state->pending_uploads) {
-        if (entry.content == UPLOAD_TEXTURE && entry.texture.asset.index == handle.index) return true;
-        if (entry.content == UPLOAD_BUFFER && entry.buffer.asset.index == handle.index) return true;
+        if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(entry.texture.asset, handle)) return true;
+        if (entry.content == UPLOAD_BUFFER && pulse_asset_handle_equals(entry.buffer.asset, handle)) return true;
     }
     return false;
 }
@@ -352,11 +353,12 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     pulse_graphic_state* state = state_from_app(app);
     if (!state) return;
+    if (!pulse_asset_handle_is_valid(handle)) return;
     auto& vec = state->pending_uploads;
     for (size_t i = 0; i < vec.size(); ) {
         bool match = false;
-        if (vec[i].content == UPLOAD_TEXTURE && vec[i].texture.asset.index == handle.index) match = true;
-        if (vec[i].content == UPLOAD_BUFFER && vec[i].buffer.asset.index == handle.index) match = true;
+        if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(vec[i].texture.asset, handle)) match = true;
+        if (vec[i].content == UPLOAD_BUFFER && pulse_asset_handle_equals(vec[i].buffer.asset, handle)) match = true;
         if (match) {
             vec.erase(vec.begin() + i);
         } else {

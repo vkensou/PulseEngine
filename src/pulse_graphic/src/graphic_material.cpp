@@ -69,7 +69,7 @@ pulse_material_t pulse_graphic_material_create(
 
     pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
         app, PULSE_TYPE_MATERIAL, "", nullptr, 0);
-    if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) {
+    if (!pulse_asset_handle_is_valid(asset_handle)) {
         delete mat;
         return result;
     }

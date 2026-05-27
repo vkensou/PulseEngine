@@ -15,13 +15,30 @@ extern "C" {
 #define PULSE_ASSET_LOAD_DESC_VERSION 1u
 #define PULSE_ASSET_MEMORY_LOAD_DESC_VERSION 1u
 #define PULSE_ASSET_BUILD_DESC_VERSION 1u
-#define PULSE_ASSET_INVALID_INDEX UINT32_MAX
+#define PULSE_ASSET_INVALID_INDEX 0u
 
 typedef struct pulse_asset_handle {
     uint64_t type_id;
     uint32_t index;
     uint32_t generation;
 } pulse_asset_handle;
+
+static inline pulse_asset_handle pulse_asset_handle_make_invalid(void) {
+    pulse_asset_handle handle = {0, PULSE_ASSET_INVALID_INDEX, 0};
+    return handle;
+}
+
+static inline bool pulse_asset_handle_is_valid(pulse_asset_handle handle) {
+    return handle.type_id != 0 &&
+        handle.index != PULSE_ASSET_INVALID_INDEX &&
+        handle.generation != 0;
+}
+
+static inline bool pulse_asset_handle_equals(pulse_asset_handle a, pulse_asset_handle b) {
+    return a.type_id == b.type_id &&
+        a.index == b.index &&
+        a.generation == b.generation;
+}
 
 typedef struct pulse_asset_ref {
     pulse_asset_handle handle;

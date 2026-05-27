@@ -34,15 +34,15 @@ bool validate_plugin_desc(const pulse_asset_plugin_desc* desc) {
 }
 
 pulse_asset_handle invalid_handle() {
-    return {0, PULSE_ASSET_INVALID_INDEX, 0};
+    return pulse_asset_handle_make_invalid();
 }
 
 bool is_invalid_handle(pulse_asset_handle handle) {
-    return handle.type_id == 0 || handle.index == PULSE_ASSET_INVALID_INDEX;
+    return !pulse_asset_handle_is_valid(handle);
 }
 
 bool handles_equal(pulse_asset_handle a, pulse_asset_handle b) {
-    return a.type_id == b.type_id && a.index == b.index && a.generation == b.generation;
+    return pulse_asset_handle_equals(a, b);
 }
 
 AssetSystem::AssetSystem(const pulse_asset_plugin_desc& desc)

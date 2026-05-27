@@ -174,7 +174,7 @@ public:
 };
 
 struct AssetSlotAllocation {
-    pulse_asset_handle handle{0, PULSE_ASSET_INVALID_INDEX, 0};
+    pulse_asset_handle handle{};
     AssetSlot* slot = nullptr;
 };
 

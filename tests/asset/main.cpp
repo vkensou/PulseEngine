@@ -295,7 +295,7 @@ static pulse_result_t ctor_dynamic_parent_asset(
     const pulse_asset_handle* handles = (const pulse_asset_handle*)ctx->settings;
     s->required_dep = handles[0];
     s->optional_dep = handles[1];
-    s->add_optional = handles[1].index != PULSE_ASSET_INVALID_INDEX;
+    s->add_optional = pulse_asset_handle_is_valid(handles[1]);
     assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_ERROR_INVALID_ARGUMENT);
     return PULSE_OK;
 }
@@ -613,7 +613,9 @@ int main(void) {
     assert(pulse_asset_register_loader(app, &loader_desc) == PULSE_OK);
     assert(pulse_asset_register_loader(app, &loader_desc) == PULSE_ERROR_INVALID_STATE);
 
-    pulse_asset_handle invalid = {0, PULSE_ASSET_INVALID_INDEX, 0};
+    pulse_asset_handle invalid{};
+    assert(!pulse_asset_handle_is_valid(invalid));
+    assert(pulse_asset_handle_equals(invalid, pulse_asset_handle_make_invalid()));
     assert(pulse_asset_get_state(app, invalid) == PULSE_ASSET_STATE_EMPTY);
     assert(!pulse_asset_is_available(app, invalid));
     assert(pulse_asset_get_error(app, invalid) == nullptr);
@@ -624,12 +626,12 @@ int main(void) {
 
     pulse_asset_handle text_handle = load_asset_memory(app, text_type, "hello.txt", hello_bytes, 11, NULL);
     assert(text_handle.type_id == text_type);
+    assert(pulse_asset_handle_is_valid(text_handle));
     assert(text_handle.index != PULSE_ASSET_INVALID_INDEX);
     assert(pulse_asset_get_state(app, text_handle) == PULSE_ASSET_STATE_WAITING_LOAD);
 
     pulse_asset_handle same_text_handle = load_asset_memory(app, text_type, "hello.txt", hello_bytes, 11, NULL);
-    assert(same_text_handle.type_id == text_handle.type_id);
-    assert(same_text_handle.index == text_handle.index);
+    assert(pulse_asset_handle_equals(same_text_handle, text_handle));
 
     assert(load_asset_memory(app, text_type, "", hello_bytes, 11, NULL).index == PULSE_ASSET_INVALID_INDEX);
     assert(load_asset_memory(app, text_type, "hello", hello_bytes, 11, NULL).index == PULSE_ASSET_INVALID_INDEX);
@@ -679,11 +681,11 @@ int main(void) {
     assert(second_ref.ptr == text_ref.ptr);
     pulse_asset_release(app, &second_ref);
     assert(second_ref.ptr == nullptr);
-    assert(second_ref.handle.index == PULSE_ASSET_INVALID_INDEX);
+    assert(!pulse_asset_handle_is_valid(second_ref.handle));
 
     pulse_asset_release(app, &text_ref);
     assert(text_ref.ptr == nullptr);
-    assert(text_ref.handle.index == PULSE_ASSET_INVALID_INDEX);
+    assert(!pulse_asset_handle_is_valid(text_ref.handle));
 
     // Multi-step pending loader
     pulse_asset_type_desc slow_type_desc = {
@@ -1278,7 +1280,7 @@ int main(void) {
     dynamic_ctor_count = 0;
     dynamic_dtor_count = 0;
     pulse_asset_handle dynamic_required_dep = load_asset_memory(app, slow_type, "dynamic_required_dep.txt", hello_bytes, 11, NULL);
-    pulse_asset_handle no_optional = {0, PULSE_ASSET_INVALID_INDEX, 0};
+    pulse_asset_handle no_optional{};
     pulse_asset_handle dynamic_settings[] = {dynamic_required_dep, no_optional};
     pulse_asset_handle dynamic_parent = load_asset_memory(
         app,
@@ -1367,6 +1369,12 @@ int main(void) {
     pulse_asset_unload(app, text_handle);
     // After unload, pin_count should be 0 and asset destroyed
     assert(destroy_count == 1);
+    assert(pulse_asset_get_state(app, text_handle) == PULSE_ASSET_STATE_EMPTY);
+
+    pulse_asset_handle reused_text_handle = load_asset_memory(app, text_type, "reuse_after_unload.txt", hello_bytes, 11, NULL);
+    assert(reused_text_handle.index == text_handle.index);
+    assert(reused_text_handle.generation == text_handle.generation + 1);
+    assert(pulse_asset_handle_is_valid(reused_text_handle));
 
     pulse_app_destroy(app);
     assert(cleanup_dtor_count == 4);

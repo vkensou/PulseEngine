@@ -60,6 +60,7 @@ AssetSlot::AssetSlot(std::pmr::memory_resource* resource)
 AssetBucket::AssetBucket(std::pmr::memory_resource* resource)
     : slots(resource),
       free_indices(resource) {
+    slots.emplace_back(resource);
 }
 
 void DependencyGraph::evaluate(
@@ -248,10 +249,8 @@ AssetSlotAllocation AssetStorage::allocate_slot(uint64_t type_id, const std::pmr
     }
 
     uint32_t index = 0;
-    bool reusing = false;
     if (!bucket->free_indices.empty()) {
         index = bucket->free_indices.back();
-        reusing = true;
 
         AssetSlot& slot = bucket->slots[index];
         if (!slot.data.data && !slot.data.allocate(resource_, bucket->type->desc.size, bucket->type->desc.align, false)) {
@@ -269,12 +268,6 @@ AssetSlotAllocation AssetStorage::allocate_slot(uint64_t type_id, const std::pmr
     }
 
     AssetSlot& slot = bucket->slots[index];
-    if (reusing) {
-        slot.generation += 1;
-        if (slot.generation == 0) {
-            slot.generation = 1;
-        }
-    }
 
     slot.state = PULSE_ASSET_STATE_WAITING_LOAD;
     slot.pin_count = 0;

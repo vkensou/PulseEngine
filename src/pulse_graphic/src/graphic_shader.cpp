@@ -26,7 +26,7 @@ static pulse_shader_t create_shader_impl(
         if (!cpp_shader) return result;
 
         pulse_asset_handle asset_handle = asset_build(app, type_id);
-        if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
+        if (!pulse_asset_handle_is_valid(asset_handle)) return result;
 
         pulse_asset_ref ref{};
         if (pulse_asset_acquire(app, asset_handle, &ref)) {
@@ -54,7 +54,7 @@ static pulse_shader_t create_shader_impl(
         if (!cpp_shader) return result;
 
         pulse_asset_handle asset_handle = asset_build(app, type_id);
-        if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
+        if (!pulse_asset_handle_is_valid(asset_handle)) return result;
 
         pulse_asset_ref ref{};
         if (pulse_asset_acquire(app, asset_handle, &ref)) {
@@ -116,15 +116,15 @@ pulse_shader_t pulse_graphic_shader_load(
 {
     (void)blend_desc; (void)depth_desc; (void)rasterizer_state;
     pulse_asset_handle vs = asset_load_path(app, PULSE_TYPE_SHADER_LIBRARY, vert_path);
-    if (vs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    if (!pulse_asset_handle_is_valid(vs)) return pulse_shader_t{};
     pulse_asset_handle fs = asset_load_path(app, PULSE_TYPE_SHADER_LIBRARY, frag_path);
-    if (fs.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    if (!pulse_asset_handle_is_valid(fs)) return pulse_shader_t{};
     pulse_asset_dependency deps[] = {
         { vs, PULSE_DEP_REQUIRED },
         { fs, PULSE_DEP_REQUIRED },
     };
     pulse_asset_handle h = asset_build(app, PULSE_TYPE_SHADER, nullptr, deps, 2);
-    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_shader_t{};
+    if (!pulse_asset_handle_is_valid(h)) return pulse_shader_t{};
     return pulse_shader_t{h};
 }
 
@@ -133,12 +133,12 @@ pulse_compute_shader_t pulse_graphic_compute_shader_load(
     const char* comp_path)
 {
     pulse_asset_handle cs = asset_load_path(app, PULSE_TYPE_SHADER_LIBRARY, comp_path);
-    if (cs.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
+    if (!pulse_asset_handle_is_valid(cs)) return pulse_compute_shader_t{};
     pulse_asset_dependency deps[] = {
         { cs, PULSE_DEP_REQUIRED },
     };
     pulse_asset_handle h = asset_build(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1);
-    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_compute_shader_t{};
+    if (!pulse_asset_handle_is_valid(h)) return pulse_compute_shader_t{};
     return pulse_compute_shader_t{h};
 }
 

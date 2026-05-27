@@ -26,7 +26,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
         case UPLOAD_TEXTURE_DATA: {
             pulse_texture_data_t* tex = entry.texture_data;
             pulse_asset_ref ref{};
-            if (!tex && entry.texture.asset.index != PULSE_ASSET_INVALID_INDEX) {
+            if (!tex && pulse_asset_handle_is_valid(entry.texture.asset)) {
                 if (pulse_asset_acquire(app, entry.texture.asset, &ref))
                     tex = static_cast<pulse_texture_data_t*>(ref.ptr);
             }
@@ -65,7 +65,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
         case UPLOAD_BUFFER_DATA: {
             pulse_buffer_data_t* buf = entry.buffer_data;
             pulse_asset_ref ref{};
-            if (!buf && entry.buffer.asset.index != PULSE_ASSET_INVALID_INDEX) {
+            if (!buf && pulse_asset_handle_is_valid(entry.buffer.asset)) {
                 if (pulse_asset_acquire(app, entry.buffer.asset, &ref))
                     buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }
@@ -101,7 +101,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
         if (entry.content == UPLOAD_BUFFER || entry.content == UPLOAD_BUFFER_DATA) {
             pulse_buffer_data_t* buf = entry.buffer_data;
             pulse_asset_ref ref{};
-            if (!buf && entry.buffer.asset.index != PULSE_ASSET_INVALID_INDEX) {
+            if (!buf && pulse_asset_handle_is_valid(entry.buffer.asset)) {
                 if (pulse_asset_acquire(app, entry.buffer.asset, &ref))
                     buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }

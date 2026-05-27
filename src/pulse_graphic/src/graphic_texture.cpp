@@ -17,7 +17,7 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
 
     pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
         app, PULSE_TYPE_TEXTURE, "", nullptr, 0);
-    if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
+    if (!pulse_asset_handle_is_valid(asset_handle)) return result;
 
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, asset_handle, &ref)) {
@@ -58,7 +58,7 @@ pulse_texture_t pulse_graphic_texture_load(
 {
     (void)mipmap;
     pulse_asset_handle h = pulse_graphic_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, filepath);
-    if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_texture_t{};
+    if (!pulse_asset_handle_is_valid(h)) return pulse_texture_t{};
     return pulse_texture_t{h};
 }
 

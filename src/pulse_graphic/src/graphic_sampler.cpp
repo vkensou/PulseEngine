@@ -15,7 +15,7 @@ pulse_sampler_t pulse_graphic_sampler_create(
 
     pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
         app, PULSE_TYPE_SAMPLER, "", nullptr, 0);
-    if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
+    if (!pulse_asset_handle_is_valid(asset_handle)) return result;
 
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, asset_handle, &ref)) {
