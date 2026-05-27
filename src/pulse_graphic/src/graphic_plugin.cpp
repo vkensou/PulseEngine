@@ -198,10 +198,6 @@ static void destroy_sampler(void* ptr, void* user_data) {
     if (data->handle) cgpu_device_free_sampler(device, data->handle);
 }
 
-static void destroy_material(void* ptr, void*) {
-    pulse_graphic_internal::material_internal_destroy(ptr);
-}
-
 static void destroy_shader_library(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_shader_library_data_t* data = static_cast<pulse_shader_library_data_t*>(ptr);
@@ -238,7 +234,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_type(PULSE_TYPE_MESH, sizeof(pulse_mesh_data_t), alignof(pulse_mesh_data_t), destroy_mesh);
 	register_texture_type(app, device);
     register_buffer_type(app, device);
-    register_type(PULSE_TYPE_MATERIAL, sizeof(pulse_material_data_t), alignof(pulse_material_data_t), destroy_material);
+    register_material_type(app, device);
     register_type(PULSE_TYPE_SAMPLER, sizeof(pulse_sampler_data_t), alignof(pulse_sampler_data_t), destroy_sampler);
     register_type(PULSE_TYPE_BYTECODE, sizeof(PulseBytecodeSlot), alignof(PulseBytecodeSlot), destroy_bytecode);
 
@@ -285,6 +281,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_texture_create_loader(app, device);
     register_texture_load_loader(app, device);
     register_buffer_create_loader(app, device);
+    register_material_create_loader(app, device);
     register_loader(PULSE_TYPE_MESH, "obj",
                     nullptr, nullptr, step_mesh,
                     sizeof(MeshLoaderState), alignof(MeshLoaderState), 0, 0,

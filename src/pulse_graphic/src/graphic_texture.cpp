@@ -27,17 +27,24 @@ void register_texture_type(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t handle) {
+bool pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t handle, pulse_graphic_texture_ref* texture_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphic_texture_to_handle(handle), &ref)) {
-        return static_cast<pulse_texture_data_t*>(ref.ptr);
+        texture_ref->handle = handle;
+        texture_ref->ptr = static_cast<pulse_texture_data_t*>(ref.ptr);
+        return true;
     }
-    return nullptr;
+
+    texture_ref->handle = {};
+    texture_ref->ptr = nullptr;
+    return false;
 }
 
-void pulse_graphic_texture_release(pulse_app_t app, pulse_texture_t handle) {
-    pulse_asset_ref ref{pulse_graphic_texture_to_handle(handle), nullptr};
+void pulse_graphic_texture_release(pulse_app_t app, pulse_graphic_texture_ref* texture_ref) {
+    pulse_asset_ref ref{pulse_graphic_texture_to_handle(texture_ref->handle), nullptr};
     pulse_asset_release(app, &ref);
+    texture_ref->handle = {};
+    texture_ref->ptr = nullptr;
 }
 
 } // extern "C"

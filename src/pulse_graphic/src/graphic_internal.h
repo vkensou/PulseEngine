@@ -54,7 +54,6 @@ pulse_graphic_state* state_from_app(pulse_app_t app);
 CGPUDeviceId get_device(pulse_app_t app);
 bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
-void material_internal_destroy(void* data);
 void install_upload_callback(pulse_app_t app);
 
 inline pulse_asset_handle asset_load_path(
@@ -130,6 +129,8 @@ void register_texture_create_loader(pulse_app_t app, CGPUDeviceId device);
 void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device);
 void register_buffer_type(pulse_app_t app, CGPUDeviceId device);
 void register_buffer_create_loader(pulse_app_t app, CGPUDeviceId device);
+void register_material_type(pulse_app_t app, CGPUDeviceId device);
+void register_material_create_loader(pulse_app_t app, CGPUDeviceId device);
 
 struct MeshLoaderState {
     bool upload_requested = false;

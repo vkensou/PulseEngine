@@ -414,6 +414,12 @@ namespace HGEGraphics
 		simple_vector_push_back<pulse_material_data_t::BindSampler>(material->samplers_data, material->samplers_size, material->samplers_capacity, bindbuffer);
 	}
 
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer)
+	{
+		pulse_material_data_t::BindBuffer bindbuffer = pulse_material_data_t::BindBuffer(set, bind, buffer);
+		simple_vector_push_back<pulse_material_data_t::BindBuffer>(material->buffers_data, material->buffers_size, material->buffers_capacity, bindbuffer);
+	}
+
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data)
 	{
 		auto align_size = std::bit_ceil(size);
