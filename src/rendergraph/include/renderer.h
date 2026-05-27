@@ -71,14 +71,8 @@ namespace HGEGraphics
 		material_bindBuffer(material, set, bind, sizeof(T), &data);
 	}
 
-	struct Backbuffer
-	{
-		~Backbuffer();
-
-		pulse_texture_data_t texture;
-	};
-
-	void init_backbuffer(Backbuffer* backbuffer, CGPUSwapChainId swapchain, int index);
+	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index);
+	void free_backbuffer(pulse_backbuffer_data_t* backbuffer);
 
 	struct RenderPassEncoder;
 

@@ -102,7 +102,7 @@ namespace HGEGraphics
 		return { h.index };
 	}
 
-	inline texture_handle_t rendergraph_import_backbuffer(rendergraph_t* self, Backbuffer* imported)
+	inline texture_handle_t rendergraph_import_backbuffer(rendergraph_t* self, pulse_backbuffer_data_t* imported)
 	{
 		pulse_texture_handle_t h = pulse_rendergraph_import_backbuffer(*self, imported);
 		return { h.index };

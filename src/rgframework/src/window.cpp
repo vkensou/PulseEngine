@@ -209,6 +209,10 @@ SwapChain::~SwapChain()
 	}
 	render_finished_semaphores.clear();
 
+	for (auto& backbuffer_data : backbuffer)
+	{
+		HGEGraphics::free_backbuffer(&backbuffer_data);
+	}
 	backbuffer.clear();
 
 	if (handle != CGPU_NULLPTR)

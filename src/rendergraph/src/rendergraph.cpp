@@ -153,14 +153,13 @@ pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* sel
 	return handle;
 }
 
-pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, void* imported_backbuffer)
+pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, pulse_backbuffer_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	auto* bb = (Backbuffer*)imported_backbuffer;
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
-	auto texture = &bb->texture;
+	auto texture = &imported->texture;
 	texture->p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
 	texture->states_consistent = true;
 	return pulse_rendergraph_import_texture(self, texture);

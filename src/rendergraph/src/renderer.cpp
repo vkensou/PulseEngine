@@ -347,12 +347,11 @@ namespace HGEGraphics
 	template<typename T>
 	void simple_vector_push_back(T*& data, int& size, int& capacity, T& value) {
 		if (size >= capacity) {
-			// 需要扩容
 			int new_capacity = capacity == 0 ? 4 : capacity * 2;
 			T* new_data = (T*)realloc(data, new_capacity * sizeof(T));
 
 			if (new_data == nullptr) {
-				printf("内存分配失败！\n");
+				printf("allocate failed\n");
 				return;
 			}
 
@@ -433,7 +432,7 @@ namespace HGEGraphics
 		simple_vector_push_back<pulse_buffer_data_t*>(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity, buffer);
 	}
 
-	void init_backbuffer(Backbuffer* backbuffer, CGPUSwapChainId swapchain, int index)
+	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index)
 	{
 		backbuffer->texture.handle = swapchain->p_back_buffers[index];
 		backbuffer->texture.view = CGPU_NULLPTR;
@@ -444,14 +443,14 @@ namespace HGEGraphics
 		backbuffer->texture.dynamic_handle = {};
 	}
 
-	Backbuffer::~Backbuffer()
+	void free_backbuffer(pulse_backbuffer_data_t* backbuffer)
 	{
-		texture.handle = CGPU_NULLPTR;
-		texture.view = CGPU_NULLPTR;
-		texture.cur_state_count = 0;
-		delete[] texture.p_cur_states;
-		texture.p_cur_states = nullptr;
-		texture.states_consistent = false;
+		backbuffer->texture.handle = CGPU_NULLPTR;
+		backbuffer->texture.view = CGPU_NULLPTR;
+		backbuffer->texture.cur_state_count = 0;
+		delete[] backbuffer->texture.p_cur_states;
+		backbuffer->texture.p_cur_states = nullptr;
+		backbuffer->texture.states_consistent = false;
 	}
 
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth)

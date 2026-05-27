@@ -39,7 +39,7 @@ bool pulse_rendergraph_buffer_handle_valid(pulse_buffer_handle_t handle);
 
 pulse_texture_handle_t pulse_rendergraph_declare_texture(pulse_rendergraph_t* self);
 pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, pulse_texture_data_t* imported);
-pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, void* imported_backbuffer);
+pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, pulse_backbuffer_data_t* imported_backbuffer);
 pulse_buffer_handle_t  pulse_rendergraph_declare_buffer(pulse_rendergraph_t* self);
 pulse_buffer_handle_t  pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, pulse_buffer_data_t* imported);
 pulse_buffer_handle_t  pulse_rendergraph_import_dynamic_buffer(pulse_rendergraph_t* self, void* imported);

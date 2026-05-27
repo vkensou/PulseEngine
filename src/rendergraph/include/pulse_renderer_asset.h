@@ -97,6 +97,11 @@ struct pulse_material_data_t
 	pulse_buffer_data_t** ownedBuffers_data;
 };
 
+struct pulse_backbuffer_data_t
+{
+	pulse_texture_data_t texture;
+};
+
 #ifdef __cplusplus
 }
 #endif
