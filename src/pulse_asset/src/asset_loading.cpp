@@ -87,11 +87,7 @@ bool allocate_pooled_block(pulse_asset_state_o* state, PooledBlock& out, uint32_
     if (!state || align == 0) {
         return false;
     }
-    try {
-        out.data = state->memory_pool.allocate(size, align);
-    } catch (...) {
-        out.data = nullptr;
-    }
+    out.data = state->memory_pool.allocate(size, align);
     if (!out.data) {
         return false;
     }
