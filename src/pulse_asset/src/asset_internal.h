@@ -2,102 +2,143 @@
 
 #include "pulse_asset.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <list>
+#include <memory_resource>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <optional>
-#include <utility>
-#include <memory_resource>
-#include <string_view>
 
 #define flecs_STATIC
 #include <flecs.h>
 
-namespace pulse_asset_internal {
-struct pulse_asset_state_o;
-struct LoadJob;
-}
+namespace pulse::asset {
 
-struct pulse_asset_load_dependency_hint {
-    pulse_asset_internal::LoadJob* parent;
-};
-
-namespace pulse_asset_internal {
+class AssetSystem;
+class AssetRegistry;
+class AssetStorage;
+class AssetSlot;
+class LoadJob;
 
 constexpr const char* kPluginName = "PulseAssetPlugin";
 
 struct pulse_asset_state_resource {
-    struct pulse_asset_state_o* state;
+    AssetSystem* system;
 };
 
-struct AssetLoader {
-    pulse_asset_loader_desc desc{};
-    std::pmr::vector<std::pmr::string> extensions;
+extern ECS_COMPONENT_DECLARE(pulse_asset_state_resource);
 
-    explicit AssetLoader(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : extensions(resource) {
-    }
-};
+pulse_asset_handle invalid_handle();
+bool is_invalid_handle(pulse_asset_handle handle);
+bool handles_equal(pulse_asset_handle a, pulse_asset_handle b);
 
-struct AssetType {
-    pulse_asset_type_desc desc{};
-    std::pmr::deque<AssetLoader> loaders;
-    std::pmr::unordered_map<std::pmr::string, AssetLoader*> extensions;
-
-    explicit AssetType(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : loaders(resource),
-          extensions(resource) {
-    }
-};
-
-inline bool is_builder_loader(const AssetLoader& loader) {
-    return loader.extensions.empty();
-}
-
-struct PooledBlock;
-void free_pooled_block(PooledBlock& block);
-
-struct PooledBlock {
+class PooledBlock final {
+public:
     void* data = nullptr;
     uint32_t size = 0;
     uint32_t align = 0;
     std::pmr::memory_resource* resource = nullptr;
 
     PooledBlock() = default;
-    ~PooledBlock() { free_pooled_block(*this); }
+    ~PooledBlock();
 
     PooledBlock(const PooledBlock&) = delete;
     PooledBlock& operator=(const PooledBlock&) = delete;
 
-    PooledBlock(PooledBlock&& other) noexcept
-        : data(other.data), size(other.size), align(other.align), resource(other.resource) {
-        other.data = nullptr;
-        other.size = 0;
-        other.align = 0;
-        other.resource = nullptr;
-    }
+    PooledBlock(PooledBlock&& other) noexcept;
+    PooledBlock& operator=(PooledBlock&& other) noexcept;
 
-    PooledBlock& operator=(PooledBlock&& other) noexcept {
-        if (this != &other) {
-            free_pooled_block(*this);
-            data = other.data;
-            size = other.size;
-            align = other.align;
-            resource = other.resource;
-            other.data = nullptr;
-            other.size = 0;
-            other.align = 0;
-            other.resource = nullptr;
-        }
-        return *this;
-    }
+    void reset();
+    bool allocate(std::pmr::memory_resource* allocator, uint32_t byte_size, uint32_t alignment, bool zero_memory);
+    bool copy(std::pmr::memory_resource* allocator, const void* bytes, uint32_t byte_size, uint32_t alignment);
 };
 
-struct AssetSlot {
+class AssetIo final {
+public:
+    static std::pmr::string normalize_path(const char* path, std::pmr::memory_resource* resource);
+    static std::pmr::string normalize_extension(const char* extension, std::pmr::memory_resource* resource);
+    static std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std::pmr::memory_resource* resource);
+    static std::pmr::string extension_from_path(const std::pmr::string& path, std::pmr::memory_resource* resource);
+    static std::pmr::string join_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource);
+    static std::optional<std::pmr::vector<uint8_t>> read_file(const char* filename, std::pmr::memory_resource* resource);
+};
+
+class AssetLoader final {
+public:
+    pulse_asset_loader_desc desc{};
+    std::pmr::vector<std::pmr::string> extensions;
+
+    explicit AssetLoader(std::pmr::memory_resource* resource);
+
+    bool is_builder() const;
+};
+
+class AssetType final {
+public:
+    pulse_asset_type_desc desc{};
+    std::pmr::deque<AssetLoader> loaders;
+    std::pmr::unordered_map<std::pmr::string, AssetLoader*> extension_loaders;
+
+    explicit AssetType(std::pmr::memory_resource* resource);
+
+    AssetType(const AssetType&) = delete;
+    AssetType& operator=(const AssetType&) = delete;
+    AssetType(AssetType&&) noexcept = default;
+    AssetType& operator=(AssetType&&) noexcept = default;
+
+    bool has_loader_for_any(const std::pmr::vector<std::pmr::string>& extension_list) const;
+    AssetLoader* find_builder_loader();
+    AssetLoader* find_extension_loader(const std::pmr::string& extension);
+    pulse_result_t add_loader(const pulse_asset_loader_desc& loader_desc, std::pmr::vector<std::pmr::string>&& extension_list, std::pmr::memory_resource* resource);
+};
+
+class AssetRegistry final {
+public:
+    explicit AssetRegistry(std::pmr::memory_resource* resource);
+
+    pulse_result_t register_type(const pulse_asset_type_desc* desc);
+    pulse_result_t register_loader(const pulse_asset_loader_desc* desc);
+    AssetType* find_type(uint64_t type_id);
+    AssetLoader* find_loader(uint64_t type_id, const std::pmr::string& path);
+    AssetLoader* find_builder_loader(uint64_t type_id);
+
+private:
+    std::pmr::memory_resource* resource_ = nullptr;
+    std::pmr::unordered_map<uint64_t, AssetType> types_;
+};
+
+struct PathKey {
+    uint64_t type_id = 0;
+    std::pmr::string path;
+
+    PathKey(uint64_t type_id, const std::pmr::string& path, std::pmr::memory_resource* resource);
+
+    bool operator==(const PathKey& other) const;
+};
+
+struct PathKeyHash {
+    size_t operator()(const PathKey& key) const;
+};
+
+class PathCache final {
+public:
+    explicit PathCache(std::pmr::memory_resource* resource);
+
+    pulse_asset_handle find(uint64_t type_id, const std::pmr::string& path) const;
+    void store(uint64_t type_id, const std::pmr::string& path, pulse_asset_handle handle);
+    void erase_if_matches(pulse_asset_handle handle, const std::pmr::string& path);
+    void clear();
+
+private:
+    std::pmr::memory_resource* resource_ = nullptr;
+    std::pmr::unordered_map<PathKey, pulse_asset_handle, PathKeyHash> entries_;
+};
+
+class AssetSlot final {
+public:
     uint32_t generation = 1;
     pulse_asset_state_t state = PULSE_ASSET_STATE_EMPTY;
     uint32_t pin_count = 0;
@@ -110,12 +151,7 @@ struct AssetSlot {
     std::pmr::vector<pulse_asset_handle> dependencies;
     std::pmr::vector<pulse_asset_handle> dependents;
 
-    explicit AssetSlot(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : path(resource),
-          error(resource),
-          dependencies(resource),
-          dependents(resource) {
-    }
+    explicit AssetSlot(std::pmr::memory_resource* resource);
 
     AssetSlot(const AssetSlot&) = delete;
     AssetSlot& operator=(const AssetSlot&) = delete;
@@ -123,13 +159,66 @@ struct AssetSlot {
     AssetSlot& operator=(AssetSlot&&) noexcept = default;
 };
 
-struct LoadSource {
+class AssetBucket final {
+public:
+    AssetType* type = nullptr;
+    std::pmr::vector<AssetSlot> slots;
+    std::pmr::vector<uint32_t> free_indices;
+
+    explicit AssetBucket(std::pmr::memory_resource* resource);
+
+    AssetBucket(const AssetBucket&) = delete;
+    AssetBucket& operator=(const AssetBucket&) = delete;
+    AssetBucket(AssetBucket&&) noexcept = default;
+    AssetBucket& operator=(AssetBucket&&) noexcept = default;
+};
+
+struct AssetSlotAllocation {
+    pulse_asset_handle handle{0, PULSE_ASSET_INVALID_INDEX, 0};
+    AssetSlot* slot = nullptr;
+};
+
+class DependencyGraph final {
+public:
+    void evaluate(const AssetStorage& storage, const std::pmr::vector<pulse_asset_dependency>& dependencies, bool& out_failed, bool& out_ready) const;
+    void commit(AssetStorage& storage, pulse_asset_handle handle, const std::pmr::vector<pulse_asset_dependency>& dependencies) const;
+    void detach_committed_dependencies(AssetStorage& storage, pulse_asset_handle handle, AssetSlot& slot) const;
+    void pin_committed_dependencies(AssetStorage& storage, const AssetSlot& slot) const;
+    void unpin_committed_dependencies(AssetStorage& storage, const AssetSlot& slot) const;
+};
+
+class AssetStorage final {
+public:
+    AssetStorage(std::pmr::memory_resource* resource, AssetRegistry& registry);
+
+    AssetBucket* ensure_bucket(uint64_t type_id);
+    AssetSlot* get_slot(pulse_asset_handle handle);
+    const AssetSlot* get_slot(pulse_asset_handle handle) const;
+    AssetSlotAllocation allocate_slot(uint64_t type_id, const std::pmr::string& path);
+    void destroy_slot(AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle);
+    void destroy_all_assets();
+    void try_unload_slot(pulse_asset_handle handle);
+    bool cached_slot_can_be_reused(pulse_asset_handle handle) const;
+    pulse_asset_handle find_cached(uint64_t type_id, const std::pmr::string& path) const;
+    void cache_path(uint64_t type_id, const std::pmr::string& path, pulse_asset_handle handle);
+
+    DependencyGraph& dependencies() { return dependency_graph_; }
+    const DependencyGraph& dependencies() const { return dependency_graph_; }
+
+private:
+    std::pmr::memory_resource* resource_ = nullptr;
+    AssetRegistry& registry_;
+    PathCache path_cache_;
+    DependencyGraph dependency_graph_;
+    std::pmr::unordered_map<uint64_t, AssetBucket> buckets_;
+};
+
+class LoadSource final {
+public:
     pulse_asset_load_source kind = PULSE_ASSET_LOAD_SOURCE_FILE;
     std::pmr::vector<uint8_t> memory_data;
 
-    explicit LoadSource(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : memory_data(resource) {
-    }
+    explicit LoadSource(std::pmr::memory_resource* resource);
 };
 
 enum class LoadJobPhase {
@@ -145,7 +234,8 @@ enum class LoadJobOutcome {
     Cancelled,
 };
 
-struct LoadJob {
+class LoadJob final {
+public:
     pulse_asset_handle handle{};
     LoadJobPhase phase = LoadJobPhase::PendingRead;
     LoadSource source;
@@ -158,122 +248,119 @@ struct LoadJob {
     pulse_asset_load_task ctx{};
     LoadJobOutcome outcome = LoadJobOutcome::None;
 
-    explicit LoadJob(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : source(resource),
-          bytes(resource),
-          dependencies(resource) {
-    }
+    explicit LoadJob(std::pmr::memory_resource* resource);
 
     LoadJob(const LoadJob&) = delete;
     LoadJob& operator=(const LoadJob&) = delete;
     LoadJob(LoadJob&&) noexcept = default;
     LoadJob& operator=(LoadJob&&) noexcept = default;
+
+    bool is_terminal() const;
+    void finish(AssetSlot* slot, LoadJobOutcome next_outcome, const char* error);
+    pulse_result_t add_dependency(pulse_asset_handle dependency, pulse_dependency_flags_t flags);
 };
 
-struct AssetBucket {
-    AssetType* type = nullptr;
-    std::pmr::vector<AssetSlot> slots;
-    std::pmr::vector<uint32_t> free_indices;
-
-    explicit AssetBucket(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : slots(resource),
-          free_indices(resource) {
-    }
-
-    AssetBucket(const AssetBucket&) = delete;
-    AssetBucket& operator=(const AssetBucket&) = delete;
-    AssetBucket(AssetBucket&&) noexcept = default;
-    AssetBucket& operator=(AssetBucket&&) noexcept = default;
-};
-
-struct PathKey {
+struct LoadRequest {
+    pulse_asset_load_source source = PULSE_ASSET_LOAD_SOURCE_FILE;
     uint64_t type_id = 0;
-    std::pmr::string path;
-
-    explicit PathKey(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
-        : path(resource) {
-    }
-
-    PathKey(uint64_t type_id, std::string_view path, std::pmr::memory_resource* resource)
-        : type_id(type_id),
-          path(path.data(), path.size(), resource) {
-    }
-
-    PathKey(uint64_t type_id, const std::pmr::string& path, std::pmr::memory_resource* resource)
-        : type_id(type_id),
-          path(path, resource) {
-    }
-
-    bool operator==(const PathKey& other) const {
-        return type_id == other.type_id && path == other.path;
-    }
+    const char* path_or_name = nullptr;
+    const void* settings = nullptr;
+    pulse_asset_load_flags_t flags = PULSE_ASSET_LOAD_DEFAULT;
+    const void* data = nullptr;
+    uint64_t size = 0;
+    const pulse_asset_dependency* dependencies = nullptr;
+    uint32_t dependency_count = 0;
 };
 
-struct PathKeyHash {
-    size_t operator()(const PathKey& key) const {
-        return std::hash<uint64_t>{}(key.type_id) ^
-            (std::hash<std::string_view>{}(std::string_view(key.path)) << 1);
-    }
+class LoadContext final {
+public:
+    static void refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot);
 };
 
-struct pulse_asset_state_o {
-    pulse_app_t app = nullptr;
-    pulse_asset_plugin_desc desc{};
-    std::pmr::unsynchronized_pool_resource memory_pool;
-    std::pmr::string root_path;
-    ecs_entity_t process_system = 0;
-    std::pmr::unordered_map<uint64_t, AssetType> types;
-    std::pmr::unordered_map<uint64_t, AssetBucket> buckets;
-    std::pmr::unordered_map<PathKey, pulse_asset_handle, PathKeyHash> path_cache;
-    std::pmr::list<LoadJob> load_jobs;
+class LoadQueue final {
+public:
+    using JobList = std::pmr::list<LoadJob>;
+    using JobIterator = JobList::iterator;
 
-    pulse_asset_state_o()
-        : root_path(&memory_pool),
-          types(&memory_pool),
-          buckets(&memory_pool),
-          path_cache(&memory_pool),
-          load_jobs(&memory_pool) {
-    }
+    explicit LoadQueue(std::pmr::memory_resource* resource);
+
+    JobIterator enqueue(LoadJob&& job);
+    void process(AssetSystem& system);
+    void process_immediate_builder(AssetSystem& system, JobIterator job_it);
+    void cancel_all(AssetSystem& system);
+    void retire_load_job(AssetSystem& system, LoadJob& job);
+    void retire_and_erase(AssetSystem& system, JobIterator job_it);
+
+private:
+    JobList jobs_;
+
+    void process_job(AssetSystem& system, LoadJob& job);
+    void process_pending_read(AssetSystem& system, LoadJob& job, AssetSlot& slot, bool process_immediately);
+    void process_waiting_dependencies(AssetSystem& system, LoadJob& job, AssetSlot& slot);
+    void process_processing(AssetSystem& system, LoadJob& job, AssetSlot& slot);
+    bool construct_job_loader(AssetSystem& system, LoadJob& job, AssetSlot& slot, const char*& out_error);
 };
 
-extern ECS_COMPONENT_DECLARE(pulse_asset_state_resource);
+AssetSystem* system_from_app(pulse_app_t app);
+pulse_result_t asset_plugin_build_callback(pulse_app_t app, void* ctx);
+void asset_plugin_shutdown_callback(pulse_app_t app, void* ctx);
 
-pulse_asset_plugin_desc normalize_plugin_desc(const pulse_asset_plugin_desc* desc);
-bool validate_plugin_desc(const pulse_asset_plugin_desc* desc);
-pulse_asset_state_o* state_from_app(pulse_app_t app);
+class AssetSystem final {
+public:
+    explicit AssetSystem(const pulse_asset_plugin_desc& desc);
+    ~AssetSystem() = default;
 
-std::pmr::string normalize_extension(const char* extension, std::pmr::memory_resource* resource);
-std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std::pmr::memory_resource* resource);
+    AssetSystem(const AssetSystem&) = delete;
+    AssetSystem& operator=(const AssetSystem&) = delete;
 
-pulse_asset_handle invalid_handle(void);
-bool is_invalid_handle(pulse_asset_handle handle);
-std::pmr::string normalize_path(const char* path, std::pmr::memory_resource* resource);
-AssetBucket* ensure_bucket(pulse_asset_state_o* state, uint64_t type_id);
-AssetSlot* get_slot(pulse_asset_state_o* state, pulse_asset_handle handle);
-const AssetSlot* get_slot_const(const pulse_asset_state_o* state, pulse_asset_handle handle);
-pulse_asset_handle allocate_slot(
-    pulse_asset_state_o* state,
-    uint64_t type_id,
-    const std::pmr::string& path
-);
-void destroy_slot(pulse_asset_state_o* state, AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle);
-void destroy_all_assets(pulse_asset_state_o* state);
-void try_unload_slot(pulse_asset_state_o* state, pulse_asset_handle handle);
+    pulse_result_t build(pulse_app_t app);
+    void shutdown(pulse_app_t app);
+    void process_load_requests();
 
-AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std::pmr::string& path);
-std::pmr::string join_asset_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource);
-std::optional<std::pmr::vector<uint8_t>> read_file_sdl(const char* filename, std::pmr::memory_resource* resource);
-void process_load_requests_system(ecs_iter_t* it);
-void process_load_job(pulse_asset_state_o* state, LoadJob& job);
-void install_process_system(pulse_asset_state_o* state, ecs_world_t* world);
-void uninstall_process_system(pulse_asset_state_o* state, ecs_world_t* world);
-void cancel_load_jobs(pulse_asset_state_o* state);
-void free_pooled_block(PooledBlock& block);
-bool copy_pooled_block(pulse_asset_state_o* state, PooledBlock& out, const void* data, uint32_t size, uint32_t align);
-bool allocate_pooled_block(pulse_asset_state_o* state, PooledBlock& out, uint32_t size, uint32_t align, bool zero_memory);
-bool load_job_is_terminal(const LoadJob& job);
-void finish_load_job(LoadJob& job, AssetSlot* slot, LoadJobOutcome outcome, const char* error);
-void retire_load_job(pulse_asset_state_o* state, LoadJob& job);
-void commit_asset_dependencies(pulse_asset_state_o* state, pulse_asset_handle handle, const std::pmr::vector<pulse_asset_dependency>& dependencies);
+    pulse_result_t register_type(const pulse_asset_type_desc* desc);
+    pulse_result_t register_loader(const pulse_asset_loader_desc* desc);
+    pulse_asset_handle load(const pulse_asset_load_desc* desc);
+    pulse_asset_handle load_from_memory(const pulse_asset_memory_load_desc* desc);
+    pulse_asset_handle build_asset(const pulse_asset_build_desc* desc);
+    pulse_asset_state_t get_state(pulse_asset_handle handle) const;
+    const char* get_error(pulse_asset_handle handle) const;
+    bool acquire(pulse_asset_handle handle, pulse_asset_ref* out_ref);
+    void release(pulse_asset_ref* ref);
+    void unload(pulse_asset_handle handle);
+    void mark_modified(pulse_asset_handle handle);
 
-} // namespace pulse_asset_internal
+    pulse_app_t app() const { return app_; }
+    uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }
+    const std::pmr::string& root_path() const { return root_path_; }
+    std::pmr::memory_resource* resource() { return &memory_pool_; }
+    AssetRegistry& registry() { return registry_; }
+    const AssetRegistry& registry() const { return registry_; }
+    AssetStorage& storage() { return storage_; }
+    const AssetStorage& storage() const { return storage_; }
+    LoadQueue& load_queue() { return load_queue_; }
+
+private:
+    pulse_app_t app_ = nullptr;
+    pulse_asset_plugin_desc desc_{};
+    std::pmr::unsynchronized_pool_resource memory_pool_;
+    std::pmr::string root_path_;
+    ecs_entity_t process_system_ = 0;
+    AssetRegistry registry_;
+    AssetStorage storage_;
+    LoadQueue load_queue_;
+
+    pulse_asset_handle load_impl(const LoadRequest& request);
+    bool request_dependencies_are_valid(const LoadRequest& request) const;
+    LoadJobPhase choose_initial_phase(const LoadRequest& request, AssetSlot& slot);
+    bool copy_request_settings(const AssetLoader& loader, const LoadRequest& request, PooledBlock& out);
+    bool init_load_job(LoadJob& job, const LoadRequest& request, pulse_asset_handle handle, AssetLoader* loader, LoadJobPhase phase);
+    void install_process_system(ecs_world_t* world);
+    void uninstall_process_system(ecs_world_t* world);
+    static bool is_load_in_progress_state(pulse_asset_state_t state);
+};
+
+} // namespace pulse::asset
+
+struct pulse_asset_load_dependency_hint {
+    pulse::asset::LoadJob* parent;
+};
