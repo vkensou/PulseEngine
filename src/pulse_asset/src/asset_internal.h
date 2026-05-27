@@ -34,16 +34,23 @@ struct pulse_asset_state_resource {
     struct pulse_asset_state_o* state;
 };
 
-struct AssetType {
-    pulse_asset_type_desc desc{};
-};
-
 struct AssetLoader {
     pulse_asset_loader_desc desc{};
     std::pmr::vector<std::pmr::string> extensions;
 
     explicit AssetLoader(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
         : extensions(resource) {
+    }
+};
+
+struct AssetType {
+    pulse_asset_type_desc desc{};
+    std::pmr::deque<AssetLoader> loaders;
+    std::pmr::unordered_map<std::pmr::string, AssetLoader*> extensions;
+
+    explicit AssetType(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
+        : loaders(resource),
+          extensions(resource) {
     }
 };
 
@@ -216,7 +223,6 @@ struct pulse_asset_state_o {
     std::pmr::string root_path;
     ecs_entity_t process_system = 0;
     std::pmr::unordered_map<uint64_t, AssetType> types;
-    std::pmr::deque<AssetLoader> loaders;
     std::pmr::unordered_map<uint64_t, AssetBucket> buckets;
     std::pmr::unordered_map<PathKey, pulse_asset_handle, PathKeyHash> path_cache;
     std::pmr::list<LoadJob> load_jobs;
@@ -224,7 +230,6 @@ struct pulse_asset_state_o {
     pulse_asset_state_o()
         : root_path(&memory_pool),
           types(&memory_pool),
-          loaders(&memory_pool),
           buckets(&memory_pool),
           path_cache(&memory_pool),
           load_jobs(&memory_pool) {

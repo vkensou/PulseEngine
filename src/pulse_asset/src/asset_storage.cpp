@@ -17,10 +17,32 @@ std::pmr::string normalize_path(const char* path, std::pmr::memory_resource* res
             c = '/';
         }
     }
-    while (!out.empty() && out.front() == '/') {
-        out.erase(out.begin());
+    size_t first_relative_char = out.find_first_not_of('/');
+    if (first_relative_char == std::pmr::string::npos) {
+        out.clear();
+    } else if (first_relative_char > 0) {
+        out.erase(0, first_relative_char);
     }
     return out;
+}
+
+static bool handles_equal(pulse_asset_handle a, pulse_asset_handle b) {
+    return a.type_id == b.type_id && a.index == b.index && a.generation == b.generation;
+}
+
+static void erase_path_cache_entry(
+    pulse_asset_state_o* state,
+    pulse_asset_handle handle,
+    const std::pmr::string& path
+) {
+    if (!state || path.empty()) {
+        return;
+    }
+    PathKey key(handle.type_id, path, &state->memory_pool);
+    auto cache_it = state->path_cache.find(key);
+    if (cache_it != state->path_cache.end() && handles_equal(cache_it->second, handle)) {
+        state->path_cache.erase(cache_it);
+    }
 }
 
 static bool allocate_asset_memory(pulse_asset_state_o* state, const pulse_asset_type_desc& desc, PooledBlock& out) {
@@ -124,6 +146,7 @@ pulse_asset_handle allocate_slot(
 }
 
 void destroy_slot(pulse_asset_state_o* state, AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle) {
+    erase_path_cache_entry(state, handle, slot.path);
     if (slot.constructed && bucket.type && bucket.type->desc.destroy) {
         bucket.type->desc.destroy(slot.data.data, bucket.type->desc.user_data);
     }
@@ -135,9 +158,7 @@ void destroy_slot(pulse_asset_state_o* state, AssetBucket& bucket, AssetSlot& sl
             }
             dep_slot->dependents.erase(
                 std::remove_if(dep_slot->dependents.begin(), dep_slot->dependents.end(), [&](pulse_asset_handle dependent) {
-                    return dependent.type_id == handle.type_id &&
-                        dependent.index == handle.index &&
-                        dependent.generation == handle.generation;
+                    return handles_equal(dependent, handle);
                 }),
                 dep_slot->dependents.end());
             try_unload_slot(state, dep_handle);

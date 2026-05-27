@@ -1,8 +1,5 @@
 #include "asset_internal.h"
 
-#include <cstring>
-#include <new>
-
 namespace pulse_asset_internal {
 
 ECS_COMPONENT_DECLARE(pulse_asset_state_resource);
@@ -75,32 +72,25 @@ std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std:
 }
 
 static bool has_loader_for_extension(
-    const pulse_asset_state_o* state,
-    uint64_t type_id,
-    const std::pmr::vector<std::pmr::string>& extensions
+    const AssetType& type,
+    const std::pmr::vector<std::pmr::string>& extension_list
 ) {
-    for (const AssetLoader& loader : state->loaders) {
-        if (loader.desc.type_id != type_id) {
-            continue;
-        }
-        for (const std::pmr::string& existing : loader.extensions) {
-            for (const std::pmr::string& extension : extensions) {
-                if (existing == extension) {
-                    return true;
-                }
-            }
+    for (const std::pmr::string& extension : extension_list) {
+        if (type.extensions.find(extension) != type.extensions.end()) {
+            return true;
         }
     }
     return false;
 }
 
-static AssetLoader* find_builder_loader(pulse_asset_state_o* state, uint64_t type_id) {
-    for (AssetLoader& loader : state->loaders) {
-        if (loader.desc.type_id == type_id && is_builder_loader(loader)) {
-            return &loader;
-        }
-    }
-    return nullptr;
+static AssetLoader* find_builder_loader(AssetType& type) {
+    std::pmr::string builder_key;
+    auto loader_it = type.extensions.find(builder_key);
+    return loader_it != type.extensions.end() ? loader_it->second : nullptr;
+}
+
+static bool is_power_of_two_alignment(uint32_t align) {
+    return align != 0 && (align & (align - 1)) == 0;
 }
 
 static pulse_result_t asset_plugin_build(pulse_app_t app, void* ctx) {
@@ -215,17 +205,16 @@ pulse_result_t pulse_asset_register_type(
     pulse_asset_state_o* state = state_from_app(app);
     if (!state || !desc || !desc->type_id || desc->struct_size != sizeof(pulse_asset_type_desc) ||
         desc->version != PULSE_ASSET_TYPE_DESC_VERSION ||
-        desc->size == 0 || desc->align == 0) {
+        desc->size == 0 || !is_power_of_two_alignment(desc->align)) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
 
-    if (state->types.find(desc->type_id) != state->types.end()) {
+    auto [type_it, inserted] = state->types.try_emplace(desc->type_id, &state->memory_pool);
+    if (!inserted) {
         return PULSE_ERROR_INVALID_STATE;
     }
 
-    AssetType type{};
-    type.desc = *desc;
-    state->types.emplace(desc->type_id, type);
+    type_it->second.desc = *desc;
     return PULSE_OK;
 }
 
@@ -237,25 +226,36 @@ pulse_result_t pulse_asset_register_loader(
     if (!state || !desc || desc->struct_size != sizeof(pulse_asset_loader_desc) ||
         desc->version != PULSE_ASSET_LOADER_DESC_VERSION || desc->type_id == 0 ||
         !desc->step ||
-        (desc->loader_size > 0 && desc->loader_align == 0) ||
-        (desc->settings_size > 0 && desc->settings_align == 0)) {
+        (desc->loader_size > 0 && !is_power_of_two_alignment(desc->loader_align)) ||
+        (desc->settings_size > 0 && !is_power_of_two_alignment(desc->settings_align))) {
         return PULSE_ERROR_INVALID_ARGUMENT;
     }
-    if (state->types.find(desc->type_id) == state->types.end()) {
+    auto type_it = state->types.find(desc->type_id);
+    if (type_it == state->types.end()) {
         return PULSE_ERROR_NOT_FOUND;
     }
-    std::pmr::vector<std::pmr::string> extensions = parse_extensions(desc->extensions, &state->memory_pool);
-    if (extensions.empty()) {
-        if (find_builder_loader(state, desc->type_id) != nullptr) {
+    AssetType& type = type_it->second;
+    std::pmr::vector<std::pmr::string> extension_list = parse_extensions(desc->extensions, &state->memory_pool);
+    if (extension_list.empty()) {
+        if (find_builder_loader(type) != nullptr) {
             return PULSE_ERROR_INVALID_STATE;
         }
-    } else if (has_loader_for_extension(state, desc->type_id, extensions)) {
+    } else if (has_loader_for_extension(type, extension_list)) {
         return PULSE_ERROR_INVALID_STATE;
     }
+    type.extensions.reserve(type.extensions.size() + (extension_list.empty() ? 1u : extension_list.size()));
     AssetLoader loader(&state->memory_pool);
     loader.desc = *desc;
-    loader.extensions = std::move(extensions);
-    state->loaders.push_back(std::move(loader));
+    loader.extensions = std::move(extension_list);
+    type.loaders.push_back(std::move(loader));
+    AssetLoader* registered_loader = &type.loaders.back();
+    if (is_builder_loader(*registered_loader)) {
+        type.extensions.emplace(std::pmr::string(&state->memory_pool), registered_loader);
+    } else {
+        for (const std::pmr::string& extension : registered_loader->extensions) {
+            type.extensions.emplace(std::pmr::string(extension, &state->memory_pool), registered_loader);
+        }
+    }
     return PULSE_OK;
 }
 
@@ -467,9 +467,11 @@ static pulse_asset_handle load_impl(pulse_app_t app, const LoadRequest& request)
     if (!state || request.type_id == 0) {
         return invalid_handle();
     }
-    if (state->types.find(request.type_id) == state->types.end()) {
+    auto type_it = state->types.find(request.type_id);
+    if (type_it == state->types.end()) {
         return invalid_handle();
     }
+    AssetType& type = type_it->second;
     if (request.dependency_count > 0 && !request.dependencies) {
         return invalid_handle();
     }
@@ -482,7 +484,7 @@ static pulse_asset_handle load_impl(pulse_app_t app, const LoadRequest& request)
     AssetLoader* request_loader = nullptr;
 
     if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER) {
-        request_loader = find_builder_loader(state, request.type_id);
+        request_loader = find_builder_loader(type);
         if (!request_loader) {
             return invalid_handle();
         }

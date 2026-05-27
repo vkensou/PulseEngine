@@ -2,8 +2,6 @@
 
 #include <SDL3/SDL.h>
 
-#include <cstring>
-
 namespace pulse_asset_internal {
 
 static std::pmr::string extension_from_path(const std::pmr::string& path, std::pmr::memory_resource* resource) {
@@ -20,17 +18,12 @@ AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std
     if (extension.empty()) {
         return nullptr;
     }
-    for (AssetLoader& loader : state->loaders) {
-        if (loader.desc.type_id != type_id) {
-            continue;
-        }
-        for (const std::pmr::string& candidate : loader.extensions) {
-            if (candidate == extension) {
-                return &loader;
-            }
-        }
+    auto type_it = state->types.find(type_id);
+    if (type_it == state->types.end()) {
+        return nullptr;
     }
-    return nullptr;
+    auto loader_it = type_it->second.extensions.find(extension);
+    return loader_it != type_it->second.extensions.end() ? loader_it->second : nullptr;
 }
 
 std::pmr::string join_asset_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource) {
@@ -57,13 +50,22 @@ std::optional<std::pmr::vector<uint8_t>> read_file_sdl(const char* filename, std
         SDL_CloseIO(stream);
         return std::optional<std::pmr::vector<uint8_t>>{};
     }
-    std::pmr::vector<uint8_t> buffer(resource);
-    buffer.resize(static_cast<size_t>(size));
-    size_t read = SDL_ReadIO(stream, buffer.data(), buffer.size());
-    SDL_CloseIO(stream);
-    if (read != buffer.size()) {
+    if (static_cast<uint64_t>(size) > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+        SDL_CloseIO(stream);
         return std::optional<std::pmr::vector<uint8_t>>{};
     }
+    std::pmr::vector<uint8_t> buffer(resource);
+    buffer.resize(static_cast<size_t>(size));
+    size_t read = 0;
+    while (read < buffer.size()) {
+        size_t chunk = SDL_ReadIO(stream, buffer.data() + read, buffer.size() - read);
+        if (chunk == 0) {
+            SDL_CloseIO(stream);
+            return std::optional<std::pmr::vector<uint8_t>>{};
+        }
+        read += chunk;
+    }
+    SDL_CloseIO(stream);
     return std::move(buffer);
 }
 
