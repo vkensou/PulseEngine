@@ -128,6 +128,8 @@ uint8_t* queue_staging_buffer_full(
 void register_texture_type(pulse_app_t app, CGPUDeviceId device);
 void register_texture_create_loader(pulse_app_t app, CGPUDeviceId device);
 void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device);
+void register_buffer_type(pulse_app_t app, CGPUDeviceId device);
+void register_buffer_create_loader(pulse_app_t app, CGPUDeviceId device);
 
 struct MeshLoaderState {
     bool upload_requested = false;

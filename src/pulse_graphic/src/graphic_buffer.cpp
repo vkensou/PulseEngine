@@ -1,60 +1,41 @@
 #include "graphic_internal.h"
 #include "renderer.h"
 
-extern "C" {
+namespace pulse_graphic_internal {
 
-pulse_buffer_t pulse_graphic_buffer_create(
-    pulse_app_t app,
-    const CGPUBufferDescriptor* desc,
-    const void* data, uint64_t data_size)
-{
-    pulse_buffer_t result{};
-    CGPUDeviceId device = pulse_graphic_internal::get_device(app);
-    if (!device || !desc) return result;
-
-    auto cpp_buffer = HGEGraphics::create_buffer(device, *desc);
-    if (!cpp_buffer) return result;
-
-    pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
-        app, PULSE_TYPE_BUFFER, "", nullptr, 0);
-    if (!pulse_asset_handle_is_valid(asset_handle)) return result;
-
-    pulse_asset_ref ref{};
-    if (pulse_asset_acquire(app, asset_handle, &ref)) {
-        pulse_buffer_data_t* buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
-        buf->handle = cpp_buffer->handle;
-        buf->type = desc->descriptors;
-        cpp_buffer->handle = CGPU_NULLPTR;
-        pulse_asset_release(app, &ref);
-    }
-
-    if (data && data_size > 0) {
-        auto* gstate = pulse_graphic_internal::state_from_app(app);
-        if (gstate) {
-            pulse_asset_ref ref2{};
-            if (pulse_asset_acquire(app, asset_handle, &ref2)) {
-                auto* buf = static_cast<pulse_buffer_data_t*>(ref2.ptr);
-                auto* staging = pulse_graphic_internal::queue_staging_buffer_full(gstate, buf, data_size, nullptr);
-                memcpy(staging, data, data_size);
-                pulse_asset_release(app, &ref2);
-            }
-        }
-    }
-
-    result.asset = asset_handle;
-    return result;
+static void destroy_buffer(void* ptr, void* user_data) {
+    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
+    pulse_buffer_data_t* data = static_cast<pulse_buffer_data_t*>(ptr);
+    if (data->handle) cgpu_device_free_buffer(device, data->handle);
 }
 
-pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t* handle) {
+void register_buffer_type(pulse_app_t app, CGPUDeviceId device)
+{
+    pulse_asset_type_desc type_desc{};
+    type_desc.struct_size = sizeof(pulse_asset_type_desc);
+    type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
+    type_desc.type_id = PULSE_TYPE_BUFFER;
+    type_desc.size = sizeof(pulse_buffer_data_t);
+    type_desc.align = alignof(pulse_buffer_data_t);
+    type_desc.destroy = destroy_buffer;
+    type_desc.user_data = const_cast<struct CGPUDevice*>(device);
+    pulse_asset_register_type(app, &type_desc);
+}
+
+}
+
+extern "C" {
+
+pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t handle) {
     pulse_asset_ref ref{};
-    if (pulse_asset_acquire(app, handle->asset, &ref)) {
+    if (pulse_asset_acquire(app, pulse_graphic_buffer_to_handle(handle), &ref)) {
         return static_cast<pulse_buffer_data_t*>(ref.ptr);
     }
     return nullptr;
 }
 
-void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t* handle) {
-    pulse_asset_ref ref{handle->asset, nullptr};
+void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t handle) {
+    pulse_asset_ref ref{ pulse_graphic_buffer_to_handle(handle), nullptr };
     pulse_asset_release(app, &ref);
 }
 

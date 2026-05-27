@@ -192,12 +192,6 @@ static void destroy_mesh(void* ptr, void* user_data) {
 }
 
 
-static void destroy_buffer(void* ptr, void* user_data) {
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_buffer_data_t* data = static_cast<pulse_buffer_data_t*>(ptr);
-    if (data->handle) cgpu_device_free_buffer(device, data->handle);
-}
-
 static void destroy_sampler(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_sampler_data_t* data = static_cast<pulse_sampler_data_t*>(ptr);
@@ -243,7 +237,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_type(PULSE_TYPE_SHADER_LIBRARY, sizeof(pulse_shader_library_data_t), alignof(pulse_shader_library_data_t), destroy_shader_library);
     register_type(PULSE_TYPE_MESH, sizeof(pulse_mesh_data_t), alignof(pulse_mesh_data_t), destroy_mesh);
 	register_texture_type(app, device);
-    register_type(PULSE_TYPE_BUFFER, sizeof(pulse_buffer_data_t), alignof(pulse_buffer_data_t), destroy_buffer);
+    register_buffer_type(app, device);
     register_type(PULSE_TYPE_MATERIAL, sizeof(pulse_material_data_t), alignof(pulse_material_data_t), destroy_material);
     register_type(PULSE_TYPE_SAMPLER, sizeof(pulse_sampler_data_t), alignof(pulse_sampler_data_t), destroy_sampler);
     register_type(PULSE_TYPE_BYTECODE, sizeof(PulseBytecodeSlot), alignof(PulseBytecodeSlot), destroy_bytecode);
@@ -290,6 +284,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
     register_texture_create_loader(app, device);
     register_texture_load_loader(app, device);
+    register_buffer_create_loader(app, device);
     register_loader(PULSE_TYPE_MESH, "obj",
                     nullptr, nullptr, step_mesh,
                     sizeof(MeshLoaderState), alignof(MeshLoaderState), 0, 0,
@@ -333,7 +328,7 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     if (!pulse_asset_handle_is_valid(handle)) return false;
     for (const auto& entry : state->pending_uploads) {
         if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphic_texture_to_handle(entry.texture), handle)) return true;
-        if (entry.content == UPLOAD_BUFFER && pulse_asset_handle_equals(entry.buffer.asset, handle)) return true;
+        if (entry.content == UPLOAD_BUFFER && pulse_asset_handle_equals(pulse_graphic_buffer_to_handle(entry.buffer), handle)) return true;
     }
     return false;
 }
@@ -346,7 +341,7 @@ void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     for (size_t i = 0; i < vec.size(); ) {
         bool match = false;
         if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphic_texture_to_handle(vec[i].texture), handle)) match = true;
-        if (vec[i].content == UPLOAD_BUFFER && pulse_asset_handle_equals(vec[i].buffer.asset, handle)) match = true;
+        if (vec[i].content == UPLOAD_BUFFER && pulse_asset_handle_equals(pulse_graphic_buffer_to_handle(vec[i].buffer), handle)) match = true;
         if (match) {
             vec.erase(vec.begin() + i);
         } else {

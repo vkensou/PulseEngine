@@ -28,7 +28,7 @@ typedef struct pulse_shader_library_t  { pulse_asset_handle asset; } pulse_shade
 typedef struct pulse_compute_shader_t  { pulse_asset_handle asset; } pulse_compute_shader_t;
 typedef struct pulse_mesh_t            { pulse_asset_handle asset; } pulse_mesh_t;
 typedef struct pulse_texture_t         { uint32_t index; uint32_t generation;} pulse_texture_t;
-typedef struct pulse_buffer_t          { pulse_asset_handle asset; } pulse_buffer_t;
+typedef struct pulse_buffer_t          { uint32_t index; uint32_t generation; } pulse_buffer_t;
 typedef struct pulse_material_t        { pulse_asset_handle asset; } pulse_material_t;
 typedef struct pulse_sampler_t         { pulse_asset_handle asset; } pulse_sampler_t;
 
@@ -79,13 +79,21 @@ void pulse_graphic_shader_release(pulse_app_t app, pulse_shader_t* handle);
 pulse_compute_shader_data_t* pulse_graphic_compute_shader_acquire(pulse_app_t app, pulse_compute_shader_t* handle);
 void pulse_graphic_compute_shader_release(pulse_app_t app, pulse_compute_shader_t* handle);
 
+typedef struct pulse_graphics_buffer_create_desc {
+    CGPUBufferDescriptor desc;
+    uint64_t data_size;
+    const void* data;
+} pulse_graphics_buffer_create_desc;
+
 pulse_buffer_t pulse_graphic_buffer_create(
     pulse_app_t app,
-    const CGPUBufferDescriptor* desc,
-    const void* data, uint64_t data_size);
+    const pulse_graphics_buffer_create_desc* desc);
 
-pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t* handle);
-void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t* handle);
+static pulse_asset_handle pulse_graphic_buffer_to_handle(pulse_buffer_t buffer) { return { PULSE_TYPE_BUFFER, buffer.index, buffer.generation }; }
+static bool pulse_graphic_buffer_is_available(pulse_app_t app, pulse_buffer_t buffer) { return pulse_asset_is_available(app, pulse_graphic_buffer_to_handle(buffer)); }
+pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t handle);
+void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t handle);
+static void pulse_graphic_buffer_unload(pulse_app_t app, pulse_buffer_t buffer) { pulse_asset_unload(app, pulse_graphic_buffer_to_handle(buffer)); }
 
 pulse_sampler_t pulse_graphic_sampler_create(
     pulse_app_t app,
