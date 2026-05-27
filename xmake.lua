@@ -1,9 +1,9 @@
 add_rules("mode.debug", "mode.release", "mode.releasedbg")
 set_languages("cxx20", "c11")
+set_exceptions("none")
 if is_plat("windows") then 
     add_defines("NOMINMAX")
     set_runtimes(is_mode("debug") and "MDd" or "MD")
-    add_cxflags("/EHsc")
     add_ldflags("-subsystem:console")
 elseif is_plat("android") then
     add_cxflags("-fPIC")
