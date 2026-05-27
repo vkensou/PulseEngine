@@ -116,11 +116,13 @@ void LoadQueue::process(AssetSystem& system) {
     }
 }
 
-void LoadQueue::process_immediate_builder(AssetSystem& system, JobIterator job_it) {
+LoadJobOutcome LoadQueue::process_immediate_builder(AssetSystem& system, JobIterator job_it) {
     process_job(system, *job_it);
+    LoadJobOutcome outcome = job_it->outcome;
     if (job_it->is_terminal()) {
         retire_and_erase(system, job_it);
     }
+    return outcome;
 }
 
 void LoadQueue::cancel_all(AssetSystem& system) {

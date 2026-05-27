@@ -247,6 +247,11 @@ pulse_asset_handle AssetSystem::load_impl(const LoadRequest& request) {
         return invalid_handle();
     }
 
+    auto unload_failed_builder = [&]() {
+        unload(handle);
+        return invalid_handle();
+    };
+
     if (request.source != PULSE_ASSET_LOAD_SOURCE_BUILDER && !slot_path.empty()) {
         storage_.cache_path(request.type_id, slot_path, handle);
     }
@@ -254,6 +259,9 @@ pulse_asset_handle AssetSystem::load_impl(const LoadRequest& request) {
     slot->pin_count = 1;
     LoadJobPhase initial_phase = choose_initial_phase(request, *slot);
     if (slot->state == PULSE_ASSET_STATE_FAILED) {
+        if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER) {
+            return unload_failed_builder();
+        }
         return handle;
     }
 
@@ -265,13 +273,19 @@ pulse_asset_handle AssetSystem::load_impl(const LoadRequest& request) {
     if (!init_load_job(job, request, handle, request_loader, initial_phase)) {
         slot->state = PULSE_ASSET_STATE_FAILED;
         slot->error = "failed to copy asset load settings";
+        if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER) {
+            return unload_failed_builder();
+        }
         return handle;
     }
 
     auto job_it = load_queue_.enqueue(std::move(job));
     if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER &&
         initial_phase == LoadJobPhase::PendingRead) {
-        load_queue_.process_immediate_builder(*this, job_it);
+        LoadJobOutcome outcome = load_queue_.process_immediate_builder(*this, job_it);
+        if (outcome == LoadJobOutcome::Failed || outcome == LoadJobOutcome::Cancelled) {
+            return unload_failed_builder();
+        }
     }
 
     return handle;

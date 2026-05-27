@@ -286,7 +286,7 @@ public:
 
     JobIterator enqueue(LoadJob&& job);
     void process(AssetSystem& system);
-    void process_immediate_builder(AssetSystem& system, JobIterator job_it);
+    LoadJobOutcome process_immediate_builder(AssetSystem& system, JobIterator job_it);
     void cancel_all(AssetSystem& system);
     void retire_load_job(AssetSystem& system, LoadJob& job);
     void retire_and_erase(AssetSystem& system, JobIterator job_it);

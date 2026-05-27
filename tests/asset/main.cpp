@@ -20,6 +20,7 @@ const uint64_t builder_type = 11;
 const uint64_t builder_pending_type = 12;
 const uint64_t builder_wait_type = 13;
 const uint64_t builder_dynamic_type = 14;
+const uint64_t builder_fail_once_type = 15;
 
 struct test_text_asset {
     uint64_t size;
@@ -127,6 +128,7 @@ static int self_cancel_dtor_count = 0;
 static int dtor_unload_step_count = 0;
 static int dtor_unload_dtor_count = 0;
 static int builder_step_count = 0;
+static int builder_fail_once_step_count = 0;
 static int builder_pending_step_count = 0;
 static int builder_pending_ctor_count = 0;
 static int builder_pending_dtor_count = 0;
@@ -409,6 +411,24 @@ static pulse_asset_loader_status_t step_builder_asset(
     const builder_settings* settings = (const builder_settings*)ctx->settings;
     builder_asset* asset = (builder_asset*)ctx->out_asset;
     asset->value = settings->value + *settings->external;
+    return PULSE_ASSET_LOADER_DONE;
+}
+
+static pulse_asset_loader_status_t step_builder_fail_once_asset(
+    void* state,
+    const pulse_asset_load_task* ctx,
+    const char** out_error
+) {
+    (void)state;
+    builder_fail_once_step_count += 1;
+    assert(ctx->source == PULSE_ASSET_LOAD_SOURCE_BUILDER);
+    if (builder_fail_once_step_count == 1) {
+        *out_error = "builder failed before returning a handle";
+        return PULSE_ASSET_LOADER_FAILED;
+    }
+
+    builder_asset* asset = (builder_asset*)ctx->out_asset;
+    asset->value = 77;
     return PULSE_ASSET_LOADER_DONE;
 }
 
@@ -1045,6 +1065,53 @@ int main(void) {
     assert(pulse_asset_register_loader(app, &builder_loader_desc) == PULSE_OK);
     assert(pulse_asset_register_loader(app, &builder_loader_desc) == PULSE_ERROR_INVALID_STATE);
 
+    pulse_asset_type_desc builder_fail_once_type_desc = {
+        sizeof(pulse_asset_type_desc),
+        PULSE_ASSET_TYPE_DESC_VERSION,
+        builder_fail_once_type,
+        sizeof(builder_asset),
+        alignof(builder_asset),
+        nullptr,
+        nullptr,
+    };
+    assert(pulse_asset_register_type(app, &builder_fail_once_type_desc) == PULSE_OK);
+
+    pulse_asset_loader_desc builder_fail_once_loader_desc = {
+        sizeof(pulse_asset_loader_desc),
+        PULSE_ASSET_LOADER_DESC_VERSION,
+        builder_fail_once_type,
+        nullptr,
+        nullptr,
+        nullptr,
+        step_builder_fail_once_asset,
+        0,
+        0,
+        0,
+        0,
+        nullptr,
+    };
+    assert(pulse_asset_register_loader(app, &builder_fail_once_loader_desc) == PULSE_OK);
+
+    pulse_asset_build_desc builder_fail_once_desc{};
+    builder_fail_once_desc.struct_size = sizeof(pulse_asset_build_desc);
+    builder_fail_once_desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    builder_fail_once_desc.type_id = builder_fail_once_type;
+    builder_fail_once_desc.name = "fail-once-builder";
+    pulse_asset_handle failed_builder_handle = pulse_asset_build(app, &builder_fail_once_desc);
+    assert(!pulse_asset_handle_is_valid(failed_builder_handle));
+    assert(builder_fail_once_step_count == 1);
+
+    pulse_asset_handle recovered_builder_handle = pulse_asset_build(app, &builder_fail_once_desc);
+    assert(pulse_asset_handle_is_valid(recovered_builder_handle));
+    assert(recovered_builder_handle.index == 1);
+    assert(recovered_builder_handle.generation == 2);
+    assert(pulse_asset_get_state(app, recovered_builder_handle) == PULSE_ASSET_STATE_LOADED);
+    assert(builder_fail_once_step_count == 2);
+    pulse_asset_ref recovered_builder_ref{};
+    assert(pulse_asset_acquire(app, recovered_builder_handle, &recovered_builder_ref));
+    assert(((builder_asset*)recovered_builder_ref.ptr)->value == 77);
+    pulse_asset_release(app, &recovered_builder_ref);
+
     pulse_asset_build_desc missing_builder_desc{};
     missing_builder_desc.struct_size = sizeof(pulse_asset_build_desc);
     missing_builder_desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
@@ -1150,6 +1217,18 @@ int main(void) {
         nullptr,
     };
     assert(pulse_asset_register_loader(app, &builder_wait_loader_desc) == PULSE_OK);
+
+    pulse_asset_dependency invalid_builder_static_deps[] = {{pulse_asset_handle_make_invalid(), PULSE_DEP_REQUIRED}};
+    pulse_asset_build_desc invalid_builder_wait_desc{};
+    invalid_builder_wait_desc.struct_size = sizeof(pulse_asset_build_desc);
+    invalid_builder_wait_desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    invalid_builder_wait_desc.type_id = builder_wait_type;
+    invalid_builder_wait_desc.name = "invalid-wait-builder";
+    invalid_builder_wait_desc.dependencies = invalid_builder_static_deps;
+    invalid_builder_wait_desc.dependency_count = 1;
+    pulse_asset_handle invalid_builder_wait_handle = pulse_asset_build(app, &invalid_builder_wait_desc);
+    assert(!pulse_asset_handle_is_valid(invalid_builder_wait_handle));
+    assert(builder_wait_step_count == 0);
 
     pulse_asset_handle builder_required_dep = load_asset_memory(app, slow_type, "builder_required_dep.txt", hello_bytes, 11, NULL);
     pulse_asset_dependency builder_static_deps[] = {{builder_required_dep, PULSE_DEP_REQUIRED}};
