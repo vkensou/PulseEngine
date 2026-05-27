@@ -97,23 +97,23 @@ void pulse_graphic_material_bind_buffer(
     uint32_t set, uint32_t binding,
     pulse_buffer_t buffer)
 {
-    pulse_buffer_data_t* buf_data = pulse_graphic_buffer_acquire(app, &buffer);
-    if (!buf_data) return;
+    pulse_graphic_buffer_ref ref{};
+    if (!pulse_graphic_buffer_acquire(app, buffer, &ref)) return;
 
     pulse_asset_ref mat_ref{};
     if (!pulse_asset_acquire(app, material->asset, &mat_ref)) {
-        pulse_graphic_buffer_release(app, &buffer);
+        pulse_graphic_buffer_release(app, &ref);
         return;
     }
 
     MaterialInternal* internal = get_material_internal(material->asset);
     if (internal) {
-        internal->bindings.push_back({0, set, binding, buffer.asset});
+        internal->bindings.push_back({0, set, binding, pulse_graphic_buffer_to_handle(buffer)});
         //internal->cpp_material->bindBuffer((int)set, (int)binding, buf_data->handle->info->size, nullptr);
     }
 
     pulse_asset_release(app, &mat_ref);
-    pulse_graphic_buffer_release(app, &buffer);
+    pulse_graphic_buffer_release(app, &ref);
 }
 
 void pulse_graphic_material_bind_texture(
@@ -121,12 +121,12 @@ void pulse_graphic_material_bind_texture(
     uint32_t set, uint32_t binding,
     pulse_texture_t texture)
 {
-    pulse_texture_data_t* tex_data = pulse_graphic_texture_acquire(app, texture);
-    if (!tex_data) return;
+    pulse_graphic_texture_ref ref{};
+    if (!pulse_graphic_texture_acquire(app, texture, &ref)) return;
 
     pulse_asset_ref mat_ref{};
     if (!pulse_asset_acquire(app, material->asset, &mat_ref)) {
-        pulse_graphic_texture_release(app, texture);
+        pulse_graphic_texture_release(app, &ref);
         return;
     }
 
@@ -137,7 +137,7 @@ void pulse_graphic_material_bind_texture(
     }
 
     pulse_asset_release(app, &mat_ref);
-    pulse_graphic_texture_release(app, texture);
+    pulse_graphic_texture_release(app, &ref);
 }
 
 void pulse_graphic_material_bind_sampler(

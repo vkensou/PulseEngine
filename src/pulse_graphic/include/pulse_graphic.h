@@ -40,6 +40,16 @@ typedef struct pulse_sampler_data {
     CGPUSamplerId handle;
 } pulse_sampler_data_t;
 
+typedef struct pulse_graphic_texture_ref {
+    pulse_texture_t handle;
+    pulse_texture_data_t* ptr;
+} pulse_graphic_texture_ref;
+
+typedef struct pulse_graphic_buffer_ref {
+    pulse_buffer_t handle;
+    pulse_buffer_data_t* ptr;
+} pulse_graphic_buffer_ref;
+
 typedef struct pulse_graphic_plugin_desc {
     uint32_t struct_size;
     uint32_t version;
@@ -91,8 +101,8 @@ pulse_buffer_t pulse_graphic_buffer_create(
 
 static pulse_asset_handle pulse_graphic_buffer_to_handle(pulse_buffer_t buffer) { return { PULSE_TYPE_BUFFER, buffer.index, buffer.generation }; }
 static bool pulse_graphic_buffer_is_available(pulse_app_t app, pulse_buffer_t buffer) { return pulse_asset_is_available(app, pulse_graphic_buffer_to_handle(buffer)); }
-pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t handle);
-void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t handle);
+bool pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t handle, pulse_graphic_buffer_ref* ref);
+void pulse_graphic_buffer_release(pulse_app_t app, pulse_graphic_buffer_ref* ref);
 static void pulse_graphic_buffer_unload(pulse_app_t app, pulse_buffer_t buffer) { pulse_asset_unload(app, pulse_graphic_buffer_to_handle(buffer)); }
 
 pulse_sampler_t pulse_graphic_sampler_create(
@@ -124,8 +134,8 @@ pulse_texture_t pulse_graphic_texture_load(
 
 static pulse_asset_handle pulse_graphic_texture_to_handle(pulse_texture_t texture) { return { PULSE_TYPE_TEXTURE, texture.index, texture.generation }; }
 static bool pulse_graphic_texture_is_available(pulse_app_t app, pulse_texture_t texture) { return pulse_asset_is_available(app, pulse_graphic_texture_to_handle(texture)); }
-pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t handle);
-void pulse_graphic_texture_release(pulse_app_t app, pulse_texture_t handle);
+bool pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t handle, pulse_graphic_texture_ref* ref);
+void pulse_graphic_texture_release(pulse_app_t app, pulse_graphic_texture_ref* ref);
 static void pulse_graphic_texture_unload(pulse_app_t app, pulse_texture_t texture) { pulse_asset_unload(app, pulse_graphic_texture_to_handle(texture)); }
 
 pulse_mesh_t pulse_graphic_mesh_create_from_data(

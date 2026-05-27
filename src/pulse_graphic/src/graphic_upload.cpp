@@ -25,10 +25,10 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
         case UPLOAD_TEXTURE:
         case UPLOAD_TEXTURE_DATA: {
             pulse_texture_data_t* tex = entry.texture_data;
-            pulse_asset_ref ref{};
-            if (!tex && pulse_asset_handle_is_valid(pulse_graphic_texture_to_handle(entry.texture))) {
-                if (pulse_asset_acquire(app, pulse_graphic_texture_to_handle(entry.texture), &ref))
-                    tex = static_cast<pulse_texture_data_t*>(ref.ptr);
+            pulse_graphic_texture_ref ref{};
+            if (!tex) {
+                if (pulse_graphic_texture_acquire(app, entry.texture, &ref))
+                    tex = ref.ptr;
             }
             if (!tex) break;
 
@@ -57,17 +57,17 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
                     pulse_rendergraph_add_generate_mipmap(graph, tex_rh, entry.source_mip_levels);
             }
 
-            if (ref.ptr) pulse_asset_release(app, &ref);
+            if (ref.ptr) pulse_graphic_texture_release(app, &ref);
             done = true;
             break;
         }
         case UPLOAD_BUFFER:
         case UPLOAD_BUFFER_DATA: {
             pulse_buffer_data_t* buf = entry.buffer_data;
-            pulse_asset_ref ref{};
-            if (!buf && pulse_asset_handle_is_valid(entry.buffer.asset)) {
-                if (pulse_asset_acquire(app, entry.buffer.asset, &ref))
-                    buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
+            pulse_graphic_buffer_ref ref{};
+            if (!buf) {
+                if (pulse_graphic_buffer_acquire(app, entry.buffer, &ref))
+                    buf = ref.ptr;
             }
             if (!buf) break;
 
@@ -79,7 +79,7 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
                     const_cast<void*>(entry.data), nullptr, 0, nullptr);
             }
 
-            if (ref.ptr) pulse_asset_release(app, &ref);
+            if (ref.ptr) pulse_graphic_buffer_release(app, &ref);
             done = true;
             break;
         }
@@ -100,15 +100,15 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
     for (auto& entry : st->dynamic_updates) {
         if (entry.content == UPLOAD_BUFFER || entry.content == UPLOAD_BUFFER_DATA) {
             pulse_buffer_data_t* buf = entry.buffer_data;
-            pulse_asset_ref ref{};
-            if (!buf && pulse_asset_handle_is_valid(entry.buffer.asset)) {
-                if (pulse_asset_acquire(app, entry.buffer.asset, &ref))
-                    buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
+            pulse_graphic_buffer_ref ref{};
+            if (!buf) {
+                if (pulse_graphic_buffer_acquire(app, entry.buffer, &ref))
+                    buf = ref.ptr;
             }
             if (buf) {
                 (void)pulse_rendergraph_import_buffer(graph, buf);
             }
-            if (ref.ptr) pulse_asset_release(app, &ref);
+            if (ref.ptr) pulse_graphic_buffer_release(app, &ref);
         }
     }
     st->dynamic_updates.clear();

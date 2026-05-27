@@ -26,17 +26,24 @@ void register_buffer_type(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-pulse_buffer_data_t* pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t handle) {
+bool pulse_graphic_buffer_acquire(pulse_app_t app, pulse_buffer_t handle, pulse_graphic_buffer_ref* buffer_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphic_buffer_to_handle(handle), &ref)) {
-        return static_cast<pulse_buffer_data_t*>(ref.ptr);
+        buffer_ref->handle = handle;
+        buffer_ref->ptr = static_cast<pulse_buffer_data_t*>(ref.ptr);
+        return true;
     }
-    return nullptr;
+
+    buffer_ref->handle = {};
+    buffer_ref->ptr = nullptr;
+    return false;
 }
 
-void pulse_graphic_buffer_release(pulse_app_t app, pulse_buffer_t handle) {
-    pulse_asset_ref ref{ pulse_graphic_buffer_to_handle(handle), nullptr };
+void pulse_graphic_buffer_release(pulse_app_t app, pulse_graphic_buffer_ref* buffer_ref) {
+    pulse_asset_ref ref{ pulse_graphic_buffer_to_handle(buffer_ref->handle), nullptr };
     pulse_asset_release(app, &ref);
+    buffer_ref->handle = {};
+    buffer_ref->ptr = nullptr;
 }
 
 } // extern "C"
