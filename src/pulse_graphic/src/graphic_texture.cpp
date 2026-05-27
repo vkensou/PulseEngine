@@ -15,8 +15,8 @@ pulse_texture_t pulse_graphic_texture_create_from_data(
     auto cpp_texture = HGEGraphics::create_texture(device, *desc);
     if (!cpp_texture) return result;
 
-    pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_TEXTURE, "", nullptr, 0, NULL);
+    pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
+        app, PULSE_TYPE_TEXTURE, "", nullptr, 0);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
 
     pulse_asset_ref ref{};
@@ -57,7 +57,7 @@ pulse_texture_t pulse_graphic_texture_load(
     bool mipmap)
 {
     (void)mipmap;
-    pulse_asset_handle h = pulse_asset_load(app, PULSE_TYPE_TEXTURE, filepath, NULL);
+    pulse_asset_handle h = pulse_graphic_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, filepath);
     if (h.index == PULSE_ASSET_INVALID_INDEX) return pulse_texture_t{};
     return pulse_texture_t{h};
 }

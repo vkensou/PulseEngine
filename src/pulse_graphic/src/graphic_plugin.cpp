@@ -286,11 +286,11 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_loader(PULSE_TYPE_SHADER_LIBRARY, "spv",
                     nullptr, nullptr, step_shader_library, 0, 0, 0, 0,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_SHADER, "vert",
+    register_loader(PULSE_TYPE_SHADER, nullptr,
                     ctor_shader_from_deps, nullptr, step_shader_from_deps,
                     sizeof(ShaderLoaderState), alignof(ShaderLoaderState), 0, 0,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_COMPUTE_SHADER, "comp",
+    register_loader(PULSE_TYPE_COMPUTE_SHADER, nullptr,
                     ctor_shader_from_deps, nullptr, step_compute_shader_from_deps,
                     sizeof(ShaderLoaderState), alignof(ShaderLoaderState), 0, 0,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));

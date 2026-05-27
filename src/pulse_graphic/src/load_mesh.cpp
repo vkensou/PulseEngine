@@ -164,7 +164,7 @@ pulse_mesh_t pulse_graphic_mesh_load(pulse_app_t app, const char* filepath)
 {
     pulse_mesh_t result{};
     if (!app || !filepath || !filepath[0]) return result;
-    result.asset = pulse_asset_load(app, PULSE_TYPE_MESH, filepath, NULL);
+    result.asset = pulse_graphic_internal::asset_load_path(app, PULSE_TYPE_MESH, filepath);
     return result;
 }
 

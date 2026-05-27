@@ -67,8 +67,8 @@ pulse_material_t pulse_graphic_material_create(
     pulse_graphic_shader_release(app, &shader);
     if (!mat) return result;
 
-    pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_MATERIAL, "", nullptr, 0, NULL);
+    pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
+        app, PULSE_TYPE_MATERIAL, "", nullptr, 0);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) {
         delete mat;
         return result;

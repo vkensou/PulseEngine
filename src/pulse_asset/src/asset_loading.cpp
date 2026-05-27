@@ -159,31 +159,24 @@ static void refresh_job_ctx(pulse_asset_state_o* state, LoadJob& job, AssetSlot&
     job.ctx.app = state->app;
     job.ctx.type_id = job.handle.type_id;
     job.ctx.path = slot.path.c_str();
-    job.ctx.bytes = job.bytes.data();
+    job.ctx.bytes = job.bytes.empty() ? nullptr : job.bytes.data();
     job.ctx.byte_size = static_cast<uint64_t>(job.bytes.size());
-    job.ctx.dependencies = job.dependencies.data();
+    job.ctx.dependencies = job.dependencies.empty() ? nullptr : job.dependencies.data();
     job.ctx.dependency_count = static_cast<uint32_t>(job.dependencies.size());
     job.ctx.handle = job.handle;
     job.ctx.user_data = job.loader ? job.loader->desc.user_data : nullptr;
     job.ctx.out_asset = slot.data.data;
     job.ctx.settings = job.settings.data;
     job.ctx.dependency_hint = nullptr;
+    job.ctx.source = job.source.kind;
 }
 
 static bool construct_job_loader(pulse_asset_state_o* state, LoadJob& job, AssetSlot& slot, const char*& out_error) {
-    if (!job.loader) {
+    if (!job.loader && !slot.path.empty()) {
         job.loader = find_loader(state, job.handle.type_id, slot.path);
-        if (!job.loader && slot.path.empty()) {
-            for (AssetLoader& loader : state->loaders) {
-                if (loader.desc.type_id == job.handle.type_id) {
-                    job.loader = &loader;
-                    break;
-                }
-            }
-        }
     }
     if (!job.loader) {
-        out_error = "no loader registered for asset extension";
+        out_error = "no loader registered for asset request";
         return false;
     }
     if (!allocate_pooled_block(state, job.loader_state, job.loader->desc.loader_size, job.loader->desc.loader_align, true)) {
@@ -317,9 +310,9 @@ static void process_pending_read(pulse_asset_state_o* state, LoadJob& job, Asset
     }
 
     slot.state = PULSE_ASSET_STATE_LOADING;
-    if (job.source.from_memory) {
+    if (job.source.kind == PULSE_ASSET_LOAD_SOURCE_MEMORY) {
         job.bytes = std::move(job.source.memory_data);
-    } else {
+    } else if (job.source.kind == PULSE_ASSET_LOAD_SOURCE_FILE) {
         std::pmr::string full_path = join_asset_path(state->root_path, slot.path, &state->memory_pool);
         auto file_bytes = read_file_sdl(full_path.c_str(), &state->memory_pool);
         if (!file_bytes.has_value()) {
@@ -327,6 +320,8 @@ static void process_pending_read(pulse_asset_state_o* state, LoadJob& job, Asset
             return;
         }
         job.bytes = std::move(file_bytes.value());
+    } else {
+        job.bytes.clear();
     }
 
     const char* error = nullptr;
@@ -407,7 +402,7 @@ static void process_processing(pulse_asset_state_o* state, LoadJob& job, AssetSl
     finish_load_job(job, &slot, LoadJobOutcome::Failed, error ? error : "asset loader step failed");
 }
 
-static void process_load_job(pulse_asset_state_o* state, LoadJob& job) {
+void process_load_job(pulse_asset_state_o* state, LoadJob& job) {
     if (load_job_is_terminal(job)) {
         return;
     }

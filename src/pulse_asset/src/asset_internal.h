@@ -47,6 +47,10 @@ struct AssetLoader {
     }
 };
 
+inline bool is_builder_loader(const AssetLoader& loader) {
+    return loader.extensions.empty();
+}
+
 struct PooledBlock;
 void free_pooled_block(PooledBlock& block);
 
@@ -113,7 +117,7 @@ struct AssetSlot {
 };
 
 struct LoadSource {
-    bool from_memory = false;
+    pulse_asset_load_source kind = PULSE_ASSET_LOAD_SOURCE_FILE;
     std::pmr::vector<uint8_t> memory_data;
 
     explicit LoadSource(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
@@ -255,6 +259,7 @@ AssetLoader* find_loader(pulse_asset_state_o* state, uint64_t type_id, const std
 std::pmr::string join_asset_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource);
 std::optional<std::pmr::vector<uint8_t>> read_file_sdl(const char* filename, std::pmr::memory_resource* resource);
 void process_load_requests_system(ecs_iter_t* it);
+void process_load_job(pulse_asset_state_o* state, LoadJob& job);
 void install_process_system(pulse_asset_state_o* state, ecs_world_t* world);
 void uninstall_process_system(pulse_asset_state_o* state, ecs_world_t* world);
 void cancel_load_jobs(pulse_asset_state_o* state);

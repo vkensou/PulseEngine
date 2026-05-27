@@ -15,8 +15,8 @@ pulse_buffer_t pulse_graphic_buffer_create(
     auto cpp_buffer = HGEGraphics::create_buffer(device, *desc);
     if (!cpp_buffer) return result;
 
-    pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_BUFFER, "", nullptr, 0, NULL);
+    pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
+        app, PULSE_TYPE_BUFFER, "", nullptr, 0);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
 
     pulse_asset_ref ref{};

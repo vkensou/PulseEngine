@@ -57,6 +57,59 @@ void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void material_internal_destroy(void* data);
 void install_upload_callback(pulse_app_t app);
 
+inline pulse_asset_handle asset_load_path(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* path,
+    const void* settings = nullptr
+) {
+    pulse_asset_load_desc desc{};
+    desc.struct_size = sizeof(pulse_asset_load_desc);
+    desc.version = PULSE_ASSET_LOAD_DESC_VERSION;
+    desc.type_id = type_id;
+    desc.path = path;
+    desc.settings = settings;
+    return pulse_asset_load(app, &desc);
+}
+
+inline pulse_asset_handle asset_load_memory_path(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* path,
+    const void* data,
+    uint64_t size,
+    const void* settings = nullptr
+) {
+    pulse_asset_memory_load_desc desc{};
+    desc.struct_size = sizeof(pulse_asset_memory_load_desc);
+    desc.version = PULSE_ASSET_MEMORY_LOAD_DESC_VERSION;
+    desc.type_id = type_id;
+    desc.path = path;
+    desc.data = data;
+    desc.size = size;
+    desc.settings = settings;
+    return pulse_asset_load_from_memory(app, &desc);
+}
+
+inline pulse_asset_handle asset_build(
+    pulse_app_t app,
+    uint64_t type_id,
+    const char* name = nullptr,
+    const pulse_asset_dependency* dependencies = nullptr,
+    uint32_t dependency_count = 0,
+    const void* settings = nullptr
+) {
+    pulse_asset_build_desc desc{};
+    desc.struct_size = sizeof(pulse_asset_build_desc);
+    desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    desc.type_id = type_id;
+    desc.name = name;
+    desc.dependencies = dependencies;
+    desc.dependency_count = dependency_count;
+    desc.settings = settings;
+    return pulse_asset_build(app, &desc);
+}
+
 uint8_t* queue_staging_texture_full(
     pulse_graphic_state* gstate,
     pulse_texture_data_t* texture,

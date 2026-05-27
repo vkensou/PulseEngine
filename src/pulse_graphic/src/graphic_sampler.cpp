@@ -13,8 +13,8 @@ pulse_sampler_t pulse_graphic_sampler_create(
     CGPUSamplerId sampler = cgpu_device_create_sampler(device, desc);
     if (!sampler) return result;
 
-    pulse_asset_handle asset_handle = pulse_asset_load_from_memory(
-        app, PULSE_TYPE_SAMPLER, "", nullptr, 0, NULL);
+    pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_memory_path(
+        app, PULSE_TYPE_SAMPLER, "", nullptr, 0);
     if (asset_handle.index == PULSE_ASSET_INVALID_INDEX) return result;
 
     pulse_asset_ref ref{};
