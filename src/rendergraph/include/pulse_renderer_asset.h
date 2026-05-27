@@ -37,6 +37,10 @@ struct pulse_mesh_data_t
 	uint32_t index_count;
 	pulse_buffer_data_t* vertex_buffer;
 	pulse_buffer_data_t* index_buffer;
+	uint32_t vb_buffer_index;
+	uint32_t vb_buffer_generation;
+	uint32_t ib_buffer_index;
+	uint32_t ib_buffer_generation;
 	bool prepared;
 };
 

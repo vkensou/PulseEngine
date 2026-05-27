@@ -184,14 +184,6 @@ static void destroy_compute_shader(void* ptr, void* user_data) {
     if (data->cs.library) cgpu_device_free_shader_library(device, data->cs.library);
 }
 
-static void destroy_mesh(void* ptr, void* user_data) {
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_mesh_data_t* data = static_cast<pulse_mesh_data_t*>(ptr);
-    if (data->vertex_buffer) cgpu_device_free_buffer(device, data->vertex_buffer->handle);
-    if (data->index_buffer) cgpu_device_free_buffer(device, data->index_buffer->handle);
-}
-
-
 static void destroy_sampler(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_sampler_data_t* data = static_cast<pulse_sampler_data_t*>(ptr);
@@ -231,7 +223,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_type(PULSE_TYPE_SHADER, sizeof(pulse_shader_data_t), alignof(pulse_shader_data_t), destroy_shader);
     register_type(PULSE_TYPE_COMPUTE_SHADER, sizeof(pulse_compute_shader_data_t), alignof(pulse_compute_shader_data_t), destroy_compute_shader);
     register_type(PULSE_TYPE_SHADER_LIBRARY, sizeof(pulse_shader_library_data_t), alignof(pulse_shader_library_data_t), destroy_shader_library);
-    register_type(PULSE_TYPE_MESH, sizeof(pulse_mesh_data_t), alignof(pulse_mesh_data_t), destroy_mesh);
+    register_mesh_type(app, device);
 	register_texture_type(app, device);
     register_buffer_type(app, device);
     register_material_type(app, device);
@@ -282,10 +274,8 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_texture_load_loader(app, device);
     register_buffer_create_loader(app, device);
     register_material_create_loader(app, device);
-    register_loader(PULSE_TYPE_MESH, "obj",
-                    nullptr, nullptr, step_mesh,
-                    sizeof(MeshLoaderState), alignof(MeshLoaderState), 0, 0,
-                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
+    register_mesh_create_loader(app, device);
+    register_mesh_load_loader(app, device);
 
     GraphStateResource res{gstate};
     ecs_singleton_set_ptr(world, GraphStateResource, &res);

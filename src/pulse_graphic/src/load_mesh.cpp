@@ -93,15 +93,27 @@ static bool parse_obj_mesh(const uint8_t* data, size_t size,
     return true;
 }
 
-// ── Mesh loader state machine ─────────────────────────────────
+// ── Mesh load state machine ───────────────────────────────────
 
-pulse_asset_loader_status_t step_mesh(
+enum MeshLoadPhase {
+    MESH_LOAD_PARSE = 0,
+    MESH_LOAD_WAIT_BUFFERS = 1,
+};
+
+struct MeshLoadState {
+    int phase = MESH_LOAD_PARSE;
+    pulse_buffer_t vb_handle = {};
+    pulse_buffer_t ib_handle = {};
+    uint32_t vertex_stride = 0;
+};
+
+pulse_asset_loader_status_t step_mesh_load(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error)
 {
-    auto* s = static_cast<MeshLoaderState*>(state);
+    auto* s = static_cast<MeshLoadState*>(state);
 
-    if (!s->upload_requested) {
+    if (s->phase == MESH_LOAD_PARSE) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
 
@@ -118,45 +130,102 @@ pulse_asset_loader_status_t step_mesh(
             {"TEXCOORD", 1, CGPU_VERTEX_FORMAT_FLOAT32X2, 0, offsetof(MeshTexturedVertex, texCoord), sizeof(float)*2, CGPU_VERTEX_INPUT_RATE_VERTEX},
         };
         CGPUVertexLayout layout{3, attrs};
-
         uint32_t vstride = sizeof(MeshTexturedVertex);
-        HGEGraphics::init_mesh(mesh, device, (uint32_t)verts.size(),
-            (uint32_t)indices.size(), CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-            layout, sizeof(uint32_t), false, false);
 
-        // Register deferred upload via upload queue
-        auto* gstate = state_from_app(ctx->app);
-        if (gstate) {
-            size_t vb_bytes = verts.size() * vstride;
-            size_t ib_bytes = indices.size() * sizeof(uint32_t);
+        // Set up mesh layout
+        mesh->vertex_layout = layout;
+        mesh->p_vertex_attributes = new CGPUVertexAttribute[layout.attribute_count];
+        std::copy(layout.p_attributes, layout.p_attributes + layout.attribute_count, mesh->p_vertex_attributes);
+        mesh->vertex_layout.p_attributes = mesh->p_vertex_attributes;
+        mesh->prim_topology = CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        mesh->vertices_count = (uint32_t)verts.size();
+        mesh->vertex_stride = vstride;
+        mesh->index_count = (uint32_t)indices.size();
+        mesh->index_stride = sizeof(uint32_t);
+        mesh->vertex_buffer = nullptr;
+        mesh->index_buffer = nullptr;
+        mesh->prepared = false;
+        s->vertex_stride = vstride;
 
-            // VB
-            auto* vb_staging = queue_staging_buffer_full(gstate, mesh->vertex_buffer, vb_bytes, &s->vb_completed);
-            memcpy(vb_staging, verts.data(), vb_bytes);
+        // Create vertex buffer asset
+        CGPUBufferDescriptor vb_desc = {};
+        vb_desc.name = ctx->path;
+        vb_desc.flags = CGPU_BUFFER_CREATION_USAGE_PERSISTENT_MAP;
+        vb_desc.descriptors = CGPU_RESOURCE_TYPE_VERTEX_BUFFER;
+        vb_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
+        vb_desc.size = verts.size() * vstride;
 
-            // IB
-            s->has_ib = ib_bytes > 0;
-            if (s->has_ib) {
-                auto* ib_staging = queue_staging_buffer_full(gstate, mesh->index_buffer, ib_bytes, &s->ib_completed);
-                memcpy(ib_staging, indices.data(), ib_bytes);
-            }
-        }
+        pulse_graphics_buffer_create_desc vb_create_desc = { vb_desc, vb_desc.size, verts.data() };
+        s->vb_handle = pulse_graphic_buffer_create(ctx->app, &vb_create_desc);
+        pulse_asset_add_load_dependency(ctx, pulse_graphic_buffer_to_handle(s->vb_handle), PULSE_DEP_REQUIRED);
 
-        s->upload_requested = true;
+        // Create index buffer asset
+        size_t ib_bytes = indices.size() * sizeof(uint32_t);
+        CGPUBufferDescriptor ib_desc = {};
+        ib_desc.name = ctx->path;
+        ib_desc.flags = CGPU_BUFFER_CREATION_USAGE_PERSISTENT_MAP;
+        ib_desc.descriptors = CGPU_RESOURCE_TYPE_INDEX_BUFFER;
+        ib_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
+        ib_desc.size = ib_bytes;
+
+        pulse_graphics_buffer_create_desc ib_create_desc = { ib_desc, ib_bytes, indices.data() };
+        s->ib_handle = pulse_graphic_buffer_create(ctx->app, &ib_create_desc);
+        pulse_asset_add_load_dependency(ctx, pulse_graphic_buffer_to_handle(s->ib_handle), PULSE_DEP_REQUIRED);
+
+        // Store handles on mesh data
+        mesh->vb_buffer_index = s->vb_handle.index;
+        mesh->vb_buffer_generation = s->vb_handle.generation;
+        mesh->ib_buffer_index = s->ib_handle.index;
+        mesh->ib_buffer_generation = s->ib_handle.generation;
+
+        s->phase = MESH_LOAD_WAIT_BUFFERS;
         return PULSE_ASSET_LOADER_PENDING;
     }
 
-    // Wait for uploads to be queued by upload_record_callback
-    if (s->vb_completed && (!s->has_ib || s->ib_completed)) {
+    if (s->phase == MESH_LOAD_WAIT_BUFFERS) {
+        auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
+
+        pulse_graphic_buffer_ref vb_ref{};
+        pulse_graphic_buffer_ref ib_ref{};
+
+        if (!pulse_graphic_buffer_acquire(ctx->app, s->vb_handle, &vb_ref))
+            return PULSE_ASSET_LOADER_PENDING;
+        if (!pulse_graphic_buffer_acquire(ctx->app, s->ib_handle, &ib_ref)) {
+            pulse_graphic_buffer_release(ctx->app, &vb_ref);
+            return PULSE_ASSET_LOADER_PENDING;
+        }
+
+        mesh->vertex_buffer = vb_ref.ptr;
+        mesh->index_buffer = ib_ref.ptr;
+
+        pulse_graphic_buffer_release(ctx->app, &vb_ref);
+        pulse_graphic_buffer_release(ctx->app, &ib_ref);
+
         return PULSE_ASSET_LOADER_DONE;
     }
 
-    return PULSE_ASSET_LOADER_PENDING;
+    return PULSE_ASSET_LOADER_DONE;
+}
+
+void register_mesh_load_loader(pulse_app_t app, CGPUDeviceId device)
+{
+    pulse_asset_loader_desc ld{};
+    ld.struct_size = sizeof(pulse_asset_loader_desc);
+    ld.version = PULSE_ASSET_LOADER_DESC_VERSION;
+    ld.type_id = PULSE_TYPE_MESH;
+    ld.extensions = "obj";
+    ld.ctor = nullptr;
+    ld.dtor = nullptr;
+    ld.step = step_mesh_load;
+    ld.loader_size = sizeof(MeshLoadState);
+    ld.loader_align = alignof(MeshLoadState);
+    ld.settings_size = 0;
+    ld.settings_align = 0;
+    ld.user_data = const_cast<struct CGPUDevice*>(device);
+    pulse_asset_register_loader(app, &ld);
 }
 
 } // namespace pulse_graphic_internal
-
-// ── Public API ────────────────────────────────────────────────
 
 extern "C" {
 
@@ -164,7 +233,12 @@ pulse_mesh_t pulse_graphic_mesh_load(pulse_app_t app, const char* filepath)
 {
     pulse_mesh_t result{};
     if (!app || !filepath || !filepath[0]) return result;
-    result.asset = pulse_graphic_internal::asset_load_path(app, PULSE_TYPE_MESH, filepath);
+
+    pulse_asset_handle asset_handle = pulse_graphic_internal::asset_load_path(app, PULSE_TYPE_MESH, filepath);
+    if (!pulse_asset_handle_is_valid(asset_handle)) return result;
+
+    result.index = asset_handle.index;
+    result.generation = asset_handle.generation;
     return result;
 }
 

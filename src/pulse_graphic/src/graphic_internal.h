@@ -132,15 +132,8 @@ void register_buffer_create_loader(pulse_app_t app, CGPUDeviceId device);
 void register_material_type(pulse_app_t app, CGPUDeviceId device);
 void register_material_create_loader(pulse_app_t app, CGPUDeviceId device);
 
-struct MeshLoaderState {
-    bool upload_requested = false;
-    bool has_ib = false;
-    bool vb_completed = false;
-    bool ib_completed = false;
-};
-
-pulse_asset_loader_status_t step_mesh(
-    void* state, const pulse_asset_load_task* ctx,
-    const char** out_error);
+void register_mesh_type(pulse_app_t app, CGPUDeviceId device);
+void register_mesh_create_loader(pulse_app_t app, CGPUDeviceId device);
+void register_mesh_load_loader(pulse_app_t app, CGPUDeviceId device);
 
 } // namespace pulse_graphic_internal

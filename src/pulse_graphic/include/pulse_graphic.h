@@ -26,7 +26,7 @@ extern "C" {
 typedef struct pulse_shader_t          { pulse_asset_handle asset; } pulse_shader_t;
 typedef struct pulse_shader_library_t  { pulse_asset_handle asset; } pulse_shader_library_t;
 typedef struct pulse_compute_shader_t  { pulse_asset_handle asset; } pulse_compute_shader_t;
-typedef struct pulse_mesh_t            { pulse_asset_handle asset; } pulse_mesh_t;
+typedef struct pulse_mesh_t            { uint32_t index; uint32_t generation; } pulse_mesh_t;
 typedef struct pulse_texture_t         { uint32_t index; uint32_t generation;} pulse_texture_t;
 typedef struct pulse_buffer_t          { uint32_t index; uint32_t generation; } pulse_buffer_t;
 typedef struct pulse_material_t        { uint32_t index; uint32_t generation; } pulse_material_t;
@@ -54,6 +54,11 @@ typedef struct pulse_graphic_material_ref {
     pulse_material_t handle;
     pulse_material_data_t* ptr;
 } pulse_graphic_material_ref;
+
+typedef struct pulse_graphic_mesh_ref {
+    pulse_mesh_t handle;
+    pulse_mesh_data_t* ptr;
+} pulse_graphic_mesh_ref;
 
 typedef struct pulse_graphic_plugin_desc {
     uint32_t struct_size;
@@ -143,19 +148,33 @@ bool pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t handle, puls
 void pulse_graphic_texture_release(pulse_app_t app, pulse_graphic_texture_ref* ref);
 static void pulse_graphic_texture_unload(pulse_app_t app, pulse_texture_t texture) { pulse_asset_unload(app, pulse_graphic_texture_to_handle(texture)); }
 
+typedef struct pulse_graphics_mesh_create_from_data_desc {
+    pulse_buffer_t vertex_buffer;
+    pulse_buffer_t index_buffer;
+    uint32_t vertex_count;
+    uint32_t vertex_stride;
+    uint32_t index_count;
+    uint32_t index_stride;
+    ECGPUPrimitiveTopology topology;
+    const CGPUVertexLayout* layout;
+} pulse_graphics_mesh_create_from_data_desc;
+
+typedef struct pulse_graphics_mesh_create_dynamic_desc {
+    uint32_t max_vertex_count;
+    uint32_t vertex_stride;
+    uint32_t max_index_count;
+    uint32_t index_stride;
+    ECGPUPrimitiveTopology topology;
+    const CGPUVertexLayout* layout;
+} pulse_graphics_mesh_create_dynamic_desc;
+
 pulse_mesh_t pulse_graphic_mesh_create_from_data(
     pulse_app_t app,
-    const void* vertex_data, uint32_t vertex_count, uint32_t vertex_stride,
-    const void* index_data,  uint32_t index_count,  uint32_t index_stride,
-    ECGPUPrimitiveTopology topology,
-    const CGPUVertexLayout* layout);
+    const pulse_graphics_mesh_create_from_data_desc* desc);
 
 pulse_mesh_t pulse_graphic_mesh_create_dynamic(
     pulse_app_t app,
-    uint32_t max_vertex_count, uint32_t vertex_stride,
-    uint32_t max_index_count,  uint32_t index_stride,
-    ECGPUPrimitiveTopology topology,
-    const CGPUVertexLayout* layout);
+    const pulse_graphics_mesh_create_dynamic_desc* desc);
 
 pulse_mesh_t pulse_graphic_mesh_load(
     pulse_app_t app,
@@ -164,8 +183,11 @@ pulse_mesh_t pulse_graphic_mesh_load(
 void pulse_graphic_mesh_update_vertices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count);
 void pulse_graphic_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count);
 
-pulse_mesh_data_t* pulse_graphic_mesh_acquire(pulse_app_t app, pulse_mesh_t* handle);
-void pulse_graphic_mesh_release(pulse_app_t app, pulse_mesh_t* handle);
+static pulse_asset_handle pulse_graphic_mesh_to_handle(pulse_mesh_t mesh) { return { PULSE_TYPE_MESH, mesh.index, mesh.generation }; }
+static bool pulse_graphic_mesh_is_available(pulse_app_t app, pulse_mesh_t mesh) { return pulse_asset_is_available(app, pulse_graphic_mesh_to_handle(mesh)); }
+bool pulse_graphic_mesh_acquire(pulse_app_t app, pulse_mesh_t handle, pulse_graphic_mesh_ref* ref);
+void pulse_graphic_mesh_release(pulse_app_t app, pulse_graphic_mesh_ref* ref);
+static void pulse_graphic_mesh_unload(pulse_app_t app, pulse_mesh_t mesh) { pulse_asset_unload(app, pulse_graphic_mesh_to_handle(mesh)); }
 
 typedef struct pulse_graphics_material_create_desc {
     pulse_shader_t shader;
