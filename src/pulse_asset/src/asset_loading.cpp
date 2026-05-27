@@ -127,8 +127,8 @@ LoadJobOutcome LoadQueue::process_immediate_builder(AssetSystem& system, JobIter
 
 void LoadQueue::cancel_all(AssetSystem& system) {
     for (LoadJob& job : jobs_) {
-        AssetSlot* slot = system.storage().get_slot(job.handle);
-        job.finish(slot, LoadJobOutcome::Cancelled, "asset load cancelled");
+        auto slot = system.storage().get_slot(job.handle);
+        job.finish(slot ? &slot->slot : nullptr, LoadJobOutcome::Cancelled, "asset load cancelled");
     }
     for (LoadJob& job : jobs_) {
         retire_load_job(system, job);
@@ -136,16 +136,16 @@ void LoadQueue::cancel_all(AssetSystem& system) {
     jobs_.clear();
 }
 
-void LoadQueue::retire_load_job(AssetSystem& system, LoadJob& job) {
-    AssetSlot* slot = system.storage().get_slot(job.handle);
+std::optional<AssetBucketSlot> LoadQueue::retire_load_job(AssetSystem& system, LoadJob& job) {
+    auto slot = system.storage().get_slot(job.handle);
     if (job.loader_constructed && job.loader && job.loader->desc.dtor) {
         if (slot) {
-            LoadContext::refresh(system, job, *slot);
-            slot->retiring_load_job = true;
+            LoadContext::refresh(system, job, slot->slot);
+            slot->slot.retiring_load_job = true;
         }
         job.loader->desc.dtor(job.loader_state.data, &job.ctx);
         if (slot) {
-            slot->retiring_load_job = false;
+            slot->slot.retiring_load_job = false;
         }
     }
 
@@ -155,13 +155,16 @@ void LoadQueue::retire_load_job(AssetSystem& system, LoadJob& job) {
     job.loader_constructed = false;
     job.bytes.clear();
     job.source.memory_data.clear();
+    return slot;
 }
 
 void LoadQueue::retire_and_erase(AssetSystem& system, JobIterator job_it) {
     pulse_asset_handle handle = job_it->handle;
-    retire_load_job(system, *job_it);
+    auto slot = retire_load_job(system, *job_it);
     jobs_.erase(job_it);
-    system.storage().try_unload_slot(handle);
+    if (slot) {
+        system.storage().try_unload_slot(*slot, handle);
+    }
 }
 
 void LoadQueue::process_job(AssetSystem& system, LoadJob& job) {
@@ -169,25 +172,25 @@ void LoadQueue::process_job(AssetSystem& system, LoadJob& job) {
         return;
     }
 
-    AssetSlot* slot = system.storage().get_slot(job.handle);
+    auto slot = system.storage().get_slot(job.handle);
     if (!slot) {
         job.finish(nullptr, LoadJobOutcome::Failed, nullptr);
         return;
     }
-    if (slot->state == PULSE_ASSET_STATE_PENDING_DELETE) {
-        job.finish(slot, LoadJobOutcome::Cancelled, "asset load cancelled");
+    if (slot->slot.state == PULSE_ASSET_STATE_PENDING_DELETE) {
+        job.finish(&slot->slot, LoadJobOutcome::Cancelled, "asset load cancelled");
         return;
     }
 
     switch (job.phase) {
     case LoadJobPhase::PendingRead:
-        process_pending_read(system, job, *slot, true);
+        process_pending_read(system, job, slot->slot, true);
         break;
     case LoadJobPhase::WaitingDependencies:
-        process_waiting_dependencies(system, job, *slot);
+        process_waiting_dependencies(system, job, slot->slot);
         break;
     case LoadJobPhase::Processing:
-        process_processing(system, job, *slot);
+        process_processing(system, job, slot->slot);
         break;
     }
 }

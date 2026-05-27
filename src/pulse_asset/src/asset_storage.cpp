@@ -81,7 +81,7 @@ void DependencyGraph::evaluate(
             return;
         }
 
-        const AssetSlot* dep_slot = storage.get_slot(dep.handle);
+        auto dep_slot = storage.get_slot(dep.handle);
         if (!dep_slot) {
             if (dep.flags & PULSE_DEP_OPTIONAL) {
                 continue;
@@ -89,14 +89,14 @@ void DependencyGraph::evaluate(
             out_failed = true;
             return;
         }
-        if (dep_slot->state == PULSE_ASSET_STATE_FAILED) {
+        if (dep_slot->slot.state == PULSE_ASSET_STATE_FAILED) {
             if (dep.flags & PULSE_DEP_OPTIONAL) {
                 continue;
             }
             out_failed = true;
             return;
         }
-        if (dep_slot->state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+        if (dep_slot->slot.state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
             out_ready = false;
         }
     }
@@ -107,33 +107,34 @@ void DependencyGraph::commit(
     pulse_asset_handle handle,
     const std::pmr::vector<pulse_asset_dependency>& dependencies
 ) const {
-    AssetSlot* slot = storage.get_slot(handle);
-    if (!slot) {
+    auto found = storage.get_slot(handle);
+    if (!found) {
         return;
     }
 
-    detach_committed_dependencies(storage, handle, *slot);
-    slot->dependencies.clear();
+    AssetSlot& slot = found->slot;
+    detach_committed_dependencies(storage, handle, slot);
+    slot.dependencies.clear();
 
     for (const pulse_asset_dependency& dep : dependencies) {
         if (is_invalid_handle(dep.handle)) {
             continue;
         }
 
-        AssetSlot* dep_slot = storage.get_slot(dep.handle);
+        auto dep_slot = storage.get_slot(dep.handle);
         if (!dep_slot) {
             continue;
         }
 
-        bool exists = std::any_of(slot->dependencies.begin(), slot->dependencies.end(), [&](pulse_asset_handle existing) {
+        bool exists = std::any_of(slot.dependencies.begin(), slot.dependencies.end(), [&](pulse_asset_handle existing) {
             return handles_equal(existing, dep.handle);
         });
         if (exists) {
             continue;
         }
 
-        slot->dependencies.push_back(dep.handle);
-        dep_slot->dependents.push_back(handle);
+        slot.dependencies.push_back(dep.handle);
+        dep_slot->slot.dependents.push_back(handle);
     }
 }
 
@@ -143,17 +144,17 @@ void DependencyGraph::detach_committed_dependencies(
     AssetSlot& slot
 ) const {
     for (pulse_asset_handle dep_handle : slot.dependencies) {
-        AssetSlot* dep_slot = storage.get_slot(dep_handle);
+        auto dep_slot = storage.get_slot(dep_handle);
         if (!dep_slot) {
             continue;
         }
 
-        dep_slot->dependents.erase(
-            std::remove_if(dep_slot->dependents.begin(), dep_slot->dependents.end(), [&](pulse_asset_handle dependent) {
+        dep_slot->slot.dependents.erase(
+            std::remove_if(dep_slot->slot.dependents.begin(), dep_slot->slot.dependents.end(), [&](pulse_asset_handle dependent) {
                 return handles_equal(dependent, handle);
             }),
-            dep_slot->dependents.end());
-        storage.try_unload_slot(dep_handle);
+            dep_slot->slot.dependents.end());
+        storage.try_unload_slot(*dep_slot, dep_handle);
     }
 }
 
@@ -163,9 +164,9 @@ void DependencyGraph::pin_committed_dependencies(AssetStorage& storage, const As
             continue;
         }
 
-        AssetSlot* dep_slot = storage.get_slot(dep_handle);
-        if (dep_slot && dep_slot->state == PULSE_ASSET_STATE_LOADED) {
-            dep_slot->pin_count += 1;
+        auto dep_slot = storage.get_slot(dep_handle);
+        if (dep_slot && dep_slot->slot.state == PULSE_ASSET_STATE_LOADED) {
+            dep_slot->slot.pin_count += 1;
         }
     }
 }
@@ -176,9 +177,9 @@ void DependencyGraph::unpin_committed_dependencies(AssetStorage& storage, const 
             continue;
         }
 
-        AssetSlot* dep_slot = storage.get_slot(dep_handle);
-        if (dep_slot && dep_slot->pin_count > 0) {
-            dep_slot->pin_count -= 1;
+        auto dep_slot = storage.get_slot(dep_handle);
+        if (dep_slot && dep_slot->slot.pin_count > 0) {
+            dep_slot->slot.pin_count -= 1;
         }
     }
 }
@@ -204,42 +205,50 @@ AssetBucket* AssetStorage::ensure_bucket(uint64_t type_id) {
     return &bucket;
 }
 
-AssetSlot* AssetStorage::get_slot(pulse_asset_handle handle) {
+std::optional<AssetBucketSlot> AssetStorage::get_slot(pulse_asset_handle handle) {
     if (is_invalid_handle(handle)) {
-        return nullptr;
+        return std::nullopt;
     }
 
     auto bucket_it = buckets_.find(handle.type_id);
     if (bucket_it == buckets_.end()) {
-        return nullptr;
+        return std::nullopt;
     }
 
     AssetBucket& bucket = bucket_it->second;
     if (handle.index >= bucket.slots.size()) {
-        return nullptr;
+        return std::nullopt;
     }
 
     AssetSlot& slot = bucket.slots[handle.index];
-    return slot.generation == handle.generation ? &slot : nullptr;
+    if (slot.generation != handle.generation) {
+        return std::nullopt;
+    }
+
+    return AssetBucketSlot{bucket, slot};
 }
 
-const AssetSlot* AssetStorage::get_slot(pulse_asset_handle handle) const {
+std::optional<ConstAssetBucketSlot> AssetStorage::get_slot(pulse_asset_handle handle) const {
     if (is_invalid_handle(handle)) {
-        return nullptr;
+        return std::nullopt;
     }
 
     auto bucket_it = buckets_.find(handle.type_id);
     if (bucket_it == buckets_.end()) {
-        return nullptr;
+        return std::nullopt;
     }
 
     const AssetBucket& bucket = bucket_it->second;
     if (handle.index >= bucket.slots.size()) {
-        return nullptr;
+        return std::nullopt;
     }
 
     const AssetSlot& slot = bucket.slots[handle.index];
-    return slot.generation == handle.generation ? &slot : nullptr;
+    if (slot.generation != handle.generation) {
+        return std::nullopt;
+    }
+
+    return ConstAssetBucketSlot{bucket, slot};
 }
 
 AssetSlotAllocation AssetStorage::allocate_slot(uint64_t type_id, const std::pmr::string& path) {
@@ -320,35 +329,23 @@ void AssetStorage::destroy_all_assets() {
     path_cache_.clear();
 }
 
-void AssetStorage::try_unload_slot(pulse_asset_handle handle) {
-    if (is_invalid_handle(handle)) {
+void AssetStorage::try_unload_slot(AssetBucketSlot bucket_slot, pulse_asset_handle handle) {
+    if (is_invalid_handle(handle) ||
+        handle.index >= bucket_slot.bucket.slots.size() ||
+        &bucket_slot.bucket.slots[handle.index] != &bucket_slot.slot ||
+        bucket_slot.slot.generation != handle.generation) {
         return;
     }
 
-    auto bucket_it = buckets_.find(handle.type_id);
-    if (bucket_it == buckets_.end()) {
-        return;
-    }
-
-    AssetBucket& bucket = bucket_it->second;
-    if (handle.index >= bucket.slots.size()) {
-        return;
-    }
-
-    AssetSlot& slot = bucket.slots[handle.index];
-    if (slot.generation != handle.generation) {
-        return;
-    }
-
-    if (slot.pin_count == 0 && slot.dependents.empty()) {
-        destroy_slot(bucket, slot, handle);
-        bucket.free_indices.push_back(handle.index);
+    if (bucket_slot.slot.pin_count == 0 && bucket_slot.slot.dependents.empty()) {
+        destroy_slot(bucket_slot.bucket, bucket_slot.slot, handle);
+        bucket_slot.bucket.free_indices.push_back(handle.index);
     }
 }
 
 bool AssetStorage::cached_slot_can_be_reused(pulse_asset_handle handle) const {
-    const AssetSlot* slot = get_slot(handle);
-    return slot && slot->state != PULSE_ASSET_STATE_PENDING_DELETE;
+    auto slot = get_slot(handle);
+    return slot && slot->slot.state != PULSE_ASSET_STATE_PENDING_DELETE;
 }
 
 pulse_asset_handle AssetStorage::find_cached(uint64_t type_id, const std::pmr::string& path) const {

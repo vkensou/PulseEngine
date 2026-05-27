@@ -178,6 +178,16 @@ struct AssetSlotAllocation {
     AssetSlot* slot = nullptr;
 };
 
+struct AssetBucketSlot {
+    AssetBucket& bucket;
+    AssetSlot& slot;
+};
+
+struct ConstAssetBucketSlot {
+    const AssetBucket& bucket;
+    const AssetSlot& slot;
+};
+
 class DependencyGraph final {
 public:
     void evaluate(const AssetStorage& storage, const std::pmr::vector<pulse_asset_dependency>& dependencies, bool& out_failed, bool& out_ready) const;
@@ -192,12 +202,12 @@ public:
     AssetStorage(std::pmr::memory_resource* resource, AssetRegistry& registry);
 
     AssetBucket* ensure_bucket(uint64_t type_id);
-    AssetSlot* get_slot(pulse_asset_handle handle);
-    const AssetSlot* get_slot(pulse_asset_handle handle) const;
+    std::optional<AssetBucketSlot> get_slot(pulse_asset_handle handle);
+    std::optional<ConstAssetBucketSlot> get_slot(pulse_asset_handle handle) const;
     AssetSlotAllocation allocate_slot(uint64_t type_id, const std::pmr::string& path);
     void destroy_slot(AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle);
     void destroy_all_assets();
-    void try_unload_slot(pulse_asset_handle handle);
+    void try_unload_slot(AssetBucketSlot bucket_slot, pulse_asset_handle handle);
     bool cached_slot_can_be_reused(pulse_asset_handle handle) const;
     pulse_asset_handle find_cached(uint64_t type_id, const std::pmr::string& path) const;
     void cache_path(uint64_t type_id, const std::pmr::string& path, pulse_asset_handle handle);
@@ -288,7 +298,7 @@ public:
     void process(AssetSystem& system);
     LoadJobOutcome process_immediate_builder(AssetSystem& system, JobIterator job_it);
     void cancel_all(AssetSystem& system);
-    void retire_load_job(AssetSystem& system, LoadJob& job);
+    std::optional<AssetBucketSlot> retire_load_job(AssetSystem& system, LoadJob& job);
     void retire_and_erase(AssetSystem& system, JobIterator job_it);
 
 private:

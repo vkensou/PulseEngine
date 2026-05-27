@@ -118,13 +118,13 @@ pulse_asset_handle AssetSystem::build_asset(const pulse_asset_build_desc* desc) 
 }
 
 pulse_asset_state_t AssetSystem::get_state(pulse_asset_handle handle) const {
-    const AssetSlot* slot = storage_.get_slot(handle);
-    return slot ? slot->state : PULSE_ASSET_STATE_EMPTY;
+    auto slot = storage_.get_slot(handle);
+    return slot ? slot->slot.state : PULSE_ASSET_STATE_EMPTY;
 }
 
 const char* AssetSystem::get_error(pulse_asset_handle handle) const {
-    const AssetSlot* slot = storage_.get_slot(handle);
-    return slot && !slot->error.empty() ? slot->error.c_str() : nullptr;
+    auto slot = storage_.get_slot(handle);
+    return slot && !slot->slot.error.empty() ? slot->slot.error.c_str() : nullptr;
 }
 
 bool AssetSystem::acquire(pulse_asset_handle handle, pulse_asset_ref* out_ref) {
@@ -133,15 +133,16 @@ bool AssetSystem::acquire(pulse_asset_handle handle, pulse_asset_ref* out_ref) {
         out_ref->ptr = nullptr;
     }
 
-    AssetSlot* slot = storage_.get_slot(handle);
-    if (!out_ref || !slot || slot->state != PULSE_ASSET_STATE_LOADED || !slot->constructed) {
+    auto slot = storage_.get_slot(handle);
+    if (!out_ref || !slot ||
+        slot->slot.state != PULSE_ASSET_STATE_LOADED || !slot->slot.constructed) {
         return false;
     }
 
-    slot->pin_count += 1;
-    storage_.dependencies().pin_committed_dependencies(storage_, *slot);
+    slot->slot.pin_count += 1;
+    storage_.dependencies().pin_committed_dependencies(storage_, slot->slot);
     out_ref->handle = handle;
-    out_ref->ptr = slot->data.data;
+    out_ref->ptr = slot->slot.data.data;
     return true;
 }
 
@@ -150,10 +151,10 @@ void AssetSystem::release(pulse_asset_ref* ref) {
         return;
     }
 
-    AssetSlot* slot = storage_.get_slot(ref->handle);
-    if (slot && slot->pin_count > 0) {
-        slot->pin_count -= 1;
-        storage_.dependencies().unpin_committed_dependencies(storage_, *slot);
+    auto slot = storage_.get_slot(ref->handle);
+    if (slot && slot->slot.pin_count > 0) {
+        slot->slot.pin_count -= 1;
+        storage_.dependencies().unpin_committed_dependencies(storage_, slot->slot);
     }
 
     ref->handle = invalid_handle();
@@ -165,36 +166,36 @@ void AssetSystem::unload(pulse_asset_handle handle) {
         return;
     }
 
-    AssetSlot* slot = storage_.get_slot(handle);
-    if (!slot || slot->pin_count == 0) {
+    auto slot = storage_.get_slot(handle);
+    if (!slot || slot->slot.pin_count == 0) {
         return;
     }
 
-    if (slot->retiring_load_job) {
-        slot->pin_count -= 1;
-        if (slot->pin_count == 0) {
-            slot->state = PULSE_ASSET_STATE_PENDING_DELETE;
-            slot->error = "asset unload pending";
+    if (slot->slot.retiring_load_job) {
+        slot->slot.pin_count -= 1;
+        if (slot->slot.pin_count == 0) {
+            slot->slot.state = PULSE_ASSET_STATE_PENDING_DELETE;
+            slot->slot.error = "asset unload pending";
         }
         return;
     }
 
-    slot->pin_count -= 1;
-    if (is_load_in_progress_state(slot->state)) {
-        if (slot->pin_count == 0) {
-            slot->state = PULSE_ASSET_STATE_PENDING_DELETE;
-            slot->error = "asset unload pending";
+    slot->slot.pin_count -= 1;
+    if (is_load_in_progress_state(slot->slot.state)) {
+        if (slot->slot.pin_count == 0) {
+            slot->slot.state = PULSE_ASSET_STATE_PENDING_DELETE;
+            slot->slot.error = "asset unload pending";
         }
         return;
     }
 
-    storage_.try_unload_slot(handle);
+    storage_.try_unload_slot(*slot, handle);
 }
 
 void AssetSystem::mark_modified(pulse_asset_handle handle) {
-    AssetSlot* slot = storage_.get_slot(handle);
-    if (slot && slot->state == PULSE_ASSET_STATE_LOADED) {
-        slot->version += 1;
+    auto slot = storage_.get_slot(handle);
+    if (slot && slot->slot.state == PULSE_ASSET_STATE_LOADED) {
+        slot->slot.version += 1;
     }
 }
 
@@ -311,7 +312,7 @@ LoadJobPhase AssetSystem::choose_initial_phase(const LoadRequest& request, Asset
             continue;
         }
 
-        const AssetSlot* dep_slot = storage_.get_slot(dep.handle);
+        auto dep_slot = storage_.get_slot(dep.handle);
         if (!dep_slot) {
             if (!(dep.flags & PULSE_DEP_OPTIONAL)) {
                 slot.state = PULSE_ASSET_STATE_FAILED;
@@ -319,12 +320,12 @@ LoadJobPhase AssetSystem::choose_initial_phase(const LoadRequest& request, Asset
             }
             continue;
         }
-        if (dep_slot->state == PULSE_ASSET_STATE_FAILED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+        if (dep_slot->slot.state == PULSE_ASSET_STATE_FAILED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
             slot.state = PULSE_ASSET_STATE_FAILED;
             slot.error = "dependency asset failed to load";
             continue;
         }
-        if (dep_slot->state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+        if (dep_slot->slot.state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
             has_unresolved_required = true;
         }
     }
