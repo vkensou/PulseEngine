@@ -434,13 +434,13 @@ bool create_or_resize_swapchain(
         }
     }
 
-    swapchain->backbuffers = new (std::nothrow) HGEGraphics::Backbuffer[count]{};
+    swapchain->backbuffers = new (std::nothrow) pulse_backbuffer_data_t[count]{};
     if (!swapchain->backbuffers) {
         return false;
     }
     for (uint32_t i = 0; i < count; ++i) {
         HGEGraphics::init_backbuffer(
-            &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[i],
+            &static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers)[i],
             swapchain->swapchain,
             static_cast<int>(i)
         );

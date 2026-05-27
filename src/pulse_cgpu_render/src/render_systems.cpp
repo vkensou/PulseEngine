@@ -209,7 +209,7 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
 
         if (acquire_window_image(swapchain, frame.frame_index)) {
             swapchain->current_backbuffer =
-                &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[
+                &static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers)[
                     swapchain->current_backbuffer_index];
 
             frame.prepared_entities.push_back(entity);

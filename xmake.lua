@@ -100,6 +100,7 @@ target("pulse_cgpu_render")
 
 target("pulse_graphic")
     set_kind("static")
+    set_exceptions("cxx")
     add_deps("pulse_app")
     add_deps("pulse_asset")
     add_deps("pulse_cgpu_render")

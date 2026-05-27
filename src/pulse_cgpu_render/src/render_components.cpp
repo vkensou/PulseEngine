@@ -164,7 +164,7 @@ void release_swapchain_resources(pulse_cgpu_swapchain* swapchain) {
     delete[] swapchain->framebuffers;
     delete[] swapchain->image_available_semaphores;
     delete[] swapchain->render_finished_semaphores;
-    delete[] static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers);
+    delete[] static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers);
     swapchain->backbuffers = nullptr;
 
     reset_swapchain_handles(swapchain);

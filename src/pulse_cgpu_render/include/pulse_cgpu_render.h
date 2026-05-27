@@ -75,8 +75,8 @@ typedef struct pulse_cgpu_swapchain {
     uint32_t width;
     uint32_t height;
     uint32_t current_backbuffer_index;
-    void* backbuffers;
-    void* current_backbuffer;
+    pulse_backbuffer_data_t* backbuffers;
+    pulse_backbuffer_data_t* current_backbuffer;
 } pulse_cgpu_swapchain;
 
 extern ECS_COMPONENT_DECLARE(pulse_cgpu_renderer);
