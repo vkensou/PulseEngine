@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 #include "pulse_app.h"
 #include "pulse_asset.h"
@@ -124,14 +125,33 @@ int main(void) {
     //CGPUSamplerDescriptor smp_desc{};
     //pulse_sampler_t sampler = pulse_graphic_sampler_create(app, &smp_desc);
 
-    //CGPUTextureDescriptor tex_desc{};
-    //tex_desc.width = 64;
-    //tex_desc.height = 64;
-    //tex_desc.depth = 1;
-    //tex_desc.mip_levels = 1;
-    //tex_desc.format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM;
+	pulse_graphics_texture_load_desc tex_load_desc{
+        .filepath = "TilesGray512.ktx",
+		.generate_mipmaps = false,
+    };
     pulse_texture_t texture = pulse_graphic_texture_load(
-        app, "TilesGray512.jpg", false);
+        app, &tex_load_desc);
+
+    std::vector<uint32_t> pixels = { 0xFF00FFFF };
+
+    pulse_graphics_texture_create_desc tex_create_desc
+    {
+        .desc = {
+            .name = "create_texture",
+            .width = 1,
+            .height = 1,
+            .depth = 1,
+            .array_size = 1,
+            .format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,
+            .mip_levels = 1,
+            .descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
+        },
+		.pixel_data_size = sizeof(uint32_t),
+		.pixel_data = pixels.data(),
+    };
+
+    pulse_texture_t texture2 = pulse_graphic_texture_create(
+        app, &tex_create_desc);
 
     //float verts[] = {0,0,0, 1,0,0, 0,1,0};
     //uint16_t idxs[] = {0, 1, 2};

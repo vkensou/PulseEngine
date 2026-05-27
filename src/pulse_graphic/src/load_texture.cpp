@@ -7,6 +7,11 @@
 
 namespace pulse_graphic_internal {
 
+struct TextureLoaderState {
+    bool upload_requested = false;
+    bool upload_completed = false;
+};
+
 pulse_asset_loader_status_t step_texture_stb(
     void* state, const pulse_asset_load_task* ctx,
     const char** out_error)
@@ -17,6 +22,8 @@ pulse_asset_loader_status_t step_texture_stb(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
+        auto load_desc = static_cast<const pulse_graphics_texture_load_desc*>(ctx->settings);
+
         int w = 0, h = 0, comp = 0;
         auto* pixels = stbi_load_from_memory(ctx->bytes, ctx->byte_size, &w, &h, &comp, 4);
         if (!pixels) {
@@ -24,7 +31,7 @@ pulse_asset_loader_status_t step_texture_stb(
             return PULSE_ASSET_LOADER_FAILED;
         }
 
-        bool mipmap = false;
+        bool mipmap = load_desc->generate_mipmaps;
         auto mipLevels = mipmap ? static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1 : 1;
         CGPUTextureDescriptor texture_desc =
         {
@@ -105,6 +112,8 @@ pulse_asset_loader_status_t step_texture_ktx(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
+        auto load_desc = static_cast<const pulse_graphics_texture_load_desc*>(ctx->settings);
+
         ktxResult result = KTX_SUCCESS;
         ktxTexture* ktxTexture;
         result = ktxTexture_CreateFromMemory(ctx->bytes, ctx->byte_size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
@@ -126,10 +135,10 @@ pulse_asset_loader_status_t step_texture_ktx(
         uint32_t mipLevels = ktxTexture->numLevels;
         uint32_t arraySize = 1;
 
-        bool mipmap = true;
-        bool generateMipmap = mipmap && mipLevels <= 1;
-        generateMipmap = false;
-        mipLevels = mipmap ? (mipLevels > 1 ? mipLevels : (static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1)) : 1;
+        bool generateMipmap = load_desc->generate_mipmaps && mipLevels <= 1;
+		if (generateMipmap) {
+			mipLevels = std::max(mipLevels, static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1);
+		}
         ECGPUResourceTypeFlags descriptors = CGPU_RESOURCE_TYPE_TEXTURE;
         if (generateMipmap)
             descriptors |= CGPU_RESOURCE_TYPE_RENDER_TARGET;
@@ -163,7 +172,7 @@ pulse_asset_loader_status_t step_texture_ktx(
         uint32_t textureComponent = FormatUtil_BitSizeOfBlock(format) / 8;
         auto mipedSize = [](uint64_t size, uint64_t mip) { return std::max<uint64_t>(size >> mip, 1ull); };
 
-        bool genMip = mipmap && mipLevels > ktxTexture->numLevels;
+        bool genMip = mipLevels > ktxTexture->numLevels;
         uint64_t totalSize = 0;
         auto* staging = queue_staging_texture_full(gstate, texture,
             static_cast<uint8_t>(ktxTexture->numLevels), genMip,
@@ -202,5 +211,51 @@ pulse_asset_loader_status_t step_texture_ktx(
 
     return PULSE_ASSET_LOADER_PENDING;
 }
+
+void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device)
+{
+    pulse_asset_loader_desc ld1{};
+    ld1.struct_size = sizeof(pulse_asset_loader_desc);
+    ld1.version = PULSE_ASSET_LOADER_DESC_VERSION;
+    ld1.type_id = PULSE_TYPE_TEXTURE;
+    ld1.extensions = "png,jpg,bmp,tga";
+    ld1.ctor = nullptr;
+    ld1.dtor = nullptr;
+    ld1.step = step_texture_stb;
+    ld1.loader_size = sizeof(TextureLoaderState);
+    ld1.loader_align = alignof(TextureLoaderState);
+    ld1.settings_size = sizeof(pulse_graphics_texture_load_desc);
+    ld1.settings_align = alignof(pulse_graphics_texture_load_desc);
+    ld1.user_data = const_cast<struct CGPUDevice*>(device);
+    pulse_asset_register_loader(app, &ld1);
+
+    pulse_asset_loader_desc ld2{};
+    ld2.struct_size = sizeof(pulse_asset_loader_desc);
+    ld2.version = PULSE_ASSET_LOADER_DESC_VERSION;
+    ld2.type_id = PULSE_TYPE_TEXTURE;
+    ld2.extensions = "ktx";
+    ld2.ctor = nullptr;
+    ld2.dtor = nullptr;
+    ld2.step = step_texture_ktx;
+    ld2.loader_size = sizeof(TextureLoaderState);
+    ld2.loader_align = alignof(TextureLoaderState);
+    ld2.settings_size = sizeof(pulse_graphics_texture_load_desc);
+    ld2.settings_align = alignof(pulse_graphics_texture_load_desc);
+    ld2.user_data = const_cast<struct CGPUDevice*>(device);
+    pulse_asset_register_loader(app, &ld2);
+}
+
+}
+
+extern "C" {
+
+    pulse_texture_t pulse_graphic_texture_load(
+        pulse_app_t app,
+        const pulse_graphics_texture_load_desc* desc)
+    {
+        pulse_asset_handle h = pulse_graphic_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, desc->filepath, desc);
+        if (!pulse_asset_handle_is_valid(h)) return pulse_texture_t{};
+        return pulse_texture_t{ h.index, h.generation };
+    }
 
 }

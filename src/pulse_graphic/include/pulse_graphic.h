@@ -27,7 +27,7 @@ typedef struct pulse_shader_t          { pulse_asset_handle asset; } pulse_shade
 typedef struct pulse_shader_library_t  { pulse_asset_handle asset; } pulse_shader_library_t;
 typedef struct pulse_compute_shader_t  { pulse_asset_handle asset; } pulse_compute_shader_t;
 typedef struct pulse_mesh_t            { pulse_asset_handle asset; } pulse_mesh_t;
-typedef struct pulse_texture_t         { pulse_asset_handle asset; } pulse_texture_t;
+typedef struct pulse_texture_t         { uint32_t index; uint32_t generation;} pulse_texture_t;
 typedef struct pulse_buffer_t          { pulse_asset_handle asset; } pulse_buffer_t;
 typedef struct pulse_material_t        { pulse_asset_handle asset; } pulse_material_t;
 typedef struct pulse_sampler_t         { pulse_asset_handle asset; } pulse_sampler_t;
@@ -94,18 +94,31 @@ pulse_sampler_t pulse_graphic_sampler_create(
 pulse_sampler_data_t* pulse_graphic_sampler_acquire(pulse_app_t app, pulse_sampler_t* handle);
 void pulse_graphic_sampler_release(pulse_app_t app, pulse_sampler_t* handle);
 
-pulse_texture_t pulse_graphic_texture_create_from_data(
+typedef struct pulse_graphics_texture_create_desc {
+    CGPUTextureDescriptor desc;
+    uint64_t pixel_data_size;
+    const void* pixel_data; 
+	bool generate_mipmaps;
+} pulse_graphics_texture_create_desc;
+
+pulse_texture_t pulse_graphic_texture_create(
     pulse_app_t app,
-    const CGPUTextureDescriptor* desc,
-    const void* pixel_data, uint64_t pixel_data_size);
+    const pulse_graphics_texture_create_desc* desc);
+
+typedef struct pulse_graphics_texture_load_desc {
+    const char* filepath;
+    bool generate_mipmaps;
+} pulse_graphics_texture_load_desc;
 
 pulse_texture_t pulse_graphic_texture_load(
     pulse_app_t app,
-    const char* filepath,
-    bool mipmap);
+    const pulse_graphics_texture_load_desc* desc);
 
-pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t* handle);
-void pulse_graphic_texture_release(pulse_app_t app, pulse_texture_t* handle);
+static pulse_asset_handle pulse_graphic_texture_to_handle(pulse_texture_t texture) { return { PULSE_TYPE_TEXTURE, texture.index, texture.generation }; }
+static bool pulse_graphic_texture_is_available(pulse_app_t app, pulse_texture_t texture) { return pulse_asset_is_available(app, pulse_graphic_texture_to_handle(texture)); }
+pulse_texture_data_t* pulse_graphic_texture_acquire(pulse_app_t app, pulse_texture_t handle);
+void pulse_graphic_texture_release(pulse_app_t app, pulse_texture_t handle);
+static void pulse_graphic_texture_unload(pulse_app_t app, pulse_texture_t texture) { pulse_asset_unload(app, pulse_graphic_texture_to_handle(texture)); }
 
 pulse_mesh_t pulse_graphic_mesh_create_from_data(
     pulse_app_t app,

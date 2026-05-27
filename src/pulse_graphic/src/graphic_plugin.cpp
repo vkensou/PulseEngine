@@ -191,12 +191,6 @@ static void destroy_mesh(void* ptr, void* user_data) {
     if (data->index_buffer) cgpu_device_free_buffer(device, data->index_buffer->handle);
 }
 
-static void destroy_texture(void* ptr, void* user_data) {
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_texture_data_t* data = static_cast<pulse_texture_data_t*>(ptr);
-    if (data->view) cgpu_device_free_texture_view(device, data->view);
-    if (data->handle) cgpu_device_free_texture(device, data->handle);
-}
 
 static void destroy_buffer(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
@@ -248,7 +242,7 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     register_type(PULSE_TYPE_COMPUTE_SHADER, sizeof(pulse_compute_shader_data_t), alignof(pulse_compute_shader_data_t), destroy_compute_shader);
     register_type(PULSE_TYPE_SHADER_LIBRARY, sizeof(pulse_shader_library_data_t), alignof(pulse_shader_library_data_t), destroy_shader_library);
     register_type(PULSE_TYPE_MESH, sizeof(pulse_mesh_data_t), alignof(pulse_mesh_data_t), destroy_mesh);
-    register_type(PULSE_TYPE_TEXTURE, sizeof(pulse_texture_data_t), alignof(pulse_texture_data_t), destroy_texture);
+	register_texture_type(app, device);
     register_type(PULSE_TYPE_BUFFER, sizeof(pulse_buffer_data_t), alignof(pulse_buffer_data_t), destroy_buffer);
     register_type(PULSE_TYPE_MATERIAL, sizeof(pulse_material_data_t), alignof(pulse_material_data_t), destroy_material);
     register_type(PULSE_TYPE_SAMPLER, sizeof(pulse_sampler_data_t), alignof(pulse_sampler_data_t), destroy_sampler);
@@ -294,14 +288,8 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
                     ctor_shader_from_deps, nullptr, step_compute_shader_from_deps,
                     sizeof(ShaderLoaderState), alignof(ShaderLoaderState), 0, 0,
                     static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_TEXTURE, "png,jpg,bmp,tga",
-                    nullptr, nullptr, step_texture_stb,
-                    sizeof(TextureLoaderState), alignof(TextureLoaderState), 0, 0,
-                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_TEXTURE, "ktx",
-                    nullptr, nullptr, step_texture_ktx,
-                    sizeof(TextureLoaderState), alignof(TextureLoaderState), 0, 0,
-                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
+    register_texture_create_loader(app, device);
+    register_texture_load_loader(app, device);
     register_loader(PULSE_TYPE_MESH, "obj",
                     nullptr, nullptr, step_mesh,
                     sizeof(MeshLoaderState), alignof(MeshLoaderState), 0, 0,
@@ -344,7 +332,7 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     if (!state) return false;
     if (!pulse_asset_handle_is_valid(handle)) return false;
     for (const auto& entry : state->pending_uploads) {
-        if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(entry.texture.asset, handle)) return true;
+        if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphic_texture_to_handle(entry.texture), handle)) return true;
         if (entry.content == UPLOAD_BUFFER && pulse_asset_handle_equals(entry.buffer.asset, handle)) return true;
     }
     return false;
@@ -357,7 +345,7 @@ void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     auto& vec = state->pending_uploads;
     for (size_t i = 0; i < vec.size(); ) {
         bool match = false;
-        if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(vec[i].texture.asset, handle)) match = true;
+        if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphic_texture_to_handle(vec[i].texture), handle)) match = true;
         if (vec[i].content == UPLOAD_BUFFER && pulse_asset_handle_equals(vec[i].buffer.asset, handle)) match = true;
         if (match) {
             vec.erase(vec.begin() + i);

@@ -26,8 +26,8 @@ static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, 
         case UPLOAD_TEXTURE_DATA: {
             pulse_texture_data_t* tex = entry.texture_data;
             pulse_asset_ref ref{};
-            if (!tex && pulse_asset_handle_is_valid(entry.texture.asset)) {
-                if (pulse_asset_acquire(app, entry.texture.asset, &ref))
+            if (!tex && pulse_asset_handle_is_valid(pulse_graphic_texture_to_handle(entry.texture))) {
+                if (pulse_asset_acquire(app, pulse_graphic_texture_to_handle(entry.texture), &ref))
                     tex = static_cast<pulse_texture_data_t*>(ref.ptr);
             }
             if (!tex) break;

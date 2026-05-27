@@ -314,6 +314,7 @@ namespace HGEGraphics
 		view_desc.mip_level_count = texture->handle->info->mip_levels;
 		texture->view = cgpu_device_create_texture_view(device, &view_desc);
 		texture->prepared = false;
+		texture->dynamic_handle = {};
 	}
 
 	pulse_texture_data_t* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)

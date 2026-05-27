@@ -124,17 +124,10 @@ uint8_t* queue_staging_buffer_full(
     uint64_t size,
     bool* completed);
 
-struct TextureLoaderState {
-    bool upload_requested = false;
-    bool upload_completed = false;
-};
 
-pulse_asset_loader_status_t step_texture_stb(
-    void* state, const pulse_asset_load_task* ctx,
-    const char** out_error);
-pulse_asset_loader_status_t step_texture_ktx(
-    void* state, const pulse_asset_load_task* ctx,
-    const char** out_error);
+void register_texture_type(pulse_app_t app, CGPUDeviceId device);
+void register_texture_create_loader(pulse_app_t app, CGPUDeviceId device);
+void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device);
 
 struct MeshLoaderState {
     bool upload_requested = false;

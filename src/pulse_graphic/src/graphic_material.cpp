@@ -121,23 +121,23 @@ void pulse_graphic_material_bind_texture(
     uint32_t set, uint32_t binding,
     pulse_texture_t texture)
 {
-    pulse_texture_data_t* tex_data = pulse_graphic_texture_acquire(app, &texture);
+    pulse_texture_data_t* tex_data = pulse_graphic_texture_acquire(app, texture);
     if (!tex_data) return;
 
     pulse_asset_ref mat_ref{};
     if (!pulse_asset_acquire(app, material->asset, &mat_ref)) {
-        pulse_graphic_texture_release(app, &texture);
+        pulse_graphic_texture_release(app, texture);
         return;
     }
 
     MaterialInternal* internal = get_material_internal(material->asset);
     if (internal) {
-        internal->bindings.push_back({1, set, binding, texture.asset});
+        internal->bindings.push_back({1, set, binding, pulse_graphic_texture_to_handle(texture)});
         //internal->cpp_material->bindTexture((int)set, (int)binding, nullptr);
     }
 
     pulse_asset_release(app, &mat_ref);
-    pulse_graphic_texture_release(app, &texture);
+    pulse_graphic_texture_release(app, texture);
 }
 
 void pulse_graphic_material_bind_sampler(
