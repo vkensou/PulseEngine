@@ -28,15 +28,15 @@ pulse_asset_loader_status_t step_material_create(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* mat = static_cast<pulse_material_data_t*>(ctx->out_asset);
 
-        pulse_shader_t shader_handle = { shader_asset_handle };
-        pulse_shader_data_t* shader_data = pulse_graphic_shader_acquire(ctx->app, &shader_handle);
-        if (!shader_data) {
+        pulse_shader_t shader_handle = { shader_asset_handle.index, shader_asset_handle.generation };
+        pulse_graphic_shader_ref shader_ref{};
+        if (!pulse_graphic_shader_acquire(ctx->app, shader_handle, &shader_ref)) {
             *out_error = "material loader: shader not available";
             return PULSE_ASSET_LOADER_FAILED;
         }
 
-        HGEGraphics::init_material(mat, device, shader_data);
-        pulse_graphic_shader_release(ctx->app, &shader_handle);
+        HGEGraphics::init_material(mat, device, shader_ref.ptr);
+        pulse_graphic_shader_release(ctx->app, &shader_ref);
 
         s->initialized = true;
     }
@@ -79,7 +79,7 @@ pulse_material_t pulse_graphic_material_create(
         return result;
 
     pulse_asset_dependency dependencies[1];
-    dependencies[0] = { desc->shader.asset, PULSE_DEP_REQUIRED };
+    dependencies[0] = { pulse_graphic_shader_to_handle(desc->shader), PULSE_DEP_REQUIRED };
 
     pulse_asset_handle asset_handle = pulse_graphic_internal::asset_build(
         app, PULSE_TYPE_MATERIAL, nullptr, dependencies, 1, desc);

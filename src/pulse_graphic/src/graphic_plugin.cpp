@@ -40,160 +40,12 @@ static pulse_asset_loader_status_t step_bytecode(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-// ── Shader library loader ─────────────────────────────────────
-static pulse_asset_loader_status_t step_shader_library(
-    void*, const pulse_asset_load_task* ctx,
-    const char** out_error)
-{
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-    if (!device) { *out_error = "shader library: no device"; return PULSE_ASSET_LOADER_FAILED; }
-    if (ctx->byte_size == 0 || !ctx->bytes) {
-        *out_error = "shader library: no data";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-
-    CGPUShaderLibraryDescriptor desc = {};
-    desc.name = ctx->path;
-    desc.code_size = ctx->byte_size;
-    desc.p_codes = ctx->bytes;
-    auto* lib = cgpu_device_create_shader_library(device, &desc);
-    if (!lib) { *out_error = "shader library: create failed"; return PULSE_ASSET_LOADER_FAILED; }
-
-    auto* data = static_cast<pulse_shader_library_data_t*>(ctx->out_asset);
-    data->library = lib;
-    return PULSE_ASSET_LOADER_DONE;
-}
-
-// ── Shader loader (dependency-based) ───────────────────────────
-struct ShaderLoaderState {
-    bool from_file;
-};
-
-static pulse_result_t ctor_shader_from_deps(void* state, const pulse_asset_load_task* ctx) {
-    auto* s = static_cast<ShaderLoaderState*>(state);
-    s->from_file = ctx->dependency_count > 0;
-    return PULSE_OK;
-}
-
-static pulse_asset_loader_status_t step_shader_from_deps(
-    void* state, const pulse_asset_load_task* ctx,
-    const char** out_error)
-{
-    auto* sls = static_cast<ShaderLoaderState*>(state);
-    if (!sls->from_file) {
-        return PULSE_ASSET_LOADER_DONE;
-    }
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-    if (!device) { *out_error = "shader loader: no device"; return PULSE_ASSET_LOADER_FAILED; }
-
-    pulse_asset_ref vs_ref{}, fs_ref{};
-    if (ctx->dependency_count < 2 ||
-        !pulse_asset_acquire(ctx->app, ctx->dependencies[0].handle, &vs_ref) ||
-        !pulse_asset_acquire(ctx->app, ctx->dependencies[1].handle, &fs_ref))
-    {
-        *out_error = "shader loader: missing deps";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-    auto* vs_lib_data = static_cast<pulse_shader_library_data_t*>(vs_ref.ptr);
-    auto* fs_lib_data = static_cast<pulse_shader_library_data_t*>(fs_ref.ptr);
-
-    CGPUShaderLibraryId vs_lib = vs_lib_data->library;
-    CGPUShaderLibraryId fs_lib = fs_lib_data->library;
-    vs_lib_data->library = CGPU_NULLPTR;
-    fs_lib_data->library = CGPU_NULLPTR;
-
-    CGPUBlendStateDescriptor default_blend{};
-    CGPUDepthStateDescriptor default_depth{};
-    CGPURasterizerStateDescriptor default_raster{};
-    auto cpp_shader = HGEGraphics::create_shader_from_libraries(
-        device, vs_lib, fs_lib,
-        default_blend, default_depth, default_raster);
-
-    pulse_asset_release(ctx->app, &vs_ref);
-    pulse_asset_release(ctx->app, &fs_ref);
-
-    if (!cpp_shader) { *out_error = "shader loader: create_shader failed"; return PULSE_ASSET_LOADER_FAILED; }
-
-    auto* data = static_cast<pulse_shader_data_t*>(ctx->out_asset);
-    data->root_sig = cpp_shader->root_sig;
-    data->vs = cpp_shader->vs;
-    data->ps = cpp_shader->ps;
-    data->blend_desc = cpp_shader->blend_desc;
-    //for (size_t i = 0; i < cpp_shader->blend_attachment_states.size() && i < 8; ++i)
-    //    data->blend_attachments[i] = cpp_shader->blend_attachment_states[i];
-    //data->blend_desc.p_attachments = data->blend_attachments;
-    //data->blend_desc.attachment_count = (uint32_t)(cpp_shader->blend_attachment_states.size() < 8
-    //    ? cpp_shader->blend_attachment_states.size() : 8);
-    data->depth_desc = cpp_shader->depth_desc;
-    data->rasterizer_state = cpp_shader->rasterizer_state;
-    cpp_shader->root_sig = CGPU_NULLPTR;
-    cpp_shader->vs.library = CGPU_NULLPTR;
-    cpp_shader->ps.library = CGPU_NULLPTR;
-
-    return PULSE_ASSET_LOADER_DONE;
-}
-
-// ── Compute shader loader (dependency-based) ───────────────────
-static pulse_asset_loader_status_t step_compute_shader_from_deps(
-    void* state, const pulse_asset_load_task* ctx,
-    const char** out_error)
-{
-    auto* sls = static_cast<ShaderLoaderState*>(state);
-    if (!sls->from_file) { return PULSE_ASSET_LOADER_DONE; }
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-    if (!device) { *out_error = "cs loader: no device"; return PULSE_ASSET_LOADER_FAILED; }
-
-    pulse_asset_ref cs_ref{};
-    if (ctx->dependency_count < 1 ||
-        !pulse_asset_acquire(ctx->app, ctx->dependencies[0].handle, &cs_ref))
-    {
-        *out_error = "cs loader: missing dep";
-        return PULSE_ASSET_LOADER_FAILED;
-    }
-    auto* cs_lib_data = static_cast<pulse_shader_library_data_t*>(cs_ref.ptr);
-
-    CGPUShaderLibraryId cs_lib = cs_lib_data->library;
-    cs_lib_data->library = CGPU_NULLPTR;
-
-    auto cpp_cs = HGEGraphics::create_compute_shader_from_library(device, cs_lib);
-    pulse_asset_release(ctx->app, &cs_ref);
-    if (!cpp_cs) { *out_error = "cs loader: create_compute_shader failed"; return PULSE_ASSET_LOADER_FAILED; }
-
-    auto* data = static_cast<pulse_compute_shader_data_t*>(ctx->out_asset);
-    data->root_sig = cpp_cs->root_sig;
-    data->cs = cpp_cs->cs;
-    cpp_cs->root_sig = CGPU_NULLPTR;
-    cpp_cs->cs.library = CGPU_NULLPTR;
-    return PULSE_ASSET_LOADER_DONE;
-}
-
 const char* kPluginName = "PulseGraphicPlugin";
-
-static void destroy_shader(void* ptr, void* user_data) {
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_shader_data_t* data = static_cast<pulse_shader_data_t*>(ptr);
-    if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
-    if (data->vs.library) cgpu_device_free_shader_library(device, data->vs.library);
-    if (data->ps.library) cgpu_device_free_shader_library(device, data->ps.library);
-}
-
-static void destroy_compute_shader(void* ptr, void* user_data) {
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_compute_shader_data_t* data = static_cast<pulse_compute_shader_data_t*>(ptr);
-    if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
-    if (data->cs.library) cgpu_device_free_shader_library(device, data->cs.library);
-}
 
 static void destroy_sampler(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_sampler_data_t* data = static_cast<pulse_sampler_data_t*>(ptr);
     if (data->handle) cgpu_device_free_sampler(device, data->handle);
-}
-
-static void destroy_shader_library(void* ptr, void* user_data) {
-    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_shader_library_data_t* data = static_cast<pulse_shader_library_data_t*>(ptr);
-    if (data->library) cgpu_device_free_shader_library(device, data->library);
 }
 
 struct GraphStateResource {
@@ -220,9 +72,9 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
         return pulse_asset_register_type(app, &type_desc);
     };
 
-    register_type(PULSE_TYPE_SHADER, sizeof(pulse_shader_data_t), alignof(pulse_shader_data_t), destroy_shader);
-    register_type(PULSE_TYPE_COMPUTE_SHADER, sizeof(pulse_compute_shader_data_t), alignof(pulse_compute_shader_data_t), destroy_compute_shader);
-    register_type(PULSE_TYPE_SHADER_LIBRARY, sizeof(pulse_shader_library_data_t), alignof(pulse_shader_library_data_t), destroy_shader_library);
+    register_shader_type(app, device);
+    register_compute_shader_type(app, device);
+    register_shader_library_type(app, device);
     register_mesh_type(app, device);
 	register_texture_type(app, device);
     register_buffer_type(app, device);
@@ -259,17 +111,10 @@ static pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
 
     register_loader(PULSE_TYPE_BYTECODE, "dxc,gltf",
                     nullptr, nullptr, step_bytecode, 0, 0, 0, 0, nullptr);
-    register_loader(PULSE_TYPE_SHADER_LIBRARY, "spv",
-                    nullptr, nullptr, step_shader_library, 0, 0, 0, 0,
-                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_SHADER, nullptr,
-                    ctor_shader_from_deps, nullptr, step_shader_from_deps,
-                    sizeof(ShaderLoaderState), alignof(ShaderLoaderState), 0, 0,
-                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
-    register_loader(PULSE_TYPE_COMPUTE_SHADER, nullptr,
-                    ctor_shader_from_deps, nullptr, step_compute_shader_from_deps,
-                    sizeof(ShaderLoaderState), alignof(ShaderLoaderState), 0, 0,
-                    static_cast<void*>(const_cast<struct CGPUDevice*>(device)));
+    register_shader_library_load_loader(app, device);
+    register_shader_library_create_loader(app, device);
+    register_shader_create_loaders(app, device);
+    register_compute_shader_create_loaders(app, device);
     register_texture_create_loader(app, device);
     register_texture_load_loader(app, device);
     register_buffer_create_loader(app, device);
@@ -372,10 +217,6 @@ pulse_result_t pulse_graphic_add_plugin(pulse_app_t app, const pulse_graphic_plu
         delete state;
     }
     return result;
-}
-
-bool pulse_graphic_is_available(pulse_app_t app, pulse_shader_t handle) {
-    return pulse_asset_is_available(app, handle.asset);
 }
 
 } // extern "C"

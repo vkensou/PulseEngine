@@ -136,4 +136,13 @@ void register_mesh_type(pulse_app_t app, CGPUDeviceId device);
 void register_mesh_create_loader(pulse_app_t app, CGPUDeviceId device);
 void register_mesh_load_loader(pulse_app_t app, CGPUDeviceId device);
 
+void register_shader_type(pulse_app_t app, CGPUDeviceId device);
+void register_shader_create_loaders(pulse_app_t app, CGPUDeviceId device);
+pulse_result_t ctor_shader_from_deps(void* state, const pulse_asset_load_task* ctx);
+void register_compute_shader_type(pulse_app_t app, CGPUDeviceId device);
+void register_compute_shader_create_loaders(pulse_app_t app, CGPUDeviceId device);
+void register_shader_library_type(pulse_app_t app, CGPUDeviceId device);
+void register_shader_library_load_loader(pulse_app_t app, CGPUDeviceId device);
+void register_shader_library_create_loader(pulse_app_t app, CGPUDeviceId device);
+
 } // namespace pulse_graphic_internal
