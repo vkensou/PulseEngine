@@ -10,14 +10,8 @@ static void destroy_mesh(void* ptr, void* user_data) {
         delete[] data->p_vertex_attributes;
         data->p_vertex_attributes = nullptr;
     }
-    if (data->vertex_buffer) {
-        cgpu_device_free_buffer(device, data->vertex_buffer->handle);
-        data->vertex_buffer = nullptr;
-    }
-    if (data->index_buffer) {
-        cgpu_device_free_buffer(device, data->index_buffer->handle);
-        data->index_buffer = nullptr;
-    }
+    data->vertex_buffer = nullptr;
+    data->index_buffer = nullptr;
 }
 
 void register_mesh_type(pulse_app_t app, CGPUDeviceId device)

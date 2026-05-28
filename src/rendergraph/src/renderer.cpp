@@ -153,10 +153,6 @@ namespace HGEGraphics
 		mesh->index_stride = 0;
 		mesh->vertex_buffer = nullptr;
 		mesh->index_buffer = nullptr;
-		mesh->vb_buffer_index = 0;
-		mesh->vb_buffer_generation = 0;
-		mesh->ib_buffer_index = 0;
-		mesh->ib_buffer_generation = 0;
 		mesh->prepared = false;
 		return std::unique_ptr<pulse_mesh_data_t>(mesh);
 	}
@@ -273,10 +269,6 @@ namespace HGEGraphics
 			free_buffer(mesh->index_buffer);
 			mesh->index_buffer = nullptr;
 		}
-		mesh->vb_buffer_index = 0;
-		mesh->vb_buffer_generation = 0;
-		mesh->ib_buffer_index = 0;
-		mesh->ib_buffer_generation = 0;
 	}
 
 	pulse_texture_data_t* create_empty_texture()

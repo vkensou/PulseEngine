@@ -6,7 +6,8 @@
 namespace pulse_graphic_internal {
 
 struct MeshCreateFromDataState {
-    bool initialized = false;
+    bool vertexBufferPrepared = false;
+    bool indexBufferPrepared = false;
 };
 
 pulse_asset_loader_status_t step_mesh_create_from_data(
@@ -15,56 +16,79 @@ pulse_asset_loader_status_t step_mesh_create_from_data(
 {
     auto* s = static_cast<MeshCreateFromDataState*>(state);
 
-    if (!s->initialized) {
-        CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
-        auto* desc = static_cast<const pulse_graphics_mesh_create_from_data_desc*>(ctx->settings);
-
-        if (ctx->dependency_count < 2) {
-            *out_error = "mesh create loader: missing buffer dependencies";
+    auto vertexBufferHandle = ctx->dependencies[0].handle;
+    pulse_buffer_t vertexBuffer = { vertexBufferHandle.index, vertexBufferHandle.generation };
+    if (!s->vertexBufferPrepared) {
+        auto vbState = pulse_asset_get_state(ctx->app, vertexBufferHandle);
+        if (vbState == PULSE_ASSET_STATE_LOADED)
+            s->vertexBufferPrepared = true;
+        else if (vbState == PULSE_ASSET_STATE_FAILED || vbState == PULSE_ASSET_STATE_PENDING_DELETE) {
+            *out_error = "mesh create loader: failed to wait vertex buffer";
             return PULSE_ASSET_LOADER_FAILED;
-        }
-
-        pulse_buffer_t vb = { ctx->dependencies[0].handle.index, ctx->dependencies[0].handle.generation };
-        pulse_buffer_t ib = { ctx->dependencies[1].handle.index, ctx->dependencies[1].handle.generation };
-
-        pulse_graphic_buffer_ref vb_ref{};
-        pulse_graphic_buffer_ref ib_ref{};
-        if (!pulse_graphic_buffer_acquire(ctx->app, vb, &vb_ref)) {
-            *out_error = "mesh create loader: failed to acquire vertex buffer";
-            return PULSE_ASSET_LOADER_FAILED;
-        }
-        bool has_ib = desc->index_count > 0;
-        if (has_ib && !pulse_graphic_buffer_acquire(ctx->app, ib, &ib_ref)) {
-            pulse_graphic_buffer_release(ctx->app, &vb_ref);
-            *out_error = "mesh create loader: failed to acquire index buffer";
-            return PULSE_ASSET_LOADER_FAILED;
-        }
-
-        CGPUVertexLayout use_layout = *desc->layout;
-        mesh->vertex_layout = use_layout;
-        mesh->p_vertex_attributes = new CGPUVertexAttribute[use_layout.attribute_count];
-        std::copy(use_layout.p_attributes, use_layout.p_attributes + use_layout.attribute_count, mesh->p_vertex_attributes);
-        mesh->vertex_layout.p_attributes = mesh->p_vertex_attributes;
-        mesh->prim_topology = desc->topology;
-        mesh->vertices_count = desc->vertex_count;
-        mesh->vertex_stride = desc->vertex_stride;
-        mesh->index_count = desc->index_count;
-        mesh->index_stride = desc->index_stride;
-
-        mesh->vertex_buffer = vb_ref.ptr;
-        mesh->index_buffer = has_ib ? ib_ref.ptr : nullptr;
-        mesh->vb_buffer_index = vb.index;
-        mesh->vb_buffer_generation = vb.generation;
-        mesh->ib_buffer_index = has_ib ? ib.index : 0;
-        mesh->ib_buffer_generation = has_ib ? ib.generation : 0;
-        mesh->prepared = false;
-
-        pulse_graphic_buffer_release(ctx->app, &vb_ref);
-        if (has_ib) pulse_graphic_buffer_release(ctx->app, &ib_ref);
-
-        s->initialized = true;
+        } else
+            s->vertexBufferPrepared = false;
     }
+
+    auto indexBufferHandle = ctx->dependencies[1].handle;
+    pulse_buffer_t indexBuffer = { indexBufferHandle.index, indexBufferHandle.generation };
+    bool hasIndexBuffer = pulse_asset_handle_is_valid(indexBufferHandle);
+    if (!s->indexBufferPrepared) {
+        if (!hasIndexBuffer)
+            s->indexBufferPrepared = true;
+        else {
+            auto ibState = pulse_asset_get_state(ctx->app, indexBufferHandle);
+            if (ibState == PULSE_ASSET_STATE_LOADED)
+                s->indexBufferPrepared = true;
+            else if (ibState == PULSE_ASSET_STATE_FAILED || ibState == PULSE_ASSET_STATE_PENDING_DELETE) {
+                *out_error = "mesh create loader: failed to wait index buffer";
+                return PULSE_ASSET_LOADER_FAILED;
+            } else
+                s->indexBufferPrepared = false;
+        }
+    }
+
+    if (!s->vertexBufferPrepared || !s->indexBufferPrepared)
+        return PULSE_ASSET_LOADER_WAIT_DEPENDENCIES;
+
+    CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
+    auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
+    auto* desc = static_cast<const pulse_graphics_mesh_create_from_data_desc*>(ctx->settings);
+    
+    if (ctx->dependency_count < 2) {
+        *out_error = "mesh create loader: missing buffer dependencies";
+        return PULSE_ASSET_LOADER_FAILED;
+    }
+    
+    pulse_graphic_buffer_ref vb_ref{};
+    if (!pulse_graphic_buffer_acquire(ctx->app, vertexBuffer, &vb_ref)) {
+        *out_error = "mesh create loader: failed to acquire vertex buffer";
+        return PULSE_ASSET_LOADER_FAILED;
+    }
+
+    pulse_graphic_buffer_ref ib_ref{};
+    if (hasIndexBuffer && !pulse_graphic_buffer_acquire(ctx->app, indexBuffer, &ib_ref)) {
+        pulse_graphic_buffer_release(ctx->app, &vb_ref);
+        *out_error = "mesh create loader: failed to acquire index buffer";
+        return PULSE_ASSET_LOADER_FAILED;
+    }
+    
+    const CGPUVertexLayout& use_layout = desc->layout;
+    mesh->vertex_layout = use_layout;
+    mesh->p_vertex_attributes = new CGPUVertexAttribute[use_layout.attribute_count];
+    std::copy(use_layout.p_attributes, use_layout.p_attributes + use_layout.attribute_count, mesh->p_vertex_attributes);
+    mesh->vertex_layout.p_attributes = mesh->p_vertex_attributes;
+    mesh->prim_topology = desc->topology;
+    mesh->vertices_count = desc->vertex_count;
+    mesh->vertex_stride = desc->vertex_stride;
+    mesh->index_count = desc->index_count;
+    mesh->index_stride = desc->index_stride;
+    
+    mesh->vertex_buffer = vb_ref.ptr;
+    mesh->index_buffer = hasIndexBuffer ? ib_ref.ptr : nullptr;
+    mesh->prepared = true;
+    
+    pulse_graphic_buffer_release(ctx->app, &vb_ref);
+    if (hasIndexBuffer) pulse_graphic_buffer_release(ctx->app, &ib_ref);
 
     return PULSE_ASSET_LOADER_DONE;
 }
@@ -84,7 +108,7 @@ pulse_asset_loader_status_t step_mesh_create_dynamic(
         auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
         auto* desc = static_cast<const pulse_graphics_mesh_create_dynamic_desc*>(ctx->settings);
 
-        CGPUVertexLayout use_layout = *desc->layout;
+        const CGPUVertexLayout& use_layout = desc->layout;
         mesh->vertex_layout = use_layout;
         mesh->p_vertex_attributes = new CGPUVertexAttribute[use_layout.attribute_count];
         std::copy(use_layout.p_attributes, use_layout.p_attributes + use_layout.attribute_count, mesh->p_vertex_attributes);
@@ -95,12 +119,8 @@ pulse_asset_loader_status_t step_mesh_create_dynamic(
         for (auto i = 0; i < use_layout.attribute_count; ++i)
             mesh->vertex_stride += use_layout.p_attributes[i].elem_stride;
         mesh->index_stride = desc->index_stride;
-        mesh->vertex_buffer = HGEGraphics::create_empty_buffer();
-        mesh->index_buffer = HGEGraphics::create_empty_buffer();
-        mesh->vb_buffer_index = 0;
-        mesh->vb_buffer_generation = 0;
-        mesh->ib_buffer_index = 0;
-        mesh->ib_buffer_generation = 0;
+        mesh->vertex_buffer = nullptr;
+        mesh->index_buffer = nullptr;
         mesh->prepared = true;
 
         s->initialized = true;
@@ -151,16 +171,46 @@ pulse_mesh_t pulse_graphic_mesh_create_from_data(
     const pulse_graphics_mesh_create_from_data_desc* desc)
 {
     pulse_mesh_t result{};
-    if (!desc || !desc->layout)
-        return result;
+    if (!desc)
+        return {};
 
     CGPUDeviceId device = pulse_graphic_internal::get_device(app);
     if (!device)
         return result;
 
+    pulse_graphics_buffer_create_desc vertex_buffer_desc = {
+        .desc = {
+            .size = desc->vertex_count * desc->vertex_stride,
+            .name = "vertex buffer",
+            .descriptors = ECGPUResourceTypeFlags(desc->update_vertex_data_from_compute_shader ? CGPU_RESOURCE_TYPE_VERTEX_BUFFER | CGPU_RESOURCE_TYPE_RW_BUFFER : CGPU_RESOURCE_TYPE_VERTEX_BUFFER),
+            .memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY,
+            .flags = CGPU_BUFFER_CREATION_USAGE_PERSISTENT_MAP,
+        },
+        .data_size = desc->vertex_count * desc->vertex_stride,
+        .data = desc->vertex_data,
+    };
+    auto vertex_buffer = pulse_graphic_buffer_create(app, &vertex_buffer_desc);
+
+    pulse_buffer_t index_buffer = {};
+
+    if (desc->index_count > 0) {
+        pulse_graphics_buffer_create_desc index_buffer_desc = {
+            .desc = {
+                .size = desc->index_count * desc->index_stride,
+                .name = "index buffer",
+                .descriptors = ECGPUResourceTypeFlags(desc->update_index_data_from_compute_shader ? CGPU_RESOURCE_TYPE_INDEX_BUFFER | CGPU_RESOURCE_TYPE_RW_BUFFER : CGPU_RESOURCE_TYPE_INDEX_BUFFER),
+                .memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY,
+                .flags = CGPU_BUFFER_CREATION_USAGE_PERSISTENT_MAP,
+            },
+            .data_size = desc->index_count * desc->index_stride,
+            .data = desc->index_data,
+        };
+        auto index_buffer = pulse_graphic_buffer_create(app, &index_buffer_desc);
+    }
+
     pulse_asset_dependency deps[2] = {
-        { pulse_graphic_buffer_to_handle(desc->vertex_buffer), PULSE_DEP_REQUIRED },
-        { pulse_graphic_buffer_to_handle(desc->index_buffer), PULSE_DEP_REQUIRED },
+        { pulse_graphic_buffer_to_handle(vertex_buffer), PULSE_DEP_REQUIRED },
+        { pulse_graphic_buffer_to_handle(index_buffer), PULSE_DEP_OPTIONAL },
     };
 
     pulse_asset_handle asset_handle = pulse_graphic_internal::asset_build(
@@ -178,7 +228,7 @@ pulse_mesh_t pulse_graphic_mesh_create_dynamic(
     const pulse_graphics_mesh_create_dynamic_desc* desc)
 {
     pulse_mesh_t result{};
-    if (!desc || !desc->layout)
+    if (!desc)
         return result;
 
     CGPUDeviceId device = pulse_graphic_internal::get_device(app);

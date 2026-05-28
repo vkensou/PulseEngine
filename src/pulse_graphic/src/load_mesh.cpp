@@ -172,14 +172,8 @@ pulse_asset_loader_status_t step_mesh_load(
         s->ib_handle = pulse_graphic_buffer_create(ctx->app, &ib_create_desc);
         pulse_asset_add_load_dependency(ctx, pulse_graphic_buffer_to_handle(s->ib_handle), PULSE_DEP_REQUIRED);
 
-        // Store handles on mesh data
-        mesh->vb_buffer_index = s->vb_handle.index;
-        mesh->vb_buffer_generation = s->vb_handle.generation;
-        mesh->ib_buffer_index = s->ib_handle.index;
-        mesh->ib_buffer_generation = s->ib_handle.generation;
-
         s->phase = MESH_LOAD_WAIT_BUFFERS;
-        return PULSE_ASSET_LOADER_PENDING;
+        return PULSE_ASSET_LOADER_WAIT_DEPENDENCIES;
     }
 
     if (s->phase == MESH_LOAD_WAIT_BUFFERS) {
