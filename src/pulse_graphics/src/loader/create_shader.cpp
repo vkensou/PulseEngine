@@ -144,9 +144,9 @@ pulse_shader_t pulse_graphics_shader_create_from_binary(
     };
 
     auto vs = pulse_graphics_shader_library_create(app, &vs_desc);
-    if (!pulse_graphics_shader_library_is_available(app, vs)) return {};
+    if (!pulse_graphics_shader_library_is_alive(app, vs)) return {};
     auto fs = pulse_graphics_shader_library_create(app, &fs_desc);
-    if (!pulse_graphics_shader_library_is_available(app, fs)) return {};
+    if (!pulse_graphics_shader_library_is_alive(app, fs)) return {};
     pulse_asset_dependency deps[] = {
         { pulse_graphics_shader_library_to_handle(vs), PULSE_DEP_REQUIRED },
         { pulse_graphics_shader_library_to_handle(fs), PULSE_DEP_REQUIRED },
@@ -181,9 +181,9 @@ pulse_shader_t pulse_graphics_shader_create_from_file(
     };
 
     auto vs = pulse_graphics_shader_library_load(app, &vs_desc);
-    if (!pulse_graphics_shader_library_is_available(app, vs)) return {};
+    if (!pulse_graphics_shader_library_is_alive(app, vs)) return {};
     auto fs = pulse_graphics_shader_library_load(app, &fs_desc);
-    if (!pulse_graphics_shader_library_is_available(app, fs)) return {};
+    if (!pulse_graphics_shader_library_is_alive(app, fs)) return {};
     pulse_asset_dependency deps[] = {
         { pulse_graphics_shader_library_to_handle(vs), PULSE_DEP_REQUIRED },
         { pulse_graphics_shader_library_to_handle(fs), PULSE_DEP_REQUIRED },

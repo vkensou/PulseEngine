@@ -382,42 +382,48 @@ namespace HGEGraphics
 	{
 		material->device = device;
 		material->shader = shader;
-		simple_vector_init(material->buffers_data, material->buffers_size, material->buffers_capacity);
-		simple_vector_init(material->textures_data, material->textures_size, material->textures_capacity);
-		simple_vector_init(material->samplers_data, material->samplers_size, material->samplers_capacity);
-		simple_vector_init(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity);
+		simple_vector_init(material->buffers.data, material->buffers.size, material->buffers.capacity);
+		simple_vector_init(material->textures.data, material->textures.size, material->textures.capacity);
+		simple_vector_init(material->samplers.data, material->samplers.size, material->samplers.capacity);
+		simple_vector_init(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
 	}
 
 	void free_material(pulse_material_data_t* material)
 	{
 		material->shader = nullptr;
 		material->device = nullptr;
-		simple_vector_free(material->buffers_data, material->buffers_size, material->buffers_capacity);
-		simple_vector_free(material->textures_data, material->textures_size, material->textures_capacity);
-		simple_vector_free(material->samplers_data, material->samplers_size, material->samplers_capacity);
-		for (int i = 0; i < material->ownedBuffers_size; ++i)
+		simple_vector_free(material->buffers.data, material->buffers.size, material->buffers.capacity);
+		simple_vector_free(material->textures.data, material->textures.size, material->textures.capacity);
+		simple_vector_free(material->samplers.data, material->samplers.size, material->samplers.capacity);
+		for (int i = 0; i < material->ownedBuffers.size; ++i)
 		{
-			free_buffer(material->ownedBuffers_data[i]);
+			free_buffer(material->ownedBuffers.data[i]);
 		}
-		simple_vector_free(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity);
+		simple_vector_free(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
 	}
 
 	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture)
 	{
-		pulse_material_data_t::BindTexture bindbuffer = pulse_material_data_t::BindTexture(set, bind, texture);
-		simple_vector_push_back<pulse_material_data_t::BindTexture>(material->textures_data, material->textures_size, material->textures_capacity, bindbuffer);
+		pulse_material_bind_texture_t bindbuffer = pulse_material_bind_texture_t(set, bind, texture);
+		simple_vector_push_back<pulse_material_bind_texture_t>(material->textures.data, material->textures.size, material->textures.capacity, bindbuffer);
+	}
+
+	void material_bindSampler(pulse_material_data_t* material, int set, int bind, pulse_sampler_data_t* sampler)
+	{
+		pulse_material_bind_sampler_t bindbuffer = pulse_material_bind_sampler_t(set, bind, sampler->handle);
+		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, bindbuffer);
 	}
 
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler)
 	{
-		pulse_material_data_t::BindSampler bindbuffer = pulse_material_data_t::BindSampler(set, bind, sampler);
-		simple_vector_push_back<pulse_material_data_t::BindSampler>(material->samplers_data, material->samplers_size, material->samplers_capacity, bindbuffer);
+		pulse_material_bind_sampler_t bindbuffer = pulse_material_bind_sampler_t(set, bind, sampler);
+		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, bindbuffer);
 	}
 
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer)
 	{
-		pulse_material_data_t::BindBuffer bindbuffer = pulse_material_data_t::BindBuffer(set, bind, buffer);
-		simple_vector_push_back<pulse_material_data_t::BindBuffer>(material->buffers_data, material->buffers_size, material->buffers_capacity, bindbuffer);
+		pulse_material_bind_buffer_t bindbuffer = pulse_material_bind_buffer_t(set, bind, buffer);
+		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, bindbuffer);
 	}
 
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data)
@@ -434,9 +440,9 @@ namespace HGEGraphics
 		memcpy(buffer->handle->info->cpu_mapped_address, data, size);
 		cgpu_buffer_unmap(buffer->handle);
 
-		pulse_material_data_t::BindBuffer bindbuffer = pulse_material_data_t::BindBuffer(set, bind, buffer);
-		simple_vector_push_back<pulse_material_data_t::BindBuffer>(material->buffers_data, material->buffers_size, material->buffers_capacity, bindbuffer);
-		simple_vector_push_back<pulse_buffer_data_t*>(material->ownedBuffers_data, material->ownedBuffers_size, material->ownedBuffers_capacity, buffer);
+		pulse_material_bind_buffer_t bindbuffer = pulse_material_bind_buffer_t(set, bind, buffer);
+		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, bindbuffer);
+		simple_vector_push_back<pulse_buffer_data_t*>(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity, buffer);
 	}
 
 	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index)
@@ -620,19 +626,19 @@ namespace HGEGraphics
 
 	void update_material(RenderPassEncoder* encoder, pulse_material_data_t* material)
 	{
-		for (int i = 0; i < material->buffers_size; ++i)
+		for (int i = 0; i < material->buffers.size; ++i)
 		{
-			auto& bind = material->buffers_data[i];
+			auto& bind = material->buffers.data[i];
 			set_global_buffer(encoder, bind.buffer, bind.set, bind.bind);
 		}
-		for (int i = 0; i < material->textures_size; ++i)
+		for (int i = 0; i < material->textures.size; ++i)
 		{
-			auto& bind = material->textures_data[i];
+			auto& bind = material->textures.data[i];
 			set_global_texture(encoder, bind.texture, bind.set, bind.bind);
 		}
-		for (int i = 0; i < material->samplers_size; ++i)
+		for (int i = 0; i < material->samplers.size; ++i)
 		{
-			auto& bind = material->samplers_data[i];
+			auto& bind = material->samplers.data[i];
 			set_global_sampler(encoder, bind.sampler, bind.set, bind.bind);
 		}
 	}

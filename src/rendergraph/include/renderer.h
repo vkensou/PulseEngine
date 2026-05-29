@@ -62,6 +62,7 @@ namespace HGEGraphics
 	void free_material(pulse_material_data_t* material);
 
 	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture);
+	void material_bindSampler(pulse_material_data_t* material, int set, int bind, pulse_sampler_data_t* sampler);
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler);
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer);
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data);

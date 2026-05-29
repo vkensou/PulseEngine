@@ -173,10 +173,10 @@ int main(void) {
     pulse_mesh_t mesh = pulse_graphics_mesh_load(
         app, "Quad.obj");
 
-    //pulse_material_t material = pulse_graphics_material_create(app, shader);
-    //pulse_graphics_material_bind_buffer(app, &material, 0, 0, buffer);
-    //pulse_graphics_material_bind_texture(app, &material, 0, 1, texture);
-    //pulse_graphics_material_bind_sampler(app, &material, 0, 2, sampler);
+	pulse_graphics_material_create_desc mat_desc{
+		.shader = shader,
+    };
+    pulse_material_t material = pulse_graphics_material_create(app, &mat_desc);
 
     //// ---- Acquire/release cycle ----
     //pulse_shader_data_t* shader_data = pulse_graphics_shader_acquire(app, &shader);
@@ -227,6 +227,14 @@ int main(void) {
     pulse_graphics_render_add_record_callback(app, &cb_desc);
 
     pulse_app_run(app);
+
+    pulse_graphics_material_ref material_ref;
+    pulse_graphics_material_acquire(app, material, &material_ref);
+    pulse_graphics_texture_ref texture_ref;
+    pulse_graphics_texture_acquire(app, texture, &texture_ref);
+    pulse_graphics_material_bind_texture(&material_ref, 0, 1, &texture_ref);
+    //pulse_graphics_material_bind_sampler(app, &material, 0, 2, sampler);
+    //pulse_graphics_material_bind_buffer(app, &material, 0, 0, buffer);
 
     ecs_query_fini(render_state.window_query);
 

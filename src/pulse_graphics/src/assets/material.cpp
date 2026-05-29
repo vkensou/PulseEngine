@@ -29,43 +29,32 @@ void register_material_type(pulse_app_t app, CGPUDeviceId device)
 extern "C" {
 
 void pulse_graphics_material_bind_buffer(
-    pulse_app_t app, pulse_material_data_t* material,
+    pulse_graphics_material_ref* material,
     uint32_t set, uint32_t binding,
-    pulse_buffer_t buffer)
+    pulse_graphics_buffer_ref* buffer)
 {
-    pulse_graphics_buffer_ref ref{};
-    if (!pulse_graphics_buffer_acquire(app, buffer, &ref)) return;
-
-    HGEGraphics::material_bindBuffer(material, set, binding, ref.ptr);
-
-    pulse_graphics_buffer_release(app, &ref);
+    HGEGraphics::material_bindBuffer(material->ptr, set, binding, buffer->ptr);
 }
 
 void pulse_graphics_material_bind_texture(
-    pulse_app_t app, pulse_material_data_t* material,
+    pulse_graphics_material_ref* material,
     uint32_t set, uint32_t binding,
-    pulse_texture_t texture)
+    pulse_graphics_texture_ref* texture)
 {
-    pulse_graphics_texture_ref ref{};
-    if (!pulse_graphics_texture_acquire(app, texture, &ref)) return;
-
-
-    HGEGraphics::material_bindTexture(material, set, binding, ref.ptr);
-
-    pulse_graphics_texture_release(app, &ref);
+    HGEGraphics::material_bindTexture(material->ptr, set, binding, texture->ptr);
 }
 
 void pulse_graphics_material_bind_sampler(
-    pulse_app_t app, pulse_material_data_t* material,
+    pulse_graphics_material_ref* material,
     uint32_t set, uint32_t binding,
-    pulse_sampler_t sampler)
+    pulse_graphics_sampler_ref* sampler)
 {
-    pulse_graphics_sampler_ref ref{};
-    if (!pulse_graphics_sampler_acquire(app, sampler, &ref)) return;
+    HGEGraphics::material_bindSampler(material->ptr, set, binding, sampler->ptr);
+}
 
-    HGEGraphics::material_bindSampler(material, set, binding, ref.ptr->handle);
-
-    pulse_graphics_sampler_release(app, &ref);
+void pulse_graphics_material_bind_data(pulse_graphics_material_ref* material, uint32_t set, uint32_t binding, size_t size, const void* data)
+{
+    HGEGraphics::material_bindBuffer(material->ptr, set, binding, size, data);
 }
 
 bool pulse_graphics_material_acquire(pulse_app_t app, pulse_material_t handle, pulse_graphics_material_ref* material_ref) {

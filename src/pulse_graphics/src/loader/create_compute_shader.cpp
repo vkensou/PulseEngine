@@ -96,7 +96,7 @@ pulse_compute_shader_t pulse_graphics_compute_shader_create_from_binary(
     };
 
     auto cs = pulse_graphics_shader_library_create(app, &cs_desc);
-    if (!pulse_graphics_shader_library_is_available(app, cs)) return {};
+    if (!pulse_graphics_shader_library_is_alive(app, cs)) return {};
     pulse_asset_dependency deps[] = {
         { pulse_graphics_shader_library_to_handle(cs), PULSE_DEP_REQUIRED },
     };
@@ -119,7 +119,7 @@ pulse_compute_shader_t pulse_graphics_compute_shader_create_from_file(
     };
 
     auto cs = pulse_graphics_shader_library_load(app, &cs_desc);
-    if (!pulse_graphics_shader_library_is_available(app, cs)) return {};
+    if (!pulse_graphics_shader_library_is_alive(app, cs)) return {};
     pulse_asset_dependency deps[] = {
         { pulse_graphics_shader_library_to_handle(cs), PULSE_DEP_REQUIRED },
     };

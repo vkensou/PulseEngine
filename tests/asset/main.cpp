@@ -695,7 +695,7 @@ int main(void) {
     assert(!pulse_asset_handle_is_valid(invalid));
     assert(pulse_asset_handle_equals(invalid, pulse_asset_handle_make_invalid()));
     assert(pulse_asset_get_state(app, invalid) == PULSE_ASSET_STATE_EMPTY);
-    assert(!pulse_asset_is_available(app, invalid));
+    assert(!pulse_asset_is_ready(app, invalid));
     assert(pulse_asset_get_error(app, invalid) == nullptr);
 
     pulse_asset_ref invalid_ref{};
@@ -742,7 +742,7 @@ int main(void) {
 
     assert(pulse_app_update(app) == PULSE_OK);
     assert(pulse_asset_get_state(app, text_handle) == PULSE_ASSET_STATE_LOADED);
-    assert(pulse_asset_is_available(app, text_handle));
+    assert(pulse_asset_is_ready(app, text_handle));
 
     pulse_asset_ref text_ref{};
     assert(pulse_asset_acquire(app, text_handle, &text_ref));

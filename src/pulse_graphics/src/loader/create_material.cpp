@@ -17,7 +17,7 @@ pulse_asset_loader_status_t step_material_create(
 
     auto shader_asset_handle = ctx->dependencies[0].handle;
     if (!s->shader_done) {
-        if (!pulse_asset_is_available(ctx->app, shader_asset_handle)) {
+        if (!pulse_asset_is_ready(ctx->app, shader_asset_handle)) {
             return PULSE_ASSET_LOADER_WAIT_DEPENDENCIES;
         } else {
             s->shader_done = true;

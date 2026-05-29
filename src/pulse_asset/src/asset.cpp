@@ -473,7 +473,13 @@ pulse_asset_state_t pulse_asset_get_state(
     return system ? system->get_state(handle) : PULSE_ASSET_STATE_EMPTY;
 }
 
-bool pulse_asset_is_available(pulse_app_t app, pulse_asset_handle handle) {
+bool pulse_asset_is_alive(pulse_app_t app, pulse_asset_handle handle)
+{
+	auto state = pulse_asset_get_state(app, handle);
+    return !(state == PULSE_ASSET_STATE_EMPTY || state == PULSE_ASSET_STATE_FAILED || state == PULSE_ASSET_STATE_PENDING_DELETE);
+}
+
+bool pulse_asset_is_ready(pulse_app_t app, pulse_asset_handle handle) {
     return pulse_asset_get_state(app, handle) == PULSE_ASSET_STATE_LOADED;
 }
 

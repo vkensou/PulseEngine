@@ -180,7 +180,8 @@ pulse_shader_library_t pulse_graphics_shader_library_load(
     const pulse_graphics_shader_library_load_desc* desc);
 
 static pulse_asset_handle pulse_graphics_shader_library_to_handle(pulse_shader_library_t lib) { return { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation }; }
-static bool pulse_graphics_shader_library_is_available(pulse_app_t app, pulse_shader_library_t lib) { return pulse_asset_is_available(app, pulse_graphics_shader_library_to_handle(lib)); }
+static bool pulse_graphics_shader_library_is_alive(pulse_app_t app, pulse_shader_library_t lib) { return pulse_asset_is_alive(app, pulse_graphics_shader_library_to_handle(lib)); }
+static bool pulse_graphics_shader_library_is_ready(pulse_app_t app, pulse_shader_library_t lib) { return pulse_asset_is_ready(app, pulse_graphics_shader_library_to_handle(lib)); }
 bool pulse_graphics_shader_library_acquire(pulse_app_t app, pulse_shader_library_t handle, pulse_graphics_shader_library_ref* ref);
 void pulse_graphics_shader_library_release(pulse_app_t app, pulse_graphics_shader_library_ref* ref);
 static void pulse_graphics_shader_library_unload(pulse_app_t app, pulse_shader_library_t lib) { pulse_asset_unload(app, pulse_graphics_shader_library_to_handle(lib)); }
@@ -214,7 +215,8 @@ pulse_shader_t pulse_graphics_shader_create_from_file(
     const pulse_graphics_shader_create_from_file_desc* desc);
 
 static pulse_asset_handle pulse_graphics_shader_to_handle(pulse_shader_t shader) { return { PULSE_TYPE_SHADER, shader.index, shader.generation }; }
-static bool pulse_graphics_shader_is_available(pulse_app_t app, pulse_shader_t shader) { return pulse_asset_is_available(app, pulse_graphics_shader_to_handle(shader)); }
+static bool pulse_graphics_shader_is_alive(pulse_app_t app, pulse_shader_t shader) { return pulse_asset_is_alive(app, pulse_graphics_shader_to_handle(shader)); }
+static bool pulse_graphics_shader_is_ready(pulse_app_t app, pulse_shader_t shader) { return pulse_asset_is_ready(app, pulse_graphics_shader_to_handle(shader)); }
 bool pulse_graphics_shader_acquire(pulse_app_t app, pulse_shader_t handle, pulse_graphics_shader_ref* ref);
 void pulse_graphics_shader_release(pulse_app_t app, pulse_graphics_shader_ref* ref);
 static void pulse_graphics_shader_unload(pulse_app_t app, pulse_shader_t shader) { pulse_asset_unload(app, pulse_graphics_shader_to_handle(shader)); }
@@ -239,7 +241,8 @@ pulse_compute_shader_t pulse_graphics_compute_shader_create_from_file(
     const pulse_graphics_compute_shader_create_from_file_desc* desc);
 
 static pulse_asset_handle pulse_graphics_compute_shader_to_handle(pulse_compute_shader_t cs) { return { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation }; }
-static bool pulse_graphics_compute_shader_is_available(pulse_app_t app, pulse_compute_shader_t cs) { return pulse_asset_is_available(app, pulse_graphics_compute_shader_to_handle(cs)); }
+static bool pulse_graphics_compute_shader_is_alive(pulse_app_t app, pulse_compute_shader_t cs) { return pulse_asset_is_alive(app, pulse_graphics_compute_shader_to_handle(cs)); }
+static bool pulse_graphics_compute_shader_is_ready(pulse_app_t app, pulse_compute_shader_t cs) { return pulse_asset_is_ready(app, pulse_graphics_compute_shader_to_handle(cs)); }
 bool pulse_graphics_compute_shader_acquire(pulse_app_t app, pulse_compute_shader_t handle, pulse_graphics_compute_shader_ref* ref);
 void pulse_graphics_compute_shader_release(pulse_app_t app, pulse_graphics_compute_shader_ref* ref);
 static void pulse_graphics_compute_shader_unload(pulse_app_t app, pulse_compute_shader_t cs) { pulse_asset_unload(app, pulse_graphics_compute_shader_to_handle(cs)); }
@@ -257,7 +260,8 @@ pulse_buffer_t pulse_graphics_buffer_create(
     const pulse_graphics_buffer_create_desc* desc);
 
 static pulse_asset_handle pulse_graphics_buffer_to_handle(pulse_buffer_t buffer) { return { PULSE_TYPE_BUFFER, buffer.index, buffer.generation }; }
-static bool pulse_graphics_buffer_is_available(pulse_app_t app, pulse_buffer_t buffer) { return pulse_asset_is_available(app, pulse_graphics_buffer_to_handle(buffer)); }
+static bool pulse_graphics_buffer_is_alive(pulse_app_t app, pulse_buffer_t buffer) { return pulse_asset_is_alive(app, pulse_graphics_buffer_to_handle(buffer)); }
+static bool pulse_graphics_buffer_is_ready(pulse_app_t app, pulse_buffer_t buffer) { return pulse_asset_is_ready(app, pulse_graphics_buffer_to_handle(buffer)); }
 bool pulse_graphics_buffer_acquire(pulse_app_t app, pulse_buffer_t handle, pulse_graphics_buffer_ref* ref);
 void pulse_graphics_buffer_release(pulse_app_t app, pulse_graphics_buffer_ref* ref);
 static void pulse_graphics_buffer_unload(pulse_app_t app, pulse_buffer_t buffer) { pulse_asset_unload(app, pulse_graphics_buffer_to_handle(buffer)); }
@@ -273,7 +277,8 @@ pulse_sampler_t pulse_graphics_sampler_create(
     const pulse_graphics_sampler_create_desc* desc);
 
 static pulse_asset_handle pulse_graphics_sampler_to_handle(pulse_sampler_t sampler) { return { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation }; }
-static bool pulse_graphics_sampler_is_available(pulse_app_t app, pulse_sampler_t sampler) { return pulse_asset_is_available(app, pulse_graphics_sampler_to_handle(sampler)); }
+static bool pulse_graphics_sampler_is_alive(pulse_app_t app, pulse_sampler_t sampler) { return pulse_asset_is_alive(app, pulse_graphics_sampler_to_handle(sampler)); }
+static bool pulse_graphics_sampler_is_ready(pulse_app_t app, pulse_sampler_t sampler) { return pulse_asset_is_ready(app, pulse_graphics_sampler_to_handle(sampler)); }
 bool pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t handle, pulse_graphics_sampler_ref* ref);
 void pulse_graphics_sampler_release(pulse_app_t app, pulse_graphics_sampler_ref* ref);
 static void pulse_graphics_sampler_unload(pulse_app_t app, pulse_sampler_t sampler) { pulse_asset_unload(app, pulse_graphics_sampler_to_handle(sampler)); }
@@ -301,7 +306,8 @@ pulse_texture_t pulse_graphics_texture_load(
     const pulse_graphics_texture_load_desc* desc);
 
 static pulse_asset_handle pulse_graphics_texture_to_handle(pulse_texture_t texture) { return { PULSE_TYPE_TEXTURE, texture.index, texture.generation }; }
-static bool pulse_graphics_texture_is_available(pulse_app_t app, pulse_texture_t texture) { return pulse_asset_is_available(app, pulse_graphics_texture_to_handle(texture)); }
+static bool pulse_graphics_texture_is_alive(pulse_app_t app, pulse_texture_t texture) { return pulse_asset_is_alive(app, pulse_graphics_texture_to_handle(texture)); }
+static bool pulse_graphics_texture_is_ready(pulse_app_t app, pulse_texture_t texture) { return pulse_asset_is_ready(app, pulse_graphics_texture_to_handle(texture)); }
 bool pulse_graphics_texture_acquire(pulse_app_t app, pulse_texture_t handle, pulse_graphics_texture_ref* ref);
 void pulse_graphics_texture_release(pulse_app_t app, pulse_graphics_texture_ref* ref);
 static void pulse_graphics_texture_unload(pulse_app_t app, pulse_texture_t texture) { pulse_asset_unload(app, pulse_graphics_texture_to_handle(texture)); }
@@ -343,7 +349,8 @@ void pulse_graphics_mesh_update_vertices(pulse_app_t app, pulse_mesh_t* mesh, co
 void pulse_graphics_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count);
 
 static pulse_asset_handle pulse_graphics_mesh_to_handle(pulse_mesh_t mesh) { return { PULSE_TYPE_MESH, mesh.index, mesh.generation }; }
-static bool pulse_graphics_mesh_is_available(pulse_app_t app, pulse_mesh_t mesh) { return pulse_asset_is_available(app, pulse_graphics_mesh_to_handle(mesh)); }
+static bool pulse_graphics_mesh_is_alive(pulse_app_t app, pulse_mesh_t mesh) { return pulse_asset_is_alive(app, pulse_graphics_mesh_to_handle(mesh)); }
+static bool pulse_graphics_mesh_is_ready(pulse_app_t app, pulse_mesh_t mesh) { return pulse_asset_is_ready(app, pulse_graphics_mesh_to_handle(mesh)); }
 bool pulse_graphics_mesh_acquire(pulse_app_t app, pulse_mesh_t handle, pulse_graphics_mesh_ref* ref);
 void pulse_graphics_mesh_release(pulse_app_t app, pulse_graphics_mesh_ref* ref);
 static void pulse_graphics_mesh_unload(pulse_app_t app, pulse_mesh_t mesh) { pulse_asset_unload(app, pulse_graphics_mesh_to_handle(mesh)); }
@@ -359,25 +366,31 @@ pulse_material_t pulse_graphics_material_create(
     const pulse_graphics_material_create_desc* desc);
 
 static pulse_asset_handle pulse_graphics_material_to_handle(pulse_material_t material) { return { PULSE_TYPE_MATERIAL, material.index, material.generation }; }
-static bool pulse_graphics_material_is_available(pulse_app_t app, pulse_material_t material) { return pulse_asset_is_available(app, pulse_graphics_material_to_handle(material)); }
+static bool pulse_graphics_material_is_alive(pulse_app_t app, pulse_material_t material) { return pulse_asset_is_alive(app, pulse_graphics_material_to_handle(material)); }
+static bool pulse_graphics_material_is_ready(pulse_app_t app, pulse_material_t material) { return pulse_asset_is_ready(app, pulse_graphics_material_to_handle(material)); }
 bool pulse_graphics_material_acquire(pulse_app_t app, pulse_material_t handle, pulse_graphics_material_ref* ref);
 void pulse_graphics_material_release(pulse_app_t app, pulse_graphics_material_ref* ref);
 static void pulse_graphics_material_unload(pulse_app_t app, pulse_material_t material) { pulse_asset_unload(app, pulse_graphics_material_to_handle(material)); }
 
 void pulse_graphics_material_bind_buffer(
-    pulse_app_t app, pulse_material_data_t* material,
+    pulse_graphics_material_ref* material,
     uint32_t set, uint32_t binding,
-    pulse_buffer_t buffer);
+    pulse_graphics_buffer_ref* buffer);
 
 void pulse_graphics_material_bind_texture(
-    pulse_app_t app, pulse_material_data_t* material,
+    pulse_graphics_material_ref* material,
     uint32_t set, uint32_t binding,
-    pulse_texture_t texture);
+    pulse_graphics_texture_ref* texture);
 
 void pulse_graphics_material_bind_sampler(
-    pulse_app_t app, pulse_material_data_t* material,
+    pulse_graphics_material_ref* material,
     uint32_t set, uint32_t binding,
-    pulse_sampler_t sampler);
+    pulse_graphics_sampler_ref* sampler);
+
+void pulse_graphics_material_bind_data(
+    pulse_graphics_material_ref* material,
+    uint32_t set, uint32_t binding,
+    size_t size, const void* data);
 
 /* Encoder */
 

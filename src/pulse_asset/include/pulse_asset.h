@@ -229,7 +229,12 @@ pulse_asset_state_t pulse_asset_get_state(
     pulse_asset_handle handle
 );
 
-bool pulse_asset_is_available(
+bool pulse_asset_is_alive(
+    pulse_app_t app,
+    pulse_asset_handle handle
+);
+
+bool pulse_asset_is_ready(
     pulse_app_t app,
     pulse_asset_handle handle
 );
