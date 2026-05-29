@@ -1,4 +1,4 @@
-#include "render_internal.h"
+#include "internal.h"
 
 ECS_COMPONENT_DECLARE(pulse_graphics_renderer);
 ECS_COMPONENT_DECLARE(pulse_graphics_surface);
@@ -236,6 +236,71 @@ void ensure_component_relations(ecs_world_t* world) {
     if (ecs_id(pulse_graphics_swapchain) != 0 && ecs_id(pulse_graphics_surface) != 0) {
         ecs_add_pair(world, ecs_id(pulse_graphics_swapchain), EcsWith, ecs_id(pulse_graphics_surface));
     }
+}
+
+namespace {
+
+void delete_entity_if_alive(ecs_world_t* world, ecs_entity_t entity) {
+    if (world && entity && ecs_is_alive(world, entity)) {
+        ecs_delete(world, entity);
+    }
+}
+
+void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
+    delete_entity_if_alive(world, entity);
+    entity = 0;
+}
+
+void remove_component_from_all_entities(ecs_world_t* world, ecs_entity_t component) {
+    if (!world || component == 0) {
+        return;
+    }
+
+    ecs_query_desc_t query_desc{};
+    query_desc.terms[0].id = component;
+    query_desc.cache_kind = EcsQueryCacheAuto;
+    ecs_query_t* query = ecs_query_init(world, &query_desc);
+    if (!query) {
+        return;
+    }
+
+    std::vector<ecs_entity_t> entities;
+    ecs_iter_t it = ecs_query_iter(world, query);
+    while (ecs_query_next(&it)) {
+        for (int32_t i = 0; i < it.count; ++i) {
+            entities.push_back(it.entities[i]);
+        }
+    }
+    ecs_query_fini(query);
+
+    for (ecs_entity_t entity : entities) {
+        if (ecs_is_alive(world, entity)) {
+            ecs_remove_id(world, entity, component);
+        }
+    }
+}
+
+} // namespace
+
+void remove_render_window_components(ecs_world_t* world) {
+    remove_component_from_all_entities(world, ecs_id(pulse_graphics_swapchain));
+    remove_component_from_all_entities(world, ecs_id(pulse_graphics_surface));
+}
+
+void delete_render_components(ecs_world_t* world) {
+    delete_entity_if_alive(world, ecs_id(pulse_graphics_swapchain));
+    delete_entity_if_alive(world, ecs_id(pulse_graphics_surface));
+    delete_registered_entity(world, ecs_id(pulse_graphics_renderer));
+    delete_registered_entity(world, ecs_id(pulse_graphics_state_resource));
+    delete_registered_entity(world, pulse_graphics_render_present_phase);
+    delete_registered_entity(world, pulse_graphics_render_submit_phase);
+    delete_registered_entity(world, pulse_graphics_render_execute_graph_phase);
+    delete_registered_entity(world, pulse_graphics_render_record_graph_phase);
+    delete_registered_entity(world, pulse_graphics_render_prepare_windows_phase);
+    delete_registered_entity(world, pulse_graphics_render_begin_frame_phase);
+
+    ecs_id(pulse_graphics_swapchain) = 0;
+    ecs_id(pulse_graphics_surface) = 0;
 }
 
 } // namespace pulse_graphics_internal

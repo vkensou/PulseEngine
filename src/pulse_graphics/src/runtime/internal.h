@@ -23,8 +23,6 @@ extern ecs_entity_t pulse_graphics_render_execute_graph_phase;
 extern ecs_entity_t pulse_graphics_render_submit_phase;
 extern ecs_entity_t pulse_graphics_render_present_phase;
 
-pulse_graphics_state* state_from_world(ecs_world_t* world);
-
 void reset_surface_handles(pulse_graphics_surface* surface);
 void release_surface_resources(pulse_graphics_surface* surface);
 void reset_swapchain_handles(pulse_graphics_swapchain* swapchain);
@@ -32,8 +30,13 @@ void release_swapchain_resources(pulse_graphics_swapchain* swapchain);
 
 void register_components(ecs_world_t* world);
 void ensure_component_relations(ecs_world_t* world);
+void remove_render_window_components(ecs_world_t* world);
+void delete_render_components(ecs_world_t* world);
 
+bool create_renderer(pulse_graphics_state* state);
+void destroy_renderer(pulse_graphics_state* state);
 void install_observers(pulse_graphics_state* state, ecs_world_t* world);
+void uninstall_observers(pulse_graphics_state* state, ecs_world_t* world);
 
 bool ensure_cgpu_surface(
     pulse_graphics_state* state,

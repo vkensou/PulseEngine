@@ -106,10 +106,12 @@ struct pulse_graphics_state_resource {
 extern ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
 pulse_graphics_state* state_from_app(pulse_app_t app);
+pulse_graphics_state* state_from_world(ecs_world_t* world);
 CGPUDeviceId get_device(pulse_app_t app);
 bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
 void install_upload_callback(pulse_app_t app);
+void register_graphics_asset_types_and_loaders(pulse_app_t app, CGPUDeviceId device);
 
 inline pulse_asset_handle asset_load_path(
     pulse_app_t app,

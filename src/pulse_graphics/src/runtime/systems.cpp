@@ -1,4 +1,4 @@
-#include "render_internal.h"
+#include "internal.h"
 
 namespace pulse_graphics_internal {
 

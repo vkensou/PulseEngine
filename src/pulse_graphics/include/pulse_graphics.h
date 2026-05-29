@@ -2,35 +2,102 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
 #include "cgpu/api.h"
-#include "pulse_asset.h"
-#include "rendergraph.h"
-#include "pulse_renderer_asset.h"
 #include "flecs.h"
+#include "pulse_asset.h"
+#include "pulse_renderer_asset.h"
+#include "rendergraph.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* Constants */
+
 #define PULSE_GRAPHICS_PLUGIN_DESC_VERSION 1u
+
+#define PULSE_TYPE_SHADER          UINT64_C(0x1000)
+#define PULSE_TYPE_COMPUTE_SHADER  UINT64_C(0x1001)
+#define PULSE_TYPE_MESH            UINT64_C(0x1002)
+#define PULSE_TYPE_TEXTURE         UINT64_C(0x1003)
+#define PULSE_TYPE_BUFFER          UINT64_C(0x1004)
+#define PULSE_TYPE_MATERIAL        UINT64_C(0x1005)
+#define PULSE_TYPE_SAMPLER         UINT64_C(0x1006)
+#define PULSE_TYPE_BYTECODE        UINT64_C(0x1007)
+#define PULSE_TYPE_SHADER_LIBRARY  UINT64_C(0x1008)
+
+/* Asset handles and refs */
+
+typedef struct pulse_shader_t         { uint32_t index; uint32_t generation; } pulse_shader_t;
+typedef struct pulse_shader_library_t { uint32_t index; uint32_t generation; } pulse_shader_library_t;
+typedef struct pulse_compute_shader_t { uint32_t index; uint32_t generation; } pulse_compute_shader_t;
+typedef struct pulse_mesh_t           { uint32_t index; uint32_t generation; } pulse_mesh_t;
+typedef struct pulse_texture_t        { uint32_t index; uint32_t generation; } pulse_texture_t;
+typedef struct pulse_buffer_t         { uint32_t index; uint32_t generation; } pulse_buffer_t;
+typedef struct pulse_material_t       { uint32_t index; uint32_t generation; } pulse_material_t;
+typedef struct pulse_sampler_t        { pulse_asset_handle asset; } pulse_sampler_t;
+
+typedef struct pulse_shader_library_data {
+    CGPUShaderLibraryId library;
+} pulse_shader_library_data_t;
+
+typedef struct pulse_sampler_data {
+    CGPUSamplerId handle;
+} pulse_sampler_data_t;
+
+typedef struct pulse_graphics_shader_ref {
+    pulse_shader_t handle;
+    pulse_shader_data_t* ptr;
+} pulse_graphics_shader_ref;
+
+typedef struct pulse_graphics_compute_shader_ref {
+    pulse_compute_shader_t handle;
+    pulse_compute_shader_data_t* ptr;
+} pulse_graphics_compute_shader_ref;
+
+typedef struct pulse_graphics_buffer_ref {
+    pulse_buffer_t handle;
+    pulse_buffer_data_t* ptr;
+} pulse_graphics_buffer_ref;
+
+typedef struct pulse_graphics_texture_ref {
+    pulse_texture_t handle;
+    pulse_texture_data_t* ptr;
+} pulse_graphics_texture_ref;
+
+typedef struct pulse_graphics_mesh_ref {
+    pulse_mesh_t handle;
+    pulse_mesh_data_t* ptr;
+} pulse_graphics_mesh_ref;
+
+typedef struct pulse_graphics_material_ref {
+    pulse_material_t handle;
+    pulse_material_data_t* ptr;
+} pulse_graphics_material_ref;
+
+/* Plugin and runtime */
 
 typedef void (*pulse_graphics_render_record_callback)(
     pulse_app_t app,
     pulse_rendergraph_t* graph,
-    void* user_data
-);
+    void* user_data);
 
-typedef struct pulse_graphics_renderer_record_callback_desc {
-    pulse_graphics_render_record_callback callback;
-    void* user_data;
-    int32_t priority;
-} pulse_graphics_renderer_record_callback_desc;
+typedef struct pulse_graphics_plugin_desc {
+    uint32_t struct_size;
+    uint32_t version;
+    ECGPUBackend backend;
+    ECGPUTextureFormat swapchain_format;
+    uint32_t image_count;
+    bool enable_debug_layer;
+    bool enable_gpu_based_validation;
+    bool enable_vsync;
+    pulse_graphics_render_record_callback record_callback;
+    void* record_user_data;
+} pulse_graphics_plugin_desc;
 
-pulse_texture_handle_t pulse_graphics_render_import_window_backbuffer(
-    pulse_app_t app,
-    pulse_rendergraph_t* graph,
-    ecs_entity_t window_entity
-);
+pulse_graphics_plugin_desc pulse_graphics_plugin_desc_default(void);
+pulse_result_t pulse_graphics_add_plugin(pulse_app_t app, const pulse_graphics_plugin_desc* desc);
 
 typedef struct pulse_graphics_renderer {
     CGPUInstanceId instance;
@@ -69,6 +136,12 @@ extern ECS_COMPONENT_DECLARE(pulse_graphics_renderer);
 extern ECS_COMPONENT_DECLARE(pulse_graphics_surface);
 extern ECS_COMPONENT_DECLARE(pulse_graphics_swapchain);
 
+typedef struct pulse_graphics_renderer_record_callback_desc {
+    pulse_graphics_render_record_callback callback;
+    void* user_data;
+    int32_t priority;
+} pulse_graphics_renderer_record_callback_desc;
+
 pulse_result_t pulse_graphics_render_add_record_callback(
     pulse_app_t app,
     const pulse_graphics_renderer_record_callback_desc* desc);
@@ -77,84 +150,39 @@ pulse_result_t pulse_graphics_render_remove_record_callback(
     pulse_app_t app,
     pulse_graphics_render_record_callback callback);
 
+pulse_texture_handle_t pulse_graphics_render_import_window_backbuffer(
+    pulse_app_t app,
+    pulse_rendergraph_t* graph,
+    ecs_entity_t window_entity);
+
 const pulse_graphics_renderer* pulse_graphics_renderer_get(pulse_app_t app);
 const pulse_graphics_surface* pulse_graphics_surface_get(pulse_app_t app, ecs_entity_t entity);
 const pulse_graphics_swapchain* pulse_graphics_swapchain_get(pulse_app_t app, ecs_entity_t entity);
 
-#define PULSE_TYPE_SHADER          UINT64_C(0x1000)
-#define PULSE_TYPE_COMPUTE_SHADER  UINT64_C(0x1001)
-#define PULSE_TYPE_MESH            UINT64_C(0x1002)
-#define PULSE_TYPE_TEXTURE         UINT64_C(0x1003)
-#define PULSE_TYPE_BUFFER          UINT64_C(0x1004)
-#define PULSE_TYPE_MATERIAL        UINT64_C(0x1005)
-#define PULSE_TYPE_SAMPLER         UINT64_C(0x1006)
-#define PULSE_TYPE_BYTECODE        UINT64_C(0x1007)
-#define PULSE_TYPE_SHADER_LIBRARY  UINT64_C(0x1008)
+/* Shader library */
 
-typedef struct pulse_shader_t          { uint32_t index; uint32_t generation; } pulse_shader_t;
-typedef struct pulse_shader_library_t  { uint32_t index; uint32_t generation; } pulse_shader_library_t;
-typedef struct pulse_compute_shader_t  { uint32_t index; uint32_t generation; } pulse_compute_shader_t;
-typedef struct pulse_mesh_t            { uint32_t index; uint32_t generation; } pulse_mesh_t;
-typedef struct pulse_texture_t         { uint32_t index; uint32_t generation;} pulse_texture_t;
-typedef struct pulse_buffer_t          { uint32_t index; uint32_t generation; } pulse_buffer_t;
-typedef struct pulse_material_t        { uint32_t index; uint32_t generation; } pulse_material_t;
-typedef struct pulse_sampler_t         { pulse_asset_handle asset; } pulse_sampler_t;
+typedef struct pulse_graphics_shader_library_create_desc {
+    const void* code;
+    uint32_t code_size;
+} pulse_graphics_shader_library_create_desc;
 
-typedef struct pulse_shader_library_data {
-    CGPUShaderLibraryId library;
-} pulse_shader_library_data_t;
+typedef struct pulse_graphics_shader_library_load_desc {
+    const char* path;
+} pulse_graphics_shader_library_load_desc;
 
-typedef struct pulse_sampler_data {
-    CGPUSamplerId handle;
-} pulse_sampler_data_t;
+pulse_shader_library_t pulse_graphics_shader_library_create(
+    pulse_app_t app,
+    const pulse_graphics_shader_library_create_desc* desc);
 
-typedef struct pulse_graphics_texture_ref {
-    pulse_texture_t handle;
-    pulse_texture_data_t* ptr;
-} pulse_graphics_texture_ref;
+pulse_shader_library_t pulse_graphics_shader_library_load(
+    pulse_app_t app,
+    const pulse_graphics_shader_library_load_desc* desc);
 
-typedef struct pulse_graphics_buffer_ref {
-    pulse_buffer_t handle;
-    pulse_buffer_data_t* ptr;
-} pulse_graphics_buffer_ref;
+static pulse_asset_handle pulse_graphics_shader_library_to_handle(pulse_shader_library_t lib) { return { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation }; }
+static bool pulse_graphics_shader_library_is_available(pulse_app_t app, pulse_shader_library_t lib) { return pulse_asset_is_available(app, pulse_graphics_shader_library_to_handle(lib)); }
+static void pulse_graphics_shader_library_unload(pulse_app_t app, pulse_shader_library_t lib) { pulse_asset_unload(app, pulse_graphics_shader_library_to_handle(lib)); }
 
-typedef struct pulse_graphics_material_ref {
-    pulse_material_t handle;
-    pulse_material_data_t* ptr;
-} pulse_graphics_material_ref;
-
-typedef struct pulse_graphics_mesh_ref {
-    pulse_mesh_t handle;
-    pulse_mesh_data_t* ptr;
-} pulse_graphics_mesh_ref;
-
-typedef struct pulse_graphics_shader_ref {
-    pulse_shader_t handle;
-    pulse_shader_data_t* ptr;
-} pulse_graphics_shader_ref;
-
-typedef struct pulse_graphics_compute_shader_ref {
-    pulse_compute_shader_t handle;
-    pulse_compute_shader_data_t* ptr;
-} pulse_graphics_compute_shader_ref;
-
-typedef struct pulse_graphics_plugin_desc {
-    uint32_t struct_size;
-    uint32_t version;
-    ECGPUBackend backend;
-    ECGPUTextureFormat swapchain_format;
-    uint32_t image_count;
-    bool enable_debug_layer;
-    bool enable_gpu_based_validation;
-    bool enable_vsync;
-    pulse_graphics_render_record_callback record_callback;
-    void* record_user_data;
-} pulse_graphics_plugin_desc;
-
-pulse_graphics_plugin_desc pulse_graphics_plugin_desc_default(void);
-pulse_result_t pulse_graphics_add_plugin(pulse_app_t app, const pulse_graphics_plugin_desc* desc);
-
-// ── Shader ───────────────────────────────────────────────────
+/* Shader */
 
 typedef struct pulse_graphics_shader_create_from_binary_desc {
     const void* vs_data;
@@ -174,8 +202,13 @@ typedef struct pulse_graphics_shader_create_from_file_desc {
     CGPURasterizerStateDescriptor rasterizer_state;
 } pulse_graphics_shader_create_from_file_desc;
 
-pulse_shader_t pulse_graphics_shader_create_from_binary(pulse_app_t app, const pulse_graphics_shader_create_from_binary_desc* desc);
-pulse_shader_t pulse_graphics_shader_create_from_file(pulse_app_t app, const pulse_graphics_shader_create_from_file_desc* desc);
+pulse_shader_t pulse_graphics_shader_create_from_binary(
+    pulse_app_t app,
+    const pulse_graphics_shader_create_from_binary_desc* desc);
+
+pulse_shader_t pulse_graphics_shader_create_from_file(
+    pulse_app_t app,
+    const pulse_graphics_shader_create_from_file_desc* desc);
 
 static pulse_asset_handle pulse_graphics_shader_to_handle(pulse_shader_t shader) { return { PULSE_TYPE_SHADER, shader.index, shader.generation }; }
 static bool pulse_graphics_shader_is_available(pulse_app_t app, pulse_shader_t shader) { return pulse_asset_is_available(app, pulse_graphics_shader_to_handle(shader)); }
@@ -183,7 +216,7 @@ bool pulse_graphics_shader_acquire(pulse_app_t app, pulse_shader_t handle, pulse
 void pulse_graphics_shader_release(pulse_app_t app, pulse_graphics_shader_ref* ref);
 static void pulse_graphics_shader_unload(pulse_app_t app, pulse_shader_t shader) { pulse_asset_unload(app, pulse_graphics_shader_to_handle(shader)); }
 
-// ── Compute shader ────────────────────────────────────────────
+/* Compute shader */
 
 typedef struct pulse_graphics_compute_shader_create_from_binary_desc {
     const void* cs_data;
@@ -194,8 +227,13 @@ typedef struct pulse_graphics_compute_shader_create_from_file_desc {
     const char* comp_path;
 } pulse_graphics_compute_shader_create_from_file_desc;
 
-pulse_compute_shader_t pulse_graphics_compute_shader_create_from_binary(pulse_app_t app, const pulse_graphics_compute_shader_create_from_binary_desc* desc);
-pulse_compute_shader_t pulse_graphics_compute_shader_create_from_file(pulse_app_t app, const pulse_graphics_compute_shader_create_from_file_desc* desc);
+pulse_compute_shader_t pulse_graphics_compute_shader_create_from_binary(
+    pulse_app_t app,
+    const pulse_graphics_compute_shader_create_from_binary_desc* desc);
+
+pulse_compute_shader_t pulse_graphics_compute_shader_create_from_file(
+    pulse_app_t app,
+    const pulse_graphics_compute_shader_create_from_file_desc* desc);
 
 static pulse_asset_handle pulse_graphics_compute_shader_to_handle(pulse_compute_shader_t cs) { return { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation }; }
 static bool pulse_graphics_compute_shader_is_available(pulse_app_t app, pulse_compute_shader_t cs) { return pulse_asset_is_available(app, pulse_graphics_compute_shader_to_handle(cs)); }
@@ -203,23 +241,7 @@ bool pulse_graphics_compute_shader_acquire(pulse_app_t app, pulse_compute_shader
 void pulse_graphics_compute_shader_release(pulse_app_t app, pulse_graphics_compute_shader_ref* ref);
 static void pulse_graphics_compute_shader_unload(pulse_app_t app, pulse_compute_shader_t cs) { pulse_asset_unload(app, pulse_graphics_compute_shader_to_handle(cs)); }
 
-// ── Shader library ────────────────────────────────────────────
-
-typedef struct pulse_graphics_shader_library_create_desc {
-    const void* code;
-    uint32_t code_size;
-} pulse_graphics_shader_library_create_desc;
-
-typedef struct pulse_graphics_shader_library_load_desc {
-    const char* path;
-} pulse_graphics_shader_library_load_desc;
-
-pulse_shader_library_t pulse_graphics_shader_library_create(pulse_app_t app, const pulse_graphics_shader_library_create_desc* desc);
-pulse_shader_library_t pulse_graphics_shader_library_load(pulse_app_t app, const pulse_graphics_shader_library_load_desc* desc);
-
-static pulse_asset_handle pulse_graphics_shader_library_to_handle(pulse_shader_library_t lib) { return { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation }; }
-static bool pulse_graphics_shader_library_is_available(pulse_app_t app, pulse_shader_library_t lib) { return pulse_asset_is_available(app, pulse_graphics_shader_library_to_handle(lib)); }
-static void pulse_graphics_shader_library_unload(pulse_app_t app, pulse_shader_library_t lib) { pulse_asset_unload(app, pulse_graphics_shader_library_to_handle(lib)); }
+/* Buffer */
 
 typedef struct pulse_graphics_buffer_create_desc {
     CGPUBufferDescriptor desc;
@@ -237,6 +259,8 @@ bool pulse_graphics_buffer_acquire(pulse_app_t app, pulse_buffer_t handle, pulse
 void pulse_graphics_buffer_release(pulse_app_t app, pulse_graphics_buffer_ref* ref);
 static void pulse_graphics_buffer_unload(pulse_app_t app, pulse_buffer_t buffer) { pulse_asset_unload(app, pulse_graphics_buffer_to_handle(buffer)); }
 
+/* Sampler */
+
 pulse_sampler_t pulse_graphics_sampler_create(
     pulse_app_t app,
     const CGPUSamplerDescriptor* desc);
@@ -244,21 +268,23 @@ pulse_sampler_t pulse_graphics_sampler_create(
 pulse_sampler_data_t* pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t* handle);
 void pulse_graphics_sampler_release(pulse_app_t app, pulse_sampler_t* handle);
 
+/* Texture */
+
 typedef struct pulse_graphics_texture_create_desc {
     CGPUTextureDescriptor desc;
     uint64_t pixel_data_size;
-    const void* pixel_data; 
-	bool generate_mipmaps;
+    const void* pixel_data;
+    bool generate_mipmaps;
 } pulse_graphics_texture_create_desc;
-
-pulse_texture_t pulse_graphics_texture_create(
-    pulse_app_t app,
-    const pulse_graphics_texture_create_desc* desc);
 
 typedef struct pulse_graphics_texture_load_desc {
     const char* filepath;
     bool generate_mipmaps;
 } pulse_graphics_texture_load_desc;
+
+pulse_texture_t pulse_graphics_texture_create(
+    pulse_app_t app,
+    const pulse_graphics_texture_create_desc* desc);
 
 pulse_texture_t pulse_graphics_texture_load(
     pulse_app_t app,
@@ -269,6 +295,8 @@ static bool pulse_graphics_texture_is_available(pulse_app_t app, pulse_texture_t
 bool pulse_graphics_texture_acquire(pulse_app_t app, pulse_texture_t handle, pulse_graphics_texture_ref* ref);
 void pulse_graphics_texture_release(pulse_app_t app, pulse_graphics_texture_ref* ref);
 static void pulse_graphics_texture_unload(pulse_app_t app, pulse_texture_t texture) { pulse_asset_unload(app, pulse_graphics_texture_to_handle(texture)); }
+
+/* Mesh */
 
 typedef struct pulse_graphics_mesh_create_from_data_desc {
     uint32_t vertex_count;
@@ -310,6 +338,8 @@ bool pulse_graphics_mesh_acquire(pulse_app_t app, pulse_mesh_t handle, pulse_gra
 void pulse_graphics_mesh_release(pulse_app_t app, pulse_graphics_mesh_ref* ref);
 static void pulse_graphics_mesh_unload(pulse_app_t app, pulse_mesh_t mesh) { pulse_asset_unload(app, pulse_graphics_mesh_to_handle(mesh)); }
 
+/* Material */
+
 typedef struct pulse_graphics_material_create_desc {
     pulse_shader_t shader;
 } pulse_graphics_material_create_desc;
@@ -338,6 +368,8 @@ void pulse_graphics_material_bind_sampler(
     pulse_app_t app, pulse_material_data_t* material,
     uint32_t set, uint32_t binding,
     pulse_sampler_t sampler);
+
+/* Encoder */
 
 void pulse_encoder_draw(pulse_renderpass_encoder_t* encoder, pulse_material_t material, pulse_mesh_t mesh);
 void pulse_encoder_draw_submesh(pulse_renderpass_encoder_t* encoder, pulse_material_t material, pulse_mesh_t mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);

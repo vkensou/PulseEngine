@@ -1,4 +1,4 @@
-#include "graphics_internal.h"
+#include "../graphics_internal.h"
 #include "rendergraph.h"
 #include "renderer.h"
 
@@ -172,6 +172,34 @@ void install_upload_callback(pulse_app_t app) {
     desc.user_data = nullptr;
     desc.priority = -1000;
     pulse_graphics_render_add_record_callback(app, &desc);
+}
+
+bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+    pulse_graphics_state* state = state_from_app(app);
+    if (!state) return false;
+    if (!pulse_asset_handle_is_valid(handle)) return false;
+    for (const auto& entry : state->pending_uploads) {
+        if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphics_texture_to_handle(entry.texture), handle)) return true;
+        if (entry.content == UPLOAD_BUFFER && pulse_asset_handle_equals(pulse_graphics_buffer_to_handle(entry.buffer), handle)) return true;
+    }
+    return false;
+}
+
+void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+    pulse_graphics_state* state = state_from_app(app);
+    if (!state) return;
+    if (!pulse_asset_handle_is_valid(handle)) return;
+    auto& vec = state->pending_uploads;
+    for (size_t i = 0; i < vec.size(); ) {
+        bool match = false;
+        if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphics_texture_to_handle(vec[i].texture), handle)) match = true;
+        if (vec[i].content == UPLOAD_BUFFER && pulse_asset_handle_equals(pulse_graphics_buffer_to_handle(vec[i].buffer), handle)) match = true;
+        if (match) {
+            vec.erase(vec.begin() + i);
+        } else {
+            ++i;
+        }
+    }
 }
 
 } // namespace pulse_graphics_internal

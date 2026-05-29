@@ -1,4 +1,4 @@
-#include "graphics_internal.h"
+#include "../graphics_internal.h"
 #include "renderer.h"
 #include "drawer.h"
 
