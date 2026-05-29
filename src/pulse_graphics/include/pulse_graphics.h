@@ -24,8 +24,7 @@ extern "C" {
 #define PULSE_TYPE_BUFFER          UINT64_C(0x1004)
 #define PULSE_TYPE_MATERIAL        UINT64_C(0x1005)
 #define PULSE_TYPE_SAMPLER         UINT64_C(0x1006)
-#define PULSE_TYPE_BYTECODE        UINT64_C(0x1007)
-#define PULSE_TYPE_SHADER_LIBRARY  UINT64_C(0x1008)
+#define PULSE_TYPE_SHADER_LIBRARY  UINT64_C(0x1007)
 
 /* Asset handles and refs */
 
@@ -36,15 +35,7 @@ typedef struct pulse_mesh_t           { uint32_t index; uint32_t generation; } p
 typedef struct pulse_texture_t        { uint32_t index; uint32_t generation; } pulse_texture_t;
 typedef struct pulse_buffer_t         { uint32_t index; uint32_t generation; } pulse_buffer_t;
 typedef struct pulse_material_t       { uint32_t index; uint32_t generation; } pulse_material_t;
-typedef struct pulse_sampler_t        { pulse_asset_handle asset; } pulse_sampler_t;
-
-typedef struct pulse_shader_library_data {
-    CGPUShaderLibraryId library;
-} pulse_shader_library_data_t;
-
-typedef struct pulse_sampler_data {
-    CGPUSamplerId handle;
-} pulse_sampler_data_t;
+typedef struct pulse_sampler_t        { uint32_t index; uint32_t generation; } pulse_sampler_t;
 
 typedef struct pulse_graphics_shader_ref {
     pulse_shader_t handle;
@@ -75,6 +66,11 @@ typedef struct pulse_graphics_material_ref {
     pulse_material_t handle;
     pulse_material_data_t* ptr;
 } pulse_graphics_material_ref;
+
+typedef struct pulse_graphics_sampler_ref {
+    pulse_sampler_t handle;
+    pulse_sampler_data_t* ptr;
+} pulse_graphics_sampler_ref;
 
 /* Plugin and runtime */
 
@@ -261,12 +257,19 @@ static void pulse_graphics_buffer_unload(pulse_app_t app, pulse_buffer_t buffer)
 
 /* Sampler */
 
+typedef struct pulse_graphics_sampler_create_desc {
+    CGPUSamplerDescriptor desc;
+} pulse_graphics_sampler_create_desc;
+
 pulse_sampler_t pulse_graphics_sampler_create(
     pulse_app_t app,
-    const CGPUSamplerDescriptor* desc);
+    const pulse_graphics_sampler_create_desc* desc);
 
-pulse_sampler_data_t* pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t* handle);
-void pulse_graphics_sampler_release(pulse_app_t app, pulse_sampler_t* handle);
+static pulse_asset_handle pulse_graphics_sampler_to_handle(pulse_sampler_t sampler) { return { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation }; }
+static bool pulse_graphics_sampler_is_available(pulse_app_t app, pulse_sampler_t sampler) { return pulse_asset_is_available(app, pulse_graphics_sampler_to_handle(sampler)); }
+bool pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t handle, pulse_graphics_sampler_ref* ref);
+void pulse_graphics_sampler_release(pulse_app_t app, pulse_graphics_sampler_ref* ref);
+static void pulse_graphics_sampler_unload(pulse_app_t app, pulse_sampler_t sampler) { pulse_asset_unload(app, pulse_graphics_sampler_to_handle(sampler)); }
 
 /* Texture */
 

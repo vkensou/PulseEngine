@@ -202,4 +202,7 @@ void register_shader_library_type(pulse_app_t app, CGPUDeviceId device);
 void register_shader_library_load_loader(pulse_app_t app, CGPUDeviceId device);
 void register_shader_library_create_loader(pulse_app_t app, CGPUDeviceId device);
 
+void register_sampler_type(pulse_app_t app, CGPUDeviceId device);
+void register_sampler_create_loader(pulse_app_t app, CGPUDeviceId device);
+
 } // namespace pulse_graphics_internal

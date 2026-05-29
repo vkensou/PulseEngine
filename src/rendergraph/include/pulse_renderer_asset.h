@@ -102,6 +102,14 @@ struct pulse_backbuffer_data_t
 	pulse_texture_data_t texture;
 };
 
+typedef struct pulse_shader_library_data {
+    CGPUShaderLibraryId library;
+} pulse_shader_library_data_t;
+
+typedef struct pulse_sampler_data {
+    CGPUSamplerId handle;
+} pulse_sampler_data_t;
+
 #ifdef __cplusplus
 }
 #endif

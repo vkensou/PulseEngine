@@ -1,44 +1,48 @@
 #include "../graphics_internal.h"
 
+namespace pulse_graphics_internal {
+
+void destroy_sampler(void* ptr, void* user_data) {
+    CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
+    pulse_sampler_data_t* data = static_cast<pulse_sampler_data_t*>(ptr);
+    if (data->handle) cgpu_device_free_sampler(device, data->handle);
+}
+
+void register_sampler_type(pulse_app_t app, CGPUDeviceId device)
+{
+    pulse_asset_type_desc type_desc{};
+    type_desc.struct_size = sizeof(pulse_asset_type_desc);
+    type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
+    type_desc.type_id = PULSE_TYPE_SAMPLER;
+    type_desc.size = sizeof(pulse_sampler_data_t);
+    type_desc.align = alignof(pulse_sampler_data_t);
+    type_desc.destroy = destroy_sampler;
+    type_desc.user_data = const_cast<struct CGPUDevice*>(device);
+    pulse_asset_register_type(app, &type_desc);
+}
+
+}
+
 extern "C" {
 
-pulse_sampler_t pulse_graphics_sampler_create(
-    pulse_app_t app,
-    const CGPUSamplerDescriptor* desc)
-{
-    pulse_sampler_t result{};
-    CGPUDeviceId device = pulse_graphics_internal::get_device(app);
-    if (!device || !desc) return result;
-
-    CGPUSamplerId sampler = cgpu_device_create_sampler(device, desc);
-    if (!sampler) return result;
-
-    pulse_asset_handle asset_handle = pulse_graphics_internal::asset_load_memory_path(
-        app, PULSE_TYPE_SAMPLER, "", nullptr, 0);
-    if (!pulse_asset_handle_is_valid(asset_handle)) return result;
-
+bool pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t handle, pulse_graphics_sampler_ref* sampler_ref) {
     pulse_asset_ref ref{};
-    if (pulse_asset_acquire(app, asset_handle, &ref)) {
-        pulse_sampler_data_t* smp = static_cast<pulse_sampler_data_t*>(ref.ptr);
-        smp->handle = sampler;
-        pulse_asset_release(app, &ref);
+    if (pulse_asset_acquire(app, pulse_graphics_sampler_to_handle(handle), &ref)) {
+        sampler_ref->handle = handle;
+        sampler_ref->ptr = static_cast<pulse_sampler_data_t*>(ref.ptr);
+        return true;
     }
 
-    result.asset = asset_handle;
-    return result;
+    sampler_ref->handle = {};
+    sampler_ref->ptr = nullptr;
+    return false;
 }
 
-pulse_sampler_data_t* pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t* handle) {
-    pulse_asset_ref ref{};
-    if (pulse_asset_acquire(app, handle->asset, &ref)) {
-        return static_cast<pulse_sampler_data_t*>(ref.ptr);
-    }
-    return nullptr;
-}
-
-void pulse_graphics_sampler_release(pulse_app_t app, pulse_sampler_t* handle) {
-    pulse_asset_ref ref{handle->asset, nullptr};
+void pulse_graphics_sampler_release(pulse_app_t app, pulse_graphics_sampler_ref* sampler_ref) {
+    pulse_asset_ref ref{ pulse_graphics_sampler_to_handle(sampler_ref->handle), nullptr };
     pulse_asset_release(app, &ref);
+    sampler_ref->handle = {};
+    sampler_ref->ptr = nullptr;
 }
 
 } // extern "C"

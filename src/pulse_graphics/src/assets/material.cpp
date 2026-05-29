@@ -60,12 +60,12 @@ void pulse_graphics_material_bind_sampler(
     uint32_t set, uint32_t binding,
     pulse_sampler_t sampler)
 {
-    pulse_sampler_data_t* smp_data = pulse_graphics_sampler_acquire(app, &sampler);
-    if (!smp_data) return;
+    pulse_graphics_sampler_ref ref{};
+    if (!pulse_graphics_sampler_acquire(app, sampler, &ref)) return;
 
-    HGEGraphics::material_bindSampler(material, set, binding, smp_data->handle);
+    HGEGraphics::material_bindSampler(material, set, binding, ref.ptr->handle);
 
-    pulse_graphics_sampler_release(app, &sampler);
+    pulse_graphics_sampler_release(app, &ref);
 }
 
 bool pulse_graphics_material_acquire(pulse_app_t app, pulse_material_t handle, pulse_graphics_material_ref* material_ref) {
