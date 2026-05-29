@@ -260,6 +260,11 @@ void pulse_asset_mark_modified(
     pulse_asset_handle handle
 );
 
+void pulse_asset_force_unload_assets(
+    pulse_app_t app,
+    uint64_t type_id
+);
+
 #ifdef __cplusplus
 }
 #endif

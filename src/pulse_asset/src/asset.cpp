@@ -199,6 +199,15 @@ void AssetSystem::mark_modified(pulse_asset_handle handle) {
     }
 }
 
+void AssetSystem::force_unload_assets(uint64_t type_id) {
+    if (type_id == 0) {
+        return;
+    }
+
+    load_queue_.cancel_type(*this, type_id);
+    storage_.force_destroy_assets(type_id);
+}
+
 pulse_asset_handle AssetSystem::load_impl(const LoadRequest& request) {
     if (request.type_id == 0 || !registry_.find_type(request.type_id) ||
         !request_dependencies_are_valid(request)) {
@@ -507,6 +516,13 @@ void pulse_asset_mark_modified(pulse_app_t app, pulse_asset_handle handle) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     if (system) {
         system->mark_modified(handle);
+    }
+}
+
+void pulse_asset_force_unload_assets(pulse_app_t app, uint64_t type_id) {
+    pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
+    if (system) {
+        system->force_unload_assets(type_id);
     }
 }
 

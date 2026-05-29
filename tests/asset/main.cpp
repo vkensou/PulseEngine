@@ -21,6 +21,7 @@ const uint64_t builder_pending_type = 12;
 const uint64_t builder_wait_type = 13;
 const uint64_t builder_dynamic_type = 14;
 const uint64_t builder_fail_once_type = 15;
+const uint64_t force_type = 16;
 
 struct test_text_asset {
     uint64_t size;
@@ -106,6 +107,14 @@ struct builder_dynamic_state {
     pulse_asset_handle required_dep;
 };
 
+struct force_asset {
+    int value;
+};
+
+struct force_loader_state {
+    int step;
+};
+
 struct dynamic_loader_state {
     int step;
     pulse_asset_handle required_dep;
@@ -136,6 +145,10 @@ static int builder_wait_step_count = 0;
 static int builder_dynamic_step_count = 0;
 static int builder_dynamic_ctor_count = 0;
 static int builder_dynamic_dtor_count = 0;
+static int force_destroy_count = 0;
+static int force_ctor_count = 0;
+static int force_dtor_count = 0;
+static int force_step_count = 0;
 
 static void destroy_test_text(void* ptr, void* user_data) {
     (void)ptr;
@@ -527,6 +540,51 @@ static pulse_asset_loader_status_t step_builder_dynamic_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
+static void destroy_force_asset(void* ptr, void* user_data) {
+    (void)ptr;
+    (void)user_data;
+    force_destroy_count += 1;
+}
+
+static pulse_result_t ctor_force_asset(
+    void* state,
+    const pulse_asset_load_task* ctx
+) {
+    (void)ctx;
+    force_ctor_count += 1;
+    force_loader_state* s = (force_loader_state*)state;
+    assert(s->step == 0);
+    return PULSE_OK;
+}
+
+static void dtor_force_asset(
+    void* state,
+    const pulse_asset_load_task* ctx
+) {
+    (void)ctx;
+    force_dtor_count += 1;
+    force_loader_state* s = (force_loader_state*)state;
+    assert(s != nullptr);
+}
+
+static pulse_asset_loader_status_t step_force_asset(
+    void* state,
+    const pulse_asset_load_task* ctx,
+    const char** out_error
+) {
+    (void)out_error;
+    force_step_count += 1;
+    force_loader_state* s = (force_loader_state*)state;
+    s->step += 1;
+    if (s->step < 2) {
+        return PULSE_ASSET_LOADER_PENDING;
+    }
+
+    force_asset* asset = (force_asset*)ctx->out_asset;
+    asset->value = (int)ctx->byte_size;
+    return PULSE_ASSET_LOADER_DONE;
+}
+
 static pulse_asset_handle load_asset_file(
     pulse_app_t app,
     uint64_t type_id,
@@ -890,6 +948,71 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_OK);
     assert(pulse_asset_get_state(app, cleanup_shutdown) == PULSE_ASSET_STATE_PROCESSING);
     assert(cleanup_dtor_count == 3);
+
+    pulse_asset_type_desc force_type_desc = {
+        sizeof(pulse_asset_type_desc),
+        PULSE_ASSET_TYPE_DESC_VERSION,
+        force_type,
+        sizeof(force_asset),
+        alignof(force_asset),
+        destroy_force_asset,
+        nullptr,
+    };
+    assert(pulse_asset_register_type(app, &force_type_desc) == PULSE_OK);
+
+    pulse_asset_loader_desc force_loader_desc = {
+        sizeof(pulse_asset_loader_desc),
+        PULSE_ASSET_LOADER_DESC_VERSION,
+        force_type,
+        "txt",
+        ctor_force_asset,
+        dtor_force_asset,
+        step_force_asset,
+        sizeof(force_loader_state),
+        alignof(force_loader_state),
+        0,
+        0,
+        nullptr,
+    };
+    assert(pulse_asset_register_loader(app, &force_loader_desc) == PULSE_OK);
+
+    const char force_bytes[] = "force";
+    pulse_asset_handle force_loaded = load_asset_memory(app, force_type, "force_loaded.txt", force_bytes, sizeof(force_bytes), NULL);
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_asset_get_state(app, force_loaded) == PULSE_ASSET_STATE_PROCESSING);
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_asset_get_state(app, force_loaded) == PULSE_ASSET_STATE_LOADED);
+    assert(force_ctor_count == 1);
+    assert(force_dtor_count == 1);
+
+    pulse_asset_ref force_loaded_ref{};
+    assert(pulse_asset_acquire(app, force_loaded, &force_loaded_ref));
+    assert(((force_asset*)force_loaded_ref.ptr)->value == sizeof(force_bytes));
+
+    pulse_asset_handle force_pending = load_asset_memory(app, force_type, "force_pending.txt", force_bytes, sizeof(force_bytes), NULL);
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_asset_get_state(app, force_pending) == PULSE_ASSET_STATE_PROCESSING);
+    assert(force_ctor_count == 2);
+    assert(force_dtor_count == 1);
+
+    int force_steps_before_unload = force_step_count;
+    pulse_asset_force_unload_assets(app, force_type);
+    assert(pulse_asset_get_state(app, force_loaded) == PULSE_ASSET_STATE_EMPTY);
+    assert(pulse_asset_get_state(app, force_pending) == PULSE_ASSET_STATE_EMPTY);
+    assert(force_destroy_count == 1);
+    assert(force_dtor_count == 2);
+    pulse_asset_ref missing_force_ref{};
+    assert(!pulse_asset_acquire(app, force_loaded, &missing_force_ref));
+    pulse_asset_release(app, &force_loaded_ref);
+    assert(force_loaded_ref.ptr == nullptr);
+    assert(!pulse_asset_handle_is_valid(force_loaded_ref.handle));
+    assert(pulse_app_update(app) == PULSE_OK);
+    assert(force_step_count == force_steps_before_unload);
+
+    pulse_asset_handle force_reloaded = load_asset_memory(app, force_type, "force_loaded.txt", force_bytes, sizeof(force_bytes), NULL);
+    assert(pulse_asset_handle_is_valid(force_reloaded));
+    assert(!pulse_asset_handle_equals(force_reloaded, force_loaded));
+    pulse_asset_force_unload_assets(app, 0);
 
     pulse_asset_type_desc aligned_type_desc = {
         sizeof(pulse_asset_type_desc),

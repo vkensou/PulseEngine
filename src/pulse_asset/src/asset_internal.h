@@ -207,6 +207,7 @@ public:
     AssetSlotAllocation allocate_slot(uint64_t type_id, const std::pmr::string& path);
     void destroy_slot(AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle);
     void destroy_all_assets();
+    void force_destroy_assets(uint64_t type_id);
     void try_unload_slot(AssetBucketSlot bucket_slot, pulse_asset_handle handle);
     bool cached_slot_can_be_reused(pulse_asset_handle handle) const;
     pulse_asset_handle find_cached(uint64_t type_id, const std::pmr::string& path) const;
@@ -221,6 +222,8 @@ private:
     PathCache path_cache_;
     DependencyGraph dependency_graph_;
     std::pmr::unordered_map<uint64_t, AssetBucket> buckets_;
+
+    void detach_dependents_from_slot(pulse_asset_handle handle, AssetSlot& slot);
 };
 
 class LoadSource final {
@@ -298,6 +301,7 @@ public:
     void process(AssetSystem& system);
     LoadJobOutcome process_immediate_builder(AssetSystem& system, JobIterator job_it);
     void cancel_all(AssetSystem& system);
+    void cancel_type(AssetSystem& system, uint64_t type_id);
     std::optional<AssetBucketSlot> retire_load_job(AssetSystem& system, LoadJob& job);
     void retire_and_erase(AssetSystem& system, JobIterator job_it);
 
@@ -338,6 +342,7 @@ public:
     void release(pulse_asset_ref* ref);
     void unload(pulse_asset_handle handle);
     void mark_modified(pulse_asset_handle handle);
+    void force_unload_assets(uint64_t type_id);
 
     pulse_app_t app() const { return app_; }
     uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }

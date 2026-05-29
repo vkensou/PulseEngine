@@ -1,4 +1,4 @@
-#include "graphics_internal.h"
+﻿#include "graphics_internal.h"
 
 #include <algorithm>
 #include <new>
@@ -128,6 +128,16 @@ void graphic_plugin_shutdown(pulse_app_t app, void* ctx) {
     }
 
     delete_render_components(world);
+
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_MATERIAL);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_MESH);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_COMPUTE_SHADER);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_SHADER);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_SHADER_LIBRARY);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_SAMPLER);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_BUFFER);
+    pulse_asset_force_unload_assets(app, PULSE_TYPE_TEXTURE);
+
     destroy_renderer(state);
 
     delete state;

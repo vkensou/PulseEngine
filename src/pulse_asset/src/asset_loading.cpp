@@ -136,6 +136,26 @@ void LoadQueue::cancel_all(AssetSystem& system) {
     jobs_.clear();
 }
 
+void LoadQueue::cancel_type(AssetSystem& system, uint64_t type_id) {
+    auto job_it = jobs_.begin();
+    while (job_it != jobs_.end()) {
+        if (job_it->handle.type_id != type_id) {
+            ++job_it;
+            continue;
+        }
+
+        pulse_asset_handle handle = job_it->handle;
+        auto slot = system.storage().get_slot(handle);
+        job_it->finish(slot ? &slot->slot : nullptr, LoadJobOutcome::Cancelled, "asset load cancelled");
+
+        auto retired_slot = retire_load_job(system, *job_it);
+        job_it = jobs_.erase(job_it);
+        if (retired_slot) {
+            system.storage().try_unload_slot(*retired_slot, handle);
+        }
+    }
+}
+
 std::optional<AssetBucketSlot> LoadQueue::retire_load_job(AssetSystem& system, LoadJob& job) {
     auto slot = system.storage().get_slot(job.handle);
     if (job.loader_constructed && job.loader && job.loader->desc.dtor) {

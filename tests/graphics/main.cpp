@@ -50,42 +50,47 @@ static void on_test_render(pulse_renderpass_encoder_t* encoder, void* userdata) 
     pulse_encoder_set_global_sampler(encoder, pulse_sampler_t{}, 0, 0);
 }
 
+struct test_render_state {
+    ecs_query_t* window_query;
+};
+
 static void record_test_graphic(
     pulse_app_t app,
     pulse_rendergraph_t* graph,
     void* user_data
 ) {
-    //auto* resources = static_cast<test_graphic_resources*>(user_data);
-    //if (!graph || !resources) return;
+    test_render_state* state = static_cast<test_render_state*>(user_data);
+    if (!graph || !state) {
+        return;
+    }
 
-    //// Declare a render target texture
-    //pulse_texture_handle_t rt = pulse_rendergraph_declare_texture(graph);
-    //pulse_rendergraph_texture_set_extent(graph, rt, 800, 600, 1);
-    //pulse_rendergraph_texture_set_format(graph, rt, CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM);
+    if (!state->window_query) {
+        return;
+    }
 
-    //// Add a render pass
-    //pulse_renderpass_builder_t pass = pulse_rendergraph_add_renderpass(graph, "TestPass");
-    //pulse_renderpass_add_color_attachment(
-    //    &pass, rt,
-    //    CGPU_LOAD_ACTION_CLEAR, 0x00000000,
-    //    CGPU_STORE_ACTION_STORE);
+    ecs_iter_t it = ecs_query_iter(state->window_query->world, state->window_query);
+    while (ecs_query_next(&it)) {
+        for (int i = 0; i < it.count; ++i) {
+            ecs_entity_t entity = it.entities[i];
 
-    //// Set executable with passdata carrying the graphic handles
-    //test_render_passdata* passdata = nullptr;
-    //pulse_renderpass_set_executable(
-    //    &pass, on_test_render,
-    //    sizeof(test_render_passdata),
-    //    reinterpret_cast<void**>(&passdata));
-    //if (passdata) {
-    //    passdata->material = resources->material;
-    //    passdata->mesh = resources->mesh;
-    //    passdata->shader = resources->shader;
-    //    passdata->compute = resources->compute;
-    //    passdata->texture = resources->texture;
-    //    passdata->buffer = resources->buffer;
-    //}
+            pulse_texture_handle_t target_handle =
+                pulse_graphics_render_import_window_backbuffer(app, graph, entity);
+            if (!pulse_rendergraph_texture_handle_valid(target_handle)) {
+                continue;
+            }
 
-    //pulse_rendergraph_present(graph, rt);
+            pulse_renderpass_builder_t pass =
+                pulse_rendergraph_add_renderpass(graph, "TestCallbackPass");
+            pulse_renderpass_add_color_attachment(
+                &pass,
+                target_handle,
+                CGPU_LOAD_ACTION_CLEAR,
+                0xff00ffff,
+                CGPU_STORE_ACTION_STORE
+            );
+            pulse_rendergraph_present(graph, target_handle);
+        }
+    }
 }
 
 int main(void) {
@@ -207,17 +212,23 @@ int main(void) {
 
     // ---- Register record callback with graphic resources ----
     //test_graphic_resources resources{shader, compute, buffer, sampler, texture, mesh, material};
+
+    test_render_state render_state{};
+
+    ecs_query_desc_t window_query_desc{};
+    window_query_desc.terms[0] = { .id = ecs_id(pulse_window) };
+    window_query_desc.cache_kind = EcsQueryCacheAuto;
+    render_state.window_query = ecs_query_init(pulse_app_world(app), &window_query_desc);
+
     pulse_graphics_renderer_record_callback_desc cb_desc{};
     cb_desc.callback = record_test_graphic;
-    //cb_desc.user_data = &resources;
+    cb_desc.user_data = &render_state;
     cb_desc.priority = 0;
     pulse_graphics_render_add_record_callback(app, &cb_desc);
 
     pulse_app_run(app);
 
-	pulse_graphics_texture_unload(app, texture);
-    pulse_graphics_texture_unload(app, texture2);
-	pulse_graphics_mesh_unload(app, mesh);
+    ecs_query_fini(render_state.window_query);
 
     pulse_app_destroy(app);
 
