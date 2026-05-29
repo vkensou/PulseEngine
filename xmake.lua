@@ -103,6 +103,8 @@ target("pulse_graphics")
     add_headerfiles("src/pulse_graphics/src/*.h", {install = false})
     add_files("src/pulse_graphics/src/*.cpp")
     add_files("src/pulse_graphics/src/**/*.cpp")
+    add_rules("utils.hlsl2spv", {bin2c = true})
+    add_files("src/pulse_graphics/src/runtime/*.hlsl")
 
 rule("example_base")
     after_load(function(target)

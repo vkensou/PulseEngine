@@ -106,7 +106,7 @@ constexpr size_t kGraphResourceEstimate = 32;
 constexpr size_t kGraphPassEstimate = 32;
 constexpr size_t kGraphEdgeEstimate = 64;
 
-bool ensure_frame_graph(render_frame_context& frame_context) {
+bool ensure_frame_graph(pulse_graphics_state* state, render_frame_context& frame_context) {
     if (!frame_context.graph_memory) {
         frame_context.graph_memory =
             std::make_unique<std::pmr::unsynchronized_pool_resource>();
@@ -129,8 +129,8 @@ bool ensure_frame_graph(render_frame_context& frame_context) {
             resource_estimate,
             pass_estimate,
             edge_estimate,
-            nullptr,
-            CGPU_NULLPTR,
+            state->blit_shader.ptr,
+            state->blit_linear_sampler.ptr->handle,
             frame_context.graph_memory.get()
         );
     }
@@ -241,7 +241,7 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     if (state->record_callbacks.empty()) {
         return;
     }
-    if (!ensure_frame_graph(frame_context)) {
+    if (!ensure_frame_graph(state, frame_context)) {
         frame_context.failed = true;
         return;
     }

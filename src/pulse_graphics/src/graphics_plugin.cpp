@@ -68,6 +68,65 @@ pulse_graphics_plugin_desc normalize_plugin_desc(
     return normalized;
 }
 
+void create_blit_shader(pulse_app_t app, pulse_graphics_state* state) {
+	CGPUBlendAttachmentState blit_blend_attachments = {
+		.enable = false,
+		.src_factor = CGPU_BLEND_FACTOR_ONE,
+		.dst_factor = CGPU_BLEND_FACTOR_ZERO,
+		.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
+		.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
+		.blend_op = CGPU_BLEND_OP_ADD,
+		.blend_alpha_op = CGPU_BLEND_OP_ADD,
+		.color_mask = CGPU_COLOR_MASK_RGBA,
+	};
+
+    uint8_t blit_vert_spv[] = {
+		#include "blit.vs.spv.h"
+	};
+	uint8_t blit_frag_spv[] = {
+		#include "blit.ps.spv.h"
+	};
+
+    pulse_graphics_shader_create_from_binary_desc blit_shader_desc = {
+        .vs_data = blit_vert_spv,
+        .vs_size = sizeof(blit_vert_spv),
+        .fs_data = blit_frag_spv,
+        .fs_size = sizeof(blit_frag_spv),
+        .blend_desc = {
+            .attachment_count = 1,
+            .p_attachments = &blit_blend_attachments,
+            .alpha_to_coverage = false,
+            .independent_blend = false,
+        },
+        .depth_desc = {
+            .depth_test = false,
+            .depth_write = false,
+            .stencil_test = false,
+        },
+        .rasterizer_state = {
+            .cull_mode = CGPU_CULL_MODE_NONE,
+        },
+    };
+
+    state->blit_shader.handle = pulse_graphics_shader_create_from_binary(app, &blit_shader_desc);
+    pulse_graphics_shader_acquire(app, state->blit_shader.handle, &state->blit_shader);
+
+	pulse_graphics_sampler_create_desc blit_linear_sampler_desc = {
+        .desc = {
+            .min_filter = CGPU_FILTER_TYPE_LINEAR,
+            .mag_filter = CGPU_FILTER_TYPE_LINEAR,
+            .mipmap_mode = CGPU_MIP_MAP_MODE_LINEAR,
+            .address_u = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .address_v = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .address_w = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .mip_lod_bias = 0,
+            .max_anisotropy = 1,
+        }
+	};
+	state->blit_linear_sampler.handle = pulse_graphics_sampler_create(app, &blit_linear_sampler_desc);
+    pulse_graphics_sampler_acquire(app, state->blit_linear_sampler.handle, &state->blit_linear_sampler);
+}
+
 pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
@@ -87,6 +146,8 @@ pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
 
     CGPUDeviceId device = get_device(app);
     register_graphics_asset_types_and_loaders(app, device);
+
+    create_blit_shader(app, state);
 
     install_upload_callback(app);
 

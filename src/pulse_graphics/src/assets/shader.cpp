@@ -6,8 +6,7 @@ static void destroy_shader(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_shader_data_t* data = static_cast<pulse_shader_data_t*>(ptr);
     if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
-    if (data->vs.library) cgpu_device_free_shader_library(device, data->vs.library);
-    if (data->ps.library) cgpu_device_free_shader_library(device, data->ps.library);
+	if (data->p_blend_attachment_states) delete[] data->p_blend_attachment_states;
 }
 
 void register_shader_type(pulse_app_t app, CGPUDeviceId device)

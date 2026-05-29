@@ -6,7 +6,6 @@ static void destroy_compute_shader(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_compute_shader_data_t* data = static_cast<pulse_compute_shader_data_t*>(ptr);
     if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
-    if (data->cs.library) cgpu_device_free_shader_library(device, data->cs.library);
 }
 
 void register_compute_shader_type(pulse_app_t app, CGPUDeviceId device)

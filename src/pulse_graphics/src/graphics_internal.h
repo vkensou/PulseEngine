@@ -83,6 +83,9 @@ struct pulse_graphics_state {
     bool existing_sdl_windows_bootstrapped = false;
     std::vector<pulse_graphics_renderer_record_callback_desc> record_callbacks;
 
+    pulse_graphics_shader_ref blit_shader;
+    pulse_graphics_sampler_ref blit_linear_sampler;
+
     void sort_record_callbacks();
 
     bool upload_pending = false;

@@ -102,7 +102,7 @@ int main(void) {
     assert(pulse_window_add_plugin(app, &window_desc) == PULSE_OK);
 
     pulse_asset_plugin_desc asset_desc = pulse_asset_plugin_desc_default();
-    asset_desc.root_path = "tests/graphic/data";
+    asset_desc.root_path = "tests/graphics/data";
     assert(pulse_asset_add_plugin(app, &asset_desc) == PULSE_OK);
 
     // Add pulse_graphic plugin
@@ -129,8 +129,8 @@ int main(void) {
     //pulse_sampler_t sampler = pulse_graphics_sampler_create(app, &smp_desc);
 
 	pulse_graphics_texture_load_desc tex_load_desc{
-        .filepath = "TilesGray512.ktx",
-		.generate_mipmaps = false,
+        .filepath = "TilesGray512.jpg",
+		.generate_mipmaps = true,
     };
     pulse_texture_t texture = pulse_graphics_texture_load(
         app, &tex_load_desc);

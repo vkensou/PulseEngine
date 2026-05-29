@@ -63,4 +63,25 @@ pulse_shader_library_t pulse_graphics_shader_library_load(
     return result;
 }
 
+bool pulse_graphics_shader_library_acquire(pulse_app_t app, pulse_shader_library_t handle, pulse_graphics_shader_library_ref* sl_ref)
+{
+    pulse_asset_ref aref{};
+    if (pulse_asset_acquire(app, pulse_graphics_shader_library_to_handle(handle), &aref)) {
+        sl_ref->handle = handle;
+        sl_ref->ptr = static_cast<pulse_shader_library_data_t*>(aref.ptr);
+        return true;
+    }
+    sl_ref->handle = {};
+    sl_ref->ptr = nullptr;
+    return false;
+}
+
+void pulse_graphics_shader_library_release(pulse_app_t app, pulse_graphics_shader_library_ref* sl_ref)
+{
+    pulse_asset_ref aref{ pulse_graphics_shader_library_to_handle(sl_ref->handle), nullptr };
+    pulse_asset_release(app, &aref);
+    sl_ref->handle = {};
+    sl_ref->ptr = nullptr;
+}
+
 } // extern "C"
