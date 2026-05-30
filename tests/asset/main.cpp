@@ -649,7 +649,7 @@ int main(void) {
     assert(default_desc.root_path != nullptr);
     assert(default_desc.max_requests_per_update == 8);
 
-    PulseAppId app = pulse_app_create();
+    PulseAppId app = pulse_create_app();
     assert(app != nullptr);
 
     pulse_asset_plugin_desc desc = pulse_asset_plugin_desc_default();
@@ -1578,7 +1578,7 @@ int main(void) {
     assert(reused_text_handle.generation == text_handle.generation + 1);
     assert(pulse_asset_handle_is_valid(reused_text_handle));
 
-    pulse_app_destroy(app);
+    pulse_destroy_app(app);
     assert(cleanup_dtor_count == 4);
 
     printf("Asset plugin lifecycle tests passed!\n");

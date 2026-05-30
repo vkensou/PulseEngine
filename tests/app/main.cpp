@@ -29,8 +29,8 @@ static EPulseResult my_build(PulseAppId app, void* ctx) {
     assert(world != nullptr);
     assert(ecs_new(world) != 0);
 
-    PULSEPluginDesc nested = {
-        .struct_size = sizeof(PULSEPluginDesc),
+    PulsePluginDesc nested = {
+        .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,
         .name = "NestedPlugin",
         .build = nested_build,
@@ -92,11 +92,11 @@ static EPulseResult test_runner(PulseAppId app, void* ctx) {
 }
 
 int main(void) {
-    PulseAppId app = pulse_app_create();
+    PulseAppId app = pulse_create_app();
     assert(app != nullptr);
 
-    PULSEPluginDesc desc = {
-        .struct_size = sizeof(PULSEPluginDesc),
+    PulsePluginDesc desc = {
+        .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,
         .name = "TestPlugin",
         .build = my_build,
@@ -114,8 +114,8 @@ int main(void) {
     PulseAppId sub = pulse_subapp_create("Sub");
     assert(sub != nullptr);
 
-    PULSEPluginDesc sub_desc = {
-        .struct_size = sizeof(PULSEPluginDesc),
+    PulsePluginDesc sub_desc = {
+        .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,
         .name = "SubPlugin",
         .build = sub_build,
@@ -142,9 +142,9 @@ int main(void) {
     PulseAppId removed = pulse_app_remove_subapp(app, "Sub");
     assert(removed == sub);
     assert(pulse_app_get_subapp(app, "Sub") == nullptr);
-    pulse_app_destroy(removed);
+    pulse_destroy_app(removed);
 
-    pulse_app_destroy(app);
+    pulse_destroy_app(app);
 
     printf("All tests passed!\n");
     return 0;
