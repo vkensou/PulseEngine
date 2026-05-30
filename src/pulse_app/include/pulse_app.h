@@ -63,8 +63,8 @@ typedef struct PulsePluginDesc
 
 } PulsePluginDesc;
 
-struct PulseApp_s;
-typedef struct PulseApp_s PulseApp_t;
+struct PulseApp;
+typedef struct PulseApp PulseApp;
 
 
 PULSE_API PulseAppId pulse_create_app(void);
