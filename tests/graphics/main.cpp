@@ -110,7 +110,7 @@ static void record_test_graphic(
 
     ecs_iter_t it = ecs_query_iter(state->window_query->world, state->window_query);
     while (ecs_query_next(&it)) {
-        pulse_window* windows = ecs_field(&it, pulse_window, 0);
+        PulseWindow* windows = ecs_field(&it, PulseWindow, 0);
         for (int i = 0; i < it.count; ++i) {
             ecs_entity_t entity = it.entities[i];
             const auto& window = windows[i];
@@ -339,7 +339,7 @@ int main(void) {
     test_render_state render_state{};
 
     ecs_query_desc_t window_query_desc{};
-    window_query_desc.terms[0] = { .id = ecs_id(pulse_window) };
+    window_query_desc.terms[0] = { .id = ecs_id(PulseWindow) };
     window_query_desc.cache_kind = EcsQueryCacheAuto;
     render_state.window_query = ecs_query_init(pulse_app_world(app), &window_query_desc);
     render_state.material = material;

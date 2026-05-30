@@ -188,7 +188,7 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
     }
 
     ecs_world_t* world = it->world;
-    pulse_window* windows = ecs_field(it, pulse_window, 0);
+    PulseWindow* windows = ecs_field(it, PulseWindow, 0);
     pulse_graphics_surface* surfaces = ecs_field(it, pulse_graphics_surface, 1);
     pulse_graphics_swapchain* swapchains = ecs_field(it, pulse_graphics_swapchain, 2);
     render_frame_context& frame = state->frame_context;
@@ -427,7 +427,7 @@ ecs_entity_t install_prepare_windows_system(
         0
     );
     system_desc.phase = phase;
-    system_desc.query.terms[0].id = ecs_id(pulse_window);
+    system_desc.query.terms[0].id = ecs_id(PulseWindow);
     system_desc.query.terms[1].id = ecs_id(pulse_graphics_surface);
     system_desc.query.terms[2].id = ecs_id(pulse_graphics_swapchain);
     system_desc.query.terms[3].id = ecs_id(PulseWindowCloseRequested);

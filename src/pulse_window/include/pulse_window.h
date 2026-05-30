@@ -1,86 +1,110 @@
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+#ifndef PULSE_WINDOW_API_HEADER_GUARD
+#define PULSE_WINDOW_API_HEADER_GUARD
 
-#include "flecs.h"
-#include "pulse_app.h"
+#include <flecs.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct SDL_Window SDL_Window;
+#include <stdbool.h> // bool
+#include <stddef.h>  // size_t
+#include <stdint.h>  // uint32_t
+#include "pulse_app.h"
+
+#ifndef PULSE_API
+#define PULSE_API
+#endif
 
 #define PULSE_WINDOW_PLUGIN_DESC_VERSION 1u
 
-typedef enum pulse_window_flags {
-    PULSE_WINDOW_FLAG_RESIZABLE = 1u << 0,
-    PULSE_WINDOW_FLAG_EXTERNAL_GRAPHICS_CONTEXT = 1u << 1,
-} pulse_window_flags_t;
 
-typedef enum pulse_window_plugin_flags {
-    PULSE_WINDOW_PLUGIN_CREATE_PRIMARY = 1u << 0,
-    PULSE_WINDOW_PLUGIN_INSTALL_RUNNER = 1u << 1,
-    PULSE_WINDOW_PLUGIN_EXIT_ON_PRIMARY_CLOSE = 1u << 2,
-} pulse_window_plugin_flags_t;
+#define DEFINE_PULSE_OBJECT(name) typedef const struct name* name##Id;
 
-#define PULSE_WINDOW_DEFAULT_FLAGS \
-    (PULSE_WINDOW_FLAG_RESIZABLE | PULSE_WINDOW_FLAG_EXTERNAL_GRAPHICS_CONTEXT)
+typedef uint32_t EPulseFlags;
+typedef uint64_t EPulseFlags64;
+typedef struct SDL_Window SDL_Window;
 
-#define PULSE_WINDOW_PLUGIN_DEFAULT_FLAGS \
-    (PULSE_WINDOW_PLUGIN_CREATE_PRIMARY | \
-     PULSE_WINDOW_PLUGIN_INSTALL_RUNNER | \
-     PULSE_WINDOW_PLUGIN_EXIT_ON_PRIMARY_CLOSE)
 
-typedef struct pulse_window_desc {
-    uint32_t struct_size;
-    const char* title;
-    int32_t width;
-    int32_t height;
-    uint32_t flags;
-    bool primary;
-} pulse_window_desc;
 
-typedef struct pulse_window_plugin_desc {
-    uint32_t struct_size;
-    uint32_t version;
-    pulse_window_desc primary_window;
-    uint32_t flags;
-    uint32_t sdl_init_flags;
-} pulse_window_plugin_desc;
+/**
+ * Window plugin flag bits (PulseWindowPluginFlags = EPulseFlags)
+ *
+ */
+typedef enum EPulseWindowPluginFlagBits
+{
+    PULSE_WINDOW_PLUGIN_CREATE_PRIMARY = 0x00000001,       /** ( 0)  //!< Create primary window on build */
+    PULSE_WINDOW_PLUGIN_INSTALL_RUNNER = 0x00000002,       /** ( 1)  //!< Install window event runner */
+    PULSE_WINDOW_PLUGIN_EXIT_ON_PRIMARY_CLOSE = 0x00000004, /** ( 2)  //!< Exit app when primary window closes */
+    PULSE_WINDOW_PLUGIN_DEFAULT = PULSE_WINDOW_PLUGIN_CREATE_PRIMARY | PULSE_WINDOW_PLUGIN_INSTALL_RUNNER | PULSE_WINDOW_PLUGIN_EXIT_ON_PRIMARY_CLOSE,
 
-typedef struct pulse_window {
-	const char* title;
-    int32_t width;
-    int32_t height;
-    uint32_t flags;
-} pulse_window;
+} EPulseWindowPluginFlagBits;
+typedef EPulseFlags EPulseWindowPluginFlags;
 
-typedef struct pulse_sdl_window {
-    SDL_Window* handle;
-    uint32_t window_id;
-    void* native_view;
-} pulse_sdl_window;
 
-extern ECS_COMPONENT_DECLARE(pulse_window);
-extern ECS_COMPONENT_DECLARE(pulse_sdl_window);
+
+
+
+
+typedef struct PulseWindowDesc
+{
+    uint32_t             struct_size;
+    const char*          title;
+    int32_t              width;
+    int32_t              height;
+    bool                 resizable;
+    bool                 external_graphics_context;
+
+} PulseWindowDesc;
+
+typedef struct PulseWindowPluginDesc
+{
+    uint32_t             struct_size;
+    uint32_t             version;
+    PulseWindowDesc      primary_window;
+    EPulseWindowPluginFlags flags;
+    uint32_t             sdl_init_flags;
+
+} PulseWindowPluginDesc;
+
+typedef struct PulseWindow
+{
+    uint32_t             struct_size;
+    const char*          title;
+    int32_t              width;
+    int32_t              height;
+    bool                 resizable;
+    bool                 external_graphics_context;
+
+} PulseWindow;
+
+typedef struct PulseSdlWindow
+{
+    SDL_Window*          handle;
+    uint32_t             window_id;
+    void*                native_view;
+
+} PulseSdlWindow;
+
+
+// ECS declarations
+extern ECS_COMPONENT_DECLARE(PulseWindow);
+extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
 extern ECS_TAG_DECLARE(PulsePrimaryWindow);
 extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 extern ECS_TAG_DECLARE(PulseWindowResized);
 
-pulse_window_desc        pulse_window_desc_default(void);
-pulse_window_plugin_desc pulse_window_plugin_desc_default(void);
-
-EPulseResult          pulse_window_add_plugin(
-    PulseAppId app,
-    const pulse_window_plugin_desc* desc
-);
-
-ecs_entity_t pulse_window_primary(PulseAppId app);
-SDL_Window*  pulse_window_get_sdl_window(PulseAppId app, ecs_entity_t entity);
-void*        pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
+PULSE_API PulseWindowDesc pulse_window_desc_default(void);
+PULSE_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
+PULSE_API EPulseResult pulse_window_add_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
+PULSE_API ecs_entity_t pulse_window_get_primary(PulseAppId app);
+PULSE_API SDL_Window* pulse_window_get_sdl_window(PulseAppId app, ecs_entity_t entity);
+PULSE_API void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // PULSE_WINDOW_API_HEADER_GUARD

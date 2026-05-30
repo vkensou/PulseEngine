@@ -1,7 +1,7 @@
 #include "window_internal.h"
 
-ECS_COMPONENT_DECLARE(pulse_window);
-ECS_COMPONENT_DECLARE(pulse_sdl_window);
+ECS_COMPONENT_DECLARE(PulseWindow);
+ECS_COMPONENT_DECLARE(PulseSdlWindow);
 ECS_TAG_DECLARE(PulsePrimaryWindow);
 ECS_TAG_DECLARE(PulseWindowCloseRequested);
 ECS_TAG_DECLARE(PulseWindowResized);
@@ -12,7 +12,7 @@ ECS_COMPONENT_DECLARE(pulse_window_state_resource);
 
 namespace {
 
-SDL_Window* create_sdl_window(const char* title, float width, float height, uint32_t flags)
+SDL_Window* create_sdl_window(const char* title, float width, float height, bool resizable, bool external_graphics_context)
 {
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, title);
@@ -23,12 +23,12 @@ SDL_Window* create_sdl_window(const char* title, float width, float height, uint
     SDL_SetBooleanProperty(
         props,
         SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN,
-        (flags & PULSE_WINDOW_FLAG_RESIZABLE) != 0
+        resizable
     );
     SDL_SetBooleanProperty(
         props,
         SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN,
-        (flags & PULSE_WINDOW_FLAG_EXTERNAL_GRAPHICS_CONTEXT) != 0
+        external_graphics_context
     );
 
     SDL_Window* sdl_window = SDL_CreateWindowWithProperties(props);
@@ -56,7 +56,7 @@ void* native_view_from_window(SDL_Window* window) {
 }
 
 void pulse_sdl_window_release(
-    pulse_sdl_window* ptr)
+    PulseSdlWindow* ptr)
 {
     if (ptr->handle)
         SDL_DestroyWindow(ptr->handle);
@@ -65,11 +65,11 @@ void pulse_sdl_window_release(
     ptr->window_id = 0;
 }
 
-ECS_DTOR(pulse_sdl_window, ptr, {
+ECS_DTOR(PulseSdlWindow, ptr, {
     pulse_sdl_window_release(ptr);
     })
 
-ECS_MOVE(pulse_sdl_window, dst, src, {
+ECS_MOVE(PulseSdlWindow, dst, src, {
     pulse_sdl_window_release(dst);
     *dst = *src;
     ecs_os_zeromem(src);
@@ -79,16 +79,16 @@ void on_window_set(ecs_iter_t* it)
 {
     ecs_world_t* world = it->world;
 
-    pulse_window* windows = ecs_field(it, pulse_window, 0);
+    PulseWindow* windows = ecs_field(it, PulseWindow, 0);
     for (int i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
 		auto& window = windows[i];
 
-		if (!ecs_has_id(world, entity, ecs_id(pulse_sdl_window))) {
-			ecs_add_id(world, entity, ecs_id(pulse_sdl_window));
+		if (!ecs_has_id(world, entity, ecs_id(PulseSdlWindow))) {
+			ecs_add_id(world, entity, ecs_id(PulseSdlWindow));
 		}
 
-        pulse_sdl_window* sdl_window = ecs_get_mut(world, entity, pulse_sdl_window);
+        PulseSdlWindow* sdl_window = ecs_get_mut(world, entity, PulseSdlWindow);
         bool sdl_window_changed = false;
 
 		if (sdl_window->handle == nullptr) {
@@ -96,7 +96,8 @@ void on_window_set(ecs_iter_t* it)
 				window.title,
 				window.width,
 				window.height,
-				window.flags
+				window.resizable,
+                window.external_graphics_context
 			);
 			if (raw_window) {
 				sdl_window->handle = raw_window;
@@ -116,7 +117,7 @@ void on_window_set(ecs_iter_t* it)
 		}
 
         if (sdl_window_changed) {
-            ecs_modified(world, entity, pulse_sdl_window);
+            ecs_modified(world, entity, PulseSdlWindow);
         }
     }
 }
@@ -127,8 +128,8 @@ void on_window_remove(ecs_iter_t* it)
 
     for (int i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        if (ecs_has_id(world, entity, ecs_id(pulse_sdl_window))) {
-            ecs_remove_id(world, entity, ecs_id(pulse_sdl_window));
+        if (ecs_has_id(world, entity, ecs_id(PulseSdlWindow))) {
+            ecs_remove_id(world, entity, ecs_id(PulseSdlWindow));
         }
         if (ecs_has_id(world, entity, PulseWindowCloseRequested)) {
             ecs_remove_id(world, entity, PulseWindowCloseRequested);
@@ -142,24 +143,24 @@ void on_window_remove(ecs_iter_t* it)
 } // namespace
 
 void register_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, pulse_window);
-    ECS_COMPONENT_DEFINE(world, pulse_sdl_window);
+    ECS_COMPONENT_DEFINE(world, PulseWindow);
+    ECS_COMPONENT_DEFINE(world, PulseSdlWindow);
     ECS_COMPONENT_DEFINE(world, pulse_window_state_resource);
-    ecs_add_pair(world, ecs_id(pulse_window), EcsWith, ecs_id(pulse_sdl_window));
+    ecs_add_pair(world, ecs_id(PulseWindow), EcsWith, ecs_id(PulseSdlWindow));
 
     ecs_type_hooks_t pulse_sdl_window_hooks = {
         .ctor = flecs_default_ctor,
-        .dtor = ecs_dtor(pulse_sdl_window),
-        .move = ecs_move(pulse_sdl_window),
+        .dtor = ecs_dtor(PulseSdlWindow),
+        .move = ecs_move(PulseSdlWindow),
     };
-    ecs_set_hooks_id(world, ecs_id(pulse_sdl_window), &pulse_sdl_window_hooks);
+    ecs_set_hooks_id(world, ecs_id(PulseSdlWindow), &pulse_sdl_window_hooks);
 
 	ecs_type_hooks_t pulse_window_hooks = {
         .ctor = flecs_default_ctor,
         .on_set = on_window_set,
         .on_remove = on_window_remove,
     };
-    ecs_set_hooks_id(world, ecs_id(pulse_window), &pulse_window_hooks);
+    ecs_set_hooks_id(world, ecs_id(PulseWindow), &pulse_window_hooks);
 
     ECS_TAG_DEFINE(world, PulsePrimaryWindow);
     ECS_TAG_DEFINE(world, PulseWindowCloseRequested);

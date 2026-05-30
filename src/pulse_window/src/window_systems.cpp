@@ -5,14 +5,14 @@ namespace pulse_window_internal {
 namespace {
 
 void window_post_frame_system_run(ecs_iter_t* it) {
-    pulse_window* windows = ecs_field(it, pulse_window, 0);
+    PulseWindow* windows = ecs_field(it, PulseWindow, 0);
 
     for (int i = 0; i < it->count; i++) {
         ecs_entity_t entity = it->entities[i];
-        pulse_window& window = windows[i];
+        PulseWindow& window = windows[i];
 
-        const pulse_sdl_window* sdl_window =
-            ecs_get(it->world, entity, pulse_sdl_window);
+        const PulseSdlWindow* sdl_window =
+            ecs_get(it->world, entity, PulseSdlWindow);
         if (sdl_window && sdl_window->handle && window.width > 0 && window.height > 0) {
             int sdl_width = 0;
             int sdl_height = 0;
@@ -45,7 +45,7 @@ ecs_entity_t install_window_post_frame_system(
     ecs_system_desc_t system_desc{};
     system_desc.entity = system_entity;
     system_desc.phase = EcsPostFrame;
-    system_desc.query.terms[0].id = ecs_id(pulse_window);
+    system_desc.query.terms[0].id = ecs_id(PulseWindow);
     system_desc.query.cache_kind = EcsQueryCacheAuto;
     system_desc.callback = window_post_frame_system_run;
     system_desc.ctx = state;

@@ -223,15 +223,15 @@ void register_components(ecs_world_t* world) {
     };
     ecs_set_hooks_id(world, ecs_id(pulse_graphics_swapchain), &swapchain_hooks);
 
-    if (ecs_id(pulse_sdl_window) != 0) {
-        ecs_add_pair(world, ecs_id(pulse_graphics_surface), EcsWith, ecs_id(pulse_sdl_window));
+    if (ecs_id(PulseSdlWindow) != 0) {
+        ecs_add_pair(world, ecs_id(pulse_graphics_surface), EcsWith, ecs_id(PulseSdlWindow));
     }
     ecs_add_pair(world, ecs_id(pulse_graphics_swapchain), EcsWith, ecs_id(pulse_graphics_surface));
 }
 
 void ensure_component_relations(ecs_world_t* world) {
-    if (ecs_id(pulse_graphics_surface) != 0 && ecs_id(pulse_sdl_window) != 0) {
-        ecs_add_pair(world, ecs_id(pulse_graphics_surface), EcsWith, ecs_id(pulse_sdl_window));
+    if (ecs_id(pulse_graphics_surface) != 0 && ecs_id(PulseSdlWindow) != 0) {
+        ecs_add_pair(world, ecs_id(pulse_graphics_surface), EcsWith, ecs_id(PulseSdlWindow));
     }
     if (ecs_id(pulse_graphics_swapchain) != 0 && ecs_id(pulse_graphics_surface) != 0) {
         ecs_add_pair(world, ecs_id(pulse_graphics_swapchain), EcsWith, ecs_id(pulse_graphics_surface));

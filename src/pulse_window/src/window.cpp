@@ -64,13 +64,13 @@ void remove_id_from_all_entities(ecs_world_t* world, ecs_entity_t id) {
 
 } // namespace
 
-pulse_window_desc normalize_window_desc(const pulse_window_desc* desc) {
-    pulse_window_desc normalized = pulse_window_desc_default();
+PulseWindowDesc normalize_window_desc(const PulseWindowDesc* desc) {
+    PulseWindowDesc normalized = pulse_window_desc_default();
     if (desc) {
         normalized = *desc;
     }
 
-    normalized.struct_size = sizeof(pulse_window_desc);
+    normalized.struct_size = sizeof(PulseWindowDesc);
     if (!normalized.title) {
         normalized.title = "Pulse Window";
     }
@@ -80,47 +80,43 @@ pulse_window_desc normalize_window_desc(const pulse_window_desc* desc) {
     if (normalized.height <= 0) {
         normalized.height = 720;
     }
-    if (normalized.flags == 0) {
-        normalized.flags = PULSE_WINDOW_DEFAULT_FLAGS;
-    }
 
     return normalized;
 }
 
-pulse_window_plugin_desc normalize_plugin_desc(const pulse_window_plugin_desc* desc) {
-    pulse_window_plugin_desc normalized = pulse_window_plugin_desc_default();
+PulseWindowPluginDesc normalize_plugin_desc(const PulseWindowPluginDesc* desc) {
+    PulseWindowPluginDesc normalized = pulse_window_plugin_desc_default();
     if (desc) {
         normalized = *desc;
     }
 
-    normalized.struct_size = sizeof(pulse_window_plugin_desc);
+    normalized.struct_size = sizeof(PulseWindowPluginDesc);
     normalized.version = PULSE_WINDOW_PLUGIN_DESC_VERSION;
     if (normalized.sdl_init_flags == 0) {
         normalized.sdl_init_flags = SDL_INIT_VIDEO;
     }
     normalized.primary_window = normalize_window_desc(
-        normalized.primary_window.struct_size == sizeof(pulse_window_desc)
+        normalized.primary_window.struct_size == sizeof(PulseWindowDesc)
             ? &normalized.primary_window
             : nullptr
     );
-    normalized.primary_window.primary = true;
 
     return normalized;
 }
 
-bool validate_window_desc(const pulse_window_desc* desc) {
-    return desc && desc->struct_size == sizeof(pulse_window_desc);
+bool validate_window_desc(const PulseWindowDesc* desc) {
+    return desc && desc->struct_size == sizeof(PulseWindowDesc);
 }
 
-bool validate_plugin_desc(const pulse_window_plugin_desc* desc) {
+bool validate_plugin_desc(const PulseWindowPluginDesc* desc) {
     return !desc ||
-        (desc->struct_size == sizeof(pulse_window_plugin_desc) &&
+        (desc->struct_size == sizeof(PulseWindowPluginDesc) &&
          desc->version == PULSE_WINDOW_PLUGIN_DESC_VERSION);
 }
 
 EPulseResult pulse_window_create(
     PulseAppId app,
-    const pulse_window_desc* desc,
+    const PulseWindowDesc* desc,
     ecs_entity_t* out_entity
 ) {
     if (!app || !validate_window_desc(desc)) {
@@ -132,10 +128,7 @@ EPulseResult pulse_window_create(
         return PULSE_RESULT_ERROR_INVALID_STATE;
     }
 
-    pulse_window_desc normalized = normalize_window_desc(desc);
-    if (normalized.primary && pulse_window_primary(app) != 0) {
-        return PULSE_RESULT_ERROR_INVALID_STATE;
-    }
+    PulseWindowDesc normalized = normalize_window_desc(desc);
 
     ecs_entity_desc_t entity_desc{};
     entity_desc.name = normalized.title;
@@ -144,16 +137,13 @@ EPulseResult pulse_window_create(
         return PULSE_RESULT_ERROR_INTERNAL;
     }
 
-    pulse_window window_component{};
+    PulseWindow window_component{};
     window_component.title = normalized.title;
     window_component.width = normalized.width;
     window_component.height = normalized.height;
-    window_component.flags = normalized.flags;
-    ecs_set_ptr(world, entity, pulse_window, &window_component);
-
-    if (normalized.primary) {
-        ecs_add_id(world, entity, PulsePrimaryWindow);
-    }
+    window_component.resizable = normalized.resizable;
+    window_component.external_graphics_context = normalized.external_graphics_context;
+    ecs_set_ptr(world, entity, PulseWindow, &window_component);
 
     if (out_entity) {
         *out_entity = entity;
@@ -172,23 +162,23 @@ void remove_window_components(pulse_window_plugin_state* state) {
         return;
     }
 
-    remove_id_from_all_entities(world, ecs_id(pulse_sdl_window));
-    remove_id_from_all_entities(world, ecs_id(pulse_window));
+    remove_id_from_all_entities(world, ecs_id(PulseSdlWindow));
+    remove_id_from_all_entities(world, ecs_id(PulseWindow));
     remove_id_from_all_entities(world, PulseWindowCloseRequested);
     remove_id_from_all_entities(world, PulseWindowResized);
     remove_id_from_all_entities(world, PulsePrimaryWindow);
 }
 
 void delete_window_components(ecs_world_t* world) {
-    delete_entity_if_alive(world, ecs_id(pulse_sdl_window));
-    delete_entity_if_alive(world, ecs_id(pulse_window));
+    delete_entity_if_alive(world, ecs_id(PulseSdlWindow));
+    delete_entity_if_alive(world, ecs_id(PulseWindow));
     delete_registered_tag(world, PulseWindowCloseRequested, ecs_id(PulseWindowCloseRequested));
     delete_registered_tag(world, PulseWindowResized, ecs_id(PulseWindowResized));
     delete_registered_tag(world, PulsePrimaryWindow, ecs_id(PulsePrimaryWindow));
     delete_registered_entity(world, ecs_id(pulse_window_state_resource));
 
-    ecs_id(pulse_sdl_window) = 0;
-    ecs_id(pulse_window) = 0;
+    ecs_id(PulseSdlWindow) = 0;
+    ecs_id(PulseWindow) = 0;
 }
 
 void mark_window_close_requested(
@@ -196,7 +186,7 @@ void mark_window_close_requested(
     ecs_world_t* world,
     ecs_entity_t entity
 ) {
-    if (ecs_has_id(world, entity, ecs_id(pulse_window))) {
+    if (ecs_has_id(world, entity, ecs_id(PulseWindow))) {
         ecs_add_id(world, entity, PulseWindowCloseRequested);
     }
 
@@ -212,7 +202,7 @@ void mark_window_resized(
     int32_t width,
     int32_t height
 ) {
-    pulse_window* window = ecs_get_mut(world, entity, pulse_window);
+    PulseWindow* window = ecs_get_mut(world, entity, PulseWindow);
     if (!window) {
         return;
     }
@@ -220,7 +210,7 @@ void mark_window_resized(
     window->width = width;
     window->height = height;
     ecs_add_id(world, entity, PulseWindowResized);
-    ecs_modified(world, entity, pulse_window);
+    ecs_modified(world, entity, PulseWindow);
 }
 
 EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state* state) {
@@ -316,6 +306,7 @@ EPulseResult window_plugin_build(PulseAppId app, void* ctx) {
         if (result != PULSE_RESULT_OK) {
             return result;
         }
+        ecs_add_id(world, primary, PulsePrimaryWindow);
     }
 
     return PULSE_RESULT_OK;
@@ -371,31 +362,30 @@ using namespace pulse_window_internal;
 
 extern "C" {
 
-pulse_window_desc pulse_window_desc_default(void) {
-    pulse_window_desc desc{};
-    desc.struct_size = sizeof(pulse_window_desc);
+PulseWindowDesc pulse_window_desc_default(void) {
+    PulseWindowDesc desc{};
+    desc.struct_size = sizeof(PulseWindowDesc);
     desc.title = "Pulse Window";
     desc.width = 1280;
     desc.height = 720;
-    desc.flags = PULSE_WINDOW_DEFAULT_FLAGS;
-    desc.primary = false;
+    desc.resizable = true;
+    desc.external_graphics_context = true;
     return desc;
 }
 
-pulse_window_plugin_desc pulse_window_plugin_desc_default(void) {
-    pulse_window_plugin_desc desc{};
-    desc.struct_size = sizeof(pulse_window_plugin_desc);
+PulseWindowPluginDesc pulse_window_plugin_desc_default(void) {
+    PulseWindowPluginDesc desc{};
+    desc.struct_size = sizeof(PulseWindowPluginDesc);
     desc.version = PULSE_WINDOW_PLUGIN_DESC_VERSION;
     desc.primary_window = pulse_window_desc_default();
-    desc.primary_window.primary = true;
-    desc.flags = PULSE_WINDOW_PLUGIN_DEFAULT_FLAGS;
+    desc.flags = PULSE_WINDOW_PLUGIN_DEFAULT;
     desc.sdl_init_flags = SDL_INIT_VIDEO;
     return desc;
 }
 
 EPulseResult pulse_window_add_plugin(
     PulseAppId app,
-    const pulse_window_plugin_desc* desc
+    const PulseWindowPluginDesc* desc
 ) {
     if (!app || !validate_plugin_desc(desc)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
@@ -425,7 +415,7 @@ EPulseResult pulse_window_add_plugin(
     return result;
 }
 
-ecs_entity_t pulse_window_primary(PulseAppId app) {
+ecs_entity_t pulse_window_get_primary(PulseAppId app) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
         return 0;
@@ -464,7 +454,7 @@ SDL_Window* pulse_window_get_sdl_window(PulseAppId app, ecs_entity_t entity) {
         return nullptr;
     }
 
-    const pulse_sdl_window* raw = ecs_get(world, entity, pulse_sdl_window);
+    const PulseSdlWindow* raw = ecs_get(world, entity, PulseSdlWindow);
     return raw ? raw->handle : nullptr;
 }
 
@@ -474,7 +464,7 @@ void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity) {
         return nullptr;
     }
 
-    const pulse_sdl_window* raw = ecs_get(world, entity, pulse_sdl_window);
+    const PulseSdlWindow* raw = ecs_get(world, entity, PulseSdlWindow);
     return raw ? raw->native_view : nullptr;
 }
 

@@ -24,7 +24,7 @@ void on_sdl_window_set(ecs_iter_t* it) {
         return;
     }
 
-    pulse_sdl_window* sdl_windows = ecs_field(it, pulse_sdl_window, 0);
+    PulseSdlWindow* sdl_windows = ecs_field(it, PulseSdlWindow, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         if (!sdl_windows[i].native_view) {
             continue;
@@ -54,7 +54,7 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
         return;
     }
 
-    pulse_window* windows = ecs_field(it, pulse_window, 0);
+    PulseWindow* windows = ecs_field(it, PulseWindow, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
         if (ecs_has_id(it->world, entity, PulseWindowCloseRequested)) {
@@ -110,12 +110,12 @@ ecs_entity_t create_named_observer(
 }
 
 void bootstrap_existing_sdl_windows(pulse_graphics_state* state, ecs_world_t* world) {
-    if (!state || !world || ecs_id(pulse_sdl_window) == 0) {
+    if (!state || !world || ecs_id(PulseSdlWindow) == 0) {
         return;
     }
 
     ecs_query_desc_t query_desc{};
-    query_desc.terms[0].id = ecs_id(pulse_sdl_window);
+    query_desc.terms[0].id = ecs_id(PulseSdlWindow);
     query_desc.cache_kind = EcsQueryCacheAuto;
     ecs_query_t* query = ecs_query_init(world, &query_desc);
     if (!query) {
@@ -124,7 +124,7 @@ void bootstrap_existing_sdl_windows(pulse_graphics_state* state, ecs_world_t* wo
 
     ecs_iter_t it = ecs_query_iter(world, query);
     while (ecs_query_next(&it)) {
-        pulse_sdl_window* sdl_windows = ecs_field(&it, pulse_sdl_window, 0);
+        PulseSdlWindow* sdl_windows = ecs_field(&it, PulseSdlWindow, 0);
         for (int32_t i = 0; i < it.count; ++i) {
             if (sdl_windows[i].native_view) {
                 ensure_cgpu_surface(state, world, it.entities[i], sdl_windows[i], nullptr);
@@ -242,11 +242,11 @@ void install_observers(pulse_graphics_state* state, ecs_world_t* world) {
 
     ensure_component_relations(world);
 
-    if (!state->window_on_set_observer && ecs_id(pulse_window) != 0) {
+    if (!state->window_on_set_observer && ecs_id(PulseWindow) != 0) {
         state->window_on_set_observer = create_named_observer(
             world,
             "PulseCgpuSwapchainFromWindow",
-            ecs_id(pulse_window),
+            ecs_id(PulseWindow),
             EcsOnSet,
             true,
             on_window_set_for_swapchain,
@@ -254,11 +254,11 @@ void install_observers(pulse_graphics_state* state, ecs_world_t* world) {
         );
     }
 
-    if (!state->sdl_window_on_set_observer && ecs_id(pulse_sdl_window) != 0) {
+    if (!state->sdl_window_on_set_observer && ecs_id(PulseSdlWindow) != 0) {
         state->sdl_window_on_set_observer = create_named_observer(
             world,
             "PulseCgpuSurfaceFromSdlWindow",
-            ecs_id(pulse_sdl_window),
+            ecs_id(PulseSdlWindow),
             EcsOnSet,
             true,
             on_sdl_window_set,
@@ -266,11 +266,11 @@ void install_observers(pulse_graphics_state* state, ecs_world_t* world) {
         );
     }
 
-    if (!state->sdl_window_on_remove_observer && ecs_id(pulse_sdl_window) != 0) {
+    if (!state->sdl_window_on_remove_observer && ecs_id(PulseSdlWindow) != 0) {
         state->sdl_window_on_remove_observer = create_named_observer(
             world,
             "PulseCgpuSurfaceRemoveFromSdlWindow",
-            ecs_id(pulse_sdl_window),
+            ecs_id(PulseSdlWindow),
             EcsOnRemove,
             false,
             on_sdl_window_remove,
@@ -300,7 +300,7 @@ bool ensure_cgpu_surface(
     pulse_graphics_state* state,
     ecs_world_t* world,
     ecs_entity_t entity,
-    const pulse_sdl_window& sdl_window,
+    const PulseSdlWindow& sdl_window,
     pulse_graphics_surface** out_surface
 ) {
     if (!sdl_window.native_view) {
@@ -343,7 +343,7 @@ bool ensure_cgpu_swapchain(
     pulse_graphics_state* state,
     ecs_world_t* world,
     ecs_entity_t entity,
-    const pulse_window& window,
+    const PulseWindow& window,
     const pulse_graphics_surface* surface,
     pulse_graphics_swapchain** out_swapchain
 ) {

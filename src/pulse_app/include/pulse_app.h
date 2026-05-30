@@ -22,7 +22,6 @@ extern "C" {
 
 typedef uint32_t EPulseFlags;
 typedef uint64_t EPulseFlags64;
-
 typedef struct ecs_world_t ecs_world_t;
 
 typedef enum EPulseResult

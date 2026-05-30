@@ -42,14 +42,14 @@ bool ensure_cgpu_surface(
     pulse_graphics_state* state,
     ecs_world_t* world,
     ecs_entity_t entity,
-    const pulse_sdl_window& sdl_window,
+    const PulseSdlWindow& sdl_window,
     pulse_graphics_surface** out_surface
 );
 bool ensure_cgpu_swapchain(
     pulse_graphics_state* state,
     ecs_world_t* world,
     ecs_entity_t entity,
-    const pulse_window& window,
+    const PulseWindow& window,
     const pulse_graphics_surface* surface,
     pulse_graphics_swapchain** out_swapchain
 );
