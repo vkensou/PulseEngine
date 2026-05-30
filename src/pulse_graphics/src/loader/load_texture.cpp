@@ -212,7 +212,7 @@ pulse_asset_loader_status_t step_texture_ktx(
     return PULSE_ASSET_LOADER_PENDING;
 }
 
-void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device)
+void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_loader_desc ld1{};
     ld1.struct_size = sizeof(pulse_asset_loader_desc);
@@ -250,7 +250,7 @@ void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device)
 extern "C" {
 
     pulse_texture_t pulse_graphics_texture_load(
-        pulse_app_t app,
+        PulseAppId app,
         const pulse_graphics_texture_load_desc* desc)
     {
         pulse_asset_handle h = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, desc->filepath, desc);

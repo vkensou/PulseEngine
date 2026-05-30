@@ -217,7 +217,7 @@ static pulse_asset_loader_status_t step_settings_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-static pulse_result_t ctor_cleanup_asset(
+static EPulseResult ctor_cleanup_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
@@ -226,7 +226,7 @@ static pulse_result_t ctor_cleanup_asset(
     assert(s->step == 0);
     assert(s->fail == 0);
     s->fail = ctx->settings ? *((const int*)ctx->settings) : 0;
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
 static void dtor_cleanup_asset(
@@ -258,7 +258,7 @@ static pulse_asset_loader_status_t step_cleanup_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-static pulse_result_t ctor_aligned_asset(
+static EPulseResult ctor_aligned_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
@@ -268,7 +268,7 @@ static pulse_result_t ctor_aligned_asset(
     assert(s->constructed == 0);
     s->constructed = 1;
     aligned_ctor_count += 1;
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
 static pulse_asset_loader_status_t step_aligned_asset(
@@ -299,7 +299,7 @@ static pulse_asset_loader_status_t step_parent_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-static pulse_result_t ctor_dynamic_parent_asset(
+static EPulseResult ctor_dynamic_parent_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
@@ -311,8 +311,8 @@ static pulse_result_t ctor_dynamic_parent_asset(
     s->required_dep = handles[0];
     s->optional_dep = handles[1];
     s->add_optional = pulse_asset_handle_is_valid(handles[1]);
-    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_ERROR_INVALID_ARGUMENT);
-    return PULSE_OK;
+    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_RESULT_ERROR_INVALID_ARGUMENT);
+    return PULSE_RESULT_OK;
 }
 
 static void dtor_dynamic_parent_asset(
@@ -322,7 +322,7 @@ static void dtor_dynamic_parent_asset(
     dynamic_loader_state* s = (dynamic_loader_state*)state;
     assert(s != nullptr);
     assert(ctx->dependency_hint == nullptr);
-    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_ERROR_INVALID_ARGUMENT);
+    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_RESULT_ERROR_INVALID_ARGUMENT);
     dynamic_dtor_count += 1;
 }
 
@@ -338,9 +338,9 @@ static pulse_asset_loader_status_t step_dynamic_parent_asset(
     assert(ctx->dependency_hint != nullptr);
 
     if (s->step == 1) {
-        assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_OK);
+        assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_RESULT_OK);
         if (s->add_optional) {
-            assert(pulse_asset_add_load_dependency(ctx, s->optional_dep, PULSE_DEP_OPTIONAL) == PULSE_OK);
+            assert(pulse_asset_add_load_dependency(ctx, s->optional_dep, PULSE_DEP_OPTIONAL) == PULSE_RESULT_OK);
         }
         return PULSE_ASSET_LOADER_WAIT_DEPENDENCIES;
     }
@@ -350,15 +350,15 @@ static pulse_asset_loader_status_t step_dynamic_parent_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-static pulse_result_t ctor_self_cancel_asset(
+static EPulseResult ctor_self_cancel_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
     (void)state;
     self_cancel_ctor_count += 1;
     assert(ctx->dependency_hint == nullptr);
-    assert(pulse_asset_add_load_dependency(ctx, ctx->handle, PULSE_DEP_OPTIONAL) == PULSE_ERROR_INVALID_ARGUMENT);
-    return PULSE_OK;
+    assert(pulse_asset_add_load_dependency(ctx, ctx->handle, PULSE_DEP_OPTIONAL) == PULSE_RESULT_ERROR_INVALID_ARGUMENT);
+    return PULSE_RESULT_OK;
 }
 
 static void dtor_self_cancel_asset(
@@ -368,7 +368,7 @@ static void dtor_self_cancel_asset(
     (void)state;
     self_cancel_dtor_count += 1;
     assert(ctx->dependency_hint == nullptr);
-    assert(pulse_asset_add_load_dependency(ctx, ctx->handle, PULSE_DEP_OPTIONAL) == PULSE_ERROR_INVALID_ARGUMENT);
+    assert(pulse_asset_add_load_dependency(ctx, ctx->handle, PULSE_DEP_OPTIONAL) == PULSE_RESULT_ERROR_INVALID_ARGUMENT);
 }
 
 static pulse_asset_loader_status_t step_self_cancel_asset(
@@ -445,7 +445,7 @@ static pulse_asset_loader_status_t step_builder_fail_once_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-static pulse_result_t ctor_builder_pending_asset(
+static EPulseResult ctor_builder_pending_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
@@ -453,7 +453,7 @@ static pulse_result_t ctor_builder_pending_asset(
     builder_pending_ctor_count += 1;
     builder_pending_state* s = (builder_pending_state*)state;
     assert(s->step == 0);
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
 static void dtor_builder_pending_asset(
@@ -498,7 +498,7 @@ static pulse_asset_loader_status_t step_builder_wait_asset(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-static pulse_result_t ctor_builder_dynamic_asset(
+static EPulseResult ctor_builder_dynamic_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
@@ -507,8 +507,8 @@ static pulse_result_t ctor_builder_dynamic_asset(
     assert(s->step == 0);
     assert(ctx->dependency_hint == nullptr);
     s->required_dep = *(const pulse_asset_handle*)ctx->settings;
-    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_ERROR_INVALID_ARGUMENT);
-    return PULSE_OK;
+    assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_RESULT_ERROR_INVALID_ARGUMENT);
+    return PULSE_RESULT_OK;
 }
 
 static void dtor_builder_dynamic_asset(
@@ -532,7 +532,7 @@ static pulse_asset_loader_status_t step_builder_dynamic_asset(
     builder_dynamic_state* s = (builder_dynamic_state*)state;
     s->step += 1;
     if (s->step == 1) {
-        assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_OK);
+        assert(pulse_asset_add_load_dependency(ctx, s->required_dep, PULSE_DEP_REQUIRED) == PULSE_RESULT_OK);
         return PULSE_ASSET_LOADER_WAIT_DEPENDENCIES;
     }
     builder_asset* asset = (builder_asset*)ctx->out_asset;
@@ -546,7 +546,7 @@ static void destroy_force_asset(void* ptr, void* user_data) {
     force_destroy_count += 1;
 }
 
-static pulse_result_t ctor_force_asset(
+static EPulseResult ctor_force_asset(
     void* state,
     const pulse_asset_load_task* ctx
 ) {
@@ -554,7 +554,7 @@ static pulse_result_t ctor_force_asset(
     force_ctor_count += 1;
     force_loader_state* s = (force_loader_state*)state;
     assert(s->step == 0);
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
 static void dtor_force_asset(
@@ -586,7 +586,7 @@ static pulse_asset_loader_status_t step_force_asset(
 }
 
 static pulse_asset_handle load_asset_file(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id,
     const char* path,
     const void* settings
@@ -601,7 +601,7 @@ static pulse_asset_handle load_asset_file(
 }
 
 static pulse_asset_handle load_asset_memory(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id,
     const char* path,
     const void* data,
@@ -620,7 +620,7 @@ static pulse_asset_handle load_asset_memory(
 }
 
 static pulse_asset_handle load_asset_memory_with_deps(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id,
     const char* path,
     const void* data,
@@ -649,14 +649,14 @@ int main(void) {
     assert(default_desc.root_path != nullptr);
     assert(default_desc.max_requests_per_update == 8);
 
-    pulse_app_t app = pulse_app_create();
+    PulseAppId app = pulse_app_create();
     assert(app != nullptr);
 
     pulse_asset_plugin_desc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_asset_add_plugin(app, &desc) == PULSE_OK);
+    assert(pulse_asset_add_plugin(app, &desc) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseAssetPlugin"));
-    assert(pulse_asset_add_plugin(app, &desc) == PULSE_ERROR_DUPLICATE_PLUGIN);
+    assert(pulse_asset_add_plugin(app, &desc) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     const char hello_bytes[] = "hello world";
 
@@ -669,10 +669,10 @@ int main(void) {
         destroy_test_text,
         &destroy_count,
     };
-    assert(pulse_asset_register_type(app, &type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_type_desc bad_desc = {0, 0, 0, 0, 0, nullptr, nullptr};
-    assert(pulse_asset_register_type(app, &bad_desc) == PULSE_ERROR_INVALID_ARGUMENT);
+    assert(pulse_asset_register_type(app, &bad_desc) == PULSE_RESULT_ERROR_INVALID_ARGUMENT);
 
     pulse_asset_loader_desc loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -688,8 +688,8 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &loader_desc) == PULSE_OK);
-    assert(pulse_asset_register_loader(app, &loader_desc) == PULSE_ERROR_INVALID_STATE);
+    assert(pulse_asset_register_loader(app, &loader_desc) == PULSE_RESULT_OK);
+    assert(pulse_asset_register_loader(app, &loader_desc) == PULSE_RESULT_ERROR_INVALID_STATE);
 
     pulse_asset_handle invalid{};
     assert(!pulse_asset_handle_is_valid(invalid));
@@ -740,7 +740,7 @@ int main(void) {
     assert(latest_cache_handle.index == refreshed_cache_handle.index);
     assert(latest_cache_handle.generation == refreshed_cache_handle.generation);
 
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, text_handle) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_is_ready(app, text_handle));
 
@@ -775,7 +775,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &slow_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &slow_type_desc) == PULSE_RESULT_OK);
     assert(slow_type != 0 && slow_type != text_type);
 
     pulse_asset_loader_desc slow_loader_desc = {
@@ -792,15 +792,15 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &slow_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &slow_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_handle slow_handle = load_asset_memory(app, slow_type, "slow.txt", hello_bytes, 11, NULL);
     assert(pulse_asset_get_state(app, slow_handle) == PULSE_ASSET_STATE_WAITING_LOAD);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, slow_handle) == PULSE_ASSET_STATE_PROCESSING);
 
     pulse_asset_ref slow_ref{};
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, slow_handle) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_acquire(app, slow_handle, &slow_ref));
     assert(((slow_asset*)slow_ref.ptr)->value == 42);
@@ -816,7 +816,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &fail_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &fail_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc fail_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -832,10 +832,10 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &fail_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &fail_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_handle fail_handle = load_asset_memory(app, fail_type, "fail.txt", hello_bytes, 11, NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, fail_handle) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_get_error(app, fail_handle) != nullptr);
     pulse_asset_ref fail_ref{};
@@ -843,7 +843,7 @@ int main(void) {
 
     // Missing file
     pulse_asset_handle missing_handle = load_asset_file(app, text_type, "missing.txt", NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, missing_handle) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_get_error(app, missing_handle) != nullptr);
 
@@ -856,7 +856,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &settings_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &settings_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc settings_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -872,7 +872,7 @@ int main(void) {
         alignof(settings_loader_settings),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &settings_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &settings_loader_desc) == PULSE_RESULT_OK);
 
     settings_loader_settings stack_settings{77};
     pulse_asset_handle settings_handle = load_asset_memory(app, settings_type, "settings.txt", hello_bytes, 11, &stack_settings);
@@ -883,7 +883,7 @@ int main(void) {
     assert(same_settings_handle.index == settings_handle.index);
     assert(same_settings_handle.generation == settings_handle.generation);
 
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(settings_step_count == 1);
     pulse_asset_ref settings_ref{};
     assert(pulse_asset_acquire(app, settings_handle, &settings_ref));
@@ -899,7 +899,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &cleanup_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &cleanup_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc cleanup_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -915,37 +915,37 @@ int main(void) {
         alignof(int),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &cleanup_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &cleanup_loader_desc) == PULSE_RESULT_OK);
 
     const char cleanup_bytes[] = "cleanup";
     int cleanup_success = 0;
     pulse_asset_handle cleanup_done = load_asset_memory(app, cleanup_type, "cleanup_done.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, cleanup_done) == PULSE_ASSET_STATE_PROCESSING);
     assert(cleanup_ctor_count == 1);
     assert(cleanup_dtor_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, cleanup_done) == PULSE_ASSET_STATE_LOADED);
     assert(cleanup_dtor_count == 1);
 
     int cleanup_failure = 1;
     pulse_asset_handle cleanup_failed = load_asset_memory(app, cleanup_type, "cleanup_fail.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_failure);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, cleanup_failed) == PULSE_ASSET_STATE_FAILED);
     assert(cleanup_dtor_count == 2);
 
     pulse_asset_handle cleanup_unload = load_asset_memory(app, cleanup_type, "cleanup_unload.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, cleanup_unload) == PULSE_ASSET_STATE_PROCESSING);
     pulse_asset_unload(app, cleanup_unload);
     assert(pulse_asset_get_state(app, cleanup_unload) == PULSE_ASSET_STATE_PENDING_DELETE);
     assert(cleanup_dtor_count == 2);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, cleanup_unload) == PULSE_ASSET_STATE_EMPTY);
     assert(cleanup_dtor_count == 3);
 
     pulse_asset_handle cleanup_shutdown = load_asset_memory(app, cleanup_type, "cleanup_shutdown.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, cleanup_shutdown) == PULSE_ASSET_STATE_PROCESSING);
     assert(cleanup_dtor_count == 3);
 
@@ -958,7 +958,7 @@ int main(void) {
         destroy_force_asset,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &force_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &force_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc force_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -974,13 +974,13 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &force_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &force_loader_desc) == PULSE_RESULT_OK);
 
     const char force_bytes[] = "force";
     pulse_asset_handle force_loaded = load_asset_memory(app, force_type, "force_loaded.txt", force_bytes, sizeof(force_bytes), NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, force_loaded) == PULSE_ASSET_STATE_PROCESSING);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, force_loaded) == PULSE_ASSET_STATE_LOADED);
     assert(force_ctor_count == 1);
     assert(force_dtor_count == 1);
@@ -990,7 +990,7 @@ int main(void) {
     assert(((force_asset*)force_loaded_ref.ptr)->value == sizeof(force_bytes));
 
     pulse_asset_handle force_pending = load_asset_memory(app, force_type, "force_pending.txt", force_bytes, sizeof(force_bytes), NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, force_pending) == PULSE_ASSET_STATE_PROCESSING);
     assert(force_ctor_count == 2);
     assert(force_dtor_count == 1);
@@ -1006,7 +1006,7 @@ int main(void) {
     pulse_asset_release(app, &force_loaded_ref);
     assert(force_loaded_ref.ptr == nullptr);
     assert(!pulse_asset_handle_is_valid(force_loaded_ref.handle));
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(force_step_count == force_steps_before_unload);
 
     pulse_asset_handle force_reloaded = load_asset_memory(app, force_type, "force_loaded.txt", force_bytes, sizeof(force_bytes), NULL);
@@ -1023,7 +1023,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &aligned_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &aligned_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc aligned_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1039,11 +1039,11 @@ int main(void) {
         alignof(aligned_loader_settings),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &aligned_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &aligned_loader_desc) == PULSE_RESULT_OK);
 
     aligned_loader_settings aligned_settings{123};
     pulse_asset_handle aligned_handle = load_asset_memory(app, aligned_type, "aligned.txt", hello_bytes, 11, &aligned_settings);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, aligned_handle) == PULSE_ASSET_STATE_LOADED);
     assert(aligned_ctor_count == 1);
     pulse_asset_ref aligned_ref{};
@@ -1061,7 +1061,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &parent_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &parent_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc parent_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1077,7 +1077,7 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &parent_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &parent_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_type_desc dynamic_parent_type_desc = {
         sizeof(pulse_asset_type_desc),
@@ -1088,7 +1088,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &dynamic_parent_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &dynamic_parent_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc dynamic_parent_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1104,7 +1104,7 @@ int main(void) {
         alignof(pulse_asset_handle),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &dynamic_parent_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &dynamic_parent_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_type_desc self_cancel_type_desc = {
         sizeof(pulse_asset_type_desc),
@@ -1115,7 +1115,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &self_cancel_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &self_cancel_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc self_cancel_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1131,7 +1131,7 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &self_cancel_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &self_cancel_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_type_desc dtor_unload_type_desc = {
         sizeof(pulse_asset_type_desc),
@@ -1142,7 +1142,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &dtor_unload_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &dtor_unload_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc dtor_unload_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1158,7 +1158,7 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &dtor_unload_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &dtor_unload_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_type_desc builder_type_desc = {
         sizeof(pulse_asset_type_desc),
@@ -1169,7 +1169,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &builder_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &builder_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc builder_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1185,8 +1185,8 @@ int main(void) {
         alignof(builder_settings),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &builder_loader_desc) == PULSE_OK);
-    assert(pulse_asset_register_loader(app, &builder_loader_desc) == PULSE_ERROR_INVALID_STATE);
+    assert(pulse_asset_register_loader(app, &builder_loader_desc) == PULSE_RESULT_OK);
+    assert(pulse_asset_register_loader(app, &builder_loader_desc) == PULSE_RESULT_ERROR_INVALID_STATE);
 
     pulse_asset_type_desc builder_fail_once_type_desc = {
         sizeof(pulse_asset_type_desc),
@@ -1197,7 +1197,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &builder_fail_once_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &builder_fail_once_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc builder_fail_once_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1213,7 +1213,7 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &builder_fail_once_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &builder_fail_once_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_build_desc builder_fail_once_desc{};
     builder_fail_once_desc.struct_size = sizeof(pulse_asset_build_desc);
@@ -1273,7 +1273,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &builder_pending_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &builder_pending_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc builder_pending_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1289,7 +1289,7 @@ int main(void) {
         alignof(builder_settings),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &builder_pending_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &builder_pending_loader_desc) == PULSE_RESULT_OK);
 
     int builder_pending_external = 3;
     builder_settings builder_pending_settings{14, &builder_pending_external};
@@ -1305,7 +1305,7 @@ int main(void) {
     assert(builder_pending_step_count == 1);
     assert(builder_pending_dtor_count == 0);
     builder_pending_settings.value = 99;
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, builder_pending_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_pending_step_count == 2);
     assert(builder_pending_dtor_count == 1);
@@ -1323,7 +1323,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &builder_wait_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &builder_wait_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc builder_wait_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1339,7 +1339,7 @@ int main(void) {
         0,
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &builder_wait_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &builder_wait_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_dependency invalid_builder_static_deps[] = {{pulse_asset_handle_make_invalid(), PULSE_DEP_REQUIRED}};
     pulse_asset_build_desc invalid_builder_wait_desc{};
@@ -1365,15 +1365,15 @@ int main(void) {
     pulse_asset_handle builder_wait_handle = pulse_asset_build(app, &builder_wait_desc);
     assert(pulse_asset_get_state(app, builder_wait_handle) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_wait_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, builder_required_dep) == PULSE_ASSET_STATE_PROCESSING);
     assert(pulse_asset_get_state(app, builder_wait_handle) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_wait_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, builder_required_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_get_state(app, builder_wait_handle) == PULSE_ASSET_STATE_PROCESSING);
     assert(builder_wait_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, builder_wait_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_wait_step_count == 1);
     pulse_asset_ref builder_wait_ref{};
@@ -1390,7 +1390,7 @@ int main(void) {
         nullptr,
         nullptr,
     };
-    assert(pulse_asset_register_type(app, &builder_dynamic_type_desc) == PULSE_OK);
+    assert(pulse_asset_register_type(app, &builder_dynamic_type_desc) == PULSE_RESULT_OK);
 
     pulse_asset_loader_desc builder_dynamic_loader_desc = {
         sizeof(pulse_asset_loader_desc),
@@ -1406,7 +1406,7 @@ int main(void) {
         alignof(pulse_asset_handle),
         nullptr,
     };
-    assert(pulse_asset_register_loader(app, &builder_dynamic_loader_desc) == PULSE_OK);
+    assert(pulse_asset_register_loader(app, &builder_dynamic_loader_desc) == PULSE_RESULT_OK);
 
     pulse_asset_handle builder_dynamic_dep = load_asset_memory(app, slow_type, "builder_dynamic_dep.txt", hello_bytes, 11, NULL);
     pulse_asset_build_desc builder_dynamic_desc{};
@@ -1420,11 +1420,11 @@ int main(void) {
     assert(builder_dynamic_ctor_count == 1);
     assert(builder_dynamic_step_count == 1);
     assert(builder_dynamic_dtor_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, builder_dynamic_dep) == PULSE_ASSET_STATE_PROCESSING);
     assert(pulse_asset_get_state(app, builder_dynamic_handle) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_dynamic_step_count == 1);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, builder_dynamic_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_get_state(app, builder_dynamic_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_dynamic_step_count == 2);
@@ -1449,11 +1449,11 @@ int main(void) {
         1,
         NULL);
     assert(pulse_asset_get_state(app, static_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, static_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_get_state(app, static_parent) == PULSE_ASSET_STATE_PROCESSING);
     assert(parent_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, static_parent) == PULSE_ASSET_STATE_LOADED);
     assert(parent_step_count == 1);
     pulse_asset_ref static_parent_ref{};
@@ -1472,7 +1472,7 @@ int main(void) {
         failed_static_deps,
         1,
         NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, static_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_get_state(app, failed_static_parent) == PULSE_ASSET_STATE_FAILED);
     pulse_asset_ref failed_static_parent_ref{};
@@ -1491,13 +1491,13 @@ int main(void) {
         parent_bytes,
         6,
         dynamic_settings);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, dynamic_required_dep) == PULSE_ASSET_STATE_PROCESSING);
     assert(pulse_asset_get_state(app, dynamic_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(dynamic_step_count == 1);
     assert(dynamic_ctor_count == 1);
     assert(dynamic_dtor_count == 0);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, dynamic_required_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_get_state(app, dynamic_parent) == PULSE_ASSET_STATE_LOADED);
     assert(dynamic_step_count == 2);
@@ -1516,10 +1516,10 @@ int main(void) {
         parent_bytes,
         6,
         dynamic_failed_settings);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, dynamic_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_get_state(app, dynamic_failed_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, dynamic_failed_parent) == PULSE_ASSET_STATE_FAILED);
 
     pulse_asset_handle dynamic_ready_dep = load_asset_memory(app, text_type, "dynamic_ready_dep.txt", hello_bytes, 11, NULL);
@@ -1532,11 +1532,11 @@ int main(void) {
         parent_bytes,
         6,
         dynamic_optional_settings);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, dynamic_ready_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_get_state(app, dynamic_optional_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_get_state(app, dynamic_optional_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_get_state(app, dynamic_optional_parent) == PULSE_ASSET_STATE_LOADED);
     pulse_asset_ref dynamic_optional_parent_ref{};
     assert(pulse_asset_acquire(app, dynamic_optional_parent, &dynamic_optional_parent_ref));
@@ -1547,7 +1547,7 @@ int main(void) {
     self_cancel_ctor_count = 0;
     self_cancel_dtor_count = 0;
     pulse_asset_handle self_cancel_handle = load_asset_memory(app, self_cancel_type, "self_cancel.txt", parent_bytes, 6, NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(self_cancel_ctor_count == 1);
     assert(self_cancel_step_count == 1);
     assert(self_cancel_dtor_count == 1);
@@ -1556,7 +1556,7 @@ int main(void) {
     dtor_unload_step_count = 0;
     dtor_unload_dtor_count = 0;
     pulse_asset_handle dtor_unload_handle = load_asset_memory(app, dtor_unload_type, "dtor_unload.txt", parent_bytes, 6, NULL);
-    assert(pulse_app_update(app) == PULSE_OK);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(dtor_unload_step_count == 1);
     assert(dtor_unload_dtor_count == 1);
     assert(pulse_asset_get_state(app, dtor_unload_handle) == PULSE_ASSET_STATE_EMPTY);

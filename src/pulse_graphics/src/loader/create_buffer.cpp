@@ -54,7 +54,7 @@ pulse_asset_loader_status_t step_buffer_create(
     return PULSE_ASSET_LOADER_PENDING;
 }
 
-void register_buffer_create_loader(pulse_app_t app, CGPUDeviceId device)
+void register_buffer_create_loader(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_loader_desc ld{};
     ld.struct_size = sizeof(pulse_asset_loader_desc);
@@ -77,7 +77,7 @@ void register_buffer_create_loader(pulse_app_t app, CGPUDeviceId device)
 extern "C" {
 
 pulse_buffer_t pulse_graphics_buffer_create(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_graphics_buffer_create_desc* desc)
 {
     if (!desc)

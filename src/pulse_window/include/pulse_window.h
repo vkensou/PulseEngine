@@ -72,14 +72,14 @@ extern ECS_TAG_DECLARE(PulseWindowResized);
 pulse_window_desc        pulse_window_desc_default(void);
 pulse_window_plugin_desc pulse_window_plugin_desc_default(void);
 
-pulse_result_t          pulse_window_add_plugin(
-    pulse_app_t app,
+EPulseResult          pulse_window_add_plugin(
+    PulseAppId app,
     const pulse_window_plugin_desc* desc
 );
 
-ecs_entity_t pulse_window_primary(pulse_app_t app);
-SDL_Window*  pulse_window_get_sdl_window(pulse_app_t app, ecs_entity_t entity);
-void*        pulse_window_get_native_view(pulse_app_t app, ecs_entity_t entity);
+ecs_entity_t pulse_window_primary(PulseAppId app);
+SDL_Window*  pulse_window_get_sdl_window(PulseAppId app, ecs_entity_t entity);
+void*        pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
 
 #ifdef __cplusplus
 }

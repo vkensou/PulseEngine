@@ -129,7 +129,7 @@ pulse_asset_loader_status_t step_mesh_create_dynamic(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-void register_mesh_create_loader(pulse_app_t app, CGPUDeviceId device)
+void register_mesh_create_loader(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_loader_desc ld1{};
     ld1.struct_size = sizeof(pulse_asset_loader_desc);
@@ -167,7 +167,7 @@ void register_mesh_create_loader(pulse_app_t app, CGPUDeviceId device)
 extern "C" {
 
 pulse_mesh_t pulse_graphics_mesh_create_from_data(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_graphics_mesh_create_from_data_desc* desc)
 {
     pulse_mesh_t result{};
@@ -224,7 +224,7 @@ pulse_mesh_t pulse_graphics_mesh_create_from_data(
 }
 
 pulse_mesh_t pulse_graphics_mesh_create_dynamic(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_graphics_mesh_create_dynamic_desc* desc)
 {
     pulse_mesh_t result{};

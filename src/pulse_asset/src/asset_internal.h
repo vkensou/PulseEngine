@@ -92,15 +92,15 @@ public:
     bool has_loader_for_any(const std::pmr::vector<std::pmr::string>& extension_list) const;
     AssetLoader* find_builder_loader();
     AssetLoader* find_extension_loader(const std::pmr::string& extension);
-    pulse_result_t add_loader(const pulse_asset_loader_desc& loader_desc, std::pmr::vector<std::pmr::string>&& extension_list, std::pmr::memory_resource* resource);
+    EPulseResult add_loader(const pulse_asset_loader_desc& loader_desc, std::pmr::vector<std::pmr::string>&& extension_list, std::pmr::memory_resource* resource);
 };
 
 class AssetRegistry final {
 public:
     explicit AssetRegistry(std::pmr::memory_resource* resource);
 
-    pulse_result_t register_type(const pulse_asset_type_desc* desc);
-    pulse_result_t register_loader(const pulse_asset_loader_desc* desc);
+    EPulseResult register_type(const pulse_asset_type_desc* desc);
+    EPulseResult register_loader(const pulse_asset_loader_desc* desc);
     AssetType* find_type(uint64_t type_id);
     AssetLoader* find_loader(uint64_t type_id, const std::pmr::string& path);
     AssetLoader* find_builder_loader(uint64_t type_id);
@@ -270,7 +270,7 @@ public:
 
     bool is_terminal() const;
     void finish(AssetSlot* slot, LoadJobOutcome next_outcome, const char* error);
-    pulse_result_t add_dependency(pulse_asset_handle dependency, pulse_dependency_flags_t flags);
+    EPulseResult add_dependency(pulse_asset_handle dependency, pulse_dependency_flags_t flags);
 };
 
 struct LoadRequest {
@@ -315,9 +315,9 @@ private:
     bool construct_job_loader(AssetSystem& system, LoadJob& job, AssetSlot& slot, const char*& out_error);
 };
 
-AssetSystem* system_from_app(pulse_app_t app);
-pulse_result_t asset_plugin_build_callback(pulse_app_t app, void* ctx);
-void asset_plugin_shutdown_callback(pulse_app_t app, void* ctx);
+AssetSystem* system_from_app(PulseAppId app);
+EPulseResult asset_plugin_build_callback(PulseAppId app, void* ctx);
+void asset_plugin_shutdown_callback(PulseAppId app, void* ctx);
 
 class AssetSystem final {
 public:
@@ -327,12 +327,12 @@ public:
     AssetSystem(const AssetSystem&) = delete;
     AssetSystem& operator=(const AssetSystem&) = delete;
 
-    pulse_result_t build(pulse_app_t app);
-    void shutdown(pulse_app_t app);
+    EPulseResult build(PulseAppId app);
+    void shutdown(PulseAppId app);
     void process_load_requests();
 
-    pulse_result_t register_type(const pulse_asset_type_desc* desc);
-    pulse_result_t register_loader(const pulse_asset_loader_desc* desc);
+    EPulseResult register_type(const pulse_asset_type_desc* desc);
+    EPulseResult register_loader(const pulse_asset_loader_desc* desc);
     pulse_asset_handle load(const pulse_asset_load_desc* desc);
     pulse_asset_handle load_from_memory(const pulse_asset_memory_load_desc* desc);
     pulse_asset_handle build_asset(const pulse_asset_build_desc* desc);
@@ -344,7 +344,7 @@ public:
     void mark_modified(pulse_asset_handle handle);
     void force_unload_assets(uint64_t type_id);
 
-    pulse_app_t app() const { return app_; }
+    PulseAppId app() const { return app_; }
     uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }
     const std::pmr::string& root_path() const { return root_path_; }
     std::pmr::memory_resource* resource() { return &memory_pool_; }
@@ -355,7 +355,7 @@ public:
     LoadQueue& load_queue() { return load_queue_; }
 
 private:
-    pulse_app_t app_ = nullptr;
+    PulseAppId app_ = nullptr;
     pulse_asset_plugin_desc desc_{};
     std::pmr::unsynchronized_pool_resource memory_pool_;
     std::pmr::string root_path_;

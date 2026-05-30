@@ -9,7 +9,7 @@ static void destroy_buffer(void* ptr, void* user_data) {
     if (data->handle) cgpu_device_free_buffer(device, data->handle);
 }
 
-void register_buffer_type(pulse_app_t app, CGPUDeviceId device)
+void register_buffer_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);
@@ -26,7 +26,7 @@ void register_buffer_type(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-bool pulse_graphics_buffer_acquire(pulse_app_t app, pulse_buffer_t handle, pulse_graphics_buffer_ref* buffer_ref) {
+bool pulse_graphics_buffer_acquire(PulseAppId app, pulse_buffer_t handle, pulse_graphics_buffer_ref* buffer_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphics_buffer_to_handle(handle), &ref)) {
         buffer_ref->handle = handle;
@@ -39,7 +39,7 @@ bool pulse_graphics_buffer_acquire(pulse_app_t app, pulse_buffer_t handle, pulse
     return false;
 }
 
-void pulse_graphics_buffer_release(pulse_app_t app, pulse_graphics_buffer_ref* buffer_ref) {
+void pulse_graphics_buffer_release(PulseAppId app, pulse_graphics_buffer_ref* buffer_ref) {
     pulse_asset_ref ref{ pulse_graphics_buffer_to_handle(buffer_ref->handle), nullptr };
     pulse_asset_release(app, &ref);
     buffer_ref->handle = {};

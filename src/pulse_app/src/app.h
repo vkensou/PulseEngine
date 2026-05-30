@@ -24,9 +24,9 @@ enum class AppState {
 struct RegisteredPlugin {
     std::string name;
     void* ctx = nullptr;
-    pulse_result_t (*build)(pulse_app_t app, void* ctx) = nullptr;
-    pulse_result_t (*post_build)(pulse_app_t app, void* ctx) = nullptr;
-    void (*shutdown)(pulse_app_t app, void* ctx) = nullptr;
+    EPulseResult (*build)(PulseAppId app, void* ctx) = nullptr;
+    EPulseResult (*post_build)(PulseAppId app, void* ctx) = nullptr;
+    void (*shutdown)(PulseAppId app, void* ctx) = nullptr;
     bool build_done = false;
     bool post_build_done = false;
     bool shutdown_done = false;
@@ -34,27 +34,27 @@ struct RegisteredPlugin {
 
 struct RegisteredSubApp {
     std::string name;
-    pulse_app_t app = nullptr;
-    pulse_subapp_extract_fn extract = nullptr;
+    PulseAppId app = nullptr;
+    PulseProcSubappExtractFn extract = nullptr;
     void* extract_ctx = nullptr;
 };
 
 class App {
 public:
-    explicit App(pulse_app_t handle);
+    explicit App(PulseAppId handle);
     ~App();
 
     App(const App&) = delete;
     App& operator=(const App&) = delete;
 
-    pulse_result_t add_plugin(const pulse_plugin_desc& desc);
-    pulse_result_t post_build();
+    EPulseResult add_plugin(const PulsePluginDesc& desc);
+    EPulseResult post_build();
     void shutdown();
 
-    pulse_result_t run();
-    pulse_result_t update();
+    EPulseResult run();
+    EPulseResult update();
 
-    pulse_result_t set_runner(pulse_runner_fn runner, void* ctx);
+    EPulseResult set_runner(PulseProcRunnerFn runner, void* ctx);
     void set_name(const char* name);
     const char* get_name() const;
 
@@ -63,11 +63,11 @@ public:
 
     bool has_plugin(const char* name) const;
 
-    pulse_result_t insert_subapp(const char* name, pulse_app_t subapp);
-    pulse_app_t get_subapp(const char* name) const;
-    pulse_app_t remove_subapp(const char* name);
-    pulse_result_t set_subapp_extract(const char* name, pulse_subapp_extract_fn extract, void* ctx);
-    pulse_result_t extract_subapps();
+    EPulseResult insert_subapp(const char* name, PulseAppId subapp);
+    PulseAppId get_subapp(const char* name) const;
+    PulseAppId remove_subapp(const char* name);
+    EPulseResult set_subapp_extract(const char* name, PulseProcSubappExtractFn extract, void* ctx);
+    EPulseResult extract_subapps();
 
     AppState state() const { return state_; }
     const char* last_error() const;
@@ -77,8 +77,8 @@ private:
     std::vector<RegisteredPlugin> plugins_;
     std::deque<RegisteredPlugin> pending_plugins_;
     std::vector<RegisteredSubApp> subapps_;
-    pulse_app_t handle_ = nullptr;
-    pulse_runner_fn runner_fn_ = nullptr;
+    PulseAppId handle_ = nullptr;
+    PulseProcRunnerFn runner_fn_ = nullptr;
     void* runner_ctx_ = nullptr;
     AppState state_ = AppState::Created;
     bool draining_plugins_ = false;
@@ -87,9 +87,9 @@ private:
     std::string name_;
     std::string last_error_;
 
-    pulse_result_t default_runner();
-    pulse_result_t drain_pending_plugins();
-    pulse_result_t validate_plugin_desc(const pulse_plugin_desc& desc);
+    EPulseResult default_runner();
+    EPulseResult drain_pending_plugins();
+    EPulseResult validate_plugin_desc(const PulsePluginDesc& desc);
     bool has_pending_plugin(const char* name) const;
     void set_error(const char* message);
 };

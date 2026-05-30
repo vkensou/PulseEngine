@@ -78,7 +78,7 @@ struct test_render_state {
 };
 
 static void record_test_graphic(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_rendergraph_t* graph,
     void* user_data
 ) {
@@ -189,22 +189,22 @@ static void record_test_graphic(
 }
 
 int main(void) {
-    pulse_app_t app = pulse_app_create();
+    PulseAppId app = pulse_create_app();
     assert(app != nullptr);
 
     // Add required plugins
     auto window_desc = pulse_window_plugin_desc_default();
-    assert(pulse_window_add_plugin(app, &window_desc) == PULSE_OK);
+    assert(pulse_window_add_plugin(app, &window_desc) == PULSE_RESULT_OK);
 
     pulse_asset_plugin_desc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "tests/graphics/data";
-    assert(pulse_asset_add_plugin(app, &asset_desc) == PULSE_OK);
+    assert(pulse_asset_add_plugin(app, &asset_desc) == PULSE_RESULT_OK);
 
     // Add pulse_graphic plugin
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    assert(pulse_graphics_add_plugin(app, &graphic_desc) == PULSE_OK);
+    assert(pulse_graphics_add_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
     //// ---- Create resources ----
@@ -374,7 +374,7 @@ int main(void) {
 
     ecs_query_fini(render_state.window_query);
 
-    pulse_app_destroy(app);
+    pulse_destroy_app(app);
 
     printf("Graphic module tests passed!\n");
     return 0;

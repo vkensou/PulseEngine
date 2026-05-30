@@ -14,7 +14,7 @@ static void destroy_mesh(void* ptr, void* user_data) {
     data->index_buffer = nullptr;
 }
 
-void register_mesh_type(pulse_app_t app, CGPUDeviceId device)
+void register_mesh_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);
@@ -31,7 +31,7 @@ void register_mesh_type(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-void pulse_graphics_mesh_update_vertices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count) {
+void pulse_graphics_mesh_update_vertices(PulseAppId app, pulse_mesh_t* mesh, const void* data, uint32_t count) {
     pulse_graphics_internal::pulse_graphics_state* st = pulse_graphics_internal::state_from_app(app);
     if (st && mesh) {
         pulse_graphics_mesh_ref ref{};
@@ -48,7 +48,7 @@ void pulse_graphics_mesh_update_vertices(pulse_app_t app, pulse_mesh_t* mesh, co
     }
 }
 
-void pulse_graphics_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, const void* data, uint32_t count) {
+void pulse_graphics_mesh_update_indices(PulseAppId app, pulse_mesh_t* mesh, const void* data, uint32_t count) {
     pulse_graphics_internal::pulse_graphics_state* st = pulse_graphics_internal::state_from_app(app);
     if (st && mesh) {
         pulse_graphics_mesh_ref ref{};
@@ -65,7 +65,7 @@ void pulse_graphics_mesh_update_indices(pulse_app_t app, pulse_mesh_t* mesh, con
     }
 }
 
-bool pulse_graphics_mesh_acquire(pulse_app_t app, pulse_mesh_t handle, pulse_graphics_mesh_ref* mesh_ref) {
+bool pulse_graphics_mesh_acquire(PulseAppId app, pulse_mesh_t handle, pulse_graphics_mesh_ref* mesh_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphics_mesh_to_handle(handle), &ref)) {
         mesh_ref->handle = handle;
@@ -78,7 +78,7 @@ bool pulse_graphics_mesh_acquire(pulse_app_t app, pulse_mesh_t handle, pulse_gra
     return false;
 }
 
-void pulse_graphics_mesh_release(pulse_app_t app, pulse_graphics_mesh_ref* mesh_ref) {
+void pulse_graphics_mesh_release(PulseAppId app, pulse_graphics_mesh_ref* mesh_ref) {
     pulse_asset_ref ref{ pulse_graphics_mesh_to_handle(mesh_ref->handle), nullptr };
     pulse_asset_release(app, &ref);
     mesh_ref->handle = {};

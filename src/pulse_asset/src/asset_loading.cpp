@@ -45,7 +45,7 @@ void LoadJob::finish(AssetSlot* slot, LoadJobOutcome next_outcome, const char* e
     }
 }
 
-pulse_result_t LoadJob::add_dependency(pulse_asset_handle dependency, pulse_dependency_flags_t flags) {
+EPulseResult LoadJob::add_dependency(pulse_asset_handle dependency, pulse_dependency_flags_t flags) {
     auto existing_it = std::find_if(dependencies.begin(), dependencies.end(), [&](const pulse_asset_dependency& existing) {
         return handles_equal(existing.handle, dependency);
     });
@@ -59,7 +59,7 @@ pulse_result_t LoadJob::add_dependency(pulse_asset_handle dependency, pulse_depe
 
     ctx.dependencies = dependencies.data();
     ctx.dependency_count = static_cast<uint32_t>(dependencies.size());
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
 void LoadContext::refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
@@ -345,8 +345,8 @@ bool LoadQueue::construct_job_loader(AssetSystem& system, LoadJob& job, AssetSlo
 
     LoadContext::refresh(system, job, slot);
     if (job.loader->desc.ctor) {
-        pulse_result_t ctor_result = job.loader->desc.ctor(job.loader_state.data, &job.ctx);
-        if (ctor_result != PULSE_OK) {
+        EPulseResult ctor_result = job.loader->desc.ctor(job.loader_state.data, &job.ctx);
+        if (ctor_result != PULSE_RESULT_OK) {
             job.loader_state.reset();
             out_error = "asset loader begin failed";
             return false;

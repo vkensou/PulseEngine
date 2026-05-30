@@ -202,7 +202,7 @@ pulse_asset_loader_status_t step_mesh_load(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-void register_mesh_load_loader(pulse_app_t app, CGPUDeviceId device)
+void register_mesh_load_loader(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_loader_desc ld{};
     ld.struct_size = sizeof(pulse_asset_loader_desc);
@@ -224,7 +224,7 @@ void register_mesh_load_loader(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-pulse_mesh_t pulse_graphics_mesh_load(pulse_app_t app, const char* filepath)
+pulse_mesh_t pulse_graphics_mesh_load(PulseAppId app, const char* filepath)
 {
     pulse_mesh_t result{};
     if (!app || !filepath || !filepath[0]) return result;

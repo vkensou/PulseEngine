@@ -5,7 +5,7 @@
 
 namespace pulse_graphics_internal {
 
-void register_graphics_asset_types_and_loaders(pulse_app_t app, CGPUDeviceId device) {
+void register_graphics_asset_types_and_loaders(PulseAppId app, CGPUDeviceId device) {
     register_shader_type(app, device);
     register_compute_shader_type(app, device);
     register_shader_library_type(app, device);

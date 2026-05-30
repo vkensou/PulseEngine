@@ -9,7 +9,7 @@ static void destroy_shader(void* ptr, void* user_data) {
 	if (data->p_blend_attachment_states) delete[] data->p_blend_attachment_states;
 }
 
-void register_shader_type(pulse_app_t app, CGPUDeviceId device)
+void register_shader_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);
@@ -28,7 +28,7 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-bool pulse_graphics_shader_acquire(pulse_app_t app, pulse_shader_t handle, pulse_graphics_shader_ref* ref) {
+bool pulse_graphics_shader_acquire(PulseAppId app, pulse_shader_t handle, pulse_graphics_shader_ref* ref) {
     pulse_asset_ref aref{};
     if (pulse_asset_acquire(app, pulse_graphics_shader_to_handle(handle), &aref)) {
         ref->handle = handle;
@@ -40,7 +40,7 @@ bool pulse_graphics_shader_acquire(pulse_app_t app, pulse_shader_t handle, pulse
     return false;
 }
 
-void pulse_graphics_shader_release(pulse_app_t app, pulse_graphics_shader_ref* ref) {
+void pulse_graphics_shader_release(PulseAppId app, pulse_graphics_shader_ref* ref) {
     pulse_asset_ref aref{ pulse_graphics_shader_to_handle(ref->handle), nullptr };
     pulse_asset_release(app, &aref);
     ref->handle = {};

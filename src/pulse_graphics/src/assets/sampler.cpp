@@ -8,7 +8,7 @@ void destroy_sampler(void* ptr, void* user_data) {
     if (data->handle) cgpu_device_free_sampler(device, data->handle);
 }
 
-void register_sampler_type(pulse_app_t app, CGPUDeviceId device)
+void register_sampler_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);
@@ -25,7 +25,7 @@ void register_sampler_type(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-bool pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t handle, pulse_graphics_sampler_ref* sampler_ref) {
+bool pulse_graphics_sampler_acquire(PulseAppId app, pulse_sampler_t handle, pulse_graphics_sampler_ref* sampler_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphics_sampler_to_handle(handle), &ref)) {
         sampler_ref->handle = handle;
@@ -38,7 +38,7 @@ bool pulse_graphics_sampler_acquire(pulse_app_t app, pulse_sampler_t handle, pul
     return false;
 }
 
-void pulse_graphics_sampler_release(pulse_app_t app, pulse_graphics_sampler_ref* sampler_ref) {
+void pulse_graphics_sampler_release(PulseAppId app, pulse_graphics_sampler_ref* sampler_ref) {
     pulse_asset_ref ref{ pulse_graphics_sampler_to_handle(sampler_ref->handle), nullptr };
     pulse_asset_release(app, &ref);
     sampler_ref->handle = {};

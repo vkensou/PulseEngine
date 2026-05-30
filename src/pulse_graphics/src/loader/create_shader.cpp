@@ -104,7 +104,7 @@ static pulse_asset_loader_status_t step_shader_from_deps(
     return PULSE_ASSET_LOADER_DONE;
 }
 
-void register_shader_create_loaders(pulse_app_t app, CGPUDeviceId device)
+void register_shader_create_loaders(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_loader_desc ld{};
     ld.struct_size = sizeof(pulse_asset_loader_desc);
@@ -129,7 +129,7 @@ using namespace pulse_graphics_internal;
 extern "C" {
 
 pulse_shader_t pulse_graphics_shader_create_from_binary(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_graphics_shader_create_from_binary_desc* desc)
 {
     if (!desc || !desc->vs_data || !desc->vs_size || !desc->fs_data || !desc->fs_size) return {};
@@ -168,7 +168,7 @@ pulse_shader_t pulse_graphics_shader_create_from_binary(
 }
 
 pulse_shader_t pulse_graphics_shader_create_from_file(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_graphics_shader_create_from_file_desc* desc)
 {
     if (!desc || !desc->vert_path || !desc->frag_path) return {};

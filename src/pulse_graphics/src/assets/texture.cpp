@@ -10,7 +10,7 @@ static void destroy_texture(void* ptr, void* user_data) {
     if (data->handle) cgpu_device_free_texture(device, data->handle);
 }
 
-void register_texture_type(pulse_app_t app, CGPUDeviceId device)
+void register_texture_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);
@@ -27,7 +27,7 @@ void register_texture_type(pulse_app_t app, CGPUDeviceId device)
 
 extern "C" {
 
-bool pulse_graphics_texture_acquire(pulse_app_t app, pulse_texture_t handle, pulse_graphics_texture_ref* texture_ref) {
+bool pulse_graphics_texture_acquire(PulseAppId app, pulse_texture_t handle, pulse_graphics_texture_ref* texture_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphics_texture_to_handle(handle), &ref)) {
         texture_ref->handle = handle;
@@ -40,7 +40,7 @@ bool pulse_graphics_texture_acquire(pulse_app_t app, pulse_texture_t handle, pul
     return false;
 }
 
-void pulse_graphics_texture_release(pulse_app_t app, pulse_graphics_texture_ref* texture_ref) {
+void pulse_graphics_texture_release(PulseAppId app, pulse_graphics_texture_ref* texture_ref) {
     pulse_asset_ref ref{pulse_graphics_texture_to_handle(texture_ref->handle), nullptr};
     pulse_asset_release(app, &ref);
     texture_ref->handle = {};

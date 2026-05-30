@@ -64,7 +64,7 @@ struct UploadEntry {
 };
 
 struct pulse_graphics_state {
-    pulse_app_t app = nullptr;
+    PulseAppId app = nullptr;
 
     pulse_graphics_plugin_desc desc{};
     pulse_graphics_renderer renderer{};
@@ -108,16 +108,16 @@ struct pulse_graphics_state_resource {
 };
 extern ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
-pulse_graphics_state* state_from_app(pulse_app_t app);
+pulse_graphics_state* state_from_app(PulseAppId app);
 pulse_graphics_state* state_from_world(ecs_world_t* world);
-CGPUDeviceId get_device(pulse_app_t app);
-bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle);
-void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle);
-void install_upload_callback(pulse_app_t app);
-void register_graphics_asset_types_and_loaders(pulse_app_t app, CGPUDeviceId device);
+CGPUDeviceId get_device(PulseAppId app);
+bool is_upload_pending(PulseAppId app, pulse_asset_handle handle);
+void clear_upload_pending(PulseAppId app, pulse_asset_handle handle);
+void install_upload_callback(PulseAppId app);
+void register_graphics_asset_types_and_loaders(PulseAppId app, CGPUDeviceId device);
 
 inline pulse_asset_handle asset_load_path(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id,
     const char* path,
     const void* settings = nullptr
@@ -132,7 +132,7 @@ inline pulse_asset_handle asset_load_path(
 }
 
 inline pulse_asset_handle asset_load_memory_path(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id,
     const char* path,
     const void* data,
@@ -151,7 +151,7 @@ inline pulse_asset_handle asset_load_memory_path(
 }
 
 inline pulse_asset_handle asset_build(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id,
     const char* name = nullptr,
     const pulse_asset_dependency* dependencies = nullptr,
@@ -184,28 +184,28 @@ uint8_t* queue_staging_buffer_full(
     bool* completed);
 
 
-void register_texture_type(pulse_app_t app, CGPUDeviceId device);
-void register_texture_create_loader(pulse_app_t app, CGPUDeviceId device);
-void register_texture_load_loader(pulse_app_t app, CGPUDeviceId device);
-void register_buffer_type(pulse_app_t app, CGPUDeviceId device);
-void register_buffer_create_loader(pulse_app_t app, CGPUDeviceId device);
-void register_material_type(pulse_app_t app, CGPUDeviceId device);
-void register_material_create_loader(pulse_app_t app, CGPUDeviceId device);
+void register_texture_type(PulseAppId app, CGPUDeviceId device);
+void register_texture_create_loader(PulseAppId app, CGPUDeviceId device);
+void register_texture_load_loader(PulseAppId app, CGPUDeviceId device);
+void register_buffer_type(PulseAppId app, CGPUDeviceId device);
+void register_buffer_create_loader(PulseAppId app, CGPUDeviceId device);
+void register_material_type(PulseAppId app, CGPUDeviceId device);
+void register_material_create_loader(PulseAppId app, CGPUDeviceId device);
 
-void register_mesh_type(pulse_app_t app, CGPUDeviceId device);
-void register_mesh_create_loader(pulse_app_t app, CGPUDeviceId device);
-void register_mesh_load_loader(pulse_app_t app, CGPUDeviceId device);
+void register_mesh_type(PulseAppId app, CGPUDeviceId device);
+void register_mesh_create_loader(PulseAppId app, CGPUDeviceId device);
+void register_mesh_load_loader(PulseAppId app, CGPUDeviceId device);
 
-void register_shader_type(pulse_app_t app, CGPUDeviceId device);
-void register_shader_create_loaders(pulse_app_t app, CGPUDeviceId device);
-pulse_result_t ctor_shader_from_deps(void* state, const pulse_asset_load_task* ctx);
-void register_compute_shader_type(pulse_app_t app, CGPUDeviceId device);
-void register_compute_shader_create_loaders(pulse_app_t app, CGPUDeviceId device);
-void register_shader_library_type(pulse_app_t app, CGPUDeviceId device);
-void register_shader_library_load_loader(pulse_app_t app, CGPUDeviceId device);
-void register_shader_library_create_loader(pulse_app_t app, CGPUDeviceId device);
+void register_shader_type(PulseAppId app, CGPUDeviceId device);
+void register_shader_create_loaders(PulseAppId app, CGPUDeviceId device);
+EPulseResult ctor_shader_from_deps(void* state, const pulse_asset_load_task* ctx);
+void register_compute_shader_type(PulseAppId app, CGPUDeviceId device);
+void register_compute_shader_create_loaders(PulseAppId app, CGPUDeviceId device);
+void register_shader_library_type(PulseAppId app, CGPUDeviceId device);
+void register_shader_library_load_loader(PulseAppId app, CGPUDeviceId device);
+void register_shader_library_create_loader(PulseAppId app, CGPUDeviceId device);
 
-void register_sampler_type(pulse_app_t app, CGPUDeviceId device);
-void register_sampler_create_loader(pulse_app_t app, CGPUDeviceId device);
+void register_sampler_type(PulseAppId app, CGPUDeviceId device);
+void register_sampler_create_loader(PulseAppId app, CGPUDeviceId device);
 
 } // namespace pulse_graphics_internal

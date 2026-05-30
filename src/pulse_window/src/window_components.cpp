@@ -176,7 +176,7 @@ pulse_window_plugin_state* state_from_world(ecs_world_t* world) {
     return resource ? resource->state : nullptr;
 }
 
-pulse_window_plugin_state* state_from_app(pulse_app_t app) {
+pulse_window_plugin_state* state_from_app(PulseAppId app) {
     return state_from_world(pulse_app_world(app));
 }
 

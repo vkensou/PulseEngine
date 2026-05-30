@@ -57,11 +57,11 @@ void AssetSystem::process_load_requests() {
     load_queue_.process(*this);
 }
 
-pulse_result_t AssetSystem::register_type(const pulse_asset_type_desc* desc) {
+EPulseResult AssetSystem::register_type(const pulse_asset_type_desc* desc) {
     return registry_.register_type(desc);
 }
 
-pulse_result_t AssetSystem::register_loader(const pulse_asset_loader_desc* desc) {
+EPulseResult AssetSystem::register_loader(const pulse_asset_loader_desc* desc) {
     return registry_.register_loader(desc);
 }
 
@@ -380,25 +380,25 @@ pulse_asset_plugin_desc pulse_asset_plugin_desc_default(void) {
     return pulse::asset::default_plugin_desc();
 }
 
-pulse_result_t pulse_asset_add_plugin(
-    pulse_app_t app,
+EPulseResult pulse_asset_add_plugin(
+    PulseAppId app,
     const pulse_asset_plugin_desc* desc
 ) {
     if (!app || !pulse::asset::validate_plugin_desc(desc)) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     if (pulse_app_has_plugin(app, pulse::asset::kPluginName)) {
-        return PULSE_ERROR_DUPLICATE_PLUGIN;
+        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
     }
 
     pulse_asset_plugin_desc normalized = pulse::asset::normalize_plugin_desc(desc);
     auto* system = new (std::nothrow) pulse::asset::AssetSystem(normalized);
     if (!system) {
-        return PULSE_ERROR_INTERNAL;
+        return PULSE_RESULT_ERROR_INTERNAL;
     }
 
-    pulse_plugin_desc plugin_desc = {
-        sizeof(pulse_plugin_desc),
+    PulsePluginDesc plugin_desc = {
+        sizeof(PulsePluginDesc),
         PULSE_PLUGIN_DESC_VERSION,
         pulse::asset::kPluginName,
         system,
@@ -407,31 +407,31 @@ pulse_result_t pulse_asset_add_plugin(
         pulse::asset::asset_plugin_shutdown_callback,
     };
 
-    pulse_result_t result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_OK && !pulse_app_has_plugin(app, pulse::asset::kPluginName)) {
+    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, pulse::asset::kPluginName)) {
         delete system;
     }
     return result;
 }
 
-pulse_result_t pulse_asset_register_type(
-    pulse_app_t app,
+EPulseResult pulse_asset_register_type(
+    PulseAppId app,
     const pulse_asset_type_desc* desc
 ) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
-    return system ? system->register_type(desc) : PULSE_ERROR_INVALID_ARGUMENT;
+    return system ? system->register_type(desc) : PULSE_RESULT_ERROR_INVALID_ARGUMENT;
 }
 
-pulse_result_t pulse_asset_register_loader(
-    pulse_app_t app,
+EPulseResult pulse_asset_register_loader(
+    PulseAppId app,
     const pulse_asset_loader_desc* desc
 ) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
-    return system ? system->register_loader(desc) : PULSE_ERROR_INVALID_ARGUMENT;
+    return system ? system->register_loader(desc) : PULSE_RESULT_ERROR_INVALID_ARGUMENT;
 }
 
 pulse_asset_handle pulse_asset_load(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_asset_load_desc* desc
 ) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
@@ -439,7 +439,7 @@ pulse_asset_handle pulse_asset_load(
 }
 
 pulse_asset_handle pulse_asset_load_from_memory(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_asset_memory_load_desc* desc
 ) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
@@ -447,49 +447,49 @@ pulse_asset_handle pulse_asset_load_from_memory(
 }
 
 pulse_asset_handle pulse_asset_build(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_asset_build_desc* desc
 ) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     return system ? system->build_asset(desc) : pulse::asset::invalid_handle();
 }
 
-pulse_result_t pulse_asset_add_load_dependency(
+EPulseResult pulse_asset_add_load_dependency(
     const pulse_asset_load_task* ctx,
     pulse_asset_handle dependency,
     pulse_dependency_flags_t flags
 ) {
     if (!ctx || !ctx->app || !ctx->dependency_hint || !ctx->dependency_hint->parent) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     return ctx->dependency_hint->parent->add_dependency(dependency, flags);
 }
 
 pulse_asset_state_t pulse_asset_get_state(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 ) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     return system ? system->get_state(handle) : PULSE_ASSET_STATE_EMPTY;
 }
 
-bool pulse_asset_is_alive(pulse_app_t app, pulse_asset_handle handle)
+bool pulse_asset_is_alive(PulseAppId app, pulse_asset_handle handle)
 {
 	auto state = pulse_asset_get_state(app, handle);
     return !(state == PULSE_ASSET_STATE_EMPTY || state == PULSE_ASSET_STATE_FAILED || state == PULSE_ASSET_STATE_PENDING_DELETE);
 }
 
-bool pulse_asset_is_ready(pulse_app_t app, pulse_asset_handle handle) {
+bool pulse_asset_is_ready(PulseAppId app, pulse_asset_handle handle) {
     return pulse_asset_get_state(app, handle) == PULSE_ASSET_STATE_LOADED;
 }
 
-const char* pulse_asset_get_error(pulse_app_t app, pulse_asset_handle handle) {
+const char* pulse_asset_get_error(PulseAppId app, pulse_asset_handle handle) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     return system ? system->get_error(handle) : nullptr;
 }
 
 bool pulse_asset_acquire(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle,
     pulse_asset_ref* out_ref
 ) {
@@ -504,28 +504,28 @@ bool pulse_asset_acquire(
     return system->acquire(handle, out_ref);
 }
 
-void pulse_asset_release(pulse_app_t app, pulse_asset_ref* ref) {
+void pulse_asset_release(PulseAppId app, pulse_asset_ref* ref) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     if (system) {
         system->release(ref);
     }
 }
 
-void pulse_asset_unload(pulse_app_t app, pulse_asset_handle handle) {
+void pulse_asset_unload(PulseAppId app, pulse_asset_handle handle) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     if (system) {
         system->unload(handle);
     }
 }
 
-void pulse_asset_mark_modified(pulse_app_t app, pulse_asset_handle handle) {
+void pulse_asset_mark_modified(PulseAppId app, pulse_asset_handle handle) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     if (system) {
         system->mark_modified(handle);
     }
 }
 
-void pulse_asset_force_unload_assets(pulse_app_t app, uint64_t type_id) {
+void pulse_asset_force_unload_assets(PulseAppId app, uint64_t type_id) {
     pulse::asset::AssetSystem* system = pulse::asset::system_from_app(app);
     if (system) {
         system->force_unload_assets(type_id);

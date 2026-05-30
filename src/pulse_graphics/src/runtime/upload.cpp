@@ -6,7 +6,7 @@ namespace pulse_graphics_internal {
 
 static constexpr int kMaxUploadsPerFrame = 10;
 
-static void upload_record_callback(pulse_app_t app, pulse_rendergraph_t* graph, void* user_data) {
+static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, void* user_data) {
     (void)user_data;
     pulse_graphics_state* st = state_from_app(app);
     if (!st || !graph) return;
@@ -166,7 +166,7 @@ uint8_t* queue_staging_buffer_full(
     return ptr;
 }
 
-void install_upload_callback(pulse_app_t app) {
+void install_upload_callback(PulseAppId app) {
     pulse_graphics_renderer_record_callback_desc desc{};
     desc.callback = upload_record_callback;
     desc.user_data = nullptr;
@@ -174,7 +174,7 @@ void install_upload_callback(pulse_app_t app) {
     pulse_graphics_render_add_record_callback(app, &desc);
 }
 
-bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+bool is_upload_pending(PulseAppId app, pulse_asset_handle handle) {
     pulse_graphics_state* state = state_from_app(app);
     if (!state) return false;
     if (!pulse_asset_handle_is_valid(handle)) return false;
@@ -185,7 +185,7 @@ bool is_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
     return false;
 }
 
-void clear_upload_pending(pulse_app_t app, pulse_asset_handle handle) {
+void clear_upload_pending(PulseAppId app, pulse_asset_handle handle) {
     pulse_graphics_state* state = state_from_app(app);
     if (!state) return;
     if (!pulse_asset_handle_is_valid(handle)) return;

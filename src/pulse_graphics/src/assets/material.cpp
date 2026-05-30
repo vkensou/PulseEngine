@@ -11,7 +11,7 @@ static void destroy_material(void* ptr, void* user_data) {
     HGEGraphics::free_material(data);
 }
 
-void register_material_type(pulse_app_t app, CGPUDeviceId device)
+void register_material_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);
@@ -57,7 +57,7 @@ void pulse_graphics_material_bind_data(pulse_graphics_material_ref material, uin
     HGEGraphics::material_bindBuffer(material.ptr, set, binding, size, data);
 }
 
-bool pulse_graphics_material_acquire(pulse_app_t app, pulse_material_t handle, pulse_graphics_material_ref* material_ref) {
+bool pulse_graphics_material_acquire(PulseAppId app, pulse_material_t handle, pulse_graphics_material_ref* material_ref) {
     pulse_asset_ref ref{};
     if (pulse_asset_acquire(app, pulse_graphics_material_to_handle(handle), &ref)) {
         material_ref->handle = handle;
@@ -70,7 +70,7 @@ bool pulse_graphics_material_acquire(pulse_app_t app, pulse_material_t handle, p
     return false;
 }
 
-void pulse_graphics_material_release(pulse_app_t app, pulse_graphics_material_ref* material_ref) {
+void pulse_graphics_material_release(PulseAppId app, pulse_graphics_material_ref* material_ref) {
     pulse_asset_ref ref{ pulse_graphics_material_to_handle(material_ref->handle), nullptr };
     pulse_asset_release(app, &ref);
     material_ref->handle = {};

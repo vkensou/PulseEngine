@@ -1,4 +1,4 @@
-﻿#include "graphics_internal.h"
+#include "graphics_internal.h"
 
 #include <algorithm>
 #include <new>
@@ -29,14 +29,14 @@ pulse_graphics_state* state_from_world(ecs_world_t* world) {
     return resource ? resource->state : nullptr;
 }
 
-pulse_graphics_state* state_from_app(pulse_app_t app) {
+pulse_graphics_state* state_from_app(PulseAppId app) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || ecs_id(pulse_graphics_state_resource) == 0) return nullptr;
     const pulse_graphics_state_resource* res = ecs_singleton_get(world, pulse_graphics_state_resource);
     return res ? res->state : nullptr;
 }
 
-CGPUDeviceId get_device(pulse_app_t app) {
+CGPUDeviceId get_device(PulseAppId app) {
     const pulse_graphics_renderer* renderer = pulse_graphics_renderer_get(app);
     return renderer ? renderer->device : CGPUDeviceId{CGPU_NULLPTR};
 }
@@ -68,7 +68,7 @@ pulse_graphics_plugin_desc normalize_plugin_desc(
     return normalized;
 }
 
-void create_blit_shader(pulse_app_t app, pulse_graphics_state* state) {
+void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 	CGPUBlendAttachmentState blit_blend_attachments = {
 		.enable = false,
 		.src_factor = CGPU_BLEND_FACTOR_ONE,
@@ -127,14 +127,14 @@ void create_blit_shader(pulse_app_t app, pulse_graphics_state* state) {
     pulse_graphics_sampler_acquire(app, state->blit_linear_sampler.handle, &state->blit_linear_sampler);
 }
 
-pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
+EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
     state->app = app;
 
     if (!create_renderer(state)) {
         destroy_renderer(state);
-        return PULSE_ERROR_INTERNAL;
+        return PULSE_RESULT_ERROR_INTERNAL;
     }
 
     ECS_COMPONENT_DEFINE(world, pulse_graphics_state_resource);
@@ -154,10 +154,10 @@ pulse_result_t graphic_plugin_build(pulse_app_t app, void* ctx) {
     install_observers(state, world);
     install_render_systems(state, world);
 
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
-void graphic_plugin_shutdown(pulse_app_t app, void* ctx) {
+void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
     pulse_graphics_state* state =
         static_cast<pulse_graphics_state*>(ctx);
     if (!state) {
@@ -227,16 +227,16 @@ pulse_graphics_plugin_desc pulse_graphics_plugin_desc_default(void) {
     return desc;
 }
 
-pulse_result_t pulse_graphics_add_plugin(pulse_app_t app, const pulse_graphics_plugin_desc* desc) {
-    if (!app || !validate_plugin_desc(desc)) return PULSE_ERROR_INVALID_ARGUMENT;
-    if (pulse_app_has_plugin(app, kPluginName)) return PULSE_ERROR_DUPLICATE_PLUGIN;
+EPulseResult pulse_graphics_add_plugin(PulseAppId app, const pulse_graphics_plugin_desc* desc) {
+    if (!app || !validate_plugin_desc(desc)) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    if (pulse_app_has_plugin(app, kPluginName)) return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
 
     pulse_graphics_state* state = new (std::nothrow) pulse_graphics_state();
-    if (!state) return PULSE_ERROR_INTERNAL;
+    if (!state) return PULSE_RESULT_ERROR_INTERNAL;
     state->desc = normalize_plugin_desc(desc);
 
-    pulse_plugin_desc plugin_desc = {
-        sizeof(pulse_plugin_desc),
+    PulsePluginDesc plugin_desc = {
+        sizeof(PulsePluginDesc),
         PULSE_PLUGIN_DESC_VERSION,
         kPluginName,
         state,
@@ -245,8 +245,8 @@ pulse_result_t pulse_graphics_add_plugin(pulse_app_t app, const pulse_graphics_p
         graphic_plugin_shutdown,
     };
 
-    pulse_result_t result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_OK && !pulse_app_has_plugin(app, kPluginName)) {
+    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
         delete state;
     }
     return result;

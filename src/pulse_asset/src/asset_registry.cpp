@@ -39,17 +39,17 @@ AssetLoader* AssetType::find_extension_loader(const std::pmr::string& extension)
     return loader_it != extension_loaders.end() ? loader_it->second : nullptr;
 }
 
-pulse_result_t AssetType::add_loader(
+EPulseResult AssetType::add_loader(
     const pulse_asset_loader_desc& loader_desc,
     std::pmr::vector<std::pmr::string>&& extension_list,
     std::pmr::memory_resource* resource
 ) {
     if (extension_list.empty()) {
         if (find_builder_loader()) {
-            return PULSE_ERROR_INVALID_STATE;
+            return PULSE_RESULT_ERROR_INVALID_STATE;
         }
     } else if (has_loader_for_any(extension_list)) {
-        return PULSE_ERROR_INVALID_STATE;
+        return PULSE_RESULT_ERROR_INVALID_STATE;
     }
 
     extension_loaders.reserve(extension_loaders.size() + (extension_list.empty() ? 1u : extension_list.size()));
@@ -66,7 +66,7 @@ pulse_result_t AssetType::add_loader(
             extension_loaders.emplace(std::pmr::string(extension, resource), registered_loader);
         }
     }
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
 AssetRegistry::AssetRegistry(std::pmr::memory_resource* resource)
@@ -74,34 +74,34 @@ AssetRegistry::AssetRegistry(std::pmr::memory_resource* resource)
       types_(resource) {
 }
 
-pulse_result_t AssetRegistry::register_type(const pulse_asset_type_desc* desc) {
+EPulseResult AssetRegistry::register_type(const pulse_asset_type_desc* desc) {
     if (!desc || !desc->type_id || desc->struct_size != sizeof(pulse_asset_type_desc) ||
         desc->version != PULSE_ASSET_TYPE_DESC_VERSION ||
         desc->size == 0 || !is_power_of_two_alignment(desc->align)) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     auto [type_it, inserted] = types_.try_emplace(desc->type_id, resource_);
     if (!inserted) {
-        return PULSE_ERROR_INVALID_STATE;
+        return PULSE_RESULT_ERROR_INVALID_STATE;
     }
 
     type_it->second.desc = *desc;
-    return PULSE_OK;
+    return PULSE_RESULT_OK;
 }
 
-pulse_result_t AssetRegistry::register_loader(const pulse_asset_loader_desc* desc) {
+EPulseResult AssetRegistry::register_loader(const pulse_asset_loader_desc* desc) {
     if (!desc || desc->struct_size != sizeof(pulse_asset_loader_desc) ||
         desc->version != PULSE_ASSET_LOADER_DESC_VERSION || desc->type_id == 0 ||
         !desc->step ||
         (desc->loader_size > 0 && !is_power_of_two_alignment(desc->loader_align)) ||
         (desc->settings_size > 0 && !is_power_of_two_alignment(desc->settings_align))) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     AssetType* type = find_type(desc->type_id);
     if (!type) {
-        return PULSE_ERROR_NOT_FOUND;
+        return PULSE_RESULT_ERROR_NOT_FOUND;
     }
 
     std::pmr::vector<std::pmr::string> extension_list = AssetIo::parse_extensions(desc->extensions, resource_);

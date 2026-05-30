@@ -8,7 +8,7 @@ static void destroy_shader_library(void* ptr, void* user_data) {
     if (data->library) cgpu_device_free_shader_library(device, data->library);
 }
 
-void register_shader_library_type(pulse_app_t app, CGPUDeviceId device)
+void register_shader_library_type(PulseAppId app, CGPUDeviceId device)
 {
     pulse_asset_type_desc type_desc{};
     type_desc.struct_size = sizeof(pulse_asset_type_desc);

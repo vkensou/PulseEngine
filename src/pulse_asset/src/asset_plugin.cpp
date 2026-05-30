@@ -11,10 +11,10 @@ static void process_load_requests_callback(ecs_iter_t* it) {
     }
 }
 
-pulse_result_t AssetSystem::build(pulse_app_t app) {
+EPulseResult AssetSystem::build(PulseAppId app) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_ERROR_INVALID_ARGUMENT;
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     app_ = app;
@@ -25,10 +25,10 @@ pulse_result_t AssetSystem::build(pulse_app_t app) {
     ecs_singleton_set_ptr(world, pulse_asset_state_resource, &resource);
 
     install_process_system(world);
-    return process_system_ ? PULSE_OK : PULSE_ERROR_INTERNAL;
+    return process_system_ ? PULSE_RESULT_OK : PULSE_RESULT_ERROR_INTERNAL;
 }
 
-void AssetSystem::shutdown(pulse_app_t app) {
+void AssetSystem::shutdown(PulseAppId app) {
     load_queue_.cancel_all(*this);
     storage_.destroy_all_assets();
 
@@ -63,7 +63,7 @@ void AssetSystem::uninstall_process_system(ecs_world_t* world) {
     process_system_ = 0;
 }
 
-AssetSystem* system_from_app(pulse_app_t app) {
+AssetSystem* system_from_app(PulseAppId app) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || ecs_id(pulse_asset_state_resource) == 0) {
         return nullptr;
@@ -74,12 +74,12 @@ AssetSystem* system_from_app(pulse_app_t app) {
     return resource ? resource->system : nullptr;
 }
 
-pulse_result_t asset_plugin_build_callback(pulse_app_t app, void* ctx) {
+EPulseResult asset_plugin_build_callback(PulseAppId app, void* ctx) {
     AssetSystem* system = static_cast<AssetSystem*>(ctx);
-    return system ? system->build(app) : PULSE_ERROR_INVALID_ARGUMENT;
+    return system ? system->build(app) : PULSE_RESULT_ERROR_INVALID_ARGUMENT;
 }
 
-void asset_plugin_shutdown_callback(pulse_app_t app, void* ctx) {
+void asset_plugin_shutdown_callback(PulseAppId app, void* ctx) {
     AssetSystem* system = static_cast<AssetSystem*>(ctx);
     if (!system) {
         return;

@@ -106,7 +106,7 @@ typedef struct pulse_asset_type_desc {
 } pulse_asset_type_desc;
 
 typedef struct pulse_asset_load_task {
-    pulse_app_t app;
+    PulseAppId app;
     uint64_t type_id;
     const char* path;
     const uint8_t* bytes;
@@ -121,7 +121,7 @@ typedef struct pulse_asset_load_task {
     pulse_asset_load_source_t source;
 } pulse_asset_load_task;
 
-typedef pulse_result_t (*pulse_asset_loader_ctor_fn)(
+typedef EPulseResult (*pulse_asset_loader_ctor_fn)(
     void* loader,
     const pulse_asset_load_task* ctx
 );
@@ -188,85 +188,85 @@ typedef struct pulse_asset_build_desc {
 
 pulse_asset_plugin_desc pulse_asset_plugin_desc_default(void);
 
-pulse_result_t pulse_asset_add_plugin(
-    pulse_app_t app,
+EPulseResult pulse_asset_add_plugin(
+    PulseAppId app,
     const pulse_asset_plugin_desc* desc
 );
 
-pulse_result_t pulse_asset_register_type(
-    pulse_app_t app,
+EPulseResult pulse_asset_register_type(
+    PulseAppId app,
     const pulse_asset_type_desc* desc
 );
 
-pulse_result_t pulse_asset_register_loader(
-    pulse_app_t app,
+EPulseResult pulse_asset_register_loader(
+    PulseAppId app,
     const pulse_asset_loader_desc* desc
 );
 
 pulse_asset_handle pulse_asset_load(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_asset_load_desc* desc
 );
 
 pulse_asset_handle pulse_asset_load_from_memory(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_asset_memory_load_desc* desc
 );
 
 pulse_asset_handle pulse_asset_build(
-    pulse_app_t app,
+    PulseAppId app,
     const pulse_asset_build_desc* desc
 );
 
-pulse_result_t pulse_asset_add_load_dependency(
+EPulseResult pulse_asset_add_load_dependency(
     const pulse_asset_load_task* ctx,
     pulse_asset_handle dependency,
     pulse_dependency_flags_t flags
 );
 
 pulse_asset_state_t pulse_asset_get_state(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 );
 
 bool pulse_asset_is_alive(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 );
 
 bool pulse_asset_is_ready(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 );
 
 const char* pulse_asset_get_error(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 );
 
 bool pulse_asset_acquire(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle,
     pulse_asset_ref* out_ref
 );
 
 void pulse_asset_release(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_ref* ref
 );
 
 void pulse_asset_unload(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 );
 
 void pulse_asset_mark_modified(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_asset_handle handle
 );
 
 void pulse_asset_force_unload_assets(
-    pulse_app_t app,
+    PulseAppId app,
     uint64_t type_id
 );
 

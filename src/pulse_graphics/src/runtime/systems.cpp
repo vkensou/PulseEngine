@@ -511,7 +511,7 @@ void uninstall_render_systems(pulse_graphics_state* state, ecs_world_t* world) {
 } // namespace pulse_graphics_internal
 
 pulse_texture_handle_t pulse_graphics_render_import_window_backbuffer(
-    pulse_app_t app,
+    PulseAppId app,
     pulse_rendergraph_t* graph,
     ecs_entity_t window_entity
 ) {
