@@ -373,41 +373,41 @@ void pulse_graphics_material_release(pulse_app_t app, pulse_graphics_material_re
 static void pulse_graphics_material_unload(pulse_app_t app, pulse_material_t material) { pulse_asset_unload(app, pulse_graphics_material_to_handle(material)); }
 
 void pulse_graphics_material_bind_buffer(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
-    pulse_graphics_buffer_ref* buffer);
+    pulse_graphics_buffer_ref buffer);
 
 void pulse_graphics_material_bind_texture(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
-    pulse_graphics_texture_ref* texture);
+    pulse_graphics_texture_ref texture);
 
 void pulse_graphics_material_bind_sampler(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
-    pulse_graphics_sampler_ref* sampler);
+    pulse_graphics_sampler_ref sampler);
 
 void pulse_graphics_material_bind_data(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
     size_t size, const void* data);
 
 /* Encoder */
 
-void pulse_encoder_draw(pulse_renderpass_encoder_t* encoder, pulse_material_t material, pulse_mesh_t mesh);
-void pulse_encoder_draw_submesh(pulse_renderpass_encoder_t* encoder, pulse_material_t material, pulse_mesh_t mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);
-void pulse_encoder_draw_procedure(pulse_renderpass_encoder_t* encoder, pulse_material_t material, ECGPUPrimitiveTopology topology, uint32_t vertex_count);
-void pulse_encoder_dispatch(pulse_renderpass_encoder_t* encoder, pulse_compute_shader_t compute_shader, uint32_t x, uint32_t y, uint32_t z);
+void pulse_graphics_encoder_draw(pulse_renderpass_encoder_t* encoder, pulse_graphics_material_ref material, pulse_graphics_mesh_ref mesh);
+void pulse_graphics_encoder_draw_submesh(pulse_renderpass_encoder_t* encoder, pulse_graphics_material_ref material, pulse_graphics_mesh_ref mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);
+void pulse_graphics_encoder_draw_procedure(pulse_renderpass_encoder_t* encoder, pulse_graphics_material_ref material, ECGPUPrimitiveTopology topology, uint32_t vertex_count);
+void pulse_graphics_encoder_dispatch(pulse_renderpass_encoder_t* encoder, pulse_graphics_compute_shader_ref compute_shader, uint32_t x, uint32_t y, uint32_t z);
 
-void pulse_encoder_set_global_texture(pulse_renderpass_encoder_t* encoder, pulse_texture_t texture, uint32_t set, uint32_t binding);
-void pulse_encoder_set_global_buffer(pulse_renderpass_encoder_t* encoder, pulse_buffer_t buffer, uint32_t set, uint32_t binding);
-void pulse_encoder_set_global_sampler(pulse_renderpass_encoder_t* encoder, pulse_sampler_t sampler, uint32_t set, uint32_t binding);
-void pulse_encoder_set_global_texture_handle(pulse_renderpass_encoder_t* encoder, pulse_texture_handle_t handle, uint32_t set, uint32_t binding);
-void pulse_encoder_set_global_buffer_handle(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t handle, uint32_t set, uint32_t binding);
-void pulse_encoder_set_global_buffer_offset(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t handle, uint32_t set, uint32_t binding, uint64_t offset, uint64_t size);
-void pulse_encoder_set_viewport(pulse_renderpass_encoder_t* encoder, float x, float y, float w, float h, float min_d, float max_d);
-void pulse_encoder_set_scissor(pulse_renderpass_encoder_t* encoder, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
-void pulse_encoder_push_constants(pulse_renderpass_encoder_t* encoder, pulse_shader_t shader, const char* name, const void* data);
+void pulse_graphics_encoder_set_global_texture(pulse_renderpass_encoder_t* encoder, pulse_graphics_texture_ref texture, uint32_t set, uint32_t binding);
+void pulse_graphics_encoder_set_global_buffer(pulse_renderpass_encoder_t* encoder, pulse_graphics_buffer_ref buffer, uint32_t set, uint32_t binding);
+void pulse_graphics_encoder_set_global_sampler(pulse_renderpass_encoder_t* encoder, pulse_graphics_sampler_ref sampler, uint32_t set, uint32_t binding);
+void pulse_graphics_encoder_set_global_texture_handle(pulse_renderpass_encoder_t* encoder, pulse_texture_handle_t handle, uint32_t set, uint32_t binding);
+void pulse_graphics_encoder_set_global_buffer_handle(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t handle, uint32_t set, uint32_t binding);
+void pulse_graphics_encoder_set_global_buffer_offset(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t handle, uint32_t set, uint32_t binding, uint64_t offset, uint64_t size);
+void pulse_graphics_encoder_set_viewport(pulse_renderpass_encoder_t* encoder, float x, float y, float w, float h, float min_d, float max_d);
+void pulse_graphics_encoder_set_scissor(pulse_renderpass_encoder_t* encoder, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+void pulse_graphics_encoder_push_constants(pulse_renderpass_encoder_t* encoder, pulse_graphics_shader_ref shader, const char* name, const void* data);
 
 #ifdef __cplusplus
 }

@@ -27,6 +27,8 @@ pulse_asset_loader_status_t step_buffer_create(
             return PULSE_ASSET_LOADER_FAILED;
         }
         buf->type = (ECGPUResourceTypeFlags)create_desc->desc.descriptors;
+        buf->cur_state = CGPU_RESOURCE_STATE_UNDEFINED;
+        buf->dynamic_handle = {};
 
         if (create_desc->data && create_desc->data_size > 0) {
             auto* gstate = state_from_app(ctx->app);

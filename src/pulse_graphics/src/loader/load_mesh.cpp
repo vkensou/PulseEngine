@@ -191,6 +191,7 @@ pulse_asset_loader_status_t step_mesh_load(
 
         mesh->vertex_buffer = vb_ref.ptr;
         mesh->index_buffer = ib_ref.ptr;
+        mesh->prepared = true;
 
         pulse_graphics_buffer_release(ctx->app, &vb_ref);
         pulse_graphics_buffer_release(ctx->app, &ib_ref);

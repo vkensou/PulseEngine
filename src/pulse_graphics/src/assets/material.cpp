@@ -29,32 +29,32 @@ void register_material_type(pulse_app_t app, CGPUDeviceId device)
 extern "C" {
 
 void pulse_graphics_material_bind_buffer(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
-    pulse_graphics_buffer_ref* buffer)
+    pulse_graphics_buffer_ref buffer)
 {
-    HGEGraphics::material_bindBuffer(material->ptr, set, binding, buffer->ptr);
+    HGEGraphics::material_bindBuffer(material.ptr, set, binding, buffer.ptr);
 }
 
 void pulse_graphics_material_bind_texture(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
-    pulse_graphics_texture_ref* texture)
+    pulse_graphics_texture_ref texture)
 {
-    HGEGraphics::material_bindTexture(material->ptr, set, binding, texture->ptr);
+    HGEGraphics::material_bindTexture(material.ptr, set, binding, texture.ptr);
 }
 
 void pulse_graphics_material_bind_sampler(
-    pulse_graphics_material_ref* material,
+    pulse_graphics_material_ref material,
     uint32_t set, uint32_t binding,
-    pulse_graphics_sampler_ref* sampler)
+    pulse_graphics_sampler_ref sampler)
 {
-    HGEGraphics::material_bindSampler(material->ptr, set, binding, sampler->ptr);
+    HGEGraphics::material_bindSampler(material.ptr, set, binding, sampler.ptr);
 }
 
-void pulse_graphics_material_bind_data(pulse_graphics_material_ref* material, uint32_t set, uint32_t binding, size_t size, const void* data)
+void pulse_graphics_material_bind_data(pulse_graphics_material_ref material, uint32_t set, uint32_t binding, size_t size, const void* data)
 {
-    HGEGraphics::material_bindBuffer(material->ptr, set, binding, size, data);
+    HGEGraphics::material_bindBuffer(material.ptr, set, binding, size, data);
 }
 
 bool pulse_graphics_material_acquire(pulse_app_t app, pulse_material_t handle, pulse_graphics_material_ref* material_ref) {
