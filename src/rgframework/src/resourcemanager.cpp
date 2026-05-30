@@ -1,15 +1,15 @@
 ﻿#include "cgpu_device.h"
 
-HGEGraphics::Texture* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc)
+pulse_texture_data_t* oval_create_texture(oval_device_t* device, const CGPUTextureDescriptor& desc)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	std::unique_ptr<HGEGraphics::Texture> texture(HGEGraphics::create_texture(D->device, desc));
+	std::unique_ptr<pulse_texture_data_t> texture(HGEGraphics::create_texture(D->device, desc));
 	auto ptr = texture.get();
 	D->textures.push_back(std::move(texture));
 	return ptr;
 }
 
-HGEGraphics::Texture* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size)
+pulse_texture_data_t* oval_create_texture_from_buffer(oval_device_t* device, const CGPUTextureDescriptor& desc, void* data, uint64_t size)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto texture = oval_create_texture(device, desc);
@@ -20,12 +20,12 @@ HGEGraphics::Texture* oval_create_texture_from_buffer(oval_device_t* device, con
 	return texture;
 }
 
-void oval_free_texture(oval_device_t* device, HGEGraphics::Texture* texture)
+void oval_free_texture(oval_device_t* device, pulse_texture_data_t* texture)
 {
 	//HGEGraphics::free_texture(texture);
 }
 
-HGEGraphics::Mesh* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, const uint8_t* vertex_data, const uint8_t* index_data, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
+pulse_mesh_data_t* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, const uint8_t* vertex_data, const uint8_t* index_data, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto mesh = HGEGraphics::create_mesh(D->device, vertex_count, index_count, prim_topology, vertex_layout, index_stride, update_vertex_data_from_compute_shader, update_index_data_from_compute_shader);
@@ -42,7 +42,7 @@ HGEGraphics::Mesh* oval_create_mesh_from_buffer(oval_device_t* device, uint32_t 
 	return ptr;
 }
 
-HGEGraphics::Mesh* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
+pulse_mesh_data_t* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto mesh = HGEGraphics::create_dynamic_mesh(prim_topology, vertex_layout, index_stride);
@@ -51,7 +51,7 @@ HGEGraphics::Mesh* oval_create_dynamic_mesh(oval_device_t* device, ECGPUPrimitiv
 	return ptr;
 }
 
-void oval_free_mesh(oval_device_t* device, HGEGraphics::Mesh* mesh)
+void oval_free_mesh(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
 	//HGEGraphics::free_mesh(mesh);
 }
@@ -69,49 +69,50 @@ void oval_free_sampler(oval_device_t* device, CGPUSamplerId sampler)
 	//cgpu_device_free_sampler(sampler->device, sampler);
 }
 
-HGEGraphics::Buffer* oval_create_buffer(oval_device_t* device, const CGPUBufferDescriptor* desc)
+pulse_buffer_data_t* oval_create_buffer(oval_device_t* device, const CGPUBufferDescriptor* desc)
 {
 	auto D = (oval_cgpu_device_t*)device;
 	auto buffer = HGEGraphics::create_buffer(D->device, *desc);
-	auto ptr = buffer.release();
+	auto ptr = buffer;
 	return ptr;
 }
 
-void oval_free_buffer(oval_device_t* device, HGEGraphics::Buffer* buffer)
+void oval_free_buffer(oval_device_t* device, pulse_buffer_data_t* buffer)
 {
 	delete buffer;
 }
 
-HGEGraphics::Material* oval_create_material(oval_device_t* device, HGEGraphics::Shader* shader)
+pulse_material_data_t* oval_create_material(oval_device_t* device, pulse_shader_data_t* shader)
 {
 	auto D = (oval_cgpu_device_t*)device;
-	std::unique_ptr<HGEGraphics::Material> material(new HGEGraphics::Material(D->device, shader));
+	std::unique_ptr<pulse_material_data_t> material(new pulse_material_data_t());
+	HGEGraphics::init_material(material.get(), D->device, shader);
 	auto ptr = material.get();
 	D->materials.push_back(std::move(material));
 	return ptr;
 }
 
-void oval_free_material(oval_device_t* device, HGEGraphics::Material* material)
+void oval_free_material(oval_device_t* device, pulse_material_data_t* material)
 {
 	//delete material;
 }
 
-bool oval_texture_prepared(oval_device_t* device, HGEGraphics::Texture* texture)
+bool oval_texture_prepared(oval_device_t* device, pulse_texture_data_t* texture)
 {
 	return texture->prepared;
 }
 
-bool oval_mesh_prepared(oval_device_t* device, HGEGraphics::Mesh* mesh)
+bool oval_mesh_prepared(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
 	return mesh->prepared;
 }
 
-HGEGraphics::Buffer* oval_mesh_get_vertex_buffer(oval_device_t* device, HGEGraphics::Mesh* mesh)
+pulse_buffer_data_t* oval_mesh_get_vertex_buffer(oval_device_t* device, pulse_mesh_data_t* mesh)
 {
-	return mesh->vertex_buffer.get();
+	return mesh->vertex_buffer;
 }
 
-HGEGraphics::Texture* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap)
+pulse_texture_data_t* oval_load_texture(oval_device_t* device, const char* filepath, bool mipmap)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
@@ -122,7 +123,7 @@ HGEGraphics::Texture* oval_load_texture(oval_device_t* device, const char* filep
 	memcpy(path, filepath, path_size);
 	resource.path = path;
 	resource.path_size = path_size;
-	auto texture = HGEGraphics::create_empty_texture();
+	std::unique_ptr<pulse_texture_data_t> texture(HGEGraphics::create_empty_texture());
 	auto ptr = texture.get();
 	D->textures.push_back(std::move(texture));
 	resource.textureResource = {
@@ -134,7 +135,7 @@ HGEGraphics::Texture* oval_load_texture(oval_device_t* device, const char* filep
 	return resource.textureResource.texture;
 }
 
-HGEGraphics::Mesh* oval_load_mesh(oval_device_t* device, const char* filepath)
+pulse_mesh_data_t* oval_load_mesh(oval_device_t* device, const char* filepath)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
@@ -196,7 +197,7 @@ void oval_ensure_cur_transfer_queue(oval_cgpu_device_t* device)
 	device->cur_transfer_queue = oval_graphics_transfer_queue_alloc(&device->super);
 }
 
-uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size)
+uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size)
 {
 	auto D = (oval_cgpu_device_t*)device;
 
@@ -205,10 +206,10 @@ uint8_t* oval_graphics_set_mesh_vertex_data(oval_device_t* device, HGEGraphics::
 	uint64_t vertex_data_size = mesh->vertices_count * mesh->vertex_stride;
 	if (size)
 		*size = vertex_data_size;
-	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, vertex_data_size, mesh->vertex_buffer.get());
+	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, vertex_data_size, mesh->vertex_buffer);
 }
 
-uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, HGEGraphics::Mesh* mesh, uint64_t* size)
+uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, pulse_mesh_data_t* mesh, uint64_t* size)
 {
 	uint64_t index_data_size = mesh->index_count * mesh->index_stride;
 	if (index_data_size == 0)
@@ -220,10 +221,10 @@ uint8_t* oval_graphics_set_mesh_index_data(oval_device_t* device, HGEGraphics::M
 
 	if (size)
 		*size = index_data_size;
-	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, index_data_size, mesh->index_buffer.get());
+	return oval_graphics_transfer_queue_transfer_data_to_buffer(D->cur_transfer_queue, index_data_size, mesh->index_buffer);
 }
 
-uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, HGEGraphics::Texture* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)
+uint8_t* oval_graphics_set_texture_data_slice(oval_device_t* device, pulse_texture_data_t* texture, uint32_t mipmap, uint32_t slice, uint64_t* size)
 {
 	auto D = (oval_cgpu_device_t*)device;
 

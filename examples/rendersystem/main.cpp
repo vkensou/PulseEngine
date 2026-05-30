@@ -164,14 +164,14 @@ struct BindBuffer
 {
 	int set;
 	int bind;
-	HGEGraphics::Buffer* buffer;
+	pulse_buffer_data_t* buffer;
 };
 
 struct BindTexture
 {
 	int set;
 	int bind;
-	HGEGraphics::Texture* texture;
+	pulse_texture_data_t* texture;
 };
 
 struct BindSampler
@@ -430,8 +430,8 @@ struct Application
 	oval_device_t* device{ nullptr };
 	ecs_entity_t window1{};
 	ecs_entity_t window2{};
-	std::vector<HGEGraphics::Mesh*> meshes;
-	std::vector<HGEGraphics::Material*> materials;
+	std::vector<pulse_mesh_data_t*> meshes;
+	std::vector<pulse_material_data_t*> materials;
 	std::pmr::synchronized_pool_resource root_memory_resource;
 	std::array<FrameRenderPacket, 2> frameRenderPackets;
 
@@ -528,7 +528,7 @@ struct TexturedVertex
 	HMM_Vec2 texCoord;
 };
 
-HGEGraphics::Texture* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
+pulse_texture_data_t* load_texture(Application& app, tinygltf::Image& gltf_image, std::string path, bool mipmap)
 {
 	return oval_load_texture(app.device, (path + gltf_image.uri).c_str(), true);
 
@@ -550,7 +550,7 @@ HGEGraphics::Texture* load_texture(Application& app, tinygltf::Image& gltf_image
 	return texture;
 }
 
-HGEGraphics::Mesh* load_primitive(Application& app, const tinygltf::Primitive& gltf_primitive, const tinygltf::Model& model, bool right_hand)
+pulse_mesh_data_t* load_primitive(Application& app, const tinygltf::Primitive& gltf_primitive, const tinygltf::Model& model, bool right_hand)
 {
 	int rh = right_hand ? -1 : 1;
 
@@ -719,7 +719,7 @@ bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
 	return true;
 }
 
-void load_scene(Application& app, flecs::world& world, const char* filepath, HGEGraphics::Shader* shader)
+void load_scene(Application& app, flecs::world& world, const char* filepath, pulse_shader_data_t* shader)
 {
 	using namespace tinygltf;
 	Model model;
@@ -778,7 +778,7 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		samplers.push_back(sampler);
 	}
 
-	std::vector<HGEGraphics::Texture*> textures;
+	std::vector<pulse_texture_data_t*> textures;
 	for (size_t i = 0; i < model.images.size(); ++i)
 	{
 		auto& gltf_image = model.images[i];
@@ -795,8 +795,8 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 		{
 			auto& gltf_texture = model.textures[baseColorTexture.index];
 			auto tex = textures[gltf_texture.source];
-			material->bindTexture(1, 1, tex);
-			material->bindSampler(1, 2, samplers[0]);
+			HGEGraphics::material_bindTexture(material, 1, 1, tex);
+			HGEGraphics::material_bindSampler(material, 1, 2, samplers[0]);
 		}
 
 		float roughness = gltf_material.pbrMetallicRoughness.roughnessFactor;
@@ -811,7 +811,7 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, HGE
 				gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
 				gltf_material.pbrMetallicRoughness.baseColorFactor[0]),
 		};
-		material->bindBuffer<MaterialData>(1, 0, materialData);
+		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
 		app.materials.push_back(material);
 	}
 

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include "drawer.h"
+#include "pulse_renderer_asset.h"
 
 using namespace HGEGraphics;
 
@@ -52,7 +53,7 @@ static void allocate_passdata(pulse_rendergraph_impl_t* self, RenderPassNode* pa
 }
 
 // pulse_rendergraph_impl_t constructor
-pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, Shader* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
+pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, pulse_shader_data_t* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
 	: allocator(resource), resources(resource), passes(resource), edges(resource), blitShader(blitShader), blitSampler(blitSampler), imported_textures(resource), imported_buffers(resource)
 {
 	resources.reserve(estimate_resource_count);
@@ -84,7 +85,7 @@ pulse_rendergraph_t* pulse_rendergraph_create(uint32_t estimate_resource_count, 
 {
 	auto* impl = new pulse_rendergraph_impl_t(
 		estimate_resource_count, estimate_pass_count, estimate_edge_count,
-		(Shader*)blit_shader, blit_sampler,
+		(pulse_shader_data_t*)blit_shader, blit_sampler,
 		std::pmr::new_delete_resource());
 	return from_impl(impl);
 }
@@ -128,40 +129,38 @@ pulse_texture_handle_t pulse_rendergraph_declare_texture(pulse_rendergraph_t* se
 	return make_texture_handle(impl->resources.size() - 1);
 }
 
-pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, void* imported)
+pulse_texture_handle_t pulse_rendergraph_import_texture(pulse_rendergraph_t* self, pulse_texture_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	auto* tex = (Texture*)imported;
-	if (is_valid_dynamic_texture_handle(impl->resources, tex->dynamic_handle))
-		return tex->dynamic_handle;
+	if (is_valid_dynamic_texture_handle(impl->resources, imported->dynamic_handle))
+		return imported->dynamic_handle;
 
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
-	resourceNode.texture = tex;
+	resourceNode.texture = imported;
 	resourceNode.manageType = ManageType::Imported;
-	resourceNode.width = tex->handle->info->width;
-	resourceNode.height = tex->handle->info->height;
-	resourceNode.depth = tex->handle->info->depth;
-	resourceNode.format = tex->handle->info->format;
-	resourceNode.mipCount = tex->handle->info->mip_levels;
-	resourceNode.arraySize = tex->handle->info->array_size_minus_one + 1;
+	resourceNode.width = imported->handle->info->width;
+	resourceNode.height = imported->handle->info->height;
+	resourceNode.depth = imported->handle->info->depth;
+	resourceNode.format = imported->handle->info->format;
+	resourceNode.mipCount = imported->handle->info->mip_levels;
+	resourceNode.arraySize = imported->handle->info->array_size_minus_one + 1;
 	resourceNode.mipLevel = 0;
 	resourceNode.arraySlice = 0;
-	auto handle = tex->dynamic_handle = make_texture_handle(impl->resources.size() - 1);
-	impl->imported_textures.push_back(tex);
+	auto handle = imported->dynamic_handle = make_texture_handle(impl->resources.size() - 1);
+	impl->imported_textures.push_back(imported);
 	return handle;
 }
 
-pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, void* imported_backbuffer)
+pulse_texture_handle_t pulse_rendergraph_import_backbuffer(pulse_rendergraph_t* self, pulse_backbuffer_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	auto* bb = (Backbuffer*)imported_backbuffer;
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
-	auto texture = &bb->texture;
-	texture->cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
+	auto texture = &imported->texture;
+	texture->p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
 	texture->states_consistent = true;
 	return pulse_rendergraph_import_texture(self, texture);
 }
@@ -178,28 +177,27 @@ pulse_buffer_handle_t pulse_rendergraph_declare_buffer(pulse_rendergraph_t* self
 	return make_buffer_handle(impl->resources.size() - 1);
 }
 
-pulse_buffer_handle_t pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, void* imported)
+pulse_buffer_handle_t pulse_rendergraph_import_buffer(pulse_rendergraph_t* self, pulse_buffer_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	auto* buf = (Buffer*)imported;
 	assert(impl->resources.size() <= PULSE_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	resourceNode.resourceType = ResourceType::Buffer;
 	resourceNode.width = 0;
 	resourceNode.memoryUsage = CGPU_MEMORY_USAGE_UNKNOWN;
-	resourceNode.buffer = buf;
+	resourceNode.buffer = imported;
 	resourceNode.manageType = ManageType::Imported;
-	resourceNode.size = buf->handle->info->size;
-	resourceNode.bufferType = buf->type;
-	resourceNode.memoryUsage = (ECGPUMemoryUsage)buf->handle->info->memory_usage;
+	resourceNode.size = imported->handle->info->size;
+	resourceNode.bufferType = imported->type;
+	resourceNode.memoryUsage = (ECGPUMemoryUsage)imported->handle->info->memory_usage;
 	return make_buffer_handle(impl->resources.size() - 1);
 }
 
 pulse_buffer_handle_t pulse_rendergraph_import_dynamic_buffer(pulse_rendergraph_t* self, void* imported)
 {
 	auto* impl = to_impl(self);
-	auto* buf = (Buffer*)imported;
+	auto* buf = (pulse_buffer_data_t*)imported;
 	if (is_valid_dynamic_buffer_handle(impl->resources, buf->dynamic_handle))
 		return buf->dynamic_handle;
 
@@ -575,7 +573,7 @@ void pulse_rendergraph_add_generate_mipmap(pulse_rendergraph_t* self, pulse_text
 
 		struct BlitMipmapPassData
 		{
-			Shader* blitShader;
+			pulse_shader_data_t* blitShader;
 			CGPUSamplerId blitSampler;
 			pulse_texture_handle_t source;
 		};

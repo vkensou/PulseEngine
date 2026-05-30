@@ -9,20 +9,20 @@ namespace HGEGraphics
 
 	struct CompiledResourceNode
 	{
-		CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, Texture* texture, uint8_t mipCount, uint8_t arraySize, pulse_index_t parent, uint8_t mipLevel, uint8_t arraySlice);
-		CompiledResourceNode(const char* name, ManageType type, uint32_t size, Buffer* imported_buffer, ECGPUResourceTypeFlags bufferType, ECGPUMemoryUsage memoryUsage);
+		CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, pulse_texture_data_t* texture, uint8_t mipCount, uint8_t arraySize, pulse_index_t parent, uint8_t mipLevel, uint8_t arraySlice);
+		CompiledResourceNode(const char* name, ManageType type, uint32_t size, pulse_buffer_data_t* imported_buffer, ECGPUResourceTypeFlags bufferType, ECGPUMemoryUsage memoryUsage);
 		CompiledResourceNode();
 
 		const char* name;
 		const ResourceType resourceType;
 		const ManageType manageType;
 		TextureWrap* managered_texture;
-		Texture* imported_texture;
+		pulse_texture_data_t* imported_texture;
 		const uint16_t width;
 		const uint16_t height;
 		const uint16_t depth;
 		const ECGPUTextureFormat format;
-		Buffer* imported_buffer;
+		pulse_buffer_data_t* imported_buffer;
 		BufferWrap* managed_buffer;
 		const uint32_t size;
 		const ECGPUResourceTypeFlags bufferType;

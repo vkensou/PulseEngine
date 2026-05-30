@@ -51,11 +51,12 @@ namespace HGEGraphics
 
 		TextureWrap* resource = allocator.new_object<TextureWrap>();
 		resource->_descriptor = descriptor;
-		resource->texture = allocator.new_object<Texture>();
+		resource->texture = allocator.new_object<pulse_texture_data_t>();
 		resource->texture->handle = texture;
 		resource->texture->view = nullptr;
-		resource->texture->cur_states.resize(descriptor.depth * descriptor.mipLevels);
-		std::fill(resource->texture->cur_states.begin(), resource->texture->cur_states.end(), CGPU_RESOURCE_STATE_UNDEFINED);
+		resource->texture->cur_state_count = descriptor.depth * descriptor.mipLevels;
+		resource->texture->p_cur_states = new ECGPUResourceStateFlags[resource->texture->cur_state_count];
+		std::fill(resource->texture->p_cur_states, resource->texture->p_cur_states + resource->texture->cur_state_count, CGPU_RESOURCE_STATE_UNDEFINED);
 		resource->texture->states_consistent = true;
 		return resource;
 	}
@@ -63,7 +64,7 @@ namespace HGEGraphics
 	{
 		cgpu_device_free_texture(device, resource->texture->handle);
 		resource->texture->handle = CGPU_NULLPTR;
-		resource->texture->cur_states.clear();
+		free_texture(resource->texture);
 		allocator.delete_object(resource->texture);
 		allocator.delete_object(resource);
 	}

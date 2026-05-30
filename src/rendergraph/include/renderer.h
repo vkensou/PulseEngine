@@ -17,147 +17,70 @@
 #include "profiler.h"
 #include "resource_type.h"
 #include "rendergraph.h"
+#include "pulse_renderer_asset.h"
 
 namespace HGEGraphics
 {
-	
+	std::unique_ptr<pulse_shader_data_t> create_shader(CGPUDeviceId device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state);
 
-	struct Shader
+	std::unique_ptr<pulse_shader_data_t> create_shader_from_libraries(
+		CGPUDeviceId device,
+		CGPUShaderLibraryId vs_library,
+		CGPUShaderLibraryId ps_library,
+		const CGPUBlendStateDescriptor& blend_desc,
+		const CGPUDepthStateDescriptor& depth_desc,
+		const CGPURasterizerStateDescriptor& rasterizer_state);
+	void free_shader(pulse_shader_data_t* shader);
+
+	std::unique_ptr<pulse_compute_shader_data_t> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length);
+
+	std::unique_ptr<pulse_compute_shader_data_t> create_compute_shader_from_library(
+		CGPUDeviceId device,
+		CGPUShaderLibraryId cs_library);
+
+	void free_compute_shader(pulse_compute_shader_data_t* compute_shader);
+
+	pulse_buffer_data_t* create_empty_buffer();
+	pulse_buffer_data_t* create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
+	void free_buffer(pulse_buffer_data_t* buffer);
+
+	std::unique_ptr<pulse_mesh_data_t> create_empty_mesh();
+	void init_mesh(pulse_mesh_data_t* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
+	std::unique_ptr<pulse_mesh_data_t> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
+	std::unique_ptr<pulse_mesh_data_t> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
+	pulse_buffer_handle_t declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count);
+	pulse_buffer_handle_t declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count);
+	void dynamic_mesh_reset(pulse_mesh_data_t* mesh);
+	void free_mesh(pulse_mesh_data_t* mesh);
+
+	pulse_texture_data_t* create_empty_texture();
+	void init_texture(pulse_texture_data_t* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
+	pulse_texture_data_t* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
+	void free_texture(pulse_texture_data_t* texture);
+
+	void init_material(pulse_material_data_t* material, CGPUDeviceId device, pulse_shader_data_t* shader);
+	void free_material(pulse_material_data_t* material);
+
+	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture);
+	void material_bindSampler(pulse_material_data_t* material, int set, int bind, pulse_sampler_data_t* sampler);
+	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler);
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer);
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data);
+
+	template<typename T>
+	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, const T& data)
 	{
-		~Shader();
+		material_bindBuffer(material, set, bind, sizeof(T), &data);
+	}
 
-		CGPURootSignatureId root_sig;
-		CGPUShaderEntryDescriptor vs;
-		CGPUShaderEntryDescriptor ps;
-		CGPUBlendStateDescriptor blend_desc;
-		std::vector<CGPUBlendAttachmentState> blend_attachment_states;
-		CGPUDepthStateDescriptor depth_desc;
-		CGPURasterizerStateDescriptor rasterizer_state;
-	};
-
-	std::unique_ptr<Shader> create_shader(CGPUDeviceId device, const uint8_t* vert_data, uint32_t vert_length, const uint8_t* frag_data, uint32_t frag_length, const CGPUBlendStateDescriptor& blend_desc, const CGPUDepthStateDescriptor& depth_desc, const CGPURasterizerStateDescriptor& rasterizer_state);
-
-	struct ComputeShader
-	{
-		~ComputeShader();
-
-		CGPURootSignatureId root_sig;
-		CGPUShaderEntryDescriptor cs;
-	};
-
-	std::unique_ptr<ComputeShader> create_compute_shader(CGPUDeviceId device, const uint8_t* comp_data, uint32_t comp_length);
-
-	struct Buffer
-	{
-		~Buffer();
-
-		CGPUBufferId handle;
-		ECGPUResourceTypeFlags type;
-		ECGPUResourceStateFlags cur_state;
-		pulse_buffer_handle_t dynamic_handle;
-	};
-
-	std::unique_ptr<Buffer> create_buffer(CGPUDeviceId device, const CGPUBufferDescriptor& desc);
-
-	struct Mesh
-	{
-		CGPUVertexLayout vertex_layout;
-		std::vector<CGPUVertexAttribute> vertex_attributes;
-		ECGPUPrimitiveTopology prim_topology;
-		uint32_t vertex_stride;
-		uint32_t index_stride;
-		uint32_t vertices_count;
-		uint32_t index_count;
-		std::unique_ptr<Buffer> vertex_buffer;
-		std::unique_ptr<Buffer> index_buffer;
-		bool prepared;
-	};
-
-	std::unique_ptr<Mesh> create_empty_mesh();
-	void init_mesh(Mesh* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
-	std::unique_ptr<Mesh> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
-	std::unique_ptr<Mesh> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
-	pulse_buffer_handle_t declare_dynamic_vertex_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
-	pulse_buffer_handle_t declare_dynamic_index_buffer(Mesh* mesh, pulse_rendergraph_t* rg, uint32_t count);
-	void dynamic_mesh_reset(Mesh* mesh);
-
-	struct Texture
-	{
-		~Texture();
-
-		CGPUTextureId handle;
-		CGPUTextureViewId view;
-		std::vector<ECGPUResourceStateFlags> cur_states;
-		bool states_consistent;
-		bool prepared;
-		pulse_texture_handle_t dynamic_handle;
-	};
-
-	std::unique_ptr<Texture> create_empty_texture();
-	void init_texture(Texture* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
-	std::unique_ptr<Texture> create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
-
-	class Material
-	{
-	public:
-		struct BindBuffer
-		{
-			int set;
-			int bind;
-			Buffer* buffer;
-		};
-
-		struct BindTexture
-		{
-			int set;
-			int bind;
-			Texture* texture;
-		};
-
-		struct BindSampler
-		{
-			int set;
-			int bind;
-			CGPUSamplerId sampler;
-		};
-
-		CGPUDeviceId device;
-		Shader* shader;
-		std::vector<BindBuffer> buffers;
-		std::vector<BindTexture> textures;
-		std::vector<BindSampler> samplers;
-		std::vector<std::unique_ptr<Buffer>> ownedBuffers;
-
-	public:
-		Material(CGPUDeviceId device, Shader* shader);
-		~Material();
-
-		void bindTexture(int set, int bind, Texture* texture);
-		void bindSampler(int set, int bind, CGPUSamplerId sampler);
-
-		template<typename T>
-		void bindBuffer(int set, int bind, const T& data)
-		{
-			bindBuffer(set, bind, sizeof(T), &data);
-		}
-
-		void bindBuffer(int set, int bind, size_t size, const void* data);
-	};
-
-	struct Backbuffer
-	{
-		~Backbuffer();
-
-		Texture texture;
-	};
-
-	void init_backbuffer(Backbuffer* backbuffer, CGPUSwapChainId swapchain, int index);
+	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index);
+	void free_backbuffer(pulse_backbuffer_data_t* backbuffer);
 
 	struct RenderPassEncoder;
 
 	struct ShaderTextureBinder
 	{
-		Texture* texture;
+		pulse_texture_data_t* texture;
 		pulse_texture_handle_t texture_handle;
 		int set, bind;
 	};
@@ -170,7 +93,7 @@ namespace HGEGraphics
 
 	struct ShaderBufferBinder
 	{
-		Buffer* buffer;
+		pulse_buffer_data_t* buffer;
 		pulse_buffer_handle_t buffer_handle;
 		int set, bind;
 		uint64_t offset, size;

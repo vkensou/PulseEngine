@@ -1,6 +1,6 @@
-#include "render_internal.h"
+#include "internal.h"
 
-namespace pulse_cgpu_render_internal {
+namespace pulse_graphics_internal {
 
 bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue) {
     fence = cgpu_device_create_fence(device);
@@ -9,7 +9,7 @@ bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue) {
     }
 
     CGPUCommandPoolDescriptor pool_desc{};
-    pool_desc.name = "pulse_cgpu_render_frame_pool";
+    pool_desc.name = "pulse_graphics_render_frame_pool";
     pool = cgpu_queue_create_command_pool(queue, &pool_desc);
     if (!pool) {
         return false;
@@ -106,7 +106,7 @@ constexpr size_t kGraphResourceEstimate = 32;
 constexpr size_t kGraphPassEstimate = 32;
 constexpr size_t kGraphEdgeEstimate = 64;
 
-bool ensure_frame_graph(render_frame_context& frame_context) {
+bool ensure_frame_graph(pulse_graphics_state* state, render_frame_context& frame_context) {
     if (!frame_context.graph_memory) {
         frame_context.graph_memory =
             std::make_unique<std::pmr::unsynchronized_pool_resource>();
@@ -129,8 +129,8 @@ bool ensure_frame_graph(render_frame_context& frame_context) {
             resource_estimate,
             pass_estimate,
             edge_estimate,
-            nullptr,
-            CGPU_NULLPTR,
+            state->blit_shader.ptr,
+            state->blit_linear_sampler.ptr->handle,
             frame_context.graph_memory.get()
         );
     }
@@ -145,8 +145,8 @@ void delete_registered_entity(ecs_world_t* world, ecs_entity_t& entity) {
 }
 
 void render_begin_frame_system_run(ecs_iter_t* it) {
-    pulse_cgpu_render_state* state =
-        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    pulse_graphics_state* state =
+        static_cast<pulse_graphics_state*>(it->ctx);
     if (!state) {
         return;
     }
@@ -171,32 +171,32 @@ void render_begin_frame_system_run(ecs_iter_t* it) {
 }
 
 void render_reset_current_backbuffer_run(ecs_iter_t* it) {
-    pulse_cgpu_swapchain* swapchains = ecs_field(it, pulse_cgpu_swapchain, 0);
+    pulse_graphics_swapchain* swapchains = ecs_field(it, pulse_graphics_swapchain, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         swapchains[i].current_backbuffer = nullptr;
     }
 }
 
 void render_prepare_windows_system_run(ecs_iter_t* it) {
-    pulse_cgpu_render_state* state =
-        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    pulse_graphics_state* state =
+        static_cast<pulse_graphics_state*>(it->ctx);
     if (!state || !state->frame_context.active) {
         return;
     }
-    if (!state->desc.record_callback) {
+    if (state->record_callbacks.empty()) {
         return;
     }
 
     ecs_world_t* world = it->world;
     pulse_window* windows = ecs_field(it, pulse_window, 0);
-    pulse_cgpu_surface* surfaces = ecs_field(it, pulse_cgpu_surface, 1);
-    pulse_cgpu_swapchain* swapchains = ecs_field(it, pulse_cgpu_swapchain, 2);
+    pulse_graphics_surface* surfaces = ecs_field(it, pulse_graphics_surface, 1);
+    pulse_graphics_swapchain* swapchains = ecs_field(it, pulse_graphics_swapchain, 2);
     render_frame_context& frame = state->frame_context;
 
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
 
-        pulse_cgpu_swapchain* swapchain = &swapchains[i];
+        pulse_graphics_swapchain* swapchain = &swapchains[i];
         if (!ensure_cgpu_swapchain(
                 state,
                 world,
@@ -209,7 +209,7 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
 
         if (acquire_window_image(swapchain, frame.frame_index)) {
             swapchain->current_backbuffer =
-                &static_cast<HGEGraphics::Backbuffer*>(swapchain->backbuffers)[
+                &static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers)[
                     swapchain->current_backbuffer_index];
 
             frame.prepared_entities.push_back(entity);
@@ -228,8 +228,8 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
 }
 
 void render_begin_graph_system_run(ecs_iter_t* it) {
-    pulse_cgpu_render_state* state =
-        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    pulse_graphics_state* state =
+        static_cast<pulse_graphics_state*>(it->ctx);
     if (!state || !state->frame_context.active) {
         return;
     }
@@ -238,24 +238,27 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     if (frame_context.prepared_entities.empty() || !frame_context.frame) {
         return;
     }
-    if (!state->desc.record_callback) {
+    if (state->record_callbacks.empty()) {
         return;
     }
-    if (!ensure_frame_graph(frame_context)) {
+    if (!ensure_frame_graph(state, frame_context)) {
         frame_context.failed = true;
         return;
     }
 
-    state->desc.record_callback(
-        state->app,
-        *frame_context.graph.get(),
-        state->desc.record_user_data
-    );
+    for (auto& cb : state->record_callbacks) {
+        if (!cb.callback) continue;
+        cb.callback(
+            state->app,
+            *frame_context.graph.get(),
+            cb.user_data
+        );
+    }
 }
 
 void render_execute_graph_system_run(ecs_iter_t* it) {
-    pulse_cgpu_render_state* state =
-        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    pulse_graphics_state* state =
+        static_cast<pulse_graphics_state*>(it->ctx);
     if (!state || !state->frame_context.active || state->frame_context.failed) {
         return;
     }
@@ -277,12 +280,12 @@ void render_execute_graph_system_run(ecs_iter_t* it) {
     HGEGraphics::Executor::Execute(compiled, *frame_context.frame->exec_context);
 
     auto* graph_impl = HGEGraphics::to_impl(*frame_context.graph);
-    for (HGEGraphics::Texture* imported : graph_impl->imported_textures) {
+    for (pulse_texture_data_t* imported : graph_impl->imported_textures) {
         if (imported) {
             imported->dynamic_handle = {};
         }
     }
-    for (HGEGraphics::Buffer* imported : graph_impl->imported_buffers) {
+    for (pulse_buffer_data_t* imported : graph_impl->imported_buffers) {
         if (imported) {
             imported->dynamic_handle = {};
         }
@@ -290,8 +293,8 @@ void render_execute_graph_system_run(ecs_iter_t* it) {
 }
 
 void render_submit_system_run(ecs_iter_t* it) {
-    pulse_cgpu_render_state* state =
-        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    pulse_graphics_state* state =
+        static_cast<pulse_graphics_state*>(it->ctx);
     if (!state || !state->frame_context.active || state->frame_context.failed) {
         return;
     }
@@ -327,8 +330,8 @@ void render_submit_system_run(ecs_iter_t* it) {
 }
 
 void render_present_system_run(ecs_iter_t* it) {
-    pulse_cgpu_render_state* state =
-        static_cast<pulse_cgpu_render_state*>(it->ctx);
+    pulse_graphics_state* state =
+        static_cast<pulse_graphics_state*>(it->ctx);
     if (!state || !state->frame_context.active || state->frame_context.failed) {
         return;
     }
@@ -338,8 +341,8 @@ void render_present_system_run(ecs_iter_t* it) {
 
     if (frame_context.submitted) {
         for (ecs_entity_t entity : frame_context.prepared_entities) {
-            pulse_cgpu_swapchain* swapchain =
-                ecs_get_mut(world, entity, pulse_cgpu_swapchain);
+            pulse_graphics_swapchain* swapchain =
+                ecs_get_mut(world, entity, pulse_graphics_swapchain);
             if (!swapchain) {
                 continue;
             }
@@ -359,7 +362,7 @@ void render_present_system_run(ecs_iter_t* it) {
     }
 
     state->renderer.frame_index++;
-    ecs_singleton_set_ptr(world, pulse_cgpu_renderer, &state->renderer);
+    ecs_singleton_set_ptr(world, pulse_graphics_renderer, &state->renderer);
 }
 
 ecs_entity_t create_render_system_entity(
@@ -380,7 +383,7 @@ ecs_entity_t install_render_run_system(
     ecs_world_t* world,
     const char* name,
     ecs_run_action_t run,
-    pulse_cgpu_render_state* state,
+    pulse_graphics_state* state,
     ecs_entity_t phase
 ) {
     ecs_system_desc_t system_desc{};
@@ -394,7 +397,7 @@ ecs_entity_t install_render_run_system(
 
 ecs_entity_t install_reset_backbuffer_system(
     ecs_world_t* world,
-    pulse_cgpu_render_state* state,
+    pulse_graphics_state* state,
     ecs_entity_t phase
 ) {
     ecs_system_desc_t system_desc{};
@@ -404,7 +407,7 @@ ecs_entity_t install_reset_backbuffer_system(
         0
     );
     system_desc.phase = phase;
-    system_desc.query.terms[0].id = ecs_id(pulse_cgpu_swapchain);
+    system_desc.query.terms[0].id = ecs_id(pulse_graphics_swapchain);
     system_desc.query.cache_kind = EcsQueryCacheAuto;
     system_desc.callback = render_reset_current_backbuffer_run;
     system_desc.ctx = state;
@@ -414,7 +417,7 @@ ecs_entity_t install_reset_backbuffer_system(
 
 ecs_entity_t install_prepare_windows_system(
     ecs_world_t* world,
-    pulse_cgpu_render_state* state,
+    pulse_graphics_state* state,
     ecs_entity_t phase
 ) {
     ecs_system_desc_t system_desc{};
@@ -425,8 +428,8 @@ ecs_entity_t install_prepare_windows_system(
     );
     system_desc.phase = phase;
     system_desc.query.terms[0].id = ecs_id(pulse_window);
-    system_desc.query.terms[1].id = ecs_id(pulse_cgpu_surface);
-    system_desc.query.terms[2].id = ecs_id(pulse_cgpu_swapchain);
+    system_desc.query.terms[1].id = ecs_id(pulse_graphics_surface);
+    system_desc.query.terms[2].id = ecs_id(pulse_graphics_swapchain);
     system_desc.query.terms[3].id = ecs_id(PulseWindowCloseRequested);
     system_desc.query.terms[3].oper = EcsNot;
     system_desc.query.cache_kind = EcsQueryCacheAuto;
@@ -438,7 +441,7 @@ ecs_entity_t install_prepare_windows_system(
 
 } // namespace
 
-void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) {
+void install_render_systems(pulse_graphics_state* state, ecs_world_t* world) {
     if (!state || !world || state->begin_frame_system) {
         return;
     }
@@ -448,50 +451,50 @@ void install_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) 
         "PulseCgpuBeginFrameSystem",
         render_begin_frame_system_run,
         state,
-        pulse_cgpu_render_begin_frame_phase
+        pulse_graphics_render_begin_frame_phase
     );
     state->reset_backbuffer_system = install_reset_backbuffer_system(
         world,
         state,
-        pulse_cgpu_render_reset_backbuffer_phase
+        pulse_graphics_render_reset_backbuffer_phase
     );
     state->prepare_windows_system =
         install_prepare_windows_system(
             world,
             state,
-            pulse_cgpu_render_prepare_windows_phase
+            pulse_graphics_render_prepare_windows_phase
         );
     state->build_graph_system = install_render_run_system(
         world,
         "PulseCgpuRecordGraphSystem",
         render_begin_graph_system_run,
         state,
-        pulse_cgpu_render_record_graph_phase
+        pulse_graphics_render_record_graph_phase
     );
     state->execute_graph_system = install_render_run_system(
         world,
         "PulseCgpuExecuteGraphSystem",
         render_execute_graph_system_run,
         state,
-        pulse_cgpu_render_execute_graph_phase
+        pulse_graphics_render_execute_graph_phase
     );
     state->submit_system = install_render_run_system(
         world,
         "PulseCgpuSubmitSystem",
         render_submit_system_run,
         state,
-        pulse_cgpu_render_submit_phase
+        pulse_graphics_render_submit_phase
     );
     state->present_system = install_render_run_system(
         world,
         "PulseCgpuPresentSystem",
         render_present_system_run,
         state,
-        pulse_cgpu_render_present_phase
+        pulse_graphics_render_present_phase
     );
 }
 
-void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world) {
+void uninstall_render_systems(pulse_graphics_state* state, ecs_world_t* world) {
     if (!state) {
         return;
     }
@@ -505,15 +508,15 @@ void uninstall_render_systems(pulse_cgpu_render_state* state, ecs_world_t* world
     delete_registered_entity(world, state->begin_frame_system);
 }
 
-} // namespace pulse_cgpu_render_internal
+} // namespace pulse_graphics_internal
 
-pulse_texture_handle_t pulse_cgpu_render_import_window_backbuffer(
+pulse_texture_handle_t pulse_graphics_render_import_window_backbuffer(
     pulse_app_t app,
     pulse_rendergraph_t* graph,
     ecs_entity_t window_entity
 ) {
-    const pulse_cgpu_swapchain* swapchain =
-        pulse_cgpu_swapchain_get(app, window_entity);
+    const pulse_graphics_swapchain* swapchain =
+        pulse_graphics_swapchain_get(app, window_entity);
     if (!swapchain || !swapchain->current_backbuffer) {
         return pulse_texture_handle_t{};
     }

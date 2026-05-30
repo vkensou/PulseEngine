@@ -294,7 +294,7 @@ oval_device_t* oval_create_device(const oval_device_descriptor* device_descripto
 	return (oval_device_t*)device_cgpu;
 }
 
-HGEGraphics::Mesh* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, ImDrawData* drawData, HGEGraphics::Mesh* imgui_mesh)
+pulse_mesh_data_t* setupImGuiResourcesMesh(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg, ImDrawData* drawData, pulse_mesh_data_t* imgui_mesh)
 {
 	using namespace HGEGraphics;
 
@@ -910,10 +910,10 @@ void oval_runloop(oval_device_t* device)
 		oval_update_context post_update_context
 		{
 			.delta_time = (float)fixed_update_time_step,
-			.time_since_startup = (float)time_since_startup,
-			.delta_time_double = fixed_update_time_step,
-			.time_since_startup_double = time_since_startup,
-			.fps = lastFPS,
+				.time_since_startup = (float)time_since_startup,
+				.delta_time_double = fixed_update_time_step,
+				.time_since_startup_double = time_since_startup,
+				.fps = lastFPS,
 		};
 
 		if (D->super.descriptor.on_post_update)
@@ -1007,10 +1007,30 @@ void oval_free_device(oval_device_t* device)
 		D->frameDatas[i].free();
 	}
 
+	for (size_t i = 0; i < D->materials.size(); ++i)
+	{
+		HGEGraphics::free_material(D->materials[i].get());
+	}
 	D->materials.clear();
+	for (size_t i = 0; i < D->meshes.size(); ++i)
+	{
+		HGEGraphics::free_mesh(D->meshes[i].get());
+	}
 	D->meshes.clear();
+	for (size_t i = 0; i < D->shaders.size();++i)
+	{
+		HGEGraphics::free_shader(D->shaders[i].get());
+	}
 	D->shaders.clear();
+	for (size_t i = 0; i < D->computeShaders.size();++i)
+	{
+		HGEGraphics::free_compute_shader(D->computeShaders[i].get());
+	}
 	D->computeShaders.clear();
+	for (size_t i = 0; i < D->textures.size(); ++i)
+	{
+		HGEGraphics::free_texture(D->textures[i].get());
+	}
 	D->textures.clear();
 	for (auto sampler : D->samplers)
 		cgpu_device_free_sampler(D->device, sampler);

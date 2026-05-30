@@ -11,7 +11,7 @@
 
 struct oval_transfer_data_to_texture
 {
-	HGEGraphics::Texture* texture;
+	pulse_texture_data_t* texture;
 	uint8_t* data;
 	uint64_t size;
 	uint32_t mipmap;
@@ -23,7 +23,7 @@ struct oval_transfer_data_to_texture
 
 struct oval_transfer_data_to_buffer
 {
-	HGEGraphics::Buffer* buffer;
+	pulse_buffer_data_t* buffer;
 	uint8_t* data;
 	uint64_t size;
 };
@@ -90,11 +90,11 @@ struct WaitLoadResource
 	size_t path_size;
 	union {
 		struct {
-			HGEGraphics::Texture* texture;
+			pulse_texture_data_t* texture;
 			bool mipmap;
 		} textureResource;
 		struct {
-			HGEGraphics::Mesh* mesh;
+			pulse_mesh_data_t* mesh;
 		} meshResource;
 	};
 };
@@ -119,7 +119,7 @@ struct TexturedVertex
 struct SwapChain
 {
 	CGPUSwapChainId handle{ CGPU_NULLPTR };
-	std::vector<HGEGraphics::Backbuffer> backbuffer;
+	std::vector<pulse_backbuffer_data_t> backbuffer;
 	std::vector<CGPUSemaphoreId> swapchain_prepared_semaphores;
 	std::vector<CGPUSemaphoreId> render_finished_semaphores;
 
@@ -143,7 +143,7 @@ struct oval_window_impl_t : oval_window_t {
 	CGPUSurfaceId surface;
 	std::unique_ptr<SwapChain> swapchain;
 	uint32_t current_swapchain_index;
-	HGEGraphics::Backbuffer* current_back_buffer;
+	pulse_backbuffer_data_t* current_back_buffer;
 	CGPUSemaphoreId current_prepared_semaphore;
 	CGPUSemaphoreId current_finish_semaphore;
 	bool needResize;
@@ -153,7 +153,7 @@ struct oval_window_impl_t : oval_window_t {
 	ImGuiViewport* imgui_viewport;
 	ImDrawDataSnapshot snapshot;
 	ImDrawData* imgui_draw_data = nullptr;
-	HGEGraphics::Mesh* imgui_mesh = nullptr;
+	pulse_mesh_data_t* imgui_mesh = nullptr;
 	ecs_entity_t entity;
 
 	void RequestResize()
@@ -233,12 +233,12 @@ typedef struct oval_cgpu_device_t {
 	std::vector<FrameData> frameDatas;
 	FrameInfo info;
 
-	HGEGraphics::Shader* blit_shader = nullptr;
+	pulse_shader_data_t* blit_shader = nullptr;
 	CGPUSamplerId blit_linear_sampler = CGPU_NULLPTR;
 
 	ImFontAtlas* imgui_font = nullptr;;
-	HGEGraphics::Texture* imgui_font_texture = nullptr;
-	HGEGraphics::Shader* imgui_shader = nullptr;
+	pulse_texture_data_t* imgui_font_texture = nullptr;
+	pulse_shader_data_t* imgui_shader = nullptr;
 	CGPUSamplerId imgui_font_sampler = CGPU_NULLPTR;
 
 	bool rdc_capture = false;
@@ -248,16 +248,16 @@ typedef struct oval_cgpu_device_t {
 	std::queue<WaitLoadResource, std::pmr::deque<WaitLoadResource>> wait_load_resources;
 	oval_graphics_transfer_queue* cur_transfer_queue = nullptr;
 
-	HGEGraphics::Texture* default_texture;
+	pulse_texture_data_t* default_texture;
 
 	enki::TaskScheduler taskScheduler;
 
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Mesh>> meshes;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Shader>> shaders;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::ComputeShader>> computeShaders;
+	std::pmr::vector<std::unique_ptr<pulse_mesh_data_t>> meshes;
+	std::pmr::vector<std::unique_ptr<pulse_shader_data_t>> shaders;
+	std::pmr::vector<std::unique_ptr<pulse_compute_shader_data_t>> computeShaders;
 	std::pmr::vector<CGPUSamplerId> samplers;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Texture>> textures;
-	std::pmr::vector<std::unique_ptr<HGEGraphics::Material>> materials;
+	std::pmr::vector<std::unique_ptr<pulse_texture_data_t>> textures;
+	std::pmr::vector<std::unique_ptr<pulse_material_data_t>> materials;
 	
 	flecs::world world;
 	flecs::system system_sync_window_component_and_raw_handle;
@@ -266,8 +266,8 @@ typedef struct oval_cgpu_device_t {
 void oval_process_load_queue(oval_cgpu_device_t* device);
 void oval_graphics_transfer_queue_execute_all(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg);
 void oval_graphics_transfer_queue_release_all(oval_cgpu_device_t* device);
-uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Mesh* mesh, const char* filepath);
-uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Texture* texture, const char* filepath, bool mipmap);
+uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_mesh_data_t* mesh, const char* filepath);
+uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, const char* filepath, bool mipmap);
 std::vector<uint8_t> readfile(const char* filename);
 oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);
 void oval_free_window(oval_device_t* device, oval_window_t* window);

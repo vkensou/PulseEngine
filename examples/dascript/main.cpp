@@ -169,14 +169,14 @@ struct BindBuffer
 {
 	int set;
 	int bind;
-	HGEGraphics::Buffer* buffer;
+	pulse_buffer_data_t* buffer;
 };
 
 struct BindTexture
 {
 	int set;
 	int bind;
-	HGEGraphics::Texture* texture;
+	pulse_texture_data_t* texture;
 };
 
 struct BindSampler
@@ -577,11 +577,11 @@ void material_bind_buffer(pulse::ResourceManager& resourceManager, size_t materi
 		context->throw_error_at(at, "material index(%lld) out of range", materialIndex);
 
 	auto material = resourceManager.materials[materialIndex];
-	material->bindBuffer(set, bind, size, ptr);
+	HGEGraphics::material_bindBuffer(material, set, bind, size, ptr);
 }
 
-MAKE_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
-IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, HGEGraphics::Shader);
+MAKE_EXTERNAL_TYPE_FACTORY(Shader, pulse_shader_data_t);
+IMPLEMENT_EXTERNAL_TYPE_FACTORY(Shader, pulse_shader_data_t);
 
 void Text(const char* txt) {
 	ImGui::Text("%s", txt);

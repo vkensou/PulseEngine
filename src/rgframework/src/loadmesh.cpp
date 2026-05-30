@@ -105,7 +105,7 @@ std::tuple<std::pmr::vector<TexturedVertex>*, std::pmr::vector<uint32_t>*> LoadO
 	return { vertices, indices };
 }
 
-uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, HGEGraphics::Mesh* mesh, const char* filepath)
+uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_mesh_data_t* mesh, const char* filepath)
 {
 	auto [data, indices] = LoadObjModel(filepath, true, device->memory_resource);
 
@@ -130,13 +130,13 @@ uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t qu
 	HGEGraphics::init_mesh(mesh, device->device, data->size(), (indices ? indices->size() : 0), CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, mesh_vertex_layout, (indices ? sizeof(uint32_t) : 0), false, false);
 
 	uint64_t vertex_data_size = mesh->vertices_count * mesh->vertex_stride;
-	auto vertex_data = oval_graphics_transfer_queue_transfer_data_to_buffer(queue, vertex_data_size, mesh->vertex_buffer.get());
+	auto vertex_data = oval_graphics_transfer_queue_transfer_data_to_buffer(queue, vertex_data_size, mesh->vertex_buffer);
 	memcpy(vertex_data, data->data(), vertex_data_size);
 
 	uint64_t index_data_size = mesh->index_count * mesh->index_stride;
 	if (indices)
 	{
-		auto index_data = oval_graphics_transfer_queue_transfer_data_to_buffer(queue, index_data_size, mesh->index_buffer.get());
+		auto index_data = oval_graphics_transfer_queue_transfer_data_to_buffer(queue, index_data_size, mesh->index_buffer);
 		memcpy(index_data, indices->data(), index_data_size);
 	}
 
