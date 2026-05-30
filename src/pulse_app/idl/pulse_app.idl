@@ -62,13 +62,12 @@ struct.PluginDesc
     .build          "PluginBuildFn"
     .postBuild      "PluginBuildFn"
     .shutdown       "PluginShutdownFn"
-    ()
 
 struct.App()
 
 func.CreateApp
     "?AppId"
-    ()
+    .name "?cstring"
 
 func.DestroyApp
     "void"
@@ -78,7 +77,7 @@ func.App.Run
     "Result::Enum"
 
 func.App.Update
-"Result::Enum"
+    "Result::Enum"
 
 func.App.SetRunner "Result::Enum"
     .runner "RunnerFn"
@@ -89,36 +88,31 @@ func.App.AddPlugin "Result::Enum"
 
 func.App.HasPlugin "bool"
     .name "cstring"
-    ()
 
-func.App.World "* ecs_world_t"
-    ()
+func.App.World
+    "* ecs_world_t"
 
-func.App.LastError "cstring"
-    ()
+func.App.LastError
+    "cstring"
 
-func.SubappCreate "AppId"
-    .name "cstring"
-    ()
-
-func.App.InsertSubapp "Result::Enum"
+func.App.InsertSubapp
+    "Result::Enum"
     .name "cstring"
     .subapp "AppId"
-    ()
 
-func.App.GetSubapp "AppId"
+func.App.GetSubapp
+    "AppId"
     .name "cstring"
-    ()
 
-func.App.RemoveSubapp "AppId"
+func.App.RemoveSubapp
+    "AppId"
     .name "cstring"
-    ()
 
-func.App.SetSubappExtract "Result::Enum"
+func.App.SetSubappExtract
+    "Result::Enum"
     .name "cstring"
     .extract "SubappExtractFn"
     .ctx "?*anyopaque"
-    ()
 
-func.App.ExtractSubapps "Result::Enum"
-    ()
+func.App.ExtractSubapps
+    "Result::Enum"

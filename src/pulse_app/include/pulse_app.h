@@ -67,7 +67,7 @@ struct PulseApp;
 typedef struct PulseApp PulseApp;
 
 
-PULSE_API PulseAppId pulse_create_app(void);
+PULSE_API PulseAppId pulse_create_app(const char* name);
 PULSE_API void pulse_destroy_app(PulseAppId app);
 PULSE_API EPulseResult pulse_app_run(PulseAppId _this);
 PULSE_API EPulseResult pulse_app_update(PulseAppId _this);
@@ -76,7 +76,6 @@ PULSE_API EPulseResult pulse_app_add_plugin(PulseAppId _this, const PulsePluginD
 PULSE_API bool pulse_app_has_plugin(PulseAppId _this, const char* name);
 PULSE_API ecs_world_t* pulse_app_world(PulseAppId _this);
 PULSE_API const char* pulse_app_last_error(PulseAppId _this);
-PULSE_API PulseAppId pulse_subapp_create(const char* name);
 PULSE_API EPulseResult pulse_app_insert_subapp(PulseAppId _this, const char* name, PulseAppId subapp);
 PULSE_API PulseAppId pulse_app_get_subapp(PulseAppId _this, const char* name);
 PULSE_API PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);

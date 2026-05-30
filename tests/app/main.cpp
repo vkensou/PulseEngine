@@ -92,7 +92,7 @@ static EPulseResult test_runner(PulseAppId app, void* ctx) {
 }
 
 int main(void) {
-    PulseAppId app = pulse_create_app();
+    PulseAppId app = pulse_create_app("test-app");
     assert(app != nullptr);
 
     PulsePluginDesc desc = {
@@ -111,7 +111,7 @@ int main(void) {
     assert(pulse_app_has_plugin(app, "NestedPlugin"));
     assert(pulse_app_add_plugin(app, &desc) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
 
-    PulseAppId sub = pulse_subapp_create("Sub");
+    PulseAppId sub = pulse_create_app("Sub");
     assert(sub != nullptr);
 
     PulsePluginDesc sub_desc = {

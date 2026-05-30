@@ -5,15 +5,15 @@
 struct PulseApp {
     pulse::App impl;
 
-    PulseApp()
-        : impl(this) {
+    PulseApp(const char* name)
+        : impl(this, name) {
     }
 };
 
 namespace pulse {
 
-App::App(PulseAppId handle)
-    : handle_(handle) {
+App::App(PulseAppId handle, const char* name)
+    : handle_(handle), name_(name) {
 }
 
 App::~App() {
@@ -374,8 +374,8 @@ static inline pulse::App* to_app(PulseAppId handle) {
     return handle ? &((struct PulseApp*)handle)->impl : nullptr;
 }
 
-PulseAppId pulse_create_app(void) {
-    return new PulseApp();
+PulseAppId pulse_create_app(const char* name) {
+    return new PulseApp(name);
 }
 
 void pulse_destroy_app(PulseAppId app) {
@@ -437,14 +437,6 @@ ecs_world_t* pulse_app_world(PulseAppId app) {
 const char* pulse_app_last_error(PulseAppId app) {
     pulse::App* impl = to_app(app);
     return impl ? impl->last_error() : "invalid app";
-}
-
-PulseAppId pulse_subapp_create(const char* name) {
-    PulseAppId app = pulse_create_app();
-    if (app && name) {
-        ((struct PulseApp*)app)->impl.set_name(name);
-    }
-    return app;
 }
 
 EPulseResult pulse_app_insert_subapp(PulseAppId app, const char* name, PulseAppId subapp) {

@@ -4,7 +4,7 @@
 #include "pulse_window.h"
 
 int main() {
-    PulseAppId app = pulse_create_app();
+    PulseAppId app = pulse_create_app("test-window");
     assert(app != nullptr);
 
     auto window_plugin_desc = pulse_window_plugin_desc_default();

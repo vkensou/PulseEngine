@@ -41,7 +41,7 @@ struct RegisteredSubApp {
 
 class App {
 public:
-    explicit App(PulseAppId handle);
+    explicit App(PulseAppId handle, const char* name);
     ~App();
 
     App(const App&) = delete;

@@ -189,7 +189,7 @@ static void record_test_graphic(
 }
 
 int main(void) {
-    PulseAppId app = pulse_create_app();
+    PulseAppId app = pulse_create_app("test-graphics");
     assert(app != nullptr);
 
     // Add required plugins
