@@ -17,7 +17,7 @@ extern "C" {
 
 $cconsts
 
-#define DEFINE_PULSE_OBJECT(name) typedef const struct name* name##Id;
+#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id;
 
 typedef uint32_t EPulseFlags;
 typedef uint64_t EPulseFlags64;

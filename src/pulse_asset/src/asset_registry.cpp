@@ -40,7 +40,7 @@ AssetLoader* AssetType::find_extension_loader(const std::pmr::string& extension)
 }
 
 EPulseResult AssetType::add_loader(
-    const pulse_asset_loader_desc& loader_desc,
+    const PulseAssetLoaderDesc& loader_desc,
     std::pmr::vector<std::pmr::string>&& extension_list,
     std::pmr::memory_resource* resource
 ) {
@@ -74,8 +74,8 @@ AssetRegistry::AssetRegistry(std::pmr::memory_resource* resource)
       types_(resource) {
 }
 
-EPulseResult AssetRegistry::register_type(const pulse_asset_type_desc* desc) {
-    if (!desc || !desc->type_id || desc->struct_size != sizeof(pulse_asset_type_desc) ||
+EPulseResult AssetRegistry::register_type(const PulseAssetTypeDesc* desc) {
+    if (!desc || !desc->type_id || desc->struct_size != sizeof(PulseAssetTypeDesc) ||
         desc->version != PULSE_ASSET_TYPE_DESC_VERSION ||
         desc->size == 0 || !is_power_of_two_alignment(desc->align)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
@@ -90,8 +90,8 @@ EPulseResult AssetRegistry::register_type(const pulse_asset_type_desc* desc) {
     return PULSE_RESULT_OK;
 }
 
-EPulseResult AssetRegistry::register_loader(const pulse_asset_loader_desc* desc) {
-    if (!desc || desc->struct_size != sizeof(pulse_asset_loader_desc) ||
+EPulseResult AssetRegistry::register_loader(const PulseAssetLoaderDesc* desc) {
+    if (!desc || desc->struct_size != sizeof(PulseAssetLoaderDesc) ||
         desc->version != PULSE_ASSET_LOADER_DESC_VERSION || desc->type_id == 0 ||
         !desc->step ||
         (desc->loader_size > 0 && !is_power_of_two_alignment(desc->loader_align)) ||

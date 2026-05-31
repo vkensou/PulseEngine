@@ -23,18 +23,18 @@ PathCache::PathCache(std::pmr::memory_resource* resource)
       entries_(resource) {
 }
 
-pulse_asset_handle PathCache::find(uint64_t type_id, const std::pmr::string& path) const {
+PulseAssetHandle PathCache::find(uint64_t type_id, const std::pmr::string& path) const {
     PathKey key(type_id, path, resource_);
     auto cache_it = entries_.find(key);
     return cache_it != entries_.end() ? cache_it->second : invalid_handle();
 }
 
-void PathCache::store(uint64_t type_id, const std::pmr::string& path, pulse_asset_handle handle) {
+void PathCache::store(uint64_t type_id, const std::pmr::string& path, PulseAssetHandle handle) {
     PathKey key(type_id, path, resource_);
     entries_.insert_or_assign(std::move(key), handle);
 }
 
-void PathCache::erase_if_matches(pulse_asset_handle handle, const std::pmr::string& path) {
+void PathCache::erase_if_matches(PulseAssetHandle handle, const std::pmr::string& path) {
     if (path.empty()) {
         return;
     }
@@ -65,16 +65,16 @@ AssetBucket::AssetBucket(std::pmr::memory_resource* resource)
 
 void DependencyGraph::evaluate(
     const AssetStorage& storage,
-    const std::pmr::vector<pulse_asset_dependency>& dependencies,
+    const std::pmr::vector<PulseAssetDependency>& dependencies,
     bool& out_failed,
     bool& out_ready
 ) const {
     out_failed = false;
     out_ready = true;
 
-    for (const pulse_asset_dependency& dep : dependencies) {
+    for (const PulseAssetDependency& dep : dependencies) {
         if (is_invalid_handle(dep.handle)) {
-            if (dep.flags & PULSE_DEP_OPTIONAL) {
+            if (dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL) {
                 continue;
             }
             out_failed = true;
@@ -83,20 +83,20 @@ void DependencyGraph::evaluate(
 
         auto dep_slot = storage.get_slot(dep.handle);
         if (!dep_slot) {
-            if (dep.flags & PULSE_DEP_OPTIONAL) {
+            if (dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL) {
                 continue;
             }
             out_failed = true;
             return;
         }
         if (dep_slot->slot.state == PULSE_ASSET_STATE_FAILED) {
-            if (dep.flags & PULSE_DEP_OPTIONAL) {
+            if (dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL) {
                 continue;
             }
             out_failed = true;
             return;
         }
-        if (dep_slot->slot.state != PULSE_ASSET_STATE_LOADED && !(dep.flags & PULSE_DEP_OPTIONAL)) {
+        if (dep_slot->slot.state != PULSE_ASSET_STATE_LOADED && !(dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL)) {
             out_ready = false;
         }
     }
@@ -104,8 +104,8 @@ void DependencyGraph::evaluate(
 
 void DependencyGraph::commit(
     AssetStorage& storage,
-    pulse_asset_handle handle,
-    const std::pmr::vector<pulse_asset_dependency>& dependencies
+    PulseAssetHandle handle,
+    const std::pmr::vector<PulseAssetDependency>& dependencies
 ) const {
     auto found = storage.get_slot(handle);
     if (!found) {
@@ -116,7 +116,7 @@ void DependencyGraph::commit(
     detach_committed_dependencies(storage, handle, slot);
     slot.dependencies.clear();
 
-    for (const pulse_asset_dependency& dep : dependencies) {
+    for (const PulseAssetDependency& dep : dependencies) {
         if (is_invalid_handle(dep.handle)) {
             continue;
         }
@@ -126,7 +126,7 @@ void DependencyGraph::commit(
             continue;
         }
 
-        bool exists = std::any_of(slot.dependencies.begin(), slot.dependencies.end(), [&](pulse_asset_handle existing) {
+        bool exists = std::any_of(slot.dependencies.begin(), slot.dependencies.end(), [&](PulseAssetHandle existing) {
             return handles_equal(existing, dep.handle);
         });
         if (exists) {
@@ -140,17 +140,17 @@ void DependencyGraph::commit(
 
 void DependencyGraph::detach_committed_dependencies(
     AssetStorage& storage,
-    pulse_asset_handle handle,
+    PulseAssetHandle handle,
     AssetSlot& slot
 ) const {
-    for (pulse_asset_handle dep_handle : slot.dependencies) {
+    for (PulseAssetHandle dep_handle : slot.dependencies) {
         auto dep_slot = storage.get_slot(dep_handle);
         if (!dep_slot) {
             continue;
         }
 
         dep_slot->slot.dependents.erase(
-            std::remove_if(dep_slot->slot.dependents.begin(), dep_slot->slot.dependents.end(), [&](pulse_asset_handle dependent) {
+            std::remove_if(dep_slot->slot.dependents.begin(), dep_slot->slot.dependents.end(), [&](PulseAssetHandle dependent) {
                 return handles_equal(dependent, handle);
             }),
             dep_slot->slot.dependents.end());
@@ -159,7 +159,7 @@ void DependencyGraph::detach_committed_dependencies(
 }
 
 void DependencyGraph::pin_committed_dependencies(AssetStorage& storage, const AssetSlot& slot) const {
-    for (pulse_asset_handle dep_handle : slot.dependencies) {
+    for (PulseAssetHandle dep_handle : slot.dependencies) {
         if (is_invalid_handle(dep_handle)) {
             continue;
         }
@@ -172,7 +172,7 @@ void DependencyGraph::pin_committed_dependencies(AssetStorage& storage, const As
 }
 
 void DependencyGraph::unpin_committed_dependencies(AssetStorage& storage, const AssetSlot& slot) const {
-    for (pulse_asset_handle dep_handle : slot.dependencies) {
+    for (PulseAssetHandle dep_handle : slot.dependencies) {
         if (is_invalid_handle(dep_handle)) {
             continue;
         }
@@ -205,7 +205,7 @@ AssetBucket* AssetStorage::ensure_bucket(uint64_t type_id) {
     return &bucket;
 }
 
-std::optional<AssetBucketSlot> AssetStorage::get_slot(pulse_asset_handle handle) {
+std::optional<AssetBucketSlot> AssetStorage::get_slot(PulseAssetHandle handle) {
     if (is_invalid_handle(handle)) {
         return std::nullopt;
     }
@@ -228,7 +228,7 @@ std::optional<AssetBucketSlot> AssetStorage::get_slot(pulse_asset_handle handle)
     return AssetBucketSlot{bucket, slot};
 }
 
-std::optional<ConstAssetBucketSlot> AssetStorage::get_slot(pulse_asset_handle handle) const {
+std::optional<ConstAssetBucketSlot> AssetStorage::get_slot(PulseAssetHandle handle) const {
     if (is_invalid_handle(handle)) {
         return std::nullopt;
     }
@@ -291,7 +291,7 @@ AssetSlotAllocation AssetStorage::allocate_slot(uint64_t type_id, const std::pmr
     return {{type_id, index, slot.generation}, &slot};
 }
 
-void AssetStorage::destroy_slot(AssetBucket& bucket, AssetSlot& slot, pulse_asset_handle handle) {
+void AssetStorage::destroy_slot(AssetBucket& bucket, AssetSlot& slot, PulseAssetHandle handle) {
     path_cache_.erase_if_matches(handle, slot.path);
 
     if (slot.constructed && bucket.type && bucket.type->desc.destroy) {
@@ -320,7 +320,7 @@ void AssetStorage::destroy_all_assets() {
         AssetBucket& bucket = bucket_pair.second;
         for (size_t slot_idx = 0; slot_idx < bucket.slots.size(); ++slot_idx) {
             AssetSlot& slot = bucket.slots[slot_idx];
-            pulse_asset_handle handle{bucket_pair.first, static_cast<uint32_t>(slot_idx), slot.generation};
+            PulseAssetHandle handle{bucket_pair.first, static_cast<uint32_t>(slot_idx), slot.generation};
             destroy_slot(bucket, slot, handle);
             slot.data.reset();
         }
@@ -342,14 +342,14 @@ void AssetStorage::force_destroy_assets(uint64_t type_id) {
             continue;
         }
 
-        pulse_asset_handle handle{type_id, slot_idx, slot.generation};
+        PulseAssetHandle handle{type_id, slot_idx, slot.generation};
         detach_dependents_from_slot(handle, slot);
         destroy_slot(bucket, slot, handle);
         bucket.free_indices.push_back(slot_idx);
     }
 }
 
-void AssetStorage::try_unload_slot(AssetBucketSlot bucket_slot, pulse_asset_handle handle) {
+void AssetStorage::try_unload_slot(AssetBucketSlot bucket_slot, PulseAssetHandle handle) {
     if (is_invalid_handle(handle) ||
         handle.index >= bucket_slot.bucket.slots.size() ||
         &bucket_slot.bucket.slots[handle.index] != &bucket_slot.slot ||
@@ -363,28 +363,28 @@ void AssetStorage::try_unload_slot(AssetBucketSlot bucket_slot, pulse_asset_hand
     }
 }
 
-bool AssetStorage::cached_slot_can_be_reused(pulse_asset_handle handle) const {
+bool AssetStorage::cached_slot_can_be_reused(PulseAssetHandle handle) const {
     auto slot = get_slot(handle);
     return slot && slot->slot.state != PULSE_ASSET_STATE_PENDING_DELETE;
 }
 
-pulse_asset_handle AssetStorage::find_cached(uint64_t type_id, const std::pmr::string& path) const {
+PulseAssetHandle AssetStorage::find_cached(uint64_t type_id, const std::pmr::string& path) const {
     return path_cache_.find(type_id, path);
 }
 
-void AssetStorage::cache_path(uint64_t type_id, const std::pmr::string& path, pulse_asset_handle handle) {
+void AssetStorage::cache_path(uint64_t type_id, const std::pmr::string& path, PulseAssetHandle handle) {
     path_cache_.store(type_id, path, handle);
 }
 
-void AssetStorage::detach_dependents_from_slot(pulse_asset_handle handle, AssetSlot& slot) {
-    for (pulse_asset_handle dependent_handle : slot.dependents) {
+void AssetStorage::detach_dependents_from_slot(PulseAssetHandle handle, AssetSlot& slot) {
+    for (PulseAssetHandle dependent_handle : slot.dependents) {
         auto dependent_slot = get_slot(dependent_handle);
         if (!dependent_slot) {
             continue;
         }
 
         dependent_slot->slot.dependencies.erase(
-            std::remove_if(dependent_slot->slot.dependencies.begin(), dependent_slot->slot.dependencies.end(), [&](pulse_asset_handle dependency) {
+            std::remove_if(dependent_slot->slot.dependencies.begin(), dependent_slot->slot.dependencies.end(), [&](PulseAssetHandle dependency) {
                 return handles_equal(dependency, handle);
             }),
             dependent_slot->slot.dependencies.end());

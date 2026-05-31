@@ -45,13 +45,13 @@ void LoadJob::finish(AssetSlot* slot, LoadJobOutcome next_outcome, const char* e
     }
 }
 
-EPulseResult LoadJob::add_dependency(pulse_asset_handle dependency, pulse_dependency_flags_t flags) {
-    auto existing_it = std::find_if(dependencies.begin(), dependencies.end(), [&](const pulse_asset_dependency& existing) {
+EPulseResult LoadJob::add_dependency(PulseAssetHandle dependency, EPulseLoadDependencyRequirement flags) {
+    auto existing_it = std::find_if(dependencies.begin(), dependencies.end(), [&](const PulseAssetDependency& existing) {
         return handles_equal(existing.handle, dependency);
     });
     if (existing_it != dependencies.end()) {
-        if (!(flags & PULSE_DEP_OPTIONAL)) {
-            existing_it->flags = PULSE_DEP_REQUIRED;
+        if (!(flags & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL)) {
+            existing_it->requirement = PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED;
         }
     } else {
         dependencies.push_back({dependency, flags});
@@ -63,7 +63,7 @@ EPulseResult LoadJob::add_dependency(pulse_asset_handle dependency, pulse_depend
 }
 
 void LoadContext::refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
-    job.ctx.app = system.app();
+    job.ctx.asset_system = (PulseAssetSystemId)&system;
     job.ctx.type_id = job.handle.type_id;
     job.ctx.path = slot.path.c_str();
     job.ctx.bytes = job.bytes.empty() ? nullptr : job.bytes.data();
@@ -144,7 +144,7 @@ void LoadQueue::cancel_type(AssetSystem& system, uint64_t type_id) {
             continue;
         }
 
-        pulse_asset_handle handle = job_it->handle;
+        PulseAssetHandle handle = job_it->handle;
         auto slot = system.storage().get_slot(handle);
         job_it->finish(slot ? &slot->slot : nullptr, LoadJobOutcome::Cancelled, "asset load cancelled");
 
@@ -179,7 +179,7 @@ std::optional<AssetBucketSlot> LoadQueue::retire_load_job(AssetSystem& system, L
 }
 
 void LoadQueue::retire_and_erase(AssetSystem& system, JobIterator job_it) {
-    pulse_asset_handle handle = job_it->handle;
+    PulseAssetHandle handle = job_it->handle;
     auto slot = retire_load_job(system, *job_it);
     jobs_.erase(job_it);
     if (slot) {
@@ -285,11 +285,11 @@ void LoadQueue::process_waiting_dependencies(AssetSystem& system, LoadJob& job, 
 
 void LoadQueue::process_processing(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
     LoadContext::refresh(system, job, slot);
-    pulse_asset_load_dependency_hint dependency_hint{&job};
+    PulseAssetLoadDependencyHint dependency_hint{&job};
     job.ctx.dependency_hint = &dependency_hint;
 
     const char* error = nullptr;
-    pulse_asset_loader_status_t status = job.loader->desc.step(job.loader_state.data, &job.ctx, &error);
+    EPulseAssetLoaderStatus status = job.loader->desc.step(job.loader_state.data, &job.ctx, &error);
     job.ctx.dependency_hint = nullptr;
 
     if (slot.state == PULSE_ASSET_STATE_PENDING_DELETE) {
@@ -300,15 +300,15 @@ void LoadQueue::process_processing(AssetSystem& system, LoadJob& job, AssetSlot&
         return;
     }
 
-    if (status == PULSE_ASSET_LOADER_PENDING) {
+    if (status == PULSE_ASSET_LOADER_STATUS_PENDING) {
         return;
     }
-    if (status == PULSE_ASSET_LOADER_WAIT_DEPENDENCIES) {
+    if (status == PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES) {
         slot.state = PULSE_ASSET_STATE_WAITING_DEPENDENCIES;
         job.phase = LoadJobPhase::WaitingDependencies;
         return;
     }
-    if (status == PULSE_ASSET_LOADER_DONE) {
+    if (status == PULSE_ASSET_LOADER_STATUS_DONE) {
         bool deps_failed = false;
         bool deps_ready = true;
         system.storage().dependencies().evaluate(system.storage(), job.dependencies, deps_failed, deps_ready);
