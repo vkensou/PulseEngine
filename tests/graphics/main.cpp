@@ -27,23 +27,23 @@ struct ObjectData
 };
 
 struct test_graphic_resources {
-    pulse_shader_t shader;
-    pulse_shader_t compute;
-    pulse_buffer_t buffer;
-    pulse_sampler_t sampler;
-    pulse_texture_t texture;
-    pulse_mesh_t mesh;
-    pulse_material_t material;
+    PulseShaderHandle shader;
+    PulseShaderHandle compute;
+    PulseBufferHandle buffer;
+    PulseSamplerHandle sampler;
+    PulseTextureHandle texture;
+    PulseMeshHandle mesh;
+    PulseMaterialHandle material;
 };
 
 // passdata 传入 executable callback
 struct test_render_passdata {
-    pulse_graphics_material_ref material;
-    pulse_graphics_mesh_ref mesh;
-    pulse_graphics_shader_ref shader;
-    pulse_graphics_compute_shader_ref compute;
-    pulse_graphics_texture_ref texture;
-    pulse_graphics_buffer_ref buffer;
+    PulseMaterial material;
+    PulseMesh mesh;
+    PulseShader shader;
+    PulseComputeShader compute;
+    PulseTexture texture;
+    PulseBuffer buffer;
 };
 
 static void on_test_render(pulse_renderpass_encoder_t* encoder, void* userdata) {
@@ -67,11 +67,11 @@ static void on_test_render(pulse_renderpass_encoder_t* encoder, void* userdata) 
 
 struct test_render_state {
     ecs_query_t* window_query;
-    pulse_material_t material;
-    pulse_texture_t texture;
-    pulse_mesh_t mesh;
-    pulse_graphics_material_ref material_ref;
-    pulse_graphics_mesh_ref mesh_ref;
+    PulseMaterialHandle material;
+    PulseTextureHandle texture;
+    PulseMeshHandle mesh;
+    PulseMaterial material_ref;
+    PulseMesh mesh_ref;
     HMM_Mat4 viewMat;
     PassData passData;
     ObjectData objectData;
@@ -93,7 +93,7 @@ static void record_test_graphic(
 
     if (state->material_ref.handle.index == 0 && pulse_graphics_material_is_ready(app, state->material) && pulse_graphics_texture_is_ready(app, state->texture)) {
         pulse_graphics_material_acquire(app, state->material, &state->material_ref);
-        pulse_graphics_texture_ref texture_ref;
+        PulseTexture texture_ref;
         pulse_graphics_texture_acquire(app, state->texture, &texture_ref);
         pulse_graphics_material_bind_texture(state->material_ref, 0, 1, texture_ref);
         pulse_graphics_texture_release(app, &texture_ref);
@@ -156,8 +156,8 @@ static void record_test_graphic(
 
             struct MainPassPassData
             {
-                pulse_graphics_material_ref material_ref;
-                pulse_graphics_mesh_ref mesh_ref;
+                PulseMaterial material_ref;
+                PulseMesh mesh_ref;
                 pulse_buffer_handle_t pass_ubo_handle;
                 pulse_buffer_handle_t object_ubo_handle;
             };
@@ -196,7 +196,7 @@ int main(void) {
     auto window_desc = pulse_window_plugin_desc_default();
     assert(pulse_window_add_plugin(app, &window_desc) == PULSE_RESULT_OK);
 
-    pulse_asset_plugin_desc asset_desc = pulse_asset_plugin_desc_default();
+    PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "tests/graphics/data";
     assert(pulse_asset_add_plugin(app, &asset_desc) == PULSE_RESULT_OK);
 
@@ -218,7 +218,7 @@ int main(void) {
         .blend_alpha_op = CGPU_BLEND_OP_ADD,
         .color_mask = CGPU_COLOR_MASK_RGBA,
     };
-    pulse_graphics_shader_create_from_file_desc shader_desc = {
+    PulseGraphicsShaderCreateFromFileDesc shader_desc = {
         .vert_path = "color.vert.spv",
         .frag_path = "color.frag.spv",
         .blend_desc = {
@@ -238,7 +238,7 @@ int main(void) {
             .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
         }
     };
-    pulse_shader_t shader = pulse_graphics_shader_create_from_file(app, &shader_desc);
+    PulseShaderHandle shader = pulse_graphics_shader_create_from_file(app, &shader_desc);
 
     //pulse_shader_t compute = pulse_graphics_compute_shader_create_from_binary(
     //    app, dummy_spv, sizeof(dummy_spv));
@@ -251,16 +251,16 @@ int main(void) {
     //CGPUSamplerDescriptor smp_desc{};
     //pulse_sampler_t sampler = pulse_graphics_sampler_create(app, &smp_desc);
 
-	pulse_graphics_texture_load_desc tex_load_desc{
+	PulseGraphicsTextureLoadDesc tex_load_desc{
         .filepath = "TilesGray512.jpg",
 		.generate_mipmaps = true,
     };
-    pulse_texture_t texture = pulse_graphics_texture_load(
+    PulseTextureHandle texture = pulse_graphics_texture_load(
         app, &tex_load_desc);
 
     std::vector<uint32_t> pixels = { 0xFF00FFFF };
 
-    pulse_graphics_texture_create_desc tex_create_desc
+    PulseGraphicsTextureCreateDesc tex_create_desc
     {
         .desc = {
             .name = "create_texture",
@@ -276,7 +276,7 @@ int main(void) {
 		.pixel_data = pixels.data(),
     };
 
-    pulse_texture_t texture2 = pulse_graphics_texture_create(
+    PulseTextureHandle texture2 = pulse_graphics_texture_create(
         app, &tex_create_desc);
 
     //float verts[] = {0,0,0, 1,0,0, 0,1,0};
@@ -293,13 +293,13 @@ int main(void) {
     //vtx_layout.p_attributes = &attr;
     //vtx_layout.attribute_count = 1;
 
-    pulse_mesh_t mesh = pulse_graphics_mesh_load(
+    PulseMeshHandle mesh = pulse_graphics_mesh_load(
         app, "Quad.obj");
 
-	pulse_graphics_material_create_desc mat_desc{
+	PulseGraphicsMaterialCreateDesc mat_desc{
 		.shader = shader,
     };
-    pulse_material_t material = pulse_graphics_material_create(app, &mat_desc);
+    PulseMaterialHandle material = pulse_graphics_material_create(app, &mat_desc);
 
     //// ---- Acquire/release cycle ----
     //pulse_shader_data_t* shader_data = pulse_graphics_shader_acquire(app, &shader);
@@ -354,7 +354,7 @@ int main(void) {
     (void)forward;
     render_state.viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
 
-    pulse_graphics_renderer_record_callback_desc cb_desc{};
+    PulseGraphicsRendererRecordCallbackDesc cb_desc{};
     cb_desc.callback = record_test_graphic;
     cb_desc.user_data = &render_state;
     cb_desc.priority = 0;

@@ -1,8 +1,8 @@
 #include "internal.h"
 
-ECS_COMPONENT_DECLARE(pulse_graphics_renderer);
-ECS_COMPONENT_DECLARE(pulse_graphics_surface);
-ECS_COMPONENT_DECLARE(pulse_graphics_swapchain);
+ECS_COMPONENT_DECLARE(PulseGraphicsRenderer);
+ECS_COMPONENT_DECLARE(PulseGraphicsSurface);
+ECS_COMPONENT_DECLARE(PulseGraphicsSwapchain);
 
 namespace pulse_graphics_internal {
 
@@ -14,12 +14,12 @@ ecs_entity_t pulse_graphics_render_execute_graph_phase = 0;
 ecs_entity_t pulse_graphics_render_submit_phase = 0;
 ecs_entity_t pulse_graphics_render_present_phase = 0;
 
-void reset_surface_handles(pulse_graphics_surface* surface) {
+void reset_surface_handles(PulseGraphicsSurface* surface) {
     surface->instance = CGPU_NULLPTR;
     surface->surface = CGPU_NULLPTR;
 }
 
-void release_surface_resources(pulse_graphics_surface* surface) {
+void release_surface_resources(PulseGraphicsSurface* surface) {
     if (!surface) {
         return;
     }
@@ -48,15 +48,15 @@ ecs_entity_t create_phase(
     return phase;
 }
 
-ECS_CTOR(pulse_graphics_surface, ptr, {
+ECS_CTOR(PulseGraphicsSurface, ptr, {
     reset_surface_handles(ptr);
 })
 
-ECS_DTOR(pulse_graphics_surface, ptr, {
+ECS_DTOR(PulseGraphicsSurface, ptr, {
     release_surface_resources(ptr);
 })
 
-ECS_MOVE(pulse_graphics_surface, dst, src, {
+ECS_MOVE(PulseGraphicsSurface, dst, src, {
     release_surface_resources(dst);
     *dst = *src;
     reset_surface_handles(src);
@@ -64,15 +64,15 @@ ECS_MOVE(pulse_graphics_surface, dst, src, {
 
 void on_surface_set(ecs_iter_t* it)
 {
-    pulse_graphics_surface* surfaces = ecs_field(it, pulse_graphics_surface, 0);
+    PulseGraphicsSurface* surfaces = ecs_field(it, PulseGraphicsSurface, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         if (!surfaces[i].surface) {
             continue;
         }
 
         ecs_entity_t entity = it->entities[i];
-        if (!ecs_has_id(it->world, entity, ecs_id(pulse_graphics_swapchain))) {
-            ecs_add_id(it->world, entity, ecs_id(pulse_graphics_swapchain));
+        if (!ecs_has_id(it->world, entity, ecs_id(PulseGraphicsSwapchain))) {
+            ecs_add_id(it->world, entity, ecs_id(PulseGraphicsSwapchain));
         }
     }
 }
@@ -86,21 +86,21 @@ void on_surface_remove(ecs_iter_t* it)
 
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        if (ecs_has_id(it->world, entity, ecs_id(pulse_graphics_swapchain))) {
-            ecs_remove_id(it->world, entity, ecs_id(pulse_graphics_swapchain));
+        if (ecs_has_id(it->world, entity, ecs_id(PulseGraphicsSwapchain))) {
+            ecs_remove_id(it->world, entity, ecs_id(PulseGraphicsSwapchain));
         }
     }
 }
 
-ECS_CTOR(pulse_graphics_swapchain, ptr, {
+ECS_CTOR(PulseGraphicsSwapchain, ptr, {
     reset_swapchain_handles(ptr);
 })
 
-ECS_DTOR(pulse_graphics_swapchain, ptr, {
+ECS_DTOR(PulseGraphicsSwapchain, ptr, {
     release_swapchain_resources(ptr);
 })
 
-ECS_MOVE(pulse_graphics_swapchain, dst, src, {
+ECS_MOVE(PulseGraphicsSwapchain, dst, src, {
     release_swapchain_resources(dst);
     *dst = *src;
     reset_swapchain_handles(src);
@@ -108,7 +108,7 @@ ECS_MOVE(pulse_graphics_swapchain, dst, src, {
 
 } // namespace
 
-void reset_swapchain_handles(pulse_graphics_swapchain* swapchain) {
+void reset_swapchain_handles(PulseGraphicsSwapchain* swapchain) {
     swapchain->device = CGPU_NULLPTR;
     swapchain->swapchain = CGPU_NULLPTR;
     swapchain->backbuffer_views = nullptr;
@@ -123,7 +123,7 @@ void reset_swapchain_handles(pulse_graphics_swapchain* swapchain) {
     swapchain->current_backbuffer = nullptr;
 }
 
-void release_swapchain_resources(pulse_graphics_swapchain* swapchain) {
+void release_swapchain_resources(PulseGraphicsSwapchain* swapchain) {
     if (!swapchain) {
         return;
     }
@@ -169,9 +169,9 @@ void release_swapchain_resources(pulse_graphics_swapchain* swapchain) {
 }
 
 void register_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, pulse_graphics_renderer);
-    ECS_COMPONENT_DEFINE(world, pulse_graphics_surface);
-    ECS_COMPONENT_DEFINE(world, pulse_graphics_swapchain);
+    ECS_COMPONENT_DEFINE(world, PulseGraphicsRenderer);
+    ECS_COMPONENT_DEFINE(world, PulseGraphicsSurface);
+    ECS_COMPONENT_DEFINE(world, PulseGraphicsSwapchain);
     ECS_COMPONENT_DEFINE(world, pulse_graphics_state_resource);
 
     pulse_graphics_render_begin_frame_phase =
@@ -208,33 +208,33 @@ void register_components(ecs_world_t* world) {
     );
 
     ecs_type_hooks_t surface_hooks = {
-        .ctor = ecs_ctor(pulse_graphics_surface),
-        .dtor = ecs_dtor(pulse_graphics_surface),
-        .move = ecs_move(pulse_graphics_surface),
+        .ctor = ecs_ctor(PulseGraphicsSurface),
+        .dtor = ecs_dtor(PulseGraphicsSurface),
+        .move = ecs_move(PulseGraphicsSurface),
         .on_set = on_surface_set,
         .on_remove = on_surface_remove,
     };
-    ecs_set_hooks_id(world, ecs_id(pulse_graphics_surface), &surface_hooks);
+    ecs_set_hooks_id(world, ecs_id(PulseGraphicsSurface), &surface_hooks);
 
     ecs_type_hooks_t swapchain_hooks = {
-        .ctor = ecs_ctor(pulse_graphics_swapchain),
-        .dtor = ecs_dtor(pulse_graphics_swapchain),
-        .move = ecs_move(pulse_graphics_swapchain),
+        .ctor = ecs_ctor(PulseGraphicsSwapchain),
+        .dtor = ecs_dtor(PulseGraphicsSwapchain),
+        .move = ecs_move(PulseGraphicsSwapchain),
     };
-    ecs_set_hooks_id(world, ecs_id(pulse_graphics_swapchain), &swapchain_hooks);
+    ecs_set_hooks_id(world, ecs_id(PulseGraphicsSwapchain), &swapchain_hooks);
 
     if (ecs_id(PulseSdlWindow) != 0) {
-        ecs_add_pair(world, ecs_id(pulse_graphics_surface), EcsWith, ecs_id(PulseSdlWindow));
+        ecs_add_pair(world, ecs_id(PulseGraphicsSurface), EcsWith, ecs_id(PulseSdlWindow));
     }
-    ecs_add_pair(world, ecs_id(pulse_graphics_swapchain), EcsWith, ecs_id(pulse_graphics_surface));
+    ecs_add_pair(world, ecs_id(PulseGraphicsSwapchain), EcsWith, ecs_id(PulseGraphicsSurface));
 }
 
 void ensure_component_relations(ecs_world_t* world) {
-    if (ecs_id(pulse_graphics_surface) != 0 && ecs_id(PulseSdlWindow) != 0) {
-        ecs_add_pair(world, ecs_id(pulse_graphics_surface), EcsWith, ecs_id(PulseSdlWindow));
+    if (ecs_id(PulseGraphicsSurface) != 0 && ecs_id(PulseSdlWindow) != 0) {
+        ecs_add_pair(world, ecs_id(PulseGraphicsSurface), EcsWith, ecs_id(PulseSdlWindow));
     }
-    if (ecs_id(pulse_graphics_swapchain) != 0 && ecs_id(pulse_graphics_surface) != 0) {
-        ecs_add_pair(world, ecs_id(pulse_graphics_swapchain), EcsWith, ecs_id(pulse_graphics_surface));
+    if (ecs_id(PulseGraphicsSwapchain) != 0 && ecs_id(PulseGraphicsSurface) != 0) {
+        ecs_add_pair(world, ecs_id(PulseGraphicsSwapchain), EcsWith, ecs_id(PulseGraphicsSurface));
     }
 }
 
@@ -283,14 +283,14 @@ void remove_component_from_all_entities(ecs_world_t* world, ecs_entity_t compone
 } // namespace
 
 void remove_render_window_components(ecs_world_t* world) {
-    remove_component_from_all_entities(world, ecs_id(pulse_graphics_swapchain));
-    remove_component_from_all_entities(world, ecs_id(pulse_graphics_surface));
+    remove_component_from_all_entities(world, ecs_id(PulseGraphicsSwapchain));
+    remove_component_from_all_entities(world, ecs_id(PulseGraphicsSurface));
 }
 
 void delete_render_components(ecs_world_t* world) {
-    delete_entity_if_alive(world, ecs_id(pulse_graphics_swapchain));
-    delete_entity_if_alive(world, ecs_id(pulse_graphics_surface));
-    delete_registered_entity(world, ecs_id(pulse_graphics_renderer));
+    delete_entity_if_alive(world, ecs_id(PulseGraphicsSwapchain));
+    delete_entity_if_alive(world, ecs_id(PulseGraphicsSurface));
+    delete_registered_entity(world, ecs_id(PulseGraphicsRenderer));
     delete_registered_entity(world, ecs_id(pulse_graphics_state_resource));
     delete_registered_entity(world, pulse_graphics_render_present_phase);
     delete_registered_entity(world, pulse_graphics_render_submit_phase);
@@ -299,8 +299,8 @@ void delete_render_components(ecs_world_t* world) {
     delete_registered_entity(world, pulse_graphics_render_prepare_windows_phase);
     delete_registered_entity(world, pulse_graphics_render_begin_frame_phase);
 
-    ecs_id(pulse_graphics_swapchain) = 0;
-    ecs_id(pulse_graphics_surface) = 0;
+    ecs_id(PulseGraphicsSwapchain) = 0;
+    ecs_id(PulseGraphicsSurface) = 0;
 }
 
 } // namespace pulse_graphics_internal

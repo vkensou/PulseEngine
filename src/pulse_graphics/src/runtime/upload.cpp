@@ -25,10 +25,10 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
         case UPLOAD_TEXTURE:
         case UPLOAD_TEXTURE_DATA: {
             pulse_texture_data_t* tex = entry.texture_data;
-            pulse_graphics_texture_ref ref{};
+            PulseTexture ref{};
             if (!tex) {
                 if (pulse_graphics_texture_acquire(app, entry.texture, &ref))
-                    tex = ref.ptr;
+                    tex = static_cast<pulse_texture_data_t*>(ref.ptr);
             }
             if (!tex) break;
 
@@ -64,10 +64,10 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
         case UPLOAD_BUFFER:
         case UPLOAD_BUFFER_DATA: {
             pulse_buffer_data_t* buf = entry.buffer_data;
-            pulse_graphics_buffer_ref ref{};
+            PulseBuffer ref{};
             if (!buf) {
                 if (pulse_graphics_buffer_acquire(app, entry.buffer, &ref))
-                    buf = ref.ptr;
+                    buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }
             if (!buf) break;
 
@@ -100,10 +100,10 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
     for (auto& entry : st->dynamic_updates) {
         if (entry.content == UPLOAD_BUFFER || entry.content == UPLOAD_BUFFER_DATA) {
             pulse_buffer_data_t* buf = entry.buffer_data;
-            pulse_graphics_buffer_ref ref{};
+            PulseBuffer ref{};
             if (!buf) {
                 if (pulse_graphics_buffer_acquire(app, entry.buffer, &ref))
-                    buf = ref.ptr;
+                    buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }
             if (buf) {
                 (void)pulse_rendergraph_import_buffer(graph, buf);
@@ -167,14 +167,14 @@ uint8_t* queue_staging_buffer_full(
 }
 
 void install_upload_callback(PulseAppId app) {
-    pulse_graphics_renderer_record_callback_desc desc{};
+    PulseGraphicsRendererRecordCallbackDesc desc{};
     desc.callback = upload_record_callback;
     desc.user_data = nullptr;
     desc.priority = -1000;
     pulse_graphics_render_add_record_callback(app, &desc);
 }
 
-bool is_upload_pending(PulseAppId app, pulse_asset_handle handle) {
+bool is_upload_pending(PulseAppId app, PulseAssetHandle handle) {
     pulse_graphics_state* state = state_from_app(app);
     if (!state) return false;
     if (!pulse_asset_handle_is_valid(handle)) return false;
@@ -185,7 +185,7 @@ bool is_upload_pending(PulseAppId app, pulse_asset_handle handle) {
     return false;
 }
 
-void clear_upload_pending(PulseAppId app, pulse_asset_handle handle) {
+void clear_upload_pending(PulseAppId app, PulseAssetHandle handle) {
     pulse_graphics_state* state = state_from_app(app);
     if (!state) return;
     if (!pulse_asset_handle_is_valid(handle)) return;

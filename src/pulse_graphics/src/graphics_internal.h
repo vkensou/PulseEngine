@@ -13,6 +13,7 @@
 namespace pulse_graphics_internal {
 
 extern const char* kPluginName;
+extern PulseAppId g_loader_app;
 
 struct frame_data {
     CGPUFenceId fence = CGPU_NULLPTR;
@@ -52,8 +53,8 @@ enum UploadContentType {
 
 struct UploadEntry {
     int content;  // UploadContentType
-    pulse_texture_t texture;
-    pulse_buffer_t buffer;
+    PulseTextureHandle texture;
+    PulseBufferHandle buffer;
     pulse_texture_data_t* texture_data = nullptr;
     pulse_buffer_data_t* buffer_data = nullptr;
     const void* data = nullptr;
@@ -66,8 +67,8 @@ struct UploadEntry {
 struct pulse_graphics_state {
     PulseAppId app = nullptr;
 
-    pulse_graphics_plugin_desc desc{};
-    pulse_graphics_renderer renderer{};
+    PulseGraphicsPluginDesc desc{};
+    PulseGraphicsRenderer renderer{};
     std::vector<frame_data> frames;
     render_frame_context frame_context;
     ecs_entity_t sdl_window_on_set_observer = 0;
@@ -81,10 +82,10 @@ struct pulse_graphics_state {
     ecs_entity_t submit_system = 0;
     ecs_entity_t present_system = 0;
     bool existing_sdl_windows_bootstrapped = false;
-    std::vector<pulse_graphics_renderer_record_callback_desc> record_callbacks;
+    std::vector<PulseGraphicsRendererRecordCallbackDesc> record_callbacks;
 
-    pulse_graphics_shader_ref blit_shader;
-    pulse_graphics_sampler_ref blit_linear_sampler;
+    PulseShader blit_shader;
+    PulseSampler blit_linear_sampler;
 
     void sort_record_callbacks();
 
@@ -111,27 +112,28 @@ extern ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 pulse_graphics_state* state_from_app(PulseAppId app);
 pulse_graphics_state* state_from_world(ecs_world_t* world);
 CGPUDeviceId get_device(PulseAppId app);
-bool is_upload_pending(PulseAppId app, pulse_asset_handle handle);
-void clear_upload_pending(PulseAppId app, pulse_asset_handle handle);
+bool is_upload_pending(PulseAppId app, PulseAssetHandle handle);
+void clear_upload_pending(PulseAppId app, PulseAssetHandle handle);
 void install_upload_callback(PulseAppId app);
 void register_graphics_asset_types_and_loaders(PulseAppId app, CGPUDeviceId device);
 
-inline pulse_asset_handle asset_load_path(
+inline PulseAssetHandle asset_load_path(
     PulseAppId app,
     uint64_t type_id,
     const char* path,
     const void* settings = nullptr
 ) {
-    pulse_asset_load_desc desc{};
-    desc.struct_size = sizeof(pulse_asset_load_desc);
+    PulseAssetLoadDesc desc{};
+    desc.struct_size = sizeof(PulseAssetLoadDesc);
     desc.version = PULSE_ASSET_LOAD_DESC_VERSION;
     desc.type_id = type_id;
     desc.path = path;
     desc.settings = settings;
-    return pulse_asset_load(app, &desc);
+    PulseAssetSystemId _as = pulse_get_asset_system(app);
+    return pulse_asset_system_load(_as, &desc);
 }
 
-inline pulse_asset_handle asset_load_memory_path(
+inline PulseAssetHandle asset_load_memory_path(
     PulseAppId app,
     uint64_t type_id,
     const char* path,
@@ -139,34 +141,65 @@ inline pulse_asset_handle asset_load_memory_path(
     uint64_t size,
     const void* settings = nullptr
 ) {
-    pulse_asset_memory_load_desc desc{};
-    desc.struct_size = sizeof(pulse_asset_memory_load_desc);
+    PulseAssetMemoryLoadDesc desc{};
+    desc.struct_size = sizeof(PulseAssetMemoryLoadDesc);
     desc.version = PULSE_ASSET_MEMORY_LOAD_DESC_VERSION;
     desc.type_id = type_id;
     desc.path = path;
     desc.data = data;
     desc.size = size;
     desc.settings = settings;
-    return pulse_asset_load_from_memory(app, &desc);
+    PulseAssetSystemId _as = pulse_get_asset_system(app);
+    return pulse_asset_system_load_from_memory(_as, &desc);
 }
 
-inline pulse_asset_handle asset_build(
+inline PulseAssetHandle asset_build(
     PulseAppId app,
     uint64_t type_id,
     const char* name = nullptr,
-    const pulse_asset_dependency* dependencies = nullptr,
+    const PulseAssetDependency* dependencies = nullptr,
     uint32_t dependency_count = 0,
     const void* settings = nullptr
 ) {
-    pulse_asset_build_desc desc{};
-    desc.struct_size = sizeof(pulse_asset_build_desc);
+    PulseAssetBuildDesc desc{};
+    desc.struct_size = sizeof(PulseAssetBuildDesc);
     desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
     desc.type_id = type_id;
     desc.name = name;
     desc.dependencies = dependencies;
     desc.dependency_count = dependency_count;
     desc.settings = settings;
-    return pulse_asset_build(app, &desc);
+    PulseAssetSystemId _as = pulse_get_asset_system(app);
+    return pulse_asset_system_build(_as, &desc);
+}
+
+// Inline helpers for loader callbacks (use PulseAssetSystemId directly)
+inline bool internal_acquire_shader(PulseAssetSystemId as, PulseShaderHandle handle, PulseShader* ref) {
+    PulseAssetRef aref{};
+    if (!pulse_asset_system_acquire(as, pulse_graphics_shader_to_handle(handle), &aref)) return false;
+    ref->handle = handle; ref->ptr = aref.ptr; return true;
+}
+inline void internal_release_shader(PulseAssetSystemId as, PulseShader* ref) {
+    PulseAssetRef aref{ pulse_graphics_shader_to_handle(ref->handle), nullptr };
+    pulse_asset_system_release(as, &aref); ref->handle = {}; ref->ptr = nullptr;
+}
+inline bool internal_acquire_shader_library(PulseAssetSystemId as, PulseShaderLibraryHandle handle, PulseShaderLibrary* ref) {
+    PulseAssetRef aref{};
+    if (!pulse_asset_system_acquire(as, pulse_graphics_shader_library_to_handle(handle), &aref)) return false;
+    ref->handle = handle; ref->ptr = aref.ptr; return true;
+}
+inline void internal_release_shader_library(PulseAssetSystemId as, PulseShaderLibrary* ref) {
+    PulseAssetRef aref{ pulse_graphics_shader_library_to_handle(ref->handle), nullptr };
+    pulse_asset_system_release(as, &aref); ref->handle = {}; ref->ptr = nullptr;
+}
+inline bool internal_acquire_buffer(PulseAssetSystemId as, PulseBufferHandle handle, PulseBuffer* ref) {
+    PulseAssetRef aref{};
+    if (!pulse_asset_system_acquire(as, pulse_graphics_buffer_to_handle(handle), &aref)) return false;
+    ref->handle = handle; ref->ptr = aref.ptr; return true;
+}
+inline void internal_release_buffer(PulseAssetSystemId as, PulseBuffer* ref) {
+    PulseAssetRef aref{ pulse_graphics_buffer_to_handle(ref->handle), nullptr };
+    pulse_asset_system_release(as, &aref); ref->handle = {}; ref->ptr = nullptr;
 }
 
 uint8_t* queue_staging_texture_full(
@@ -198,7 +231,7 @@ void register_mesh_load_loader(PulseAppId app, CGPUDeviceId device);
 
 void register_shader_type(PulseAppId app, CGPUDeviceId device);
 void register_shader_create_loaders(PulseAppId app, CGPUDeviceId device);
-EPulseResult ctor_shader_from_deps(void* state, const pulse_asset_load_task* ctx);
+EPulseResult ctor_shader_from_deps(void* state, const PulseAssetLoadTask* ctx);
 void register_compute_shader_type(PulseAppId app, CGPUDeviceId device);
 void register_compute_shader_create_loaders(PulseAppId app, CGPUDeviceId device);
 void register_shader_library_type(PulseAppId app, CGPUDeviceId device);

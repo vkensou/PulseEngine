@@ -13,7 +13,7 @@ extern "C" {
 
 EPulseResult pulse_graphics_render_add_record_callback(
     PulseAppId app,
-    const pulse_graphics_renderer_record_callback_desc* desc
+    const PulseGraphicsRendererRecordCallbackDesc* desc
 ) {
     pulse_graphics_state* state = pulse_graphics_internal::state_from_world(pulse_app_world(app));
     if (!state || !desc || !desc->callback) {
@@ -26,14 +26,14 @@ EPulseResult pulse_graphics_render_add_record_callback(
 
 EPulseResult pulse_graphics_render_remove_record_callback(
     PulseAppId app,
-    pulse_graphics_render_record_callback callback
+    PulseProcGraphicsRenderRecordCallback callback
 ) {
     pulse_graphics_state* state = pulse_graphics_internal::state_from_world(pulse_app_world(app));
     if (!state || !callback) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     auto it = std::find_if(state->record_callbacks.begin(), state->record_callbacks.end(),
-        [callback](const pulse_graphics_renderer_record_callback_desc& d) {
+        [callback](const PulseGraphicsRendererRecordCallbackDesc& d) {
             return d.callback == callback;
         });
     if (it != state->record_callbacks.end()) {
@@ -42,30 +42,30 @@ EPulseResult pulse_graphics_render_remove_record_callback(
     return PULSE_RESULT_OK;
 }
 
-const pulse_graphics_renderer* pulse_graphics_renderer_get(PulseAppId app) {
+const PulseGraphicsRenderer* pulse_graphics_renderer_get(PulseAppId app) {
     ecs_world_t* world = pulse_app_world(app);
-    if (!world || ecs_id(pulse_graphics_renderer) == 0) {
+    if (!world || ecs_id(PulseGraphicsRenderer) == 0) {
         return nullptr;
     }
-    return ecs_singleton_get(world, pulse_graphics_renderer);
+    return ecs_singleton_get(world, PulseGraphicsRenderer);
 }
 
-const pulse_graphics_surface* pulse_graphics_surface_get(PulseAppId app, ecs_entity_t entity) {
+const PulseGraphicsSurface* pulse_graphics_surface_get(PulseAppId app, ecs_entity_t entity) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || !entity || !ecs_is_alive(world, entity) ||
-        ecs_id(pulse_graphics_surface) == 0) {
+        ecs_id(PulseGraphicsSurface) == 0) {
         return nullptr;
     }
-    return ecs_get(world, entity, pulse_graphics_surface);
+    return ecs_get(world, entity, PulseGraphicsSurface);
 }
 
-const pulse_graphics_swapchain* pulse_graphics_swapchain_get(PulseAppId app, ecs_entity_t entity) {
+const PulseGraphicsSwapchain* pulse_graphics_swapchain_get(PulseAppId app, ecs_entity_t entity) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || !entity || !ecs_is_alive(world, entity) ||
-        ecs_id(pulse_graphics_swapchain) == 0) {
+        ecs_id(PulseGraphicsSwapchain) == 0) {
         return nullptr;
     }
-    return ecs_get(world, entity, pulse_graphics_swapchain);
+    return ecs_get(world, entity, PulseGraphicsSwapchain);
 }
 
 } // extern "C"

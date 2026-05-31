@@ -12,8 +12,8 @@ struct TextureLoaderState {
     bool upload_completed = false;
 };
 
-pulse_asset_loader_status_t step_texture_stb(
-    void* state, const pulse_asset_load_task* ctx,
+EPulseAssetLoaderStatus step_texture_stb(
+    void* state, const PulseAssetLoadTask* ctx,
     const char** out_error)
 {
     auto* s = static_cast<TextureLoaderState*>(state);
@@ -22,13 +22,13 @@ pulse_asset_loader_status_t step_texture_stb(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
-        auto load_desc = static_cast<const pulse_graphics_texture_load_desc*>(ctx->settings);
+        auto load_desc = static_cast<const PulseGraphicsTextureLoadDesc*>(ctx->settings);
 
         int w = 0, h = 0, comp = 0;
         auto* pixels = stbi_load_from_memory(ctx->bytes, ctx->byte_size, &w, &h, &comp, 4);
         if (!pixels) {
             *out_error = "texture stb loader: texture parse failed";
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         bool mipmap = load_desc->generate_mipmaps;
@@ -49,26 +49,26 @@ pulse_asset_loader_status_t step_texture_stb(
 
         HGEGraphics::init_texture(texture, device, texture_desc);
 
-        auto* gstate = state_from_app(ctx->app);
+        auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
         if (gstate) {
             auto* staging = queue_staging_texture_full(gstate, texture, 1, (mipLevels > 1), nullptr, &s->upload_completed);
             memcpy(staging, pixels, w * h * 4);
         } else {
             stbi_image_free(pixels);
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         stbi_image_free(pixels);
 
         s->upload_requested = true;
-        return PULSE_ASSET_LOADER_PENDING;
+        return PULSE_ASSET_LOADER_STATUS_PENDING;
     }
 
     if (s->upload_completed) {
-        return PULSE_ASSET_LOADER_DONE;
+        return PULSE_ASSET_LOADER_STATUS_DONE;
     }
 
-    return PULSE_ASSET_LOADER_PENDING;
+    return PULSE_ASSET_LOADER_STATUS_PENDING;
 }
 
 std::pair<ECGPUTextureFormat, int> detectKtxTextureFormat(ktxTexture* ktxTexture)
@@ -102,8 +102,8 @@ std::pair<ECGPUTextureFormat, int> detectKtxTextureFormat(ktxTexture* ktxTexture
     return { CGPU_TEXTURE_FORMAT_UNDEFINED, 0 };
 }
 
-pulse_asset_loader_status_t step_texture_ktx(
-    void* state, const pulse_asset_load_task* ctx,
+EPulseAssetLoaderStatus step_texture_ktx(
+    void* state, const PulseAssetLoadTask* ctx,
     const char** out_error)
 {
     auto* s = static_cast<TextureLoaderState*>(state);
@@ -112,7 +112,7 @@ pulse_asset_loader_status_t step_texture_ktx(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
-        auto load_desc = static_cast<const pulse_graphics_texture_load_desc*>(ctx->settings);
+        auto load_desc = static_cast<const PulseGraphicsTextureLoadDesc*>(ctx->settings);
 
         ktxResult result = KTX_SUCCESS;
         ktxTexture* ktxTexture;
@@ -120,14 +120,14 @@ pulse_asset_loader_status_t step_texture_ktx(
         if (result != KTX_SUCCESS)
         {
             *out_error = "texture ktx loader: texture parse failed";
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         auto [format, component] = detectKtxTextureFormat(ktxTexture);
         if (ktxTexture->isCompressed || format == CGPU_TEXTURE_FORMAT_UNDEFINED)
         {
             ktxTexture_Destroy(ktxTexture);
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         uint32_t width = ktxTexture->baseWidth;
@@ -163,10 +163,10 @@ pulse_asset_loader_status_t step_texture_ktx(
 
         HGEGraphics::init_texture(texture, device, texture_desc);
 
-        auto* gstate = state_from_app(ctx->app);
+        auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
         if (!gstate) {
             ktxTexture_Destroy(ktxTexture);
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         uint32_t textureComponent = FormatUtil_BitSizeOfBlock(format) / 8;
@@ -202,20 +202,20 @@ pulse_asset_loader_status_t step_texture_ktx(
         ktxTexture_Destroy(ktxTexture);
 
         s->upload_requested = true;
-        return PULSE_ASSET_LOADER_PENDING;
+        return PULSE_ASSET_LOADER_STATUS_PENDING;
     }
 
     if (s->upload_completed) {
-        return PULSE_ASSET_LOADER_DONE;
+        return PULSE_ASSET_LOADER_STATUS_DONE;
     }
 
-    return PULSE_ASSET_LOADER_PENDING;
+    return PULSE_ASSET_LOADER_STATUS_PENDING;
 }
 
 void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
 {
-    pulse_asset_loader_desc ld1{};
-    ld1.struct_size = sizeof(pulse_asset_loader_desc);
+    PulseAssetLoaderDesc ld1{};
+    ld1.struct_size = sizeof(PulseAssetLoaderDesc);
     ld1.version = PULSE_ASSET_LOADER_DESC_VERSION;
     ld1.type_id = PULSE_TYPE_TEXTURE;
     ld1.extensions = "png,jpg,bmp,tga";
@@ -224,13 +224,13 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
     ld1.step = step_texture_stb;
     ld1.loader_size = sizeof(TextureLoaderState);
     ld1.loader_align = alignof(TextureLoaderState);
-    ld1.settings_size = sizeof(pulse_graphics_texture_load_desc);
-    ld1.settings_align = alignof(pulse_graphics_texture_load_desc);
+    ld1.settings_size = sizeof(PulseGraphicsTextureLoadDesc);
+    ld1.settings_align = alignof(PulseGraphicsTextureLoadDesc);
     ld1.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_register_loader(app, &ld1);
+    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld1);
 
-    pulse_asset_loader_desc ld2{};
-    ld2.struct_size = sizeof(pulse_asset_loader_desc);
+    PulseAssetLoaderDesc ld2{};
+    ld2.struct_size = sizeof(PulseAssetLoaderDesc);
     ld2.version = PULSE_ASSET_LOADER_DESC_VERSION;
     ld2.type_id = PULSE_TYPE_TEXTURE;
     ld2.extensions = "ktx";
@@ -239,23 +239,23 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
     ld2.step = step_texture_ktx;
     ld2.loader_size = sizeof(TextureLoaderState);
     ld2.loader_align = alignof(TextureLoaderState);
-    ld2.settings_size = sizeof(pulse_graphics_texture_load_desc);
-    ld2.settings_align = alignof(pulse_graphics_texture_load_desc);
+    ld2.settings_size = sizeof(PulseGraphicsTextureLoadDesc);
+    ld2.settings_align = alignof(PulseGraphicsTextureLoadDesc);
     ld2.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_register_loader(app, &ld2);
+    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld2);
 }
 
 }
 
 extern "C" {
 
-    pulse_texture_t pulse_graphics_texture_load(
+    PulseTextureHandle pulse_graphics_texture_load(
         PulseAppId app,
-        const pulse_graphics_texture_load_desc* desc)
+        const PulseGraphicsTextureLoadDesc* desc)
     {
-        pulse_asset_handle h = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, desc->filepath, desc);
-        if (!pulse_asset_handle_is_valid(h)) return pulse_texture_t{};
-        return pulse_texture_t{ h.index, h.generation };
+        PulseAssetHandle h = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, desc->filepath, desc);
+        if (!pulse_asset_handle_is_valid(h)) return PulseTextureHandle{};
+        return PulseTextureHandle{ h.index, h.generation };
     }
 
 }

@@ -9,8 +9,8 @@ struct TextureLoaderState {
     bool upload_completed = false;
 };
 
-pulse_asset_loader_status_t step_texture_create(
-    void* state, const pulse_asset_load_task* ctx,
+EPulseAssetLoaderStatus step_texture_create(
+    void* state, const PulseAssetLoadTask* ctx,
     const char** out_error)
 {
     auto* s = static_cast<TextureLoaderState*>(state);
@@ -19,43 +19,43 @@ pulse_asset_loader_status_t step_texture_create(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
-		auto create_desc = static_cast<const pulse_graphics_texture_create_desc*>(ctx->settings);
+		auto create_desc = static_cast<const PulseGraphicsTextureCreateDesc*>(ctx->settings);
 
         HGEGraphics::init_texture(texture, device, create_desc->desc);
 
 		if (create_desc->pixel_data && create_desc->pixel_data_size > 0) {
-			auto* gstate = state_from_app(ctx->app);
+			auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
 			if (gstate) {
                 uint64_t staging_size = 0;
 				auto* staging = queue_staging_texture_full(gstate, texture, 1, create_desc->generate_mipmaps, &staging_size, &s->upload_completed);
 				if (staging_size < create_desc->pixel_data_size) {
 					*out_error = "texture loader: pixel data size exceeds staging buffer size";
-					return PULSE_ASSET_LOADER_FAILED;
+					return PULSE_ASSET_LOADER_STATUS_FAILED;
 				}
 				memcpy(staging, create_desc->pixel_data, create_desc->pixel_data_size);
 			}
 			else {
-				return PULSE_ASSET_LOADER_FAILED;
+				return PULSE_ASSET_LOADER_STATUS_FAILED;
 			}
 
             s->upload_requested = true;
-            return PULSE_ASSET_LOADER_PENDING;
+            return PULSE_ASSET_LOADER_STATUS_PENDING;
 		} else {
-			return PULSE_ASSET_LOADER_DONE;
+			return PULSE_ASSET_LOADER_STATUS_DONE;
         }
     }
 
     if (s->upload_completed) {
-        return PULSE_ASSET_LOADER_DONE;
+        return PULSE_ASSET_LOADER_STATUS_DONE;
     }
 
-    return PULSE_ASSET_LOADER_PENDING;
+    return PULSE_ASSET_LOADER_STATUS_PENDING;
 }
 
 void register_texture_create_loader(PulseAppId app, CGPUDeviceId device)
 {
-    pulse_asset_loader_desc ld{};
-    ld.struct_size = sizeof(pulse_asset_loader_desc);
+    PulseAssetLoaderDesc ld{};
+    ld.struct_size = sizeof(PulseAssetLoaderDesc);
     ld.version = PULSE_ASSET_LOADER_DESC_VERSION;
     ld.type_id = PULSE_TYPE_TEXTURE;
     ld.extensions = "";
@@ -64,19 +64,19 @@ void register_texture_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.step = step_texture_create;
     ld.loader_size = sizeof(TextureLoaderState);
     ld.loader_align = alignof(TextureLoaderState);
-    ld.settings_size = sizeof(pulse_graphics_texture_create_desc);
-    ld.settings_align = alignof(pulse_graphics_texture_create_desc);
+    ld.settings_size = sizeof(PulseGraphicsTextureCreateDesc);
+    ld.settings_align = alignof(PulseGraphicsTextureCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_register_loader(app, &ld);
+    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
 }
 
 }
 
 extern "C" {
 
-pulse_texture_t pulse_graphics_texture_create(
+PulseTextureHandle pulse_graphics_texture_create(
     PulseAppId app,
-    const pulse_graphics_texture_create_desc* desc)
+    const PulseGraphicsTextureCreateDesc* desc)
 {
 	if (!desc)
         return {};
@@ -85,7 +85,7 @@ pulse_texture_t pulse_graphics_texture_create(
     if (!device) 
         return {};
 
-    pulse_asset_handle asset_handle = pulse_graphics_internal::asset_build(app, PULSE_TYPE_TEXTURE, nullptr, nullptr, 0, desc);
+    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(app, PULSE_TYPE_TEXTURE, nullptr, nullptr, 0, desc);
 	return { asset_handle.index, asset_handle.generation };
 }
 

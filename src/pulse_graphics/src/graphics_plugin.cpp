@@ -9,12 +9,13 @@ namespace pulse_graphics_internal {
 
 constexpr uint32_t kDefaultImageCount = 3;
 const char* kPluginName = "PulseGraphicPlugin";
+PulseAppId g_loader_app = nullptr;
 ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
 void pulse_graphics_state::sort_record_callbacks() {
     std::stable_sort(record_callbacks.begin(), record_callbacks.end(),
-        [](const pulse_graphics_renderer_record_callback_desc& a,
-           const pulse_graphics_renderer_record_callback_desc& b) {
+        [](const PulseGraphicsRendererRecordCallbackDesc& a,
+           const PulseGraphicsRendererRecordCallbackDesc& b) {
             return a.priority < b.priority;
         });
 }
@@ -37,27 +38,27 @@ pulse_graphics_state* state_from_app(PulseAppId app) {
 }
 
 CGPUDeviceId get_device(PulseAppId app) {
-    const pulse_graphics_renderer* renderer = pulse_graphics_renderer_get(app);
+    const PulseGraphicsRenderer* renderer = pulse_graphics_renderer_get(app);
     return renderer ? renderer->device : CGPUDeviceId{CGPU_NULLPTR};
 }
 
 namespace {
 
-bool validate_plugin_desc(const pulse_graphics_plugin_desc* desc) {
+bool validate_plugin_desc(const PulseGraphicsPluginDesc* desc) {
     return !desc ||
-        (desc->struct_size == sizeof(pulse_graphics_plugin_desc) &&
+        (desc->struct_size == sizeof(PulseGraphicsPluginDesc) &&
          desc->version == PULSE_GRAPHICS_PLUGIN_DESC_VERSION);
 }
 
-pulse_graphics_plugin_desc normalize_plugin_desc(
-    const pulse_graphics_plugin_desc* desc
+PulseGraphicsPluginDesc normalize_plugin_desc(
+    const PulseGraphicsPluginDesc* desc
 ) {
-    pulse_graphics_plugin_desc normalized = pulse_graphics_plugin_desc_default();
+    PulseGraphicsPluginDesc normalized = pulse_graphics_plugin_desc_default();
     if (desc) {
         normalized = *desc;
     }
 
-    normalized.struct_size = sizeof(pulse_graphics_plugin_desc);
+    normalized.struct_size = sizeof(PulseGraphicsPluginDesc);
     normalized.version = PULSE_GRAPHICS_PLUGIN_DESC_VERSION;
     if (normalized.image_count == 0) {
         normalized.image_count = kDefaultImageCount;
@@ -87,7 +88,7 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 		#include "blit.ps.spv.h"
 	};
 
-    pulse_graphics_shader_create_from_binary_desc blit_shader_desc = {
+    PulseGraphicsShaderCreateFromBinaryDesc blit_shader_desc = {
         .vs_data = blit_vert_spv,
         .vs_size = sizeof(blit_vert_spv),
         .fs_data = blit_frag_spv,
@@ -111,7 +112,7 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
     state->blit_shader.handle = pulse_graphics_shader_create_from_binary(app, &blit_shader_desc);
     pulse_graphics_shader_acquire(app, state->blit_shader.handle, &state->blit_shader);
 
-	pulse_graphics_sampler_create_desc blit_linear_sampler_desc = {
+	PulseGraphicsSamplerCreateDesc blit_linear_sampler_desc = {
         .desc = {
             .min_filter = CGPU_FILTER_TYPE_LINEAR,
             .mag_filter = CGPU_FILTER_TYPE_LINEAR,
@@ -131,6 +132,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
     state->app = app;
+    g_loader_app = app;
 
     if (!create_renderer(state)) {
         destroy_renderer(state);
@@ -142,7 +144,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
 
     pulse_graphics_state_resource res{ state };
     ecs_singleton_set_ptr(world, pulse_graphics_state_resource, &res);
-    ecs_singleton_set_ptr(world, pulse_graphics_renderer, &state->renderer);
+    ecs_singleton_set_ptr(world, PulseGraphicsRenderer, &state->renderer);
 
     CGPUDeviceId device = get_device(app);
     register_graphics_asset_types_and_loaders(app, device);
@@ -181,8 +183,8 @@ void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
     uninstall_observers(state, world);
     remove_render_window_components(world);
 
-    if (world && ecs_id(pulse_graphics_renderer) != 0) {
-        ecs_singleton_remove(world, pulse_graphics_renderer);
+    if (world && ecs_id(PulseGraphicsRenderer) != 0) {
+        ecs_singleton_remove(world, PulseGraphicsRenderer);
     }
     if (world && ecs_id(pulse_graphics_state_resource) != 0) {
         ecs_singleton_remove(world, pulse_graphics_state_resource);
@@ -190,14 +192,15 @@ void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
 
     delete_render_components(world);
 
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_MATERIAL);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_MESH);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_COMPUTE_SHADER);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_SHADER);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_SHADER_LIBRARY);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_SAMPLER);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_BUFFER);
-    pulse_asset_force_unload_assets(app, PULSE_TYPE_TEXTURE);
+    PulseAssetSystemId as = pulse_get_asset_system(app);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_MATERIAL);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_MESH);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_COMPUTE_SHADER);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SHADER);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SHADER_LIBRARY);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SAMPLER);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_BUFFER);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_TEXTURE);
 
     destroy_renderer(state);
 
@@ -212,9 +215,9 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-pulse_graphics_plugin_desc pulse_graphics_plugin_desc_default(void) {
-    pulse_graphics_plugin_desc desc{};
-    desc.struct_size = sizeof(pulse_graphics_plugin_desc);
+PulseGraphicsPluginDesc pulse_graphics_plugin_desc_default(void) {
+    PulseGraphicsPluginDesc desc{};
+    desc.struct_size = sizeof(PulseGraphicsPluginDesc);
     desc.version = PULSE_GRAPHICS_PLUGIN_DESC_VERSION;
     desc.backend = CGPU_BACKEND_VULKAN;
     desc.swapchain_format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM;
@@ -227,7 +230,7 @@ pulse_graphics_plugin_desc pulse_graphics_plugin_desc_default(void) {
     return desc;
 }
 
-EPulseResult pulse_graphics_add_plugin(PulseAppId app, const pulse_graphics_plugin_desc* desc) {
+EPulseResult pulse_graphics_add_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc) {
     if (!app || !validate_plugin_desc(desc)) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     if (pulse_app_has_plugin(app, kPluginName)) return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
 

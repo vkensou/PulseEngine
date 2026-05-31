@@ -102,13 +102,13 @@ enum MeshLoadPhase {
 
 struct MeshLoadState {
     int phase = MESH_LOAD_PARSE;
-    pulse_buffer_t vb_handle = {};
-    pulse_buffer_t ib_handle = {};
+    PulseBufferHandle vb_handle = {};
+    PulseBufferHandle ib_handle = {};
     uint32_t vertex_stride = 0;
 };
 
-pulse_asset_loader_status_t step_mesh_load(
-    void* state, const pulse_asset_load_task* ctx,
+EPulseAssetLoaderStatus step_mesh_load(
+    void* state, const PulseAssetLoadTask* ctx,
     const char** out_error)
 {
     auto* s = static_cast<MeshLoadState*>(state);
@@ -121,7 +121,7 @@ pulse_asset_loader_status_t step_mesh_load(
         std::vector<uint32_t> indices;
         if (!parse_obj_mesh(ctx->bytes, ctx->byte_size, verts, indices)) {
             *out_error = "mesh loader: OBJ parse failed";
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         CGPUVertexAttribute attrs[3] = {
@@ -155,9 +155,9 @@ pulse_asset_loader_status_t step_mesh_load(
         vb_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
         vb_desc.size = verts.size() * vstride;
 
-        pulse_graphics_buffer_create_desc vb_create_desc = { vb_desc, vb_desc.size, verts.data() };
-        s->vb_handle = pulse_graphics_buffer_create(ctx->app, &vb_create_desc);
-        pulse_asset_add_load_dependency(ctx, pulse_graphics_buffer_to_handle(s->vb_handle), PULSE_DEP_REQUIRED);
+        PulseGraphicsBufferCreateDesc vb_create_desc = { vb_desc, vb_desc.size, verts.data() };
+        s->vb_handle = pulse_graphics_buffer_create(pulse_graphics_internal::g_loader_app, &vb_create_desc);
+        pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_graphics_buffer_to_handle(s->vb_handle), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
         // Create index buffer asset
         size_t ib_bytes = indices.size() * sizeof(uint32_t);
@@ -168,44 +168,44 @@ pulse_asset_loader_status_t step_mesh_load(
         ib_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
         ib_desc.size = ib_bytes;
 
-        pulse_graphics_buffer_create_desc ib_create_desc = { ib_desc, ib_bytes, indices.data() };
-        s->ib_handle = pulse_graphics_buffer_create(ctx->app, &ib_create_desc);
-        pulse_asset_add_load_dependency(ctx, pulse_graphics_buffer_to_handle(s->ib_handle), PULSE_DEP_REQUIRED);
+        PulseGraphicsBufferCreateDesc ib_create_desc = { ib_desc, ib_bytes, indices.data() };
+        s->ib_handle = pulse_graphics_buffer_create(pulse_graphics_internal::g_loader_app, &ib_create_desc);
+        pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_graphics_buffer_to_handle(s->ib_handle), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
         s->phase = MESH_LOAD_WAIT_BUFFERS;
-        return PULSE_ASSET_LOADER_WAIT_DEPENDENCIES;
+        return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;
     }
 
     if (s->phase == MESH_LOAD_WAIT_BUFFERS) {
         auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
 
-        pulse_graphics_buffer_ref vb_ref{};
-        pulse_graphics_buffer_ref ib_ref{};
+        PulseBuffer vb_ref{};
+        PulseBuffer ib_ref{};
 
-        if (!pulse_graphics_buffer_acquire(ctx->app, s->vb_handle, &vb_ref))
-            return PULSE_ASSET_LOADER_PENDING;
-        if (!pulse_graphics_buffer_acquire(ctx->app, s->ib_handle, &ib_ref)) {
-            pulse_graphics_buffer_release(ctx->app, &vb_ref);
-            return PULSE_ASSET_LOADER_PENDING;
+        if (!internal_acquire_buffer(ctx->asset_system, s->vb_handle, &vb_ref))
+            return PULSE_ASSET_LOADER_STATUS_PENDING;
+        if (!internal_acquire_buffer(ctx->asset_system, s->ib_handle, &ib_ref)) {
+            internal_release_buffer(ctx->asset_system, &vb_ref);
+            return PULSE_ASSET_LOADER_STATUS_PENDING;
         }
 
-        mesh->vertex_buffer = vb_ref.ptr;
-        mesh->index_buffer = ib_ref.ptr;
+        mesh->vertex_buffer = static_cast<pulse_buffer_data_t*>(vb_ref.ptr);
+        mesh->index_buffer = static_cast<pulse_buffer_data_t*>(ib_ref.ptr);
         mesh->prepared = true;
 
-        pulse_graphics_buffer_release(ctx->app, &vb_ref);
-        pulse_graphics_buffer_release(ctx->app, &ib_ref);
+        internal_release_buffer(ctx->asset_system, &vb_ref);
+        internal_release_buffer(ctx->asset_system, &ib_ref);
 
-        return PULSE_ASSET_LOADER_DONE;
+        return PULSE_ASSET_LOADER_STATUS_DONE;
     }
 
-    return PULSE_ASSET_LOADER_DONE;
+    return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
 void register_mesh_load_loader(PulseAppId app, CGPUDeviceId device)
 {
-    pulse_asset_loader_desc ld{};
-    ld.struct_size = sizeof(pulse_asset_loader_desc);
+    PulseAssetLoaderDesc ld{};
+    ld.struct_size = sizeof(PulseAssetLoaderDesc);
     ld.version = PULSE_ASSET_LOADER_DESC_VERSION;
     ld.type_id = PULSE_TYPE_MESH;
     ld.extensions = "obj";
@@ -217,19 +217,19 @@ void register_mesh_load_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = 0;
     ld.settings_align = 0;
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_register_loader(app, &ld);
+    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
 }
 
 } // namespace pulse_graphics_internal
 
 extern "C" {
 
-pulse_mesh_t pulse_graphics_mesh_load(PulseAppId app, const char* filepath)
+PulseMeshHandle pulse_graphics_mesh_load(PulseAppId app, const char* filepath)
 {
-    pulse_mesh_t result{};
+    PulseMeshHandle result{};
     if (!app || !filepath || !filepath[0]) return result;
 
-    pulse_asset_handle asset_handle = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_MESH, filepath);
+    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_MESH, filepath);
     if (!pulse_asset_handle_is_valid(asset_handle)) return result;
 
     result.index = asset_handle.index;

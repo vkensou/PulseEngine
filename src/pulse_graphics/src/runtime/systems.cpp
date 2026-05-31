@@ -129,8 +129,8 @@ bool ensure_frame_graph(pulse_graphics_state* state, render_frame_context& frame
             resource_estimate,
             pass_estimate,
             edge_estimate,
-            state->blit_shader.ptr,
-            state->blit_linear_sampler.ptr->handle,
+            static_cast<pulse_shader_data_t*>(state->blit_shader.ptr),
+            static_cast<pulse_sampler_data_t*>(state->blit_linear_sampler.ptr)->handle,
             frame_context.graph_memory.get()
         );
     }
@@ -171,7 +171,7 @@ void render_begin_frame_system_run(ecs_iter_t* it) {
 }
 
 void render_reset_current_backbuffer_run(ecs_iter_t* it) {
-    pulse_graphics_swapchain* swapchains = ecs_field(it, pulse_graphics_swapchain, 0);
+    PulseGraphicsSwapchain* swapchains = ecs_field(it, PulseGraphicsSwapchain, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         swapchains[i].current_backbuffer = nullptr;
     }
@@ -189,14 +189,14 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
 
     ecs_world_t* world = it->world;
     PulseWindow* windows = ecs_field(it, PulseWindow, 0);
-    pulse_graphics_surface* surfaces = ecs_field(it, pulse_graphics_surface, 1);
-    pulse_graphics_swapchain* swapchains = ecs_field(it, pulse_graphics_swapchain, 2);
+    PulseGraphicsSurface* surfaces = ecs_field(it, PulseGraphicsSurface, 1);
+    PulseGraphicsSwapchain* swapchains = ecs_field(it, PulseGraphicsSwapchain, 2);
     render_frame_context& frame = state->frame_context;
 
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
 
-        pulse_graphics_swapchain* swapchain = &swapchains[i];
+        PulseGraphicsSwapchain* swapchain = &swapchains[i];
         if (!ensure_cgpu_swapchain(
                 state,
                 world,
@@ -341,8 +341,8 @@ void render_present_system_run(ecs_iter_t* it) {
 
     if (frame_context.submitted) {
         for (ecs_entity_t entity : frame_context.prepared_entities) {
-            pulse_graphics_swapchain* swapchain =
-                ecs_get_mut(world, entity, pulse_graphics_swapchain);
+            PulseGraphicsSwapchain* swapchain =
+                ecs_get_mut(world, entity, PulseGraphicsSwapchain);
             if (!swapchain) {
                 continue;
             }
@@ -362,7 +362,7 @@ void render_present_system_run(ecs_iter_t* it) {
     }
 
     state->renderer.frame_index++;
-    ecs_singleton_set_ptr(world, pulse_graphics_renderer, &state->renderer);
+    ecs_singleton_set_ptr(world, PulseGraphicsRenderer, &state->renderer);
 }
 
 ecs_entity_t create_render_system_entity(
@@ -407,7 +407,7 @@ ecs_entity_t install_reset_backbuffer_system(
         0
     );
     system_desc.phase = phase;
-    system_desc.query.terms[0].id = ecs_id(pulse_graphics_swapchain);
+    system_desc.query.terms[0].id = ecs_id(PulseGraphicsSwapchain);
     system_desc.query.cache_kind = EcsQueryCacheAuto;
     system_desc.callback = render_reset_current_backbuffer_run;
     system_desc.ctx = state;
@@ -428,8 +428,8 @@ ecs_entity_t install_prepare_windows_system(
     );
     system_desc.phase = phase;
     system_desc.query.terms[0].id = ecs_id(PulseWindow);
-    system_desc.query.terms[1].id = ecs_id(pulse_graphics_surface);
-    system_desc.query.terms[2].id = ecs_id(pulse_graphics_swapchain);
+    system_desc.query.terms[1].id = ecs_id(PulseGraphicsSurface);
+    system_desc.query.terms[2].id = ecs_id(PulseGraphicsSwapchain);
     system_desc.query.terms[3].id = ecs_id(PulseWindowCloseRequested);
     system_desc.query.terms[3].oper = EcsNot;
     system_desc.query.cache_kind = EcsQueryCacheAuto;
@@ -515,7 +515,7 @@ pulse_texture_handle_t pulse_graphics_render_import_window_backbuffer(
     pulse_rendergraph_t* graph,
     ecs_entity_t window_entity
 ) {
-    const pulse_graphics_swapchain* swapchain =
+    const PulseGraphicsSwapchain* swapchain =
         pulse_graphics_swapchain_get(app, window_entity);
     if (!swapchain || !swapchain->current_backbuffer) {
         return pulse_texture_handle_t{};

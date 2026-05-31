@@ -6,20 +6,20 @@ struct ShaderLibraryCreateState {
     bool initialized = false;
 };
 
-static pulse_asset_loader_status_t step_shader_library_create(
-    void* state, const pulse_asset_load_task* ctx,
+static EPulseAssetLoaderStatus step_shader_library_create(
+    void* state, const PulseAssetLoadTask* ctx,
     const char** out_error)
 {
     auto* s = static_cast<ShaderLibraryCreateState*>(state);
 
     if (!s->initialized) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        if (!device) { *out_error = "shader library create: no device"; return PULSE_ASSET_LOADER_FAILED; }
+        if (!device) { *out_error = "shader library create: no device"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
-        auto* desc = static_cast<const pulse_graphics_shader_library_create_desc*>(ctx->settings);
+        auto* desc = static_cast<const PulseGraphicsShaderLibraryCreateDesc*>(ctx->settings);
         if (!desc->code || desc->code_size == 0) {
             *out_error = "shader library create: no data";
-            return PULSE_ASSET_LOADER_FAILED;
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
         CGPUShaderLibraryDescriptor lib_desc = {};
@@ -27,7 +27,7 @@ static pulse_asset_loader_status_t step_shader_library_create(
         lib_desc.code_size = desc->code_size;
         lib_desc.p_codes = static_cast<const uint8_t*>(desc->code);
         auto* lib = cgpu_device_create_shader_library(device, &lib_desc);
-        if (!lib) { *out_error = "shader library create: create failed"; return PULSE_ASSET_LOADER_FAILED; }
+        if (!lib) { *out_error = "shader library create: create failed"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
         auto* data = static_cast<pulse_shader_library_data_t*>(ctx->out_asset);
         data->library = lib;
@@ -35,13 +35,13 @@ static pulse_asset_loader_status_t step_shader_library_create(
         s->initialized = true;
     }
 
-    return PULSE_ASSET_LOADER_DONE;
+    return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
 void register_shader_library_create_loader(PulseAppId app, CGPUDeviceId device)
 {
-    pulse_asset_loader_desc ld{};
-    ld.struct_size = sizeof(pulse_asset_loader_desc);
+    PulseAssetLoaderDesc ld{};
+    ld.struct_size = sizeof(PulseAssetLoaderDesc);
     ld.version = PULSE_ASSET_LOADER_DESC_VERSION;
     ld.type_id = PULSE_TYPE_SHADER_LIBRARY;
     ld.extensions = nullptr;
@@ -50,10 +50,10 @@ void register_shader_library_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.step = step_shader_library_create;
     ld.loader_size = sizeof(ShaderLibraryCreateState);
     ld.loader_align = alignof(ShaderLibraryCreateState);
-    ld.settings_size = sizeof(pulse_graphics_shader_library_create_desc);
-    ld.settings_align = alignof(pulse_graphics_shader_library_create_desc);
+    ld.settings_size = sizeof(PulseGraphicsShaderLibraryCreateDesc);
+    ld.settings_align = alignof(PulseGraphicsShaderLibraryCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_register_loader(app, &ld);
+    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
 }
 
 } // namespace pulse_graphics_internal
@@ -62,17 +62,17 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-pulse_shader_library_t pulse_graphics_shader_library_create(
+PulseShaderLibraryHandle pulse_graphics_shader_library_create(
     PulseAppId app,
-    const pulse_graphics_shader_library_create_desc* desc)
+    const PulseGraphicsShaderLibraryCreateDesc* desc)
 {
-    pulse_shader_library_t result{};
+    PulseShaderLibraryHandle result{};
     if (!desc) return result;
 
     CGPUDeviceId device = pulse_graphics_internal::get_device(app);
     if (!device) return result;
 
-    pulse_asset_handle h = pulse_graphics_internal::asset_build(
+    PulseAssetHandle h = pulse_graphics_internal::asset_build(
         app, PULSE_TYPE_SHADER_LIBRARY, nullptr, nullptr, 0, desc);
     if (!pulse_asset_handle_is_valid(h)) return result;
     result.index = h.index;

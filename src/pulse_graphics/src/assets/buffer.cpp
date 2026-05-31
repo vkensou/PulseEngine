@@ -11,24 +11,24 @@ static void destroy_buffer(void* ptr, void* user_data) {
 
 void register_buffer_type(PulseAppId app, CGPUDeviceId device)
 {
-    pulse_asset_type_desc type_desc{};
-    type_desc.struct_size = sizeof(pulse_asset_type_desc);
+    PulseAssetTypeDesc type_desc{};
+    type_desc.struct_size = sizeof(PulseAssetTypeDesc);
     type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
     type_desc.type_id = PULSE_TYPE_BUFFER;
     type_desc.size = sizeof(pulse_buffer_data_t);
     type_desc.align = alignof(pulse_buffer_data_t);
     type_desc.destroy = destroy_buffer;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_register_type(app, &type_desc);
+    pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
 }
 
 }
 
 extern "C" {
 
-bool pulse_graphics_buffer_acquire(PulseAppId app, pulse_buffer_t handle, pulse_graphics_buffer_ref* buffer_ref) {
-    pulse_asset_ref ref{};
-    if (pulse_asset_acquire(app, pulse_graphics_buffer_to_handle(handle), &ref)) {
+bool pulse_graphics_buffer_acquire(PulseAppId app, PulseBufferHandle handle, PulseBuffer* buffer_ref) {
+    PulseAssetRef ref{};
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_buffer_to_handle(handle), &ref)) {
         buffer_ref->handle = handle;
         buffer_ref->ptr = static_cast<pulse_buffer_data_t*>(ref.ptr);
         return true;
@@ -39,9 +39,9 @@ bool pulse_graphics_buffer_acquire(PulseAppId app, pulse_buffer_t handle, pulse_
     return false;
 }
 
-void pulse_graphics_buffer_release(PulseAppId app, pulse_graphics_buffer_ref* buffer_ref) {
-    pulse_asset_ref ref{ pulse_graphics_buffer_to_handle(buffer_ref->handle), nullptr };
-    pulse_asset_release(app, &ref);
+void pulse_graphics_buffer_release(PulseAppId app, PulseBuffer* buffer_ref) {
+    PulseAssetRef ref{ pulse_graphics_buffer_to_handle(buffer_ref->handle), nullptr };
+    pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     buffer_ref->handle = {};
     buffer_ref->ptr = nullptr;
 }
