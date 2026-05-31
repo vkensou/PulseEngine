@@ -309,7 +309,6 @@ private:
     bool construct_job_loader(AssetSystem& system, LoadJob& job, AssetSlot& slot, const char*& out_error);
 };
 
-AssetSystem* system_from_app(PulseAppId app);
 EPulseResult asset_plugin_build_callback(PulseAppId app, void* ctx);
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx);
 

@@ -177,7 +177,7 @@ EPulseResult App::post_build() {
     }
 
     for (auto& subapp : subapps_) {
-        result = ((struct PulseApp*)subapp.app)->impl.post_build();
+        result = subapp.app->impl.post_build();
         if (result != PULSE_RESULT_OK) {
             last_error_ = "subapp post_build failed: ";
             last_error_ += subapp.name;
@@ -195,7 +195,7 @@ void App::shutdown() {
     }
 
     for (auto it = subapps_.rbegin(); it != subapps_.rend(); ++it) {
-        ((struct PulseApp*)it->app)->impl.shutdown();
+        it->app->impl.shutdown();
     }
 
     for (auto it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
@@ -256,7 +256,7 @@ EPulseResult App::update() {
             }
         }
 
-        EPulseResult result = ((struct PulseApp*)subapp.app)->impl.update();
+        EPulseResult result = subapp.app->impl.update();
         if (result != PULSE_RESULT_OK) {
             last_error_ = "subapp update failed: ";
             last_error_ += subapp.name;
@@ -371,7 +371,7 @@ EPulseResult App::extract_subapps() {
 extern "C" {
 
 static inline pulse::App* to_app(PulseAppId handle) {
-    return handle ? &((struct PulseApp*)handle)->impl : nullptr;
+    return handle ? &handle->impl : nullptr;
 }
 
 PulseAppId pulse_create_app(const char* name) {
@@ -385,7 +385,7 @@ void pulse_destroy_app(PulseAppId app) {
     }
 
     impl->shutdown();
-    delete (struct PulseApp*)app;
+    delete app;
 }
 
 EPulseResult pulse_app_run(PulseAppId app) {

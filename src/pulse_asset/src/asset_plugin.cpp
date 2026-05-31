@@ -96,18 +96,7 @@ void AssetSystem::uninstall_process_system(ecs_world_t* world) {
     process_system_ = 0;
 }
 
-AssetSystem* system_from_app(PulseAppId app) {
-    ecs_world_t* world = pulse_app_world(app);
-    if (!world || ecs_id(pulse_asset_state_resource) == 0) {
-        return nullptr;
-    }
-
-    const pulse_asset_state_resource* resource =
-        ecs_singleton_get(world, pulse_asset_state_resource);
-    return resource ? &resource->system->impl : nullptr;
-}
-
-PulseAssetSystemId system_from_app2(PulseAppId app) {
+PulseAssetSystemId system_from_app(PulseAppId app) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || ecs_id(pulse_asset_state_resource) == 0) {
         return nullptr;
@@ -153,7 +142,7 @@ void asset_plugin_shutdown_callback(PulseAppId app, void* ctx) {
 
 extern "C" {
 static inline pulse::asset::AssetSystem* to_impl(PulseAssetSystemId asset_system) {
-    return asset_system ? &((PulseAssetSystem*)asset_system)->impl : nullptr;
+    return asset_system ? &asset_system->impl : nullptr;
 }
 
 PulseAssetPluginDesc pulse_asset_plugin_desc_default(void) {
@@ -197,7 +186,7 @@ EPulseResult pulse_asset_add_plugin(
 PULSE_API PulseAssetSystemId pulse_get_asset_system(
     PulseAppId app
 ) {
-    return pulse::asset::system_from_app2(app);
+    return pulse::asset::system_from_app(app);
 }
 
 EPulseResult pulse_asset_system_register_type(
