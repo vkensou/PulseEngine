@@ -3,8 +3,6 @@
 #ifndef PULSE_WINDOW_API_HEADER_GUARD
 #define PULSE_WINDOW_API_HEADER_GUARD
 
-#include <flecs.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif

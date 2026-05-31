@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#define flecs_STATIC
 #include <flecs.h>
 
 extern "C" {

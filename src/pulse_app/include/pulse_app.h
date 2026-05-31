@@ -11,6 +11,9 @@ extern "C" {
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
 
+#define FLECS_NO_CPP
+#include <flecs.h>
+
 #ifndef PULSE_API
 #define PULSE_API
 #endif
