@@ -28,9 +28,9 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-bool pulse_graphics_shader_acquire(PulseAppId app, PulseShaderHandle handle, PulseShader* ref) {
+bool pulse_acquire_shader(PulseAppId app, PulseShaderHandle handle, PulseShader* ref) {
     PulseAssetRef aref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_shader_to_handle(handle), &aref)) {
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_to_handle(handle), &aref)) {
         ref->handle = handle;
         ref->ptr = static_cast<pulse_shader_data_t*>(aref.ptr);
         return true;
@@ -41,7 +41,7 @@ bool pulse_graphics_shader_acquire(PulseAppId app, PulseShaderHandle handle, Pul
 }
 
 void pulse_graphics_shader_release(PulseAppId app, PulseShader* ref) {
-    PulseAssetRef aref{ pulse_graphics_shader_to_handle(ref->handle), nullptr };
+    PulseAssetRef aref{ pulse_shader_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &aref);
     ref->handle = {};
     ref->ptr = nullptr;

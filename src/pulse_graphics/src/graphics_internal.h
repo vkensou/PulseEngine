@@ -54,7 +54,7 @@ enum UploadContentType {
 struct UploadEntry {
     int content;  // UploadContentType
     PulseTextureHandle texture;
-    PulseBufferHandle buffer;
+    PulseGraphicsBufferHandle buffer;
     pulse_texture_data_t* texture_data = nullptr;
     pulse_buffer_data_t* buffer_data = nullptr;
     const void* data = nullptr;
@@ -68,7 +68,7 @@ struct pulse_graphics_state {
     PulseAppId app = nullptr;
 
     PulseGraphicsPluginDesc desc{};
-    PulseGraphicsRenderer renderer{};
+    PulseRenderer renderer{};
     std::vector<frame_data> frames;
     render_frame_context frame_context;
     ecs_entity_t sdl_window_on_set_observer = 0;
@@ -82,7 +82,7 @@ struct pulse_graphics_state {
     ecs_entity_t submit_system = 0;
     ecs_entity_t present_system = 0;
     bool existing_sdl_windows_bootstrapped = false;
-    std::vector<PulseGraphicsRendererRecordCallbackDesc> record_callbacks;
+    std::vector<PulseRenderRecordCallbackDesc> record_callbacks;
 
     PulseShader blit_shader;
     PulseSampler blit_linear_sampler;
@@ -176,28 +176,28 @@ inline PulseAssetHandle asset_build(
 // Inline helpers for loader callbacks (use PulseAssetSystemId directly)
 inline bool internal_acquire_shader(PulseAssetSystemId as, PulseShaderHandle handle, PulseShader* ref) {
     PulseAssetRef aref{};
-    if (!pulse_asset_system_acquire(as, pulse_graphics_shader_to_handle(handle), &aref)) return false;
+    if (!pulse_asset_system_acquire(as, pulse_shader_to_handle(handle), &aref)) return false;
     ref->handle = handle; ref->ptr = aref.ptr; return true;
 }
 inline void internal_release_shader(PulseAssetSystemId as, PulseShader* ref) {
-    PulseAssetRef aref{ pulse_graphics_shader_to_handle(ref->handle), nullptr };
+    PulseAssetRef aref{ pulse_shader_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(as, &aref); ref->handle = {}; ref->ptr = nullptr;
 }
 inline bool internal_acquire_shader_library(PulseAssetSystemId as, PulseShaderLibraryHandle handle, PulseShaderLibrary* ref) {
     PulseAssetRef aref{};
-    if (!pulse_asset_system_acquire(as, pulse_graphics_shader_library_to_handle(handle), &aref)) return false;
+    if (!pulse_asset_system_acquire(as, pulse_shader_library_to_handle(handle), &aref)) return false;
     ref->handle = handle; ref->ptr = aref.ptr; return true;
 }
 inline void internal_release_shader_library(PulseAssetSystemId as, PulseShaderLibrary* ref) {
-    PulseAssetRef aref{ pulse_graphics_shader_library_to_handle(ref->handle), nullptr };
+    PulseAssetRef aref{ pulse_shader_library_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(as, &aref); ref->handle = {}; ref->ptr = nullptr;
 }
-inline bool internal_acquire_buffer(PulseAssetSystemId as, PulseBufferHandle handle, PulseBuffer* ref) {
+inline bool internal_acquire_buffer(PulseAssetSystemId as, PulseGraphicsBufferHandle handle, PulseGraphicsBuffer* ref) {
     PulseAssetRef aref{};
     if (!pulse_asset_system_acquire(as, pulse_graphics_buffer_to_handle(handle), &aref)) return false;
     ref->handle = handle; ref->ptr = aref.ptr; return true;
 }
-inline void internal_release_buffer(PulseAssetSystemId as, PulseBuffer* ref) {
+inline void internal_release_buffer(PulseAssetSystemId as, PulseGraphicsBuffer* ref) {
     PulseAssetRef aref{ pulse_graphics_buffer_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(as, &aref); ref->handle = {}; ref->ptr = nullptr;
 }

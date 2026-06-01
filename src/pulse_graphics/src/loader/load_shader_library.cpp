@@ -49,9 +49,9 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-PulseShaderLibraryHandle pulse_graphics_shader_library_load(
+PulseShaderLibraryHandle pulse_load_shader_library(
     PulseAppId app,
-    const PulseGraphicsShaderLibraryLoadDesc* desc)
+    const PulseShaderLibraryLoadDesc* desc)
 {
     PulseShaderLibraryHandle result{};
     if (!desc || !desc->path) return result;
@@ -66,7 +66,7 @@ PulseShaderLibraryHandle pulse_graphics_shader_library_load(
 bool pulse_graphics_shader_library_acquire(PulseAppId app, PulseShaderLibraryHandle handle, PulseShaderLibrary* sl_ref)
 {
     PulseAssetRef aref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_shader_library_to_handle(handle), &aref)) {
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_library_to_handle(handle), &aref)) {
         sl_ref->handle = handle;
         sl_ref->ptr = static_cast<pulse_shader_library_data_t*>(aref.ptr);
         return true;
@@ -78,7 +78,7 @@ bool pulse_graphics_shader_library_acquire(PulseAppId app, PulseShaderLibraryHan
 
 void pulse_graphics_shader_library_release(PulseAppId app, PulseShaderLibrary* sl_ref)
 {
-    PulseAssetRef aref{ pulse_graphics_shader_library_to_handle(sl_ref->handle), nullptr };
+    PulseAssetRef aref{ pulse_shader_library_to_handle(sl_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &aref);
     sl_ref->handle = {};
     sl_ref->ptr = nullptr;

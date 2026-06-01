@@ -59,7 +59,7 @@ void register_buffer_create_loader(PulseAppId app, CGPUDeviceId device)
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
     ld.version = PULSE_ASSET_LOADER_DESC_VERSION;
-    ld.type_id = PULSE_TYPE_BUFFER;
+    ld.type_id = PULSE_TYPE_GRAPHICS_BUFFER;
     ld.extensions = "";
     ld.ctor = nullptr;
     ld.dtor = nullptr;
@@ -76,7 +76,7 @@ void register_buffer_create_loader(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-PulseBufferHandle pulse_graphics_buffer_create(
+PulseGraphicsBufferHandle pulse_create_graphics_buffer(
     PulseAppId app,
     const PulseGraphicsBufferCreateDesc* desc)
 {
@@ -88,7 +88,7 @@ PulseBufferHandle pulse_graphics_buffer_create(
         return {};
 
     PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_BUFFER, nullptr, nullptr, 0, desc);
+        app, PULSE_TYPE_GRAPHICS_BUFFER, nullptr, nullptr, 0, desc);
     if (!pulse_asset_handle_is_valid(asset_handle))
         return {};
 

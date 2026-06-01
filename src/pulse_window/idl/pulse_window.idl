@@ -77,7 +77,7 @@ func.WindowPluginDescDefault
     "WindowPluginDesc"
     ()
 
-func.WindowAddPlugin
+func.AddWindowPlugin
     "EPulseResult"
     .app  "PulseAppId"
     .desc "*const WindowPluginDesc"

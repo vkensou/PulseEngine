@@ -149,7 +149,7 @@ PulseAssetPluginDesc pulse_asset_plugin_desc_default(void) {
     return pulse::asset::default_plugin_desc();
 }
 
-EPulseResult pulse_asset_add_plugin(
+EPulseResult pulse_add_asset_plugin(
     PulseAppId app,
     const PulseAssetPluginDesc* desc
 ) {

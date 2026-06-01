@@ -14,7 +14,7 @@ void register_buffer_type(PulseAppId app, CGPUDeviceId device)
     PulseAssetTypeDesc type_desc{};
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
     type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
-    type_desc.type_id = PULSE_TYPE_BUFFER;
+    type_desc.type_id = PULSE_TYPE_GRAPHICS_BUFFER;
     type_desc.size = sizeof(pulse_buffer_data_t);
     type_desc.align = alignof(pulse_buffer_data_t);
     type_desc.destroy = destroy_buffer;
@@ -26,7 +26,7 @@ void register_buffer_type(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-bool pulse_graphics_buffer_acquire(PulseAppId app, PulseBufferHandle handle, PulseBuffer* buffer_ref) {
+bool pulse_acquire_graphics_buffer(PulseAppId app, PulseGraphicsBufferHandle handle, PulseGraphicsBuffer* buffer_ref) {
     PulseAssetRef ref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_buffer_to_handle(handle), &ref)) {
         buffer_ref->handle = handle;
@@ -39,7 +39,7 @@ bool pulse_graphics_buffer_acquire(PulseAppId app, PulseBufferHandle handle, Pul
     return false;
 }
 
-void pulse_graphics_buffer_release(PulseAppId app, PulseBuffer* buffer_ref) {
+void pulse_release_graphics_buffer(PulseAppId app, PulseGraphicsBuffer* buffer_ref) {
     PulseAssetRef ref{ pulse_graphics_buffer_to_handle(buffer_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     buffer_ref->handle = {};

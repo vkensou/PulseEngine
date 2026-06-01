@@ -86,23 +86,23 @@ extern "C" {
 
 PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_binary(
     PulseAppId app,
-    const PulseGraphicsComputeShaderCreateFromBinaryDesc* desc)
+    const PulseComputeShaderCreateFromBinaryDesc* desc)
 {
     if (!desc || !desc->cs_data || !desc->cs_size) return {};
 
-    PulseGraphicsShaderLibraryCreateDesc cs_desc = {
+    PulseShaderLibraryCreateDesc cs_desc = {
         desc->cs_data,
         desc->cs_size
     };
 
-    auto cs = pulse_graphics_shader_library_create(app, &cs_desc);
-    if (!pulse_graphics_shader_library_is_alive(app, cs)) return {};
+    auto cs = pulse_create_shader_library(app, &cs_desc);
+    if (!pulse_shader_library_is_alive(app, cs)) return {};
     PulseAssetDependency deps[] = {
-        { pulse_graphics_shader_library_to_handle(cs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_shader_library_to_handle(cs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
     PulseAssetHandle h = asset_build(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
     if (!pulse_asset_handle_is_valid(h)) {
-        pulse_graphics_shader_library_unload(app, cs);
+        pulse_unload_shader_library(app, cs);
         return {};
     }
     return { h.index, h.generation };
@@ -110,22 +110,22 @@ PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_binary(
 
 PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_file(
     PulseAppId app,
-    const PulseGraphicsComputeShaderCreateFromFileDesc* desc)
+    const PulseComputeShaderCreateFromFileDesc* desc)
 {
     if (!desc || !desc->cs_path) return {};
 
-    PulseGraphicsShaderLibraryLoadDesc cs_desc = {
+    PulseShaderLibraryLoadDesc cs_desc = {
         desc->cs_path
     };
 
-    auto cs = pulse_graphics_shader_library_load(app, &cs_desc);
-    if (!pulse_graphics_shader_library_is_alive(app, cs)) return {};
+    auto cs = pulse_load_shader_library(app, &cs_desc);
+    if (!pulse_shader_library_is_alive(app, cs)) return {};
     PulseAssetDependency deps[] = {
-        { pulse_graphics_shader_library_to_handle(cs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_shader_library_to_handle(cs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
     PulseAssetHandle h = asset_build(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
     if (!pulse_asset_handle_is_valid(h)) {
-        pulse_graphics_shader_library_unload(app, cs);
+        pulse_unload_shader_library(app, cs);
         return {};
     }
     return { h.index, h.generation };

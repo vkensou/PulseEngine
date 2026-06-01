@@ -35,7 +35,7 @@ void pulse_graphics_mesh_update_vertices(PulseAppId app, PulseMeshHandle* mesh, 
     pulse_graphics_internal::pulse_graphics_state* st = pulse_graphics_internal::state_from_app(app);
     if (st && mesh) {
         PulseMesh ref{};
-        if (pulse_graphics_mesh_acquire(app, *mesh, &ref)) {
+        if (pulse_acquire_mesh(app, *mesh, &ref)) {
             auto* m = static_cast<pulse_mesh_data_t*>(ref.ptr);
             pulse_graphics_internal::UploadEntry entry{};
             entry.content = pulse_graphics_internal::UPLOAD_BUFFER_DATA;
@@ -43,7 +43,7 @@ void pulse_graphics_mesh_update_vertices(PulseAppId app, PulseMeshHandle* mesh, 
             entry.data = data;
             entry.data_size = count;
             st->dynamic_updates.push_back(entry);
-            pulse_graphics_mesh_release(app, &ref);
+            pulse_release_mesh(app, &ref);
         }
     }
 }
@@ -52,7 +52,7 @@ void pulse_graphics_mesh_update_indices(PulseAppId app, PulseMeshHandle* mesh, c
     pulse_graphics_internal::pulse_graphics_state* st = pulse_graphics_internal::state_from_app(app);
     if (st && mesh) {
         PulseMesh ref{};
-        if (pulse_graphics_mesh_acquire(app, *mesh, &ref)) {
+        if (pulse_acquire_mesh(app, *mesh, &ref)) {
             auto* m = static_cast<pulse_mesh_data_t*>(ref.ptr);
             pulse_graphics_internal::UploadEntry entry{};
             entry.content = pulse_graphics_internal::UPLOAD_BUFFER_DATA;
@@ -60,14 +60,14 @@ void pulse_graphics_mesh_update_indices(PulseAppId app, PulseMeshHandle* mesh, c
             entry.data = data;
             entry.data_size = count;
             st->dynamic_updates.push_back(entry);
-            pulse_graphics_mesh_release(app, &ref);
+            pulse_release_mesh(app, &ref);
         }
     }
 }
 
-bool pulse_graphics_mesh_acquire(PulseAppId app, PulseMeshHandle handle, PulseMesh* mesh_ref) {
+bool pulse_acquire_mesh(PulseAppId app, PulseMeshHandle handle, PulseMesh* mesh_ref) {
     PulseAssetRef ref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_mesh_to_handle(handle), &ref)) {
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_mesh_to_handle(handle), &ref)) {
         mesh_ref->handle = handle;
         mesh_ref->ptr = static_cast<pulse_mesh_data_t*>(ref.ptr);
         return true;
@@ -78,8 +78,8 @@ bool pulse_graphics_mesh_acquire(PulseAppId app, PulseMeshHandle handle, PulseMe
     return false;
 }
 
-void pulse_graphics_mesh_release(PulseAppId app, PulseMesh* mesh_ref) {
-    PulseAssetRef ref{ pulse_graphics_mesh_to_handle(mesh_ref->handle), nullptr };
+void pulse_release_mesh(PulseAppId app, PulseMesh* mesh_ref) {
+    PulseAssetRef ref{ pulse_mesh_to_handle(mesh_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     mesh_ref->handle = {};
     mesh_ref->ptr = nullptr;

@@ -383,7 +383,7 @@ PulseWindowPluginDesc pulse_window_plugin_desc_default(void) {
     return desc;
 }
 
-EPulseResult pulse_window_add_plugin(
+EPulseResult pulse_add_window_plugin(
     PulseAppId app,
     const PulseWindowPluginDesc* desc
 ) {

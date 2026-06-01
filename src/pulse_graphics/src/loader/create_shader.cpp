@@ -128,28 +128,28 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-PulseShaderHandle pulse_graphics_shader_create_from_binary(
+PulseShaderHandle pulse_create_shader_from_binary(
     PulseAppId app,
-    const PulseGraphicsShaderCreateFromBinaryDesc* desc)
+    const PulseShaderCreateFromBinaryDesc* desc)
 {
     if (!desc || !desc->vs_data || !desc->vs_size || !desc->fs_data || !desc->fs_size) return {};
 
-    PulseGraphicsShaderLibraryCreateDesc vs_desc = {
+    PulseShaderLibraryCreateDesc vs_desc = {
         desc->vs_data,
         desc->vs_size
     };
-    PulseGraphicsShaderLibraryCreateDesc fs_desc = {
+    PulseShaderLibraryCreateDesc fs_desc = {
         desc->fs_data,
         desc->fs_size
     };
 
-    auto vs = pulse_graphics_shader_library_create(app, &vs_desc);
-    if (!pulse_graphics_shader_library_is_alive(app, vs)) return {};
-    auto fs = pulse_graphics_shader_library_create(app, &fs_desc);
-    if (!pulse_graphics_shader_library_is_alive(app, fs)) return {};
+    auto vs = pulse_create_shader_library(app, &vs_desc);
+    if (!pulse_shader_library_is_alive(app, vs)) return {};
+    auto fs = pulse_create_shader_library(app, &fs_desc);
+    if (!pulse_shader_library_is_alive(app, fs)) return {};
     PulseAssetDependency deps[] = {
-        { pulse_graphics_shader_library_to_handle(vs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
-        { pulse_graphics_shader_library_to_handle(fs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_shader_library_to_handle(vs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_shader_library_to_handle(fs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
 
 	ShaderCreateSettings settings = {
@@ -160,33 +160,33 @@ PulseShaderHandle pulse_graphics_shader_create_from_binary(
 
     PulseAssetHandle h = asset_build(app, PULSE_TYPE_SHADER, nullptr, deps, 2, &settings);
     if (!pulse_asset_handle_is_valid(h)) {
-		pulse_graphics_shader_library_unload(app, vs);
-		pulse_graphics_shader_library_unload(app, fs);
+		pulse_unload_shader_library(app, vs);
+		pulse_unload_shader_library(app, fs);
         return {};
     }
     return {h.index, h.generation};
 }
 
-PulseShaderHandle pulse_graphics_shader_create_from_file(
+PulseShaderHandle pulse_create_shader_from_file(
     PulseAppId app,
-    const PulseGraphicsShaderCreateFromFileDesc* desc)
+    const PulseShaderCreateFromFileDesc* desc)
 {
     if (!desc || !desc->vert_path || !desc->frag_path) return {};
 
-    PulseGraphicsShaderLibraryLoadDesc vs_desc = {
+    PulseShaderLibraryLoadDesc vs_desc = {
         desc->vert_path
     };
-    PulseGraphicsShaderLibraryLoadDesc fs_desc = {
+    PulseShaderLibraryLoadDesc fs_desc = {
         desc->frag_path
     };
 
-    auto vs = pulse_graphics_shader_library_load(app, &vs_desc);
-    if (!pulse_graphics_shader_library_is_alive(app, vs)) return {};
-    auto fs = pulse_graphics_shader_library_load(app, &fs_desc);
-    if (!pulse_graphics_shader_library_is_alive(app, fs)) return {};
+    auto vs = pulse_load_shader_library(app, &vs_desc);
+    if (!pulse_shader_library_is_alive(app, vs)) return {};
+    auto fs = pulse_load_shader_library(app, &fs_desc);
+    if (!pulse_shader_library_is_alive(app, fs)) return {};
     PulseAssetDependency deps[] = {
-        { pulse_graphics_shader_library_to_handle(vs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
-        { pulse_graphics_shader_library_to_handle(fs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_shader_library_to_handle(vs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_shader_library_to_handle(fs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
 
     ShaderCreateSettings settings = {
@@ -197,8 +197,8 @@ PulseShaderHandle pulse_graphics_shader_create_from_file(
 
     PulseAssetHandle h = asset_build(app, PULSE_TYPE_SHADER, nullptr, deps, 2, &settings);
     if (!pulse_asset_handle_is_valid(h)) {
-        pulse_graphics_shader_library_unload(app, vs);
-        pulse_graphics_shader_library_unload(app, fs);
+        pulse_unload_shader_library(app, vs);
+        pulse_unload_shader_library(app, fs);
         return {};
     }
     return {h.index, h.generation};

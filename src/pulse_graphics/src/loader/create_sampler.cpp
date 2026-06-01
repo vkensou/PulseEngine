@@ -10,7 +10,7 @@ EPulseAssetLoaderStatus step_sampler_create(
 {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
 
-    auto create_desc = static_cast<const PulseGraphicsSamplerCreateDesc*>(ctx->settings);
+    auto create_desc = static_cast<const PulseSamplerCreateDesc*>(ctx->settings);
     CGPUSamplerId sampler = cgpu_device_create_sampler(device, &create_desc->desc);
     if (!sampler) return PULSE_ASSET_LOADER_STATUS_FAILED;
 
@@ -32,8 +32,8 @@ void register_sampler_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.step = step_sampler_create;
     ld.loader_size = 0;
     ld.loader_align = 0;
-    ld.settings_size = sizeof(PulseGraphicsSamplerCreateDesc);
-    ld.settings_align = alignof(PulseGraphicsSamplerCreateDesc);
+    ld.settings_size = sizeof(PulseSamplerCreateDesc);
+    ld.settings_align = alignof(PulseSamplerCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
 }
@@ -42,9 +42,9 @@ void register_sampler_create_loader(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-PulseSamplerHandle pulse_graphics_sampler_create(
+PulseSamplerHandle pulse_create_sampler(
     PulseAppId app,
-    const PulseGraphicsSamplerCreateDesc* desc)
+    const PulseSamplerCreateDesc* desc)
 {
     CGPUDeviceId device = pulse_graphics_internal::get_device(app);
     if (!device || !desc) return {};

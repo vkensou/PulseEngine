@@ -22,7 +22,7 @@ EPulseAssetLoaderStatus step_texture_stb(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
-        auto load_desc = static_cast<const PulseGraphicsTextureLoadDesc*>(ctx->settings);
+        auto load_desc = static_cast<const PulseTextureLoadDesc*>(ctx->settings);
 
         int w = 0, h = 0, comp = 0;
         auto* pixels = stbi_load_from_memory(ctx->bytes, ctx->byte_size, &w, &h, &comp, 4);
@@ -112,7 +112,7 @@ EPulseAssetLoaderStatus step_texture_ktx(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
-        auto load_desc = static_cast<const PulseGraphicsTextureLoadDesc*>(ctx->settings);
+        auto load_desc = static_cast<const PulseTextureLoadDesc*>(ctx->settings);
 
         ktxResult result = KTX_SUCCESS;
         ktxTexture* ktxTexture;
@@ -224,8 +224,8 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
     ld1.step = step_texture_stb;
     ld1.loader_size = sizeof(TextureLoaderState);
     ld1.loader_align = alignof(TextureLoaderState);
-    ld1.settings_size = sizeof(PulseGraphicsTextureLoadDesc);
-    ld1.settings_align = alignof(PulseGraphicsTextureLoadDesc);
+    ld1.settings_size = sizeof(PulseTextureLoadDesc);
+    ld1.settings_align = alignof(PulseTextureLoadDesc);
     ld1.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld1);
 
@@ -239,8 +239,8 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
     ld2.step = step_texture_ktx;
     ld2.loader_size = sizeof(TextureLoaderState);
     ld2.loader_align = alignof(TextureLoaderState);
-    ld2.settings_size = sizeof(PulseGraphicsTextureLoadDesc);
-    ld2.settings_align = alignof(PulseGraphicsTextureLoadDesc);
+    ld2.settings_size = sizeof(PulseTextureLoadDesc);
+    ld2.settings_align = alignof(PulseTextureLoadDesc);
     ld2.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld2);
 }
@@ -249,9 +249,9 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-    PulseTextureHandle pulse_graphics_texture_load(
+    PulseTextureHandle pulse_load_texture(
         PulseAppId app,
-        const PulseGraphicsTextureLoadDesc* desc)
+        const PulseTextureLoadDesc* desc)
     {
         PulseAssetHandle h = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, desc->filepath, desc);
         if (!pulse_asset_handle_is_valid(h)) return PulseTextureHandle{};

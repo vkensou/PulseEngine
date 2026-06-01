@@ -26,9 +26,9 @@ void register_sampler_type(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-bool pulse_graphics_sampler_acquire(PulseAppId app, PulseSamplerHandle handle, PulseSampler* sampler_ref) {
+bool pulse_acquire_sampler(PulseAppId app, PulseSamplerHandle handle, PulseSampler* sampler_ref) {
     PulseAssetRef ref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_sampler_to_handle(handle), &ref)) {
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_sampler_to_handle(handle), &ref)) {
         sampler_ref->handle = handle;
         sampler_ref->ptr = static_cast<pulse_sampler_data_t*>(ref.ptr);
         return true;
@@ -40,7 +40,7 @@ bool pulse_graphics_sampler_acquire(PulseAppId app, PulseSamplerHandle handle, P
 }
 
 void pulse_graphics_sampler_release(PulseAppId app, PulseSampler* sampler_ref) {
-    PulseAssetRef ref{ pulse_graphics_sampler_to_handle(sampler_ref->handle), nullptr };
+    PulseAssetRef ref{ pulse_sampler_to_handle(sampler_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     sampler_ref->handle = {};
     sampler_ref->ptr = nullptr;

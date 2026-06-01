@@ -8,7 +8,7 @@ int main() {
     assert(app != nullptr);
 
     auto window_plugin_desc = pulse_window_plugin_desc_default();
-    assert(pulse_window_add_plugin(app, &window_plugin_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_plugin_desc) == PULSE_RESULT_OK);
 
     pulse_app_run(app);
 

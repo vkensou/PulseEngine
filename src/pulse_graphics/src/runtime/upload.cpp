@@ -27,7 +27,7 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
             pulse_texture_data_t* tex = entry.texture_data;
             PulseTexture ref{};
             if (!tex) {
-                if (pulse_graphics_texture_acquire(app, entry.texture, &ref))
+                if (pulse_acquire_texture(app, entry.texture, &ref))
                     tex = static_cast<pulse_texture_data_t*>(ref.ptr);
             }
             if (!tex) break;
@@ -57,16 +57,16 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
                     pulse_rendergraph_add_generate_mipmap(graph, tex_rh, entry.source_mip_levels);
             }
 
-            if (ref.ptr) pulse_graphics_texture_release(app, &ref);
+            if (ref.ptr) pulse_release_texture(app, &ref);
             done = true;
             break;
         }
         case UPLOAD_BUFFER:
         case UPLOAD_BUFFER_DATA: {
             pulse_buffer_data_t* buf = entry.buffer_data;
-            PulseBuffer ref{};
+            PulseGraphicsBuffer ref{};
             if (!buf) {
-                if (pulse_graphics_buffer_acquire(app, entry.buffer, &ref))
+                if (pulse_acquire_graphics_buffer(app, entry.buffer, &ref))
                     buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }
             if (!buf) break;
@@ -79,7 +79,7 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
                     const_cast<void*>(entry.data), nullptr, 0, nullptr);
             }
 
-            if (ref.ptr) pulse_graphics_buffer_release(app, &ref);
+            if (ref.ptr) pulse_release_graphics_buffer(app, &ref);
             done = true;
             break;
         }
@@ -100,15 +100,15 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
     for (auto& entry : st->dynamic_updates) {
         if (entry.content == UPLOAD_BUFFER || entry.content == UPLOAD_BUFFER_DATA) {
             pulse_buffer_data_t* buf = entry.buffer_data;
-            PulseBuffer ref{};
+            PulseGraphicsBuffer ref{};
             if (!buf) {
-                if (pulse_graphics_buffer_acquire(app, entry.buffer, &ref))
+                if (pulse_acquire_graphics_buffer(app, entry.buffer, &ref))
                     buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }
             if (buf) {
                 (void)pulse_rendergraph_import_buffer(graph, buf);
             }
-            if (ref.ptr) pulse_graphics_buffer_release(app, &ref);
+            if (ref.ptr) pulse_release_graphics_buffer(app, &ref);
         }
     }
     st->dynamic_updates.clear();
@@ -167,11 +167,11 @@ uint8_t* queue_staging_buffer_full(
 }
 
 void install_upload_callback(PulseAppId app) {
-    PulseGraphicsRendererRecordCallbackDesc desc{};
+    PulseRenderRecordCallbackDesc desc{};
     desc.callback = upload_record_callback;
     desc.user_data = nullptr;
     desc.priority = -1000;
-    pulse_graphics_render_add_record_callback(app, &desc);
+    pulse_add_render_record_callback(app, &desc);
 }
 
 bool is_upload_pending(PulseAppId app, PulseAssetHandle handle) {
@@ -179,7 +179,7 @@ bool is_upload_pending(PulseAppId app, PulseAssetHandle handle) {
     if (!state) return false;
     if (!pulse_asset_handle_is_valid(handle)) return false;
     for (const auto& entry : state->pending_uploads) {
-        if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphics_texture_to_handle(entry.texture), handle)) return true;
+        if (entry.content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_texture_to_handle(entry.texture), handle)) return true;
         if (entry.content == UPLOAD_BUFFER && pulse_asset_handle_equals(pulse_graphics_buffer_to_handle(entry.buffer), handle)) return true;
     }
     return false;
@@ -192,7 +192,7 @@ void clear_upload_pending(PulseAppId app, PulseAssetHandle handle) {
     auto& vec = state->pending_uploads;
     for (size_t i = 0; i < vec.size(); ) {
         bool match = false;
-        if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_graphics_texture_to_handle(vec[i].texture), handle)) match = true;
+        if (vec[i].content == UPLOAD_TEXTURE && pulse_asset_handle_equals(pulse_texture_to_handle(vec[i].texture), handle)) match = true;
         if (vec[i].content == UPLOAD_BUFFER && pulse_asset_handle_equals(pulse_graphics_buffer_to_handle(vec[i].buffer), handle)) match = true;
         if (match) {
             vec.erase(vec.begin() + i);

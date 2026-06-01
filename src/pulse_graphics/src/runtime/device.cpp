@@ -6,7 +6,7 @@
 namespace pulse_graphics_internal {
 
 bool create_renderer(pulse_graphics_state* state) {
-    PulseGraphicsRenderer& renderer = state->renderer;
+    PulseRenderer& renderer = state->renderer;
 
     CGPUInstanceDescriptor instance_desc{};
     instance_desc.backend = state->desc.backend;
@@ -76,7 +76,7 @@ bool create_renderer(pulse_graphics_state* state) {
 }
 
 void destroy_renderer(pulse_graphics_state* state) {
-    PulseGraphicsRenderer& renderer = state->renderer;
+    PulseRenderer& renderer = state->renderer;
 
     if (renderer.graphics_queue) {
         cgpu_queue_wait_idle(renderer.graphics_queue);

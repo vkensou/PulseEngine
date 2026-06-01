@@ -94,7 +94,7 @@ extern ECS_TAG_DECLARE(PulseWindowResized);
 
 PULSE_API PulseWindowDesc pulse_window_desc_default(void);
 PULSE_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
-PULSE_API EPulseResult pulse_window_add_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
+PULSE_API EPulseResult pulse_add_window_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
 PULSE_API ecs_entity_t pulse_window_get_primary(PulseAppId app);
 PULSE_API SDL_Window* pulse_window_get_sdl_window(PulseAppId app, ecs_entity_t entity);
 PULSE_API void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);

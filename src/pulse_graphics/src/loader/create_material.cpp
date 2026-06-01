@@ -56,8 +56,8 @@ void register_material_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.step = step_material_create;
     ld.loader_size = sizeof(MaterialLoaderState);
     ld.loader_align = alignof(MaterialLoaderState);
-    ld.settings_size = sizeof(PulseGraphicsMaterialCreateDesc);
-    ld.settings_align = alignof(PulseGraphicsMaterialCreateDesc);
+    ld.settings_size = sizeof(PulseMaterialCreateDesc);
+    ld.settings_align = alignof(PulseMaterialCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
 }
@@ -66,9 +66,9 @@ void register_material_create_loader(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-PulseMaterialHandle pulse_graphics_material_create(
+PulseMaterialHandle pulse_create_material(
     PulseAppId app,
-    const PulseGraphicsMaterialCreateDesc* desc)
+    const PulseMaterialCreateDesc* desc)
 {
     PulseMaterialHandle result{};
     if (!desc)
@@ -79,7 +79,7 @@ PulseMaterialHandle pulse_graphics_material_create(
         return result;
 
     PulseAssetDependency dependencies[1];
-    dependencies[0] = { pulse_graphics_shader_to_handle(desc->shader), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED };
+    dependencies[0] = { pulse_shader_to_handle(desc->shader), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED };
 
     PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
         app, PULSE_TYPE_MATERIAL, nullptr, dependencies, 1, desc);

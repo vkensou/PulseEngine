@@ -102,8 +102,8 @@ enum MeshLoadPhase {
 
 struct MeshLoadState {
     int phase = MESH_LOAD_PARSE;
-    PulseBufferHandle vb_handle = {};
-    PulseBufferHandle ib_handle = {};
+    PulseGraphicsBufferHandle vb_handle = {};
+    PulseGraphicsBufferHandle ib_handle = {};
     uint32_t vertex_stride = 0;
 };
 
@@ -156,7 +156,7 @@ EPulseAssetLoaderStatus step_mesh_load(
         vb_desc.size = verts.size() * vstride;
 
         PulseGraphicsBufferCreateDesc vb_create_desc = { vb_desc, vb_desc.size, verts.data() };
-        s->vb_handle = pulse_graphics_buffer_create(pulse_graphics_internal::g_loader_app, &vb_create_desc);
+        s->vb_handle = pulse_create_graphics_buffer(pulse_graphics_internal::g_loader_app, &vb_create_desc);
         pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_graphics_buffer_to_handle(s->vb_handle), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
         // Create index buffer asset
@@ -169,7 +169,7 @@ EPulseAssetLoaderStatus step_mesh_load(
         ib_desc.size = ib_bytes;
 
         PulseGraphicsBufferCreateDesc ib_create_desc = { ib_desc, ib_bytes, indices.data() };
-        s->ib_handle = pulse_graphics_buffer_create(pulse_graphics_internal::g_loader_app, &ib_create_desc);
+        s->ib_handle = pulse_create_graphics_buffer(pulse_graphics_internal::g_loader_app, &ib_create_desc);
         pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_graphics_buffer_to_handle(s->ib_handle), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
         s->phase = MESH_LOAD_WAIT_BUFFERS;
@@ -179,8 +179,8 @@ EPulseAssetLoaderStatus step_mesh_load(
     if (s->phase == MESH_LOAD_WAIT_BUFFERS) {
         auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
 
-        PulseBuffer vb_ref{};
-        PulseBuffer ib_ref{};
+        PulseGraphicsBuffer vb_ref{};
+        PulseGraphicsBuffer ib_ref{};
 
         if (!internal_acquire_buffer(ctx->asset_system, s->vb_handle, &vb_ref))
             return PULSE_ASSET_LOADER_STATUS_PENDING;
@@ -224,7 +224,7 @@ void register_mesh_load_loader(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-PulseMeshHandle pulse_graphics_mesh_load(PulseAppId app, const char* filepath)
+PulseMeshHandle pulse_load_mesh(PulseAppId app, const char* filepath)
 {
     PulseMeshHandle result{};
     if (!app || !filepath || !filepath[0]) return result;

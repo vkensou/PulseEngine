@@ -19,7 +19,7 @@ EPulseAssetLoaderStatus step_texture_create(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
 
-		auto create_desc = static_cast<const PulseGraphicsTextureCreateDesc*>(ctx->settings);
+		auto create_desc = static_cast<const PulseTextureCreateDesc*>(ctx->settings);
 
         HGEGraphics::init_texture(texture, device, create_desc->desc);
 
@@ -64,8 +64,8 @@ void register_texture_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.step = step_texture_create;
     ld.loader_size = sizeof(TextureLoaderState);
     ld.loader_align = alignof(TextureLoaderState);
-    ld.settings_size = sizeof(PulseGraphicsTextureCreateDesc);
-    ld.settings_align = alignof(PulseGraphicsTextureCreateDesc);
+    ld.settings_size = sizeof(PulseTextureCreateDesc);
+    ld.settings_align = alignof(PulseTextureCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
 }
@@ -74,9 +74,9 @@ void register_texture_create_loader(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-PulseTextureHandle pulse_graphics_texture_create(
+PulseTextureHandle pulse_create_texture(
     PulseAppId app,
-    const PulseGraphicsTextureCreateDesc* desc)
+    const PulseTextureCreateDesc* desc)
 {
 	if (!desc)
         return {};

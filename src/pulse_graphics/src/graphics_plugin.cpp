@@ -14,8 +14,8 @@ ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
 void pulse_graphics_state::sort_record_callbacks() {
     std::stable_sort(record_callbacks.begin(), record_callbacks.end(),
-        [](const PulseGraphicsRendererRecordCallbackDesc& a,
-           const PulseGraphicsRendererRecordCallbackDesc& b) {
+        [](const PulseRenderRecordCallbackDesc& a,
+           const PulseRenderRecordCallbackDesc& b) {
             return a.priority < b.priority;
         });
 }
@@ -38,7 +38,7 @@ pulse_graphics_state* state_from_app(PulseAppId app) {
 }
 
 CGPUDeviceId get_device(PulseAppId app) {
-    const PulseGraphicsRenderer* renderer = pulse_graphics_renderer_get(app);
+    const PulseRenderer* renderer = pulse_get_renderer(app);
     return renderer ? renderer->device : CGPUDeviceId{CGPU_NULLPTR};
 }
 
@@ -88,7 +88,7 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 		#include "blit.ps.spv.h"
 	};
 
-    PulseGraphicsShaderCreateFromBinaryDesc blit_shader_desc = {
+    PulseShaderCreateFromBinaryDesc blit_shader_desc = {
         .vs_data = blit_vert_spv,
         .vs_size = sizeof(blit_vert_spv),
         .fs_data = blit_frag_spv,
@@ -109,10 +109,10 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
         },
     };
 
-    state->blit_shader.handle = pulse_graphics_shader_create_from_binary(app, &blit_shader_desc);
-    pulse_graphics_shader_acquire(app, state->blit_shader.handle, &state->blit_shader);
+    state->blit_shader.handle = pulse_create_shader_from_binary(app, &blit_shader_desc);
+    pulse_acquire_shader(app, state->blit_shader.handle, &state->blit_shader);
 
-	PulseGraphicsSamplerCreateDesc blit_linear_sampler_desc = {
+	PulseSamplerCreateDesc blit_linear_sampler_desc = {
         .desc = {
             .min_filter = CGPU_FILTER_TYPE_LINEAR,
             .mag_filter = CGPU_FILTER_TYPE_LINEAR,
@@ -124,8 +124,8 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
             .max_anisotropy = 1,
         }
 	};
-	state->blit_linear_sampler.handle = pulse_graphics_sampler_create(app, &blit_linear_sampler_desc);
-    pulse_graphics_sampler_acquire(app, state->blit_linear_sampler.handle, &state->blit_linear_sampler);
+	state->blit_linear_sampler.handle = pulse_create_sampler(app, &blit_linear_sampler_desc);
+    pulse_acquire_sampler(app, state->blit_linear_sampler.handle, &state->blit_linear_sampler);
 }
 
 EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
@@ -144,7 +144,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
 
     pulse_graphics_state_resource res{ state };
     ecs_singleton_set_ptr(world, pulse_graphics_state_resource, &res);
-    ecs_singleton_set_ptr(world, PulseGraphicsRenderer, &state->renderer);
+    ecs_singleton_set_ptr(world, PulseRenderer, &state->renderer);
 
     CGPUDeviceId device = get_device(app);
     register_graphics_asset_types_and_loaders(app, device);
@@ -183,8 +183,8 @@ void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
     uninstall_observers(state, world);
     remove_render_window_components(world);
 
-    if (world && ecs_id(PulseGraphicsRenderer) != 0) {
-        ecs_singleton_remove(world, PulseGraphicsRenderer);
+    if (world && ecs_id(PulseRenderer) != 0) {
+        ecs_singleton_remove(world, PulseRenderer);
     }
     if (world && ecs_id(pulse_graphics_state_resource) != 0) {
         ecs_singleton_remove(world, pulse_graphics_state_resource);
@@ -199,7 +199,7 @@ void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SHADER);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SHADER_LIBRARY);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SAMPLER);
-    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_BUFFER);
+    pulse_asset_system_force_unload_assets(as, PULSE_TYPE_GRAPHICS_BUFFER);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_TEXTURE);
 
     destroy_renderer(state);
@@ -230,7 +230,7 @@ PulseGraphicsPluginDesc pulse_graphics_plugin_desc_default(void) {
     return desc;
 }
 
-EPulseResult pulse_graphics_add_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc) {
+EPulseResult pulse_add_graphics_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc) {
     if (!app || !validate_plugin_desc(desc)) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     if (pulse_app_has_plugin(app, kPluginName)) return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
 

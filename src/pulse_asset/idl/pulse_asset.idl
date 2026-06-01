@@ -216,7 +216,7 @@ func.AssetPluginDescDefault
     "AssetPluginDesc"
     ()
 
-func.AssetAddPlugin
+func.AddAssetPlugin
     "EPulseResult"
     .app   "PulseAppId"
     .desc  "*const AssetPluginDesc"

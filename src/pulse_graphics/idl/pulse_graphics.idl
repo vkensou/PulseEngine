@@ -53,7 +53,7 @@ typedef "ECGPUPrimitiveTopology"
 --- Constants
 const_value.GraphicsPluginDescVersion { value = "1u" }
 const_value.TypeTexture { value = "UINT64_C(0x1000)" }
-const_value.TypeBuffer { value = "UINT64_C(0x1001)" }
+const_value.TypeGraphicsBuffer { value = "UINT64_C(0x1001)" }
 const_value.TypeSampler { value = "UINT64_C(0x1002)" }
 const_value.TypeShaderLibrary { value = "UINT64_C(0x1003)" }
 const_value.TypeShader { value = "UINT64_C(0x1004)" }
@@ -87,7 +87,7 @@ struct.TextureHandle
     .generation "uint32_t"
     ()
 
-struct.BufferHandle
+struct.GraphicsBufferHandle
     .index "uint32_t"
     .generation "uint32_t"
     ()
@@ -118,8 +118,8 @@ struct.ComputeShader
     .ptr    "*anyopaque"
     ()
 
-struct.Buffer
-    .handle "BufferHandle"
+struct.GraphicsBuffer
+    .handle "GraphicsBufferHandle"
     .ptr    "*anyopaque"
     ()
 
@@ -144,7 +144,7 @@ struct.Sampler
     ()
 
 --- Function pointer: render record callback
-funcptr.GraphicsRenderRecordCallback
+funcptr.RenderRecordCallback
     "void"
     .app        "PulseAppId"
     .graph      "*pulse_rendergraph_t"
@@ -160,12 +160,12 @@ struct.GraphicsPluginDesc
     .enableDebugLayer       "bool"
     .enableGpuBasedValidation "bool"
     .enableVsync            "bool"
-    .recordCallback         "GraphicsRenderRecordCallback"
+    .recordCallback         "RenderRecordCallback"
     .recordUserData         "?*anyopaque"
     ()
 
 --- Renderer state (opaque at C API level)
-struct.GraphicsRenderer
+struct.Renderer
     .instance   "CGPUInstanceId"
     .adapter    "CGPUAdapterId"
     .device     "CGPUDeviceId"
@@ -179,13 +179,13 @@ struct.GraphicsRenderer
     ()
 
 --- Window surface
-struct.GraphicsSurface
+struct.Surface
     .instance "CGPUInstanceId"
     .surface  "CGPUSurfaceId"
     ()
 
 --- Window swapchain
-struct.GraphicsSwapchain
+struct.Swapchain
     .device                   "CGPUDeviceId"
     .swapchain                "CGPUSwapChainId"
     .backbufferViews          "*CGPUTextureViewId"
@@ -201,25 +201,25 @@ struct.GraphicsSwapchain
     ()
 
 --- Record callback descriptor
-struct.GraphicsRendererRecordCallbackDesc
-    .callback  "GraphicsRenderRecordCallback"
+struct.RenderRecordCallbackDesc
+    .callback  "RenderRecordCallback"
     .userData  "?*anyopaque"
     .priority  "int32_t"
     ()
 
 --- Shader library create desc
-struct.GraphicsShaderLibraryCreateDesc
+struct.ShaderLibraryCreateDesc
     .code     "*const anyopaque"
     .codeSize "uint32_t"
     ()
 
 --- Shader library load desc
-struct.GraphicsShaderLibraryLoadDesc
+struct.ShaderLibraryLoadDesc
     .path "cstring"
     ()
 
 --- Shader create from binary desc
-struct.GraphicsShaderCreateFromBinaryDesc
+struct.ShaderCreateFromBinaryDesc
     .vsData             "*const anyopaque"
     .vsSize             "uint32_t"
     .fsData             "*const anyopaque"
@@ -230,7 +230,7 @@ struct.GraphicsShaderCreateFromBinaryDesc
     ()
 
 --- Shader create from file desc
-struct.GraphicsShaderCreateFromFileDesc
+struct.ShaderCreateFromFileDesc
     .vertPath           "cstring"
     .fragPath           "cstring"
     .blendDesc          "CGPUBlendStateDescriptor"
@@ -239,13 +239,13 @@ struct.GraphicsShaderCreateFromFileDesc
     ()
 
 --- Compute shader create from binary desc
-struct.GraphicsComputeShaderCreateFromBinaryDesc
+struct.ComputeShaderCreateFromBinaryDesc
     .csData "*const anyopaque"
     .csSize "uint32_t"
     ()
 
 --- Compute shader create from file desc
-struct.GraphicsComputeShaderCreateFromFileDesc
+struct.ComputeShaderCreateFromFileDesc
     .csPath "cstring"
     ()
 
@@ -257,12 +257,12 @@ struct.GraphicsBufferCreateDesc
     ()
 
 --- Sampler create desc
-struct.GraphicsSamplerCreateDesc
+struct.SamplerCreateDesc
     .desc "CGPUSamplerDescriptor"
     ()
 
 --- Texture create desc
-struct.GraphicsTextureCreateDesc
+struct.TextureCreateDesc
     .desc            "CGPUTextureDescriptor"
     .pixelDataSize   "uint64_t"
     .pixelData       "*const anyopaque"
@@ -270,13 +270,13 @@ struct.GraphicsTextureCreateDesc
     ()
 
 --- Texture load desc
-struct.GraphicsTextureLoadDesc
+struct.TextureLoadDesc
     .filepath        "cstring"
     .generateMipmaps "bool"
     ()
 
 --- Mesh create from data desc
-struct.GraphicsMeshCreateFromDataDesc
+struct.MeshCreateFromDataDesc
     .vertexCount          "uint32_t"
     .vertexStride         "uint32_t"
     .layout               "CGPUVertexLayout"
@@ -290,14 +290,14 @@ struct.GraphicsMeshCreateFromDataDesc
     ()
 
 --- Mesh create dynamic desc
-struct.GraphicsMeshCreateDynamicDesc
+struct.MeshCreateDynamicDesc
     .topology    "ECGPUPrimitiveTopology"
     .layout      "CGPUVertexLayout"
     .indexStride "uint32_t"
     ()
 
 --- Material create desc
-struct.GraphicsMaterialCreateDesc
+struct.MaterialCreateDesc
     .shader "ShaderHandle"
     ()
 
@@ -308,44 +308,44 @@ func.GraphicsPluginDescDefault
     "GraphicsPluginDesc"
     ()
 
-func.GraphicsAddPlugin
+func.AddGraphicsPlugin
     "EPulseResult"
     .app  "PulseAppId"
     .desc "*const GraphicsPluginDesc"
     ()
 
 --- Renderer
-func.GraphicsRendererGet
-    "*const GraphicsRenderer"
+func.GetRenderer
+    "*const Renderer"
     .app "PulseAppId"
     ()
 
-func.GraphicsSurfaceGet
-    "*const GraphicsSurface"
+func.GetSurface
+    "*const Surface"
     .app "PulseAppId"
     .entity "ecs_entity_t"
     ()
 
-func.GraphicsSwapchainGet
-    "*const GraphicsSwapchain"
+func.GetSwapchain
+    "*const Swapchain"
     .app "PulseAppId"
     .entity "ecs_entity_t"
     ()
 
 --- Render record callbacks
-func.GraphicsRenderAddRecordCallback
+func.AddRenderRecordCallback
     "EPulseResult"
     .app  "PulseAppId"
-    .desc "*const GraphicsRendererRecordCallbackDesc"
+    .desc "*const RenderRecordCallbackDesc"
     ()
 
-func.GraphicsRenderRemoveRecordCallback
+func.RemoveRenderRecordCallback
     "EPulseResult"
     .app      "PulseAppId"
-    .callback "GraphicsRenderRecordCallback"
+    .callback "RenderRecordCallback"
     ()
 
-func.GraphicsRenderImportWindowBackbuffer
+func.ImportWindowBackbuffer
     "pulse_texture_handle_t"
     .app           "PulseAppId"
     .graph         "*pulse_rendergraph_t"
@@ -353,52 +353,52 @@ func.GraphicsRenderImportWindowBackbuffer
     ()
 
 --- Shader library
-func.GraphicsShaderLibraryCreate
+func.CreateShaderLibrary
     "ShaderLibraryHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsShaderLibraryCreateDesc"
+    .desc "*const ShaderLibraryCreateDesc"
     ()
 
-func.GraphicsShaderLibraryLoad
+func.LoadShaderLibrary
     "ShaderLibraryHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsShaderLibraryLoadDesc"
+    .desc "*const ShaderLibraryLoadDesc"
     ()
 
-func.GraphicsShaderLibraryAcquire
+func.AcquireShaderLibrary
     "bool"
     .app    "PulseAppId"
     .handle "ShaderLibraryHandle"
     .outRef "*ShaderLibrary"
     ()
 
-func.GraphicsShaderLibraryRelease
+func.ReleaseShaderLibrary
     "void"
     .app "PulseAppId"
     .ref  "*ShaderLibrary"
     ()
 
 --- Shader
-func.GraphicsShaderCreateFromBinary
+func.CreateShaderFromBinary
     "ShaderHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsShaderCreateFromBinaryDesc"
+    .desc "*const ShaderCreateFromBinaryDesc"
     ()
 
-func.GraphicsShaderCreateFromFile
+func.CreateShaderFromFile
     "ShaderHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsShaderCreateFromFileDesc"
+    .desc "*const ShaderCreateFromFileDesc"
     ()
 
-func.GraphicsShaderAcquire
+func.AcquireShader
     "bool"
     .app    "PulseAppId"
     .handle "ShaderHandle"
     .outRef "*Shader"
     ()
 
-func.GraphicsShaderRelease
+func.ReleaseShader
     "void"
     .app "PulseAppId"
     .ref  "*Shader"
@@ -408,114 +408,114 @@ func.GraphicsShaderRelease
 func.GraphicsComputeShaderCreateFromBinary
     "ComputeShaderHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsComputeShaderCreateFromBinaryDesc"
+    .desc "*const ComputeShaderCreateFromBinaryDesc"
     ()
 
 func.GraphicsComputeShaderCreateFromFile
     "ComputeShaderHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsComputeShaderCreateFromFileDesc"
+    .desc "*const ComputeShaderCreateFromFileDesc"
     ()
 
-func.GraphicsComputeShaderAcquire
+func.AcquireComputeShader
     "bool"
     .app    "PulseAppId"
     .handle "ComputeShaderHandle"
     .outRef "*ComputeShader"
     ()
 
-func.GraphicsComputeShaderRelease
+func.ReleaseComputeShader
     "void"
     .app "PulseAppId"
     .ref  "*ComputeShader"
     ()
 
 --- Buffer
-func.GraphicsBufferCreate
-    "BufferHandle"
+func.CreateGraphicsBuffer
+    "GraphicsBufferHandle"
     .app  "PulseAppId"
     .desc "*const GraphicsBufferCreateDesc"
     ()
 
-func.GraphicsBufferAcquire
+func.AcquireGraphicsBuffer
     "bool"
     .app    "PulseAppId"
-    .handle "BufferHandle"
-    .outRef "*Buffer"
+    .handle "GraphicsBufferHandle"
+    .outRef "*GraphicsBuffer"
     ()
 
-func.GraphicsBufferRelease
+func.ReleaseGraphicsBuffer
     "void"
     .app "PulseAppId"
-    .ref  "*Buffer"
+    .ref  "*GraphicsBuffer"
     ()
 
 --- Sampler
-func.GraphicsSamplerCreate
+func.CreateSampler
     "SamplerHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsSamplerCreateDesc"
+    .desc "*const SamplerCreateDesc"
     ()
 
-func.GraphicsSamplerAcquire
+func.AcquireSampler
     "bool"
     .app    "PulseAppId"
     .handle "SamplerHandle"
     .outRef "*Sampler"
     ()
 
-func.GraphicsSamplerRelease
+func.ReleaseSampler
     "void"
     .app "PulseAppId"
     .ref  "*Sampler"
     ()
 
 --- Texture
-func.GraphicsTextureCreate
+func.CreateTexture
     "TextureHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsTextureCreateDesc"
+    .desc "*const TextureCreateDesc"
     ()
 
-func.GraphicsTextureLoad
+func.LoadTexture
     "TextureHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsTextureLoadDesc"
+    .desc "*const TextureLoadDesc"
     ()
 
-func.GraphicsTextureAcquire
+func.AcquireTexture
     "bool"
     .app    "PulseAppId"
     .handle "TextureHandle"
     .outRef "*Texture"
     ()
 
-func.GraphicsTextureRelease
+func.ReleaseTexture
     "void"
     .app "PulseAppId"
     .ref  "*Texture"
     ()
 
 --- Mesh
-func.GraphicsMeshCreateFromData
+func.CreateMeshFromData
     "MeshHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsMeshCreateFromDataDesc"
+    .desc "*const MeshCreateFromDataDesc"
     ()
 
-func.GraphicsMeshCreateDynamic
+func.CreateMeshDynamic
     "MeshHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsMeshCreateDynamicDesc"
+    .desc "*const MeshCreateDynamicDesc"
     ()
 
-func.GraphicsMeshLoad
+func.LoadMesh
     "MeshHandle"
     .app      "PulseAppId"
     .filepath "cstring"
     ()
 
-func.GraphicsMeshUpdateVertices
+func.MeshUpdateVertices
     "void"
     .app   "PulseAppId"
     .mesh  "*MeshHandle"
@@ -523,7 +523,7 @@ func.GraphicsMeshUpdateVertices
     .count "uint32_t"
     ()
 
-func.GraphicsMeshUpdateIndices
+func.MeshUpdateIndices
     "void"
     .app   "PulseAppId"
     .mesh  "*MeshHandle"
@@ -531,67 +531,63 @@ func.GraphicsMeshUpdateIndices
     .count "uint32_t"
     ()
 
-func.GraphicsMeshAcquire
+func.AcquireMesh
     "bool"
     .app    "PulseAppId"
     .handle "MeshHandle"
     .outRef "*Mesh"
     ()
 
-func.GraphicsMeshRelease
+func.ReleaseMesh
     "void"
     .app "PulseAppId"
     .ref  "*Mesh"
     ()
 
 --- Material
-func.GraphicsMaterialCreate
+func.CreateMaterial
     "MaterialHandle"
     .app  "PulseAppId"
-    .desc "*const GraphicsMaterialCreateDesc"
+    .desc "*const MaterialCreateDesc"
     ()
 
-func.GraphicsMaterialAcquire
+func.AcquireMaterial
     "bool"
     .app    "PulseAppId"
     .handle "MaterialHandle"
     .outRef "*Material"
     ()
 
-func.GraphicsMaterialRelease
+func.ReleaseMaterial
     "void"
     .app "PulseAppId"
     .ref  "*Material"
     ()
 
 --- Material bind
-func.GraphicsMaterialBindBuffer
+func.Material.BindBuffer
     "void"
-    .material "Material"
     .set      "uint32_t"
     .binding  "uint32_t"
-    .buffer   "Buffer"
+    .buffer   "GraphicsBuffer"
     ()
 
-func.GraphicsMaterialBindTexture
+func.Material.BindTexture
     "void"
-    .material "Material"
     .set      "uint32_t"
     .binding  "uint32_t"
     .texture  "Texture"
     ()
 
-func.GraphicsMaterialBindSampler
+func.Material.BindSampler
     "void"
-    .material "Material"
     .set      "uint32_t"
     .binding  "uint32_t"
     .sampler  "Sampler"
     ()
 
-func.GraphicsMaterialBindData
+func.Material.BindData
     "void"
-    .material "Material"
     .set      "uint32_t"
     .binding  "uint32_t"
     .size_    "size_t"
@@ -599,14 +595,14 @@ func.GraphicsMaterialBindData
     ()
 
 --- Encoder
-func.GraphicsEncoderDraw
+func.RenderpassEncoderDraw
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .material "Material"
     .mesh     "Mesh"
     ()
 
-func.GraphicsEncoderDrawSubmesh
+func.RenderpassEncoderDrawSubmesh
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .material "Material"
@@ -617,7 +613,7 @@ func.GraphicsEncoderDrawSubmesh
     .firstVtx "uint32_t"
     ()
 
-func.GraphicsEncoderDrawProcedure
+func.RenderpassEncoderDrawProcedure
     "void"
     .encoder   "*pulse_renderpass_encoder_t"
     .material  "Material"
@@ -625,7 +621,7 @@ func.GraphicsEncoderDrawProcedure
     .vertexCount "uint32_t"
     ()
 
-func.GraphicsEncoderDispatch
+func.RenderpassEncoderDispatch
     "void"
     .encoder      "*pulse_renderpass_encoder_t"
     .computeShader "ComputeShader"
@@ -634,7 +630,7 @@ func.GraphicsEncoderDispatch
     .z            "uint32_t"
     ()
 
-func.GraphicsEncoderSetGlobalTexture
+func.RenderpassEncoderSetGlobalTexture
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .texture  "Texture"
@@ -642,15 +638,15 @@ func.GraphicsEncoderSetGlobalTexture
     .binding  "uint32_t"
     ()
 
-func.GraphicsEncoderSetGlobalBuffer
+func.RenderpassEncoderSetGlobalBuffer
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
-    .buffer   "Buffer"
+    .buffer   "GraphicsBuffer"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
-func.GraphicsEncoderSetGlobalSampler
+func.RenderpassEncoderSetGlobalSampler
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .sampler  "Sampler"
@@ -658,7 +654,7 @@ func.GraphicsEncoderSetGlobalSampler
     .binding  "uint32_t"
     ()
 
-func.GraphicsEncoderSetGlobalTextureHandle
+func.RenderpassEncoderSetGlobalTextureHandle
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .handle   "pulse_texture_handle_t"
@@ -666,7 +662,7 @@ func.GraphicsEncoderSetGlobalTextureHandle
     .binding  "uint32_t"
     ()
 
-func.GraphicsEncoderSetGlobalBufferHandle
+func.RenderpassEncoderSetGlobalBufferHandle
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .handle   "pulse_buffer_handle_t"
@@ -674,7 +670,7 @@ func.GraphicsEncoderSetGlobalBufferHandle
     .binding  "uint32_t"
     ()
 
-func.GraphicsEncoderSetGlobalBufferOffset
+func.RenderpassEncoderSetGlobalBufferOffset
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .handle   "pulse_buffer_handle_t"
@@ -684,7 +680,7 @@ func.GraphicsEncoderSetGlobalBufferOffset
     .size_    "uint64_t"
     ()
 
-func.GraphicsEncoderSetViewport
+func.RenderpassEncoderSetViewport
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .x        "float"
@@ -695,7 +691,7 @@ func.GraphicsEncoderSetViewport
     .maxDepth "float"
     ()
 
-func.GraphicsEncoderSetScissor
+func.RenderpassEncoderSetScissor
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .x        "uint32_t"
@@ -704,7 +700,7 @@ func.GraphicsEncoderSetScissor
     .height   "uint32_t"
     ()
 
-func.GraphicsEncoderPushConstants
+func.RenderpassEncoderPushConstants
     "void"
     .encoder  "*pulse_renderpass_encoder_t"
     .shader   "Shader"

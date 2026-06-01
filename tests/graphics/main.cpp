@@ -29,7 +29,7 @@ struct ObjectData
 struct test_graphic_resources {
     PulseShaderHandle shader;
     PulseShaderHandle compute;
-    PulseBufferHandle buffer;
+    PulseGraphicsBufferHandle buffer;
     PulseSamplerHandle sampler;
     PulseTextureHandle texture;
     PulseMeshHandle mesh;
@@ -43,26 +43,26 @@ struct test_render_passdata {
     PulseShader shader;
     PulseComputeShader compute;
     PulseTexture texture;
-    PulseBuffer buffer;
+    PulseGraphicsBuffer buffer;
 };
 
 static void on_test_render(pulse_renderpass_encoder_t* encoder, void* userdata) {
     auto* data = static_cast<test_render_passdata*>(userdata);
     if (!encoder) return;
 
-    pulse_graphics_encoder_set_viewport(encoder, 0, 0, 800, 600, 0, 1);
-    pulse_graphics_encoder_set_scissor(encoder, 0, 0, 800, 600);
-    pulse_graphics_encoder_set_global_texture_handle(encoder, pulse_texture_handle_t{}, 0, 0);
-    pulse_graphics_encoder_set_global_buffer_handle(encoder, pulse_buffer_handle_t{}, 0, 0);
-    pulse_graphics_encoder_set_global_buffer_offset(encoder, pulse_buffer_handle_t{}, 0, 0, 0, 256);
-    pulse_graphics_encoder_push_constants(encoder, data->shader, "test", nullptr);
-    pulse_graphics_encoder_draw(encoder, data->material, data->mesh);
-    pulse_graphics_encoder_draw_submesh(encoder, data->material, data->mesh, 3, 0, 3, 0);
-    pulse_graphics_encoder_draw_procedure(encoder, data->material, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
-    pulse_graphics_encoder_dispatch(encoder, data->compute, 1, 1, 1);
-    pulse_graphics_encoder_set_global_texture(encoder, data->texture, 0, 0);
-    pulse_graphics_encoder_set_global_buffer(encoder, data->buffer, 0, 0);
-    pulse_graphics_encoder_set_global_sampler(encoder, {}, 0, 0);
+    pulse_renderpass_encoder_set_viewport(encoder, 0, 0, 800, 600, 0, 1);
+    pulse_renderpass_encoder_set_scissor(encoder, 0, 0, 800, 600);
+    pulse_renderpass_encoder_set_global_texture_handle(encoder, pulse_texture_handle_t{}, 0, 0);
+    pulse_renderpass_encoder_set_global_buffer_handle(encoder, pulse_buffer_handle_t{}, 0, 0);
+    pulse_renderpass_encoder_set_global_buffer_offset(encoder, pulse_buffer_handle_t{}, 0, 0, 0, 256);
+    pulse_renderpass_encoder_push_constants(encoder, data->shader, "test", nullptr);
+    pulse_renderpass_encoder_draw(encoder, data->material, data->mesh);
+    pulse_renderpass_encoder_draw_submesh(encoder, data->material, data->mesh, 3, 0, 3, 0);
+    pulse_renderpass_encoder_draw_procedure(encoder, data->material, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
+    pulse_renderpass_encoder_dispatch(encoder, data->compute, 1, 1, 1);
+    pulse_renderpass_encoder_set_global_texture(encoder, data->texture, 0, 0);
+    pulse_renderpass_encoder_set_global_buffer(encoder, data->buffer, 0, 0);
+    pulse_renderpass_encoder_set_global_sampler(encoder, {}, 0, 0);
 }
 
 struct test_render_state {
@@ -91,21 +91,21 @@ static void record_test_graphic(
         return;
     }
 
-    if (state->material_ref.handle.index == 0 && pulse_graphics_material_is_ready(app, state->material) && pulse_graphics_texture_is_ready(app, state->texture)) {
-        pulse_graphics_material_acquire(app, state->material, &state->material_ref);
+    if (state->material_ref.handle.index == 0 && pulse_material_is_ready(app, state->material) && pulse_texture_is_ready(app, state->texture)) {
+        pulse_acquire_material(app, state->material, &state->material_ref);
         PulseTexture texture_ref;
-        pulse_graphics_texture_acquire(app, state->texture, &texture_ref);
-        pulse_graphics_material_bind_texture(state->material_ref, 0, 1, texture_ref);
-        pulse_graphics_texture_release(app, &texture_ref);
+        pulse_acquire_texture(app, state->texture, &texture_ref);
+        pulse_material_bind_texture(&state->material_ref, 0, 1, texture_ref);
+        pulse_release_texture(app, &texture_ref);
 
         auto materialData = MaterialData{
             .albedo = HMM_V4(1, 0, 0, 1),
         };
-        pulse_graphics_material_bind_data(state->material_ref, 1, 0, sizeof(MaterialData), &materialData);
+        pulse_material_bind_data(&state->material_ref, 1, 0, sizeof(MaterialData), &materialData);
     }
 
-    if (state->mesh_ref.handle.index == 0 && pulse_graphics_mesh_is_ready(app, state->mesh)) {
-        pulse_graphics_mesh_acquire(app, state->mesh, &state->mesh_ref);
+    if (state->mesh_ref.handle.index == 0 && pulse_mesh_is_ready(app, state->mesh)) {
+        pulse_acquire_mesh(app, state->mesh, &state->mesh_ref);
     }
 
     ecs_iter_t it = ecs_query_iter(state->window_query->world, state->window_query);
@@ -116,7 +116,7 @@ static void record_test_graphic(
             const auto& window = windows[i];
 
             pulse_texture_handle_t target_handle =
-                pulse_graphics_render_import_window_backbuffer(app, graph, entity);
+                pulse_import_window_backbuffer(app, graph, entity);
             if (!pulse_rendergraph_texture_handle_valid(target_handle)) {
                 continue;
             }
@@ -165,9 +165,9 @@ static void record_test_graphic(
             pulse_renderpass_set_executable(&pass, [](pulse_renderpass_encoder_t* encoder, void* passdata)
                 {
                     MainPassPassData* resolved_passdata = (MainPassPassData*)passdata;
-                    pulse_graphics_encoder_set_global_buffer_handle(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
-                    pulse_graphics_encoder_set_global_buffer_offset(encoder, resolved_passdata->object_ubo_handle, 2, 0, 0, sizeof(ObjectData));
-                    pulse_graphics_encoder_draw(encoder, resolved_passdata->material_ref, resolved_passdata->mesh_ref);
+                    pulse_renderpass_encoder_set_global_buffer_handle(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
+                    pulse_renderpass_encoder_set_global_buffer_offset(encoder, resolved_passdata->object_ubo_handle, 2, 0, 0, sizeof(ObjectData));
+                    pulse_renderpass_encoder_draw(encoder, resolved_passdata->material_ref, resolved_passdata->mesh_ref);
                     //set_global_dynamic_buffer(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
                     //for (size_t i = 0; i < resolved_passdata->view->renderObjects.size(); ++i)
                     //{
@@ -194,17 +194,17 @@ int main(void) {
 
     // Add required plugins
     auto window_desc = pulse_window_plugin_desc_default();
-    assert(pulse_window_add_plugin(app, &window_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "tests/graphics/data";
-    assert(pulse_asset_add_plugin(app, &asset_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_RESULT_OK);
 
     // Add pulse_graphic plugin
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    assert(pulse_graphics_add_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
     //// ---- Create resources ----
@@ -218,7 +218,7 @@ int main(void) {
         .blend_alpha_op = CGPU_BLEND_OP_ADD,
         .color_mask = CGPU_COLOR_MASK_RGBA,
     };
-    PulseGraphicsShaderCreateFromFileDesc shader_desc = {
+    PulseShaderCreateFromFileDesc shader_desc = {
         .vert_path = "color.vert.spv",
         .frag_path = "color.frag.spv",
         .blend_desc = {
@@ -238,7 +238,7 @@ int main(void) {
             .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
         }
     };
-    PulseShaderHandle shader = pulse_graphics_shader_create_from_file(app, &shader_desc);
+    PulseShaderHandle shader = pulse_create_shader_from_file(app, &shader_desc);
 
     //pulse_shader_t compute = pulse_graphics_compute_shader_create_from_binary(
     //    app, dummy_spv, sizeof(dummy_spv));
@@ -246,21 +246,21 @@ int main(void) {
     //CGPUBufferDescriptor buf_desc{};
     //buf_desc.size = 256;
     //buf_desc.descriptors = CGPU_RESOURCE_TYPE_UNIFORM_BUFFER;
-    //pulse_buffer_t buffer = pulse_graphics_buffer_create(app, &buf_desc, nullptr, 0);
+    //pulse_buffer_t buffer = pulse_create_graphics_buffer(app, &buf_desc, nullptr, 0);
 
     //CGPUSamplerDescriptor smp_desc{};
-    //pulse_sampler_t sampler = pulse_graphics_sampler_create(app, &smp_desc);
+    //pulse_sampler_t sampler = pulse_create_sampler(app, &smp_desc);
 
-	PulseGraphicsTextureLoadDesc tex_load_desc{
+	PulseTextureLoadDesc tex_load_desc{
         .filepath = "TilesGray512.jpg",
 		.generate_mipmaps = true,
     };
-    PulseTextureHandle texture = pulse_graphics_texture_load(
+    PulseTextureHandle texture = pulse_load_texture(
         app, &tex_load_desc);
 
     std::vector<uint32_t> pixels = { 0xFF00FFFF };
 
-    PulseGraphicsTextureCreateDesc tex_create_desc
+    PulseTextureCreateDesc tex_create_desc
     {
         .desc = {
             .name = "create_texture",
@@ -276,7 +276,7 @@ int main(void) {
 		.pixel_data = pixels.data(),
     };
 
-    PulseTextureHandle texture2 = pulse_graphics_texture_create(
+    PulseTextureHandle texture2 = pulse_create_texture(
         app, &tex_create_desc);
 
     //float verts[] = {0,0,0, 1,0,0, 0,1,0};
@@ -293,35 +293,35 @@ int main(void) {
     //vtx_layout.p_attributes = &attr;
     //vtx_layout.attribute_count = 1;
 
-    PulseMeshHandle mesh = pulse_graphics_mesh_load(
+    PulseMeshHandle mesh = pulse_load_mesh(
         app, "Quad.obj");
 
-	PulseGraphicsMaterialCreateDesc mat_desc{
+	PulseMaterialCreateDesc mat_desc{
 		.shader = shader,
     };
-    PulseMaterialHandle material = pulse_graphics_material_create(app, &mat_desc);
+    PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
 
     //// ---- Acquire/release cycle ----
-    //pulse_shader_data_t* shader_data = pulse_graphics_shader_acquire(app, &shader);
+    //pulse_shader_data_t* shader_data = pulse_acquire_shader(app, &shader);
     //if (shader_data) pulse_graphics_shader_release(app, &shader);
     //pulse_graphics_is_available(app, shader);
 
     //pulse_compute_shader_data_t* cs_data = pulse_graphics_compute_shader_acquire(app, &compute);
     //if (cs_data) pulse_graphics_shader_release(app, &compute);
 
-    //pulse_buffer_data_t* buf_data = pulse_graphics_buffer_acquire(app, &buffer);
-    //if (buf_data) pulse_graphics_buffer_release(app, &buffer);
+    //pulse_buffer_data_t* buf_data = pulse_acquire_graphics_buffer(app, &buffer);
+    //if (buf_data) pulse_release_graphics_buffer(app, &buffer);
 
-    //pulse_sampler_data_t* smp_data = pulse_graphics_sampler_acquire(app, &sampler);
+    //pulse_sampler_data_t* smp_data = pulse_acquire_sampler(app, &sampler);
     //if (smp_data) pulse_graphics_sampler_release(app, &sampler);
 
-    //pulse_texture_data_t* tex_data = pulse_graphics_texture_acquire(app, &texture);
-    //if (tex_data) pulse_graphics_texture_release(app, &texture);
+    //pulse_texture_data_t* tex_data = pulse_acquire_texture(app, &texture);
+    //if (tex_data) pulse_release_texture(app, &texture);
 
-    //pulse_mesh_data_t* mesh_data = pulse_graphics_mesh_acquire(app, &mesh);
-    //if (mesh_data) pulse_graphics_mesh_release(app, &mesh);
+    //pulse_mesh_data_t* mesh_data = pulse_acquire_mesh(app, &mesh);
+    //if (mesh_data) pulse_release_mesh(app, &mesh);
 
-    //pulse_material_data_t* mat_data = pulse_graphics_material_acquire(app, &material);
+    //pulse_material_data_t* mat_data = pulse_acquire_material(app, &material);
     //if (mat_data) pulse_graphics_material_release(app, &material);
 
     //// ---- Dynamic mesh update ----
@@ -330,8 +330,8 @@ int main(void) {
     //    CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, &vtx_layout);
     //pulse_graphics_mesh_update_vertices(app, &dyn_mesh, verts, 3);
     //pulse_graphics_mesh_update_indices(app, &dyn_mesh, idxs, 3);
-    //pulse_mesh_data_t* dyn_data = pulse_graphics_mesh_acquire(app, &dyn_mesh);
-    //if (dyn_data) pulse_graphics_mesh_release(app, &dyn_mesh);
+    //pulse_mesh_data_t* dyn_data = pulse_acquire_mesh(app, &dyn_mesh);
+    //if (dyn_data) pulse_release_mesh(app, &dyn_mesh);
 
     // ---- Register record callback with graphic resources ----
     //test_graphic_resources resources{shader, compute, buffer, sampler, texture, mesh, material};
@@ -354,11 +354,11 @@ int main(void) {
     (void)forward;
     render_state.viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
 
-    PulseGraphicsRendererRecordCallbackDesc cb_desc{};
+    PulseRenderRecordCallbackDesc cb_desc{};
     cb_desc.callback = record_test_graphic;
     cb_desc.user_data = &render_state;
     cb_desc.priority = 0;
-    pulse_graphics_render_add_record_callback(app, &cb_desc);
+    pulse_add_render_record_callback(app, &cb_desc);
 
     pulse_app_update(app);
     pulse_app_update(app);

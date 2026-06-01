@@ -23,10 +23,10 @@ extern ecs_entity_t pulse_graphics_render_execute_graph_phase;
 extern ecs_entity_t pulse_graphics_render_submit_phase;
 extern ecs_entity_t pulse_graphics_render_present_phase;
 
-void reset_surface_handles(PulseGraphicsSurface* surface);
-void release_surface_resources(PulseGraphicsSurface* surface);
-void reset_swapchain_handles(PulseGraphicsSwapchain* swapchain);
-void release_swapchain_resources(PulseGraphicsSwapchain* swapchain);
+void reset_surface_handles(PulseSurface* surface);
+void release_surface_resources(PulseSurface* surface);
+void reset_swapchain_handles(PulseSwapchain* swapchain);
+void release_swapchain_resources(PulseSwapchain* swapchain);
 
 void register_components(ecs_world_t* world);
 void ensure_component_relations(ecs_world_t* world);
@@ -43,17 +43,17 @@ bool ensure_cgpu_surface(
     ecs_world_t* world,
     ecs_entity_t entity,
     const PulseSdlWindow& sdl_window,
-    PulseGraphicsSurface** out_surface
+    PulseSurface** out_surface
 );
 bool ensure_cgpu_swapchain(
     pulse_graphics_state* state,
     ecs_world_t* world,
     ecs_entity_t entity,
     const PulseWindow& window,
-    const PulseGraphicsSurface* surface,
-    PulseGraphicsSwapchain** out_swapchain
+    const PulseSurface* surface,
+    PulseSwapchain** out_swapchain
 );
-bool acquire_window_image(PulseGraphicsSwapchain* swapchain, uint32_t frame_index);
+bool acquire_window_image(PulseSwapchain* swapchain, uint32_t frame_index);
 
 void install_render_systems(pulse_graphics_state* state, ecs_world_t* world);
 void uninstall_render_systems(pulse_graphics_state* state, ecs_world_t* world);

@@ -41,8 +41,8 @@ void on_sdl_window_remove(ecs_iter_t* it) {
 
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        if (ecs_has_id(it->world, entity, ecs_id(PulseGraphicsSurface))) {
-            ecs_remove_id(it->world, entity, ecs_id(PulseGraphicsSurface));
+        if (ecs_has_id(it->world, entity, ecs_id(PulseSurface))) {
+            ecs_remove_id(it->world, entity, ecs_id(PulseSurface));
         }
     }
 }
@@ -61,14 +61,14 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
             continue;
         }
 
-        const PulseGraphicsSurface* surface =
-            ecs_get(it->world, entity, PulseGraphicsSurface);
+        const PulseSurface* surface =
+            ecs_get(it->world, entity, PulseSurface);
         if (!surface || !surface->surface) {
             continue;
         }
 
-        PulseGraphicsSwapchain* swapchain =
-            ecs_get_mut(it->world, entity, PulseGraphicsSwapchain);
+        PulseSwapchain* swapchain =
+            ecs_get_mut(it->world, entity, PulseSwapchain);
         if (!swapchain || !swapchain->swapchain) {
             continue;
         }
@@ -82,7 +82,7 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
         if (needs_resize) {
             cgpu_queue_wait_idle(state->renderer.graphics_queue);
             release_swapchain_resources(swapchain);
-            ecs_modified(it->world, entity, PulseGraphicsSwapchain);
+            ecs_modified(it->world, entity, PulseSwapchain);
         }
     }
 }
@@ -137,12 +137,12 @@ void bootstrap_existing_sdl_windows(pulse_graphics_state* state, ecs_world_t* wo
 
 bool create_or_resize_swapchain(
     const pulse_graphics_state* state,
-    const PulseGraphicsSurface* surface,
-    PulseGraphicsSwapchain* swapchain,
+    const PulseSurface* surface,
+    PulseSwapchain* swapchain,
     uint32_t width,
     uint32_t height
 ) {
-    const PulseGraphicsRenderer& renderer = state->renderer;
+    const PulseRenderer& renderer = state->renderer;
     release_swapchain_resources(swapchain);
 
     swapchain->device = renderer.device;
@@ -301,17 +301,17 @@ bool ensure_cgpu_surface(
     ecs_world_t* world,
     ecs_entity_t entity,
     const PulseSdlWindow& sdl_window,
-    PulseGraphicsSurface** out_surface
+    PulseSurface** out_surface
 ) {
     if (!sdl_window.native_view) {
         return false;
     }
 
-    if (!ecs_has_id(world, entity, ecs_id(PulseGraphicsSurface))) {
-        ecs_add_id(world, entity, ecs_id(PulseGraphicsSurface));
+    if (!ecs_has_id(world, entity, ecs_id(PulseSurface))) {
+        ecs_add_id(world, entity, ecs_id(PulseSurface));
     }
 
-    PulseGraphicsSurface* surface = ecs_get_mut(world, entity, PulseGraphicsSurface);
+    PulseSurface* surface = ecs_get_mut(world, entity, PulseSurface);
     if (!surface) {
         return false;
     }
@@ -330,8 +330,8 @@ bool ensure_cgpu_surface(
     }
 
     if (surface_created) {
-        ecs_modified(world, entity, PulseGraphicsSurface);
-        surface = ecs_get_mut(world, entity, PulseGraphicsSurface);
+        ecs_modified(world, entity, PulseSurface);
+        surface = ecs_get_mut(world, entity, PulseSurface);
     }
     if (out_surface) {
         *out_surface = surface;
@@ -344,24 +344,24 @@ bool ensure_cgpu_swapchain(
     ecs_world_t* world,
     ecs_entity_t entity,
     const PulseWindow& window,
-    const PulseGraphicsSurface* surface,
-    PulseGraphicsSwapchain** out_swapchain
+    const PulseSurface* surface,
+    PulseSwapchain** out_swapchain
 ) {
     if (!surface || !surface->surface || window.width <= 0 || window.height <= 0) {
         return false;
     }
 
-    if (!ecs_has_id(world, entity, ecs_id(PulseGraphicsSwapchain))) {
-        ecs_add_id(world, entity, ecs_id(PulseGraphicsSwapchain));
+    if (!ecs_has_id(world, entity, ecs_id(PulseSwapchain))) {
+        ecs_add_id(world, entity, ecs_id(PulseSwapchain));
     }
 
-    surface = ecs_get(world, entity, PulseGraphicsSurface);
+    surface = ecs_get(world, entity, PulseSurface);
     if (!surface || !surface->surface) {
         return false;
     }
 
-    PulseGraphicsSwapchain* swapchain =
-        ecs_get_mut(world, entity, PulseGraphicsSwapchain);
+    PulseSwapchain* swapchain =
+        ecs_get_mut(world, entity, PulseSwapchain);
     if (!swapchain) {
         return false;
     }
@@ -388,7 +388,7 @@ bool ensure_cgpu_swapchain(
         }
     }
 
-    ecs_modified(world, entity, PulseGraphicsSwapchain);
+    ecs_modified(world, entity, PulseSwapchain);
     if (out_swapchain) {
         *out_swapchain = swapchain;
     }
@@ -396,7 +396,7 @@ bool ensure_cgpu_swapchain(
 }
 
 bool acquire_window_image(
-    PulseGraphicsSwapchain* swapchain,
+    PulseSwapchain* swapchain,
     uint32_t frame_index
 ) {
     swapchain->current_backbuffer_index = UINT32_MAX;

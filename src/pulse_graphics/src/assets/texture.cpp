@@ -27,9 +27,9 @@ void register_texture_type(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-bool pulse_graphics_texture_acquire(PulseAppId app, PulseTextureHandle handle, PulseTexture* texture_ref) {
+bool pulse_acquire_texture(PulseAppId app, PulseTextureHandle handle, PulseTexture* texture_ref) {
     PulseAssetRef ref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_texture_to_handle(handle), &ref)) {
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_texture_to_handle(handle), &ref)) {
         texture_ref->handle = handle;
         texture_ref->ptr = static_cast<pulse_texture_data_t*>(ref.ptr);
         return true;
@@ -40,8 +40,8 @@ bool pulse_graphics_texture_acquire(PulseAppId app, PulseTextureHandle handle, P
     return false;
 }
 
-void pulse_graphics_texture_release(PulseAppId app, PulseTexture* texture_ref) {
-    PulseAssetRef ref{pulse_graphics_texture_to_handle(texture_ref->handle), nullptr};
+void pulse_release_texture(PulseAppId app, PulseTexture* texture_ref) {
+    PulseAssetRef ref{pulse_texture_to_handle(texture_ref->handle), nullptr};
     pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     texture_ref->handle = {};
     texture_ref->ptr = nullptr;

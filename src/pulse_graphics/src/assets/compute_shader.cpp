@@ -29,7 +29,7 @@ extern "C" {
 
 bool pulse_graphics_compute_shader_acquire(PulseAppId app, PulseComputeShaderHandle handle, PulseComputeShader* ref) {
     PulseAssetRef aref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_compute_shader_to_handle(handle), &aref)) {
+    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_compute_shader_to_handle(handle), &aref)) {
         ref->handle = handle;
         ref->ptr = static_cast<pulse_compute_shader_data_t*>(aref.ptr);
         return true;
@@ -40,7 +40,7 @@ bool pulse_graphics_compute_shader_acquire(PulseAppId app, PulseComputeShaderHan
 }
 
 void pulse_graphics_compute_shader_release(PulseAppId app, PulseComputeShader* ref) {
-    PulseAssetRef aref{ pulse_graphics_compute_shader_to_handle(ref->handle), nullptr };
+    PulseAssetRef aref{ pulse_compute_shader_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &aref);
     ref->handle = {};
     ref->ptr = nullptr;
