@@ -31,7 +31,7 @@ void register_mesh_type(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-void pulse_graphics_mesh_update_vertices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count) {
+void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count) {
     pulse_graphics_internal::pulse_graphics_state* st = pulse_graphics_internal::state_from_app(app);
     if (st && mesh) {
         PulseMesh ref{};
@@ -48,7 +48,7 @@ void pulse_graphics_mesh_update_vertices(PulseAppId app, PulseMeshHandle* mesh, 
     }
 }
 
-void pulse_graphics_mesh_update_indices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count) {
+void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count) {
     pulse_graphics_internal::pulse_graphics_state* st = pulse_graphics_internal::state_from_app(app);
     if (st && mesh) {
         PulseMesh ref{};

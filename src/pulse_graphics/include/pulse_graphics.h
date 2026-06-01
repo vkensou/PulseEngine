@@ -637,8 +637,8 @@ PULSE_API void pulse_release_shader(PulseAppId app, PulseShader* ref);
  * @param[in] desc
  *
  */
-PULSE_API PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_binary(PulseAppId app, const PulseComputeShaderCreateFromBinaryDesc* desc);
-PULSE_API PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_file(PulseAppId app, const PulseComputeShaderCreateFromFileDesc* desc);
+PULSE_API PulseComputeShaderHandle pulse_create_compute_shader_from_binary(PulseAppId app, const PulseComputeShaderCreateFromBinaryDesc* desc);
+PULSE_API PulseComputeShaderHandle pulse_create_compute_shader_from_file(PulseAppId app, const PulseComputeShaderCreateFromFileDesc* desc);
 PULSE_API bool pulse_acquire_compute_shader(PulseAppId app, PulseComputeShaderHandle handle, PulseComputeShader* out_ref);
 PULSE_API void pulse_release_compute_shader(PulseAppId app, PulseComputeShader* ref);
 
@@ -686,8 +686,8 @@ PULSE_API void pulse_release_texture(PulseAppId app, PulseTexture* ref);
 PULSE_API PulseMeshHandle pulse_create_mesh_from_data(PulseAppId app, const PulseMeshCreateFromDataDesc* desc);
 PULSE_API PulseMeshHandle pulse_create_mesh_dynamic(PulseAppId app, const PulseMeshCreateDynamicDesc* desc);
 PULSE_API PulseMeshHandle pulse_load_mesh(PulseAppId app, const char* filepath);
-PULSE_API void pulse_mesh_update_vertices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count);
-PULSE_API void pulse_mesh_update_indices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count);
+PULSE_API void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count);
+PULSE_API void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count);
 PULSE_API bool pulse_acquire_mesh(PulseAppId app, PulseMeshHandle handle, PulseMesh* out_ref);
 PULSE_API void pulse_release_mesh(PulseAppId app, PulseMesh* ref);
 

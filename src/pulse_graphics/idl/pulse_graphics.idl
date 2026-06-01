@@ -405,13 +405,13 @@ func.ReleaseShader
     ()
 
 --- Compute shader
-func.GraphicsComputeShaderCreateFromBinary
+func.CreateComputeShaderFromBinary
     "ComputeShaderHandle"
     .app  "PulseAppId"
     .desc "*const ComputeShaderCreateFromBinaryDesc"
     ()
 
-func.GraphicsComputeShaderCreateFromFile
+func.CreateComputeShaderFromFile
     "ComputeShaderHandle"
     .app  "PulseAppId"
     .desc "*const ComputeShaderCreateFromFileDesc"
@@ -515,7 +515,7 @@ func.LoadMesh
     .filepath "cstring"
     ()
 
-func.MeshUpdateVertices
+func.UpdateMeshVertices
     "void"
     .app   "PulseAppId"
     .mesh  "*MeshHandle"
@@ -523,7 +523,7 @@ func.MeshUpdateVertices
     .count "uint32_t"
     ()
 
-func.MeshUpdateIndices
+func.UpdateMeshIndices
     "void"
     .app   "PulseAppId"
     .mesh  "*MeshHandle"

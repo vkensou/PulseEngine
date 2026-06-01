@@ -63,7 +63,7 @@ PulseShaderLibraryHandle pulse_load_shader_library(
     return result;
 }
 
-bool pulse_graphics_shader_library_acquire(PulseAppId app, PulseShaderLibraryHandle handle, PulseShaderLibrary* sl_ref)
+bool pulse_acquire_shader_library(PulseAppId app, PulseShaderLibraryHandle handle, PulseShaderLibrary* sl_ref)
 {
     PulseAssetRef aref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_library_to_handle(handle), &aref)) {
@@ -76,7 +76,7 @@ bool pulse_graphics_shader_library_acquire(PulseAppId app, PulseShaderLibraryHan
     return false;
 }
 
-void pulse_graphics_shader_library_release(PulseAppId app, PulseShaderLibrary* sl_ref)
+void pulse_release_shader_library(PulseAppId app, PulseShaderLibrary* sl_ref)
 {
     PulseAssetRef aref{ pulse_shader_library_to_handle(sl_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &aref);

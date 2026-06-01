@@ -27,7 +27,7 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-bool pulse_graphics_compute_shader_acquire(PulseAppId app, PulseComputeShaderHandle handle, PulseComputeShader* ref) {
+bool pulse_acquire_compute_shader(PulseAppId app, PulseComputeShaderHandle handle, PulseComputeShader* ref) {
     PulseAssetRef aref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_compute_shader_to_handle(handle), &aref)) {
         ref->handle = handle;
@@ -39,7 +39,7 @@ bool pulse_graphics_compute_shader_acquire(PulseAppId app, PulseComputeShaderHan
     return false;
 }
 
-void pulse_graphics_compute_shader_release(PulseAppId app, PulseComputeShader* ref) {
+void pulse_release_compute_shader(PulseAppId app, PulseComputeShader* ref) {
     PulseAssetRef aref{ pulse_compute_shader_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &aref);
     ref->handle = {};

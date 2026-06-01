@@ -40,7 +40,7 @@ bool pulse_acquire_shader(PulseAppId app, PulseShaderHandle handle, PulseShader*
     return false;
 }
 
-void pulse_graphics_shader_release(PulseAppId app, PulseShader* ref) {
+void pulse_release_shader(PulseAppId app, PulseShader* ref) {
     PulseAssetRef aref{ pulse_shader_to_handle(ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &aref);
     ref->handle = {};

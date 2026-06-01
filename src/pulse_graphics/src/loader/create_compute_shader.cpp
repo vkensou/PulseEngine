@@ -84,7 +84,7 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_binary(
+PulseComputeShaderHandle pulse_create_compute_shader_from_binary(
     PulseAppId app,
     const PulseComputeShaderCreateFromBinaryDesc* desc)
 {
@@ -108,7 +108,7 @@ PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_binary(
     return { h.index, h.generation };
 }
 
-PulseComputeShaderHandle pulse_graphics_compute_shader_create_from_file(
+PulseComputeShaderHandle pulse_create_compute_shader_from_file(
     PulseAppId app,
     const PulseComputeShaderCreateFromFileDesc* desc)
 {

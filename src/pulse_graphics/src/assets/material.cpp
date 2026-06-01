@@ -28,7 +28,7 @@ void register_material_type(PulseAppId app, CGPUDeviceId device)
 
 extern "C" {
 
-void pulse_graphics_material_bind_buffer(
+void pulse_material_bind_buffer(
     PulseMaterial* material,
     uint32_t set, uint32_t binding,
     PulseGraphicsBuffer buffer)
@@ -44,7 +44,7 @@ void pulse_material_bind_texture(
     HGEGraphics::material_bindTexture(static_cast<pulse_material_data_t*>(material->ptr), set, binding, static_cast<pulse_texture_data_t*>(texture.ptr));
 }
 
-void pulse_graphics_material_bind_sampler(
+void pulse_material_bind_sampler(
     PulseMaterial* material,
     uint32_t set, uint32_t binding,
     PulseSampler sampler)
@@ -70,7 +70,7 @@ bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle, PulseMat
     return false;
 }
 
-void pulse_graphics_material_release(PulseAppId app, PulseMaterial* material_ref) {
+void pulse_release_material(PulseAppId app, PulseMaterial* material_ref) {
     PulseAssetRef ref{ pulse_material_to_handle(material_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     material_ref->handle = {};
