@@ -7,23 +7,62 @@
 #include "pulse_asset.h"
 #include "pulse_window.h"
 #include "pulse_graphics.h"
-#include "HandmadeMath.h"
 
 static uint8_t dummy_spv[16] = {0x03, 0x02, 0x23, 0x07, 0x00, 0x00, 0x00, 0x00,
                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+struct Mat4
+{
+    float Elements[4][4];
+};
+
+static inline Mat4 Mat4_Orthographic(float size, float aspect, float Near, float Far)
+{
+    Mat4 Result = { 0 };
+
+    Result.Elements[0][0] = 1.0f / (size * aspect);
+    Result.Elements[1][1] = 1.0f / (size);
+    Result.Elements[2][2] = 1 / (Near - Far);
+    Result.Elements[3][3] = 1.0f;
+
+    Result.Elements[3][2] = -(Far) / (Near - Far);
+
+    return Result;
+}
+
+static inline Mat4 Mat4_Translate(float X, float Y, float Z)
+{
+    Mat4 Result{};
+
+    Result.Elements[0][0] = 1;
+    Result.Elements[1][1] = 1;
+    Result.Elements[2][2] = 1;
+    Result.Elements[3][3] = 1;
+
+    Result.Elements[3][0] = X;
+    Result.Elements[3][1] = Y;
+    Result.Elements[3][2] = Z;
+
+    return Result;
+}
+
+struct Vec4
+{
+	float X, Y, Z, W;
+};
+
 struct PassData
 {
-    HMM_Mat4	vpMatrix;
+    Mat4	vpMatrix;
 };
 
 struct MaterialData
 {
-    HMM_Vec4	albedo;
+    Vec4	albedo;
 };
 
 struct ObjectData
 {
-    HMM_Mat4	wMatrix;
+    Mat4	wMatrix;
 };
 
 struct test_graphic_resources {
@@ -72,7 +111,6 @@ struct test_render_state {
     PulseMeshHandle mesh;
     PulseMaterial material_ref;
     PulseMesh mesh_ref;
-    HMM_Mat4 viewMat;
     PassData passData;
     ObjectData objectData;
 };
@@ -99,7 +137,7 @@ static void record_test_graphic(
         pulse_release_texture(app, &texture_ref);
 
         auto materialData = MaterialData{
-            .albedo = HMM_V4(1, 0, 0, 1),
+            .albedo = Vec4{1, 0, 0, 1},
         };
         pulse_material_bind_data(&state->material_ref, 1, 0, sizeof(MaterialData), &materialData);
     }
@@ -124,14 +162,12 @@ static void record_test_graphic(
             int width = window.width;
             int height = window.height;
             float aspect = (float)width / height;
-            float near = 0.1;
-            float far = 1000;
-            float fov = 45;
-            auto proj = HMM_Perspective_LH_RO(fov * HMM_DegToRad, aspect, near, far);
-            auto vpMat = proj * state->viewMat;
-            state->passData = { vpMat };
+            float near = -1;
+            float far = 1;
+            auto proj = Mat4_Orthographic(5, aspect, near, far);
+            state->passData = { proj };
 
-            auto objectMat = HMM_Translate(HMM_V3(0, 0, 0));
+            auto objectMat = Mat4_Translate(0, 0, 0);
             state->objectData = { objectMat };
 
             auto pass_ubo_handle = pulse_rendergraph_declare_uniform_buffer_quick(graph, sizeof(PassData), &state->passData);
@@ -345,14 +381,6 @@ int main(void) {
     render_state.material = material;
     render_state.texture = texture;
     render_state.mesh = mesh;
-
-    auto cameraParentMat = HMM_M4_Identity;
-    auto cameraLocalMat = HMM_Translate(HMM_V3(0 + 0.5, 0 + 0.5, -38));
-    auto cameraMat = HMM_Mul(cameraParentMat, cameraLocalMat);
-    auto eye = HMM_M4GetTranslate(cameraMat);
-    auto forward = HMM_M4GetForward(cameraMat);
-    (void)forward;
-    render_state.viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
 
     PulseRenderRecordCallbackDesc cb_desc{};
     cb_desc.callback = record_test_graphic;

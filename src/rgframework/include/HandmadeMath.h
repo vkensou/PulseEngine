@@ -1805,7 +1805,7 @@ extern "C"
     }
 
     COVERAGE(HMM_Orthographic_LH_RO, 1)
-        // Produces a right-handed orthographic projection matrix with Z ranging from 1 to 0 (the DirectX reverse z convention).
+        // Produces a left-handed orthographic projection matrix with Z ranging from 1 to 0 (the DirectX reverse-Z convention).
         // Left, Right, Bottom, and Top specify the coordinates of their respective clipping planes.
         // Near and Far specify the distances to the near and far clipping planes.
         static inline HMM_Mat4 HMM_Orthographic_LH_RO(float Left, float Right, float Bottom, float Top, float Near, float Far)
@@ -1816,19 +1816,20 @@ extern "C"
 
         Result.Elements[0][0] = 2.0f / (Right - Left);
         Result.Elements[1][1] = 2.0f / (Top - Bottom);
-        Result.Elements[2][2] = Near / (Near - Far);
+        Result.Elements[2][2] = 1.0f / (Near - Far);
         Result.Elements[3][3] = 1.0f;
 
         Result.Elements[3][0] = (Left + Right) / (Left - Right);
         Result.Elements[3][1] = (Bottom + Top) / (Bottom - Top);
-        Result.Elements[3][2] = -(Near * Far) / (Near - Far);
+        Result.Elements[3][2] = -(Far) / (Near - Far);
 
         return Result;
     }
 
     COVERAGE(HMM_Orthographic2_LH_RO, 1)
-        // Produces a right-handed orthographic projection matrix with Z ranging from 0 to 1 (the DirectX convention).
-        // Left, Right, Bottom, and Top specify the coordinates of their respective clipping planes.
+        // Produces a left-handed orthographic projection matrix with Z ranging from 1 to 0 (the DirectX reverse-Z convention).
+        // size specifies the half-height of the view volume.
+        // aspect specifies width / height.
         // Near and Far specify the distances to the near and far clipping planes.
         static inline HMM_Mat4 HMM_Orthographic2_LH_RO(float size, float aspect, float Near, float Far)
     {
@@ -1836,12 +1837,12 @@ extern "C"
 
         HMM_Mat4 Result = { 0 };
 
-        Result.Elements[0][0] = 2.0f / (2 * size * aspect);
-        Result.Elements[1][1] = 2.0f / (2 * size);
-        Result.Elements[2][2] = Near / (Near - Far);
+        Result.Elements[0][0] = 1.0f / (size * aspect);
+        Result.Elements[1][1] = 1.0f / (size);
+        Result.Elements[2][2] = 1.0f / (Near - Far);
         Result.Elements[3][3] = 1.0f;
 
-        Result.Elements[3][2] = -(Near * Far) / (Near - Far);
+        Result.Elements[3][2] = -(Far) / (Near - Far);
 
         return Result;
     }
