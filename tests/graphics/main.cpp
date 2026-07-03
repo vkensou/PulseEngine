@@ -218,8 +218,6 @@ static void record_test_graphic(
             passdata->mesh_ref = state->mesh_ref;
             passdata->pass_ubo_handle = pass_ubo_handle;
             passdata->object_ubo_handle = object_ubo_handle;
-
-            pulse_rendergraph_present(graph, target_handle);
         }
     }
 }

@@ -254,6 +254,14 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
             cb.user_data
         );
     }
+
+    for (ecs_entity_t entity : frame_context.prepared_entities) {
+        auto target_handle = pulse_import_window_backbuffer(
+            state->app, *frame_context.graph.get(), entity);
+        if (pulse_rendergraph_texture_handle_valid(target_handle)) {
+            pulse_rendergraph_present(*frame_context.graph.get(), target_handle);
+        }
+    }
 }
 
 void render_execute_graph_system_run(ecs_iter_t* it) {
