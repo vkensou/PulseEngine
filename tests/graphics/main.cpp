@@ -5,6 +5,7 @@
 
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_input.h"
 #include "pulse_window.h"
 #include "pulse_graphics.h"
 
@@ -225,6 +226,8 @@ static void record_test_graphic(
 int main(void) {
     PulseAppId app = pulse_create_app("test-graphics");
     assert(app != nullptr);
+
+    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
 
     // Add required plugins
     auto window_desc = pulse_window_plugin_desc_default();

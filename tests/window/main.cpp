@@ -1,11 +1,14 @@
 #include <flecs.h>
 
 #include "pulse_app.h"
+#include "pulse_input.h"
 #include "pulse_window.h"
 
 int main() {
     PulseAppId app = pulse_create_app("test-window");
     assert(app != nullptr);
+
+    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
 
     auto window_plugin_desc = pulse_window_plugin_desc_default();
     assert(pulse_add_window_plugin(app, &window_plugin_desc) == PULSE_RESULT_OK);

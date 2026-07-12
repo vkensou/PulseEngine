@@ -226,6 +226,62 @@ void mark_window_resized(
     ecs_modified(world, entity, PulseWindow);
 }
 
+void emit_key_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseKeyEvent key_evt = {
+        .scancode = event.key.scancode,
+        .pressed = (event.type == SDL_EVENT_KEY_DOWN),
+        .window = window_entity,
+    };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseKeyEvent);
+    event_desc.entity = window_entity;
+    event_desc.const_param = &key_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
+void emit_mouse_button_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseMouseButtonEvent btn_evt = {
+        .button = event.button.button,
+        .pressed = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN),
+        .x = event.button.x,
+        .y = event.button.y,
+        .window = window_entity,
+    };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseMouseButtonEvent);
+    event_desc.entity = window_entity;
+    event_desc.const_param = &btn_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
+void emit_mouse_scroll_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseMouseScrollEvent scroll_evt = {
+        .x = event.wheel.x,
+        .y = event.wheel.y,
+        .window = window_entity,
+    };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseMouseScrollEvent);
+    event_desc.entity = window_entity;
+    event_desc.const_param = &scroll_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
 EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state* state) {
     ecs_world_t* world = pulse_app_world(app);
     if (!state || !world) {
@@ -239,82 +295,26 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
             continue;
         }
 
-        // --- Keyboard events: emit PulseKeyEvent with window info ---
-        if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
-            ecs_entity_t window_entity = window_entity_from_event(world, &event);
-            if (!window_entity) continue;
-
-            PulseKeyEvent key_evt = {
-                .scancode = event.key.scancode,
-                .pressed = (event.type == SDL_EVENT_KEY_DOWN),
-                .window = window_entity,
-            };
-            ecs_event_desc_t event_desc = {};
-            event_desc.event = ecs_id(PulseKeyEvent);
-            event_desc.entity = window_entity;
-            event_desc.const_param = &key_evt;
-            event_desc.observable = world;
-            ecs_enqueue(world, &event_desc);
-            continue;
-        }
-
-        // --- Mouse button events: emit PulseMouseButtonEvent with window info ---
-        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-            ecs_entity_t window_entity = window_entity_from_event(world, &event);
-            if (!window_entity) continue;
-
-            PulseMouseButtonEvent btn_evt = {
-                .button = event.button.button,
-                .pressed = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN),
-                .x = event.button.x,
-                .y = event.button.y,
-                .window = window_entity,
-            };
-            ecs_event_desc_t event_desc = {};
-            event_desc.event = ecs_id(PulseMouseButtonEvent);
-            event_desc.entity = window_entity;
-            event_desc.const_param = &btn_evt;
-            event_desc.observable = world;
-            ecs_enqueue(world, &event_desc);
-            continue;
-        }
-
-        // --- Mouse wheel: emit PulseMouseScrollEvent with window info ---
-        if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-            ecs_entity_t window_entity = window_entity_from_event(world, &event);
-            if (!window_entity) continue;
-
-            PulseMouseScrollEvent scroll_evt = {
-                .x = event.wheel.x,
-                .y = event.wheel.y,
-                .window = window_entity,
-            };
-            ecs_event_desc_t event_desc = {};
-            event_desc.event = ecs_id(PulseMouseScrollEvent);
-            event_desc.entity = window_entity;
-            event_desc.const_param = &scroll_evt;
-            event_desc.observable = world;
-            ecs_enqueue(world, &event_desc);
-            continue;
-        }
-
         // --- Window events (close, resize) ---
-        const bool is_close_event = event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED;
-        const bool is_resize_event =
-            event.type == SDL_EVENT_WINDOW_RESIZED ||
-            event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
-        if (!is_close_event && !is_resize_event) {
-            continue;
-        }
-
-        auto props = SDL_GetWindowProperties(SDL_GetWindowFromEvent(&event));
-        ecs_entity_t entity = SDL_GetNumberProperty(props, "sdl.window.entity", 0);
-        if (ecs_is_alive(world, entity)) {
-            if (is_close_event) {
-                mark_window_close_requested(state, world, entity);
+        ecs_entity_t window_entity = window_entity_from_event(world, &event);
+        if (window_entity) {
+            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+                mark_window_close_requested(state, world, window_entity);
             }
-            else if (is_resize_event) {
-                mark_window_resized(world, entity, event.window.data1, event.window.data2);
+            else if (event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+                mark_window_resized(world, window_entity, event.window.data1, event.window.data2);
+            }
+            // --- Keyboard events: emit PulseKeyEvent with window info ---
+            else if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
+                emit_key_event(world, window_entity, event);
+            }
+            // --- Mouse button events: emit PulseMouseButtonEvent with window info ---
+            else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+                emit_mouse_button_event(world, window_entity, event);
+            }
+            // --- Mouse wheel: emit PulseMouseScrollEvent with window info ---
+            else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                emit_mouse_scroll_event(world, window_entity, event);
             }
         }
     }
