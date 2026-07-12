@@ -136,7 +136,8 @@ pulse_app ───── 核心：App 生命周期 + 插件注册 + ECS 世界�
 ## v0.1 当前状态
 
 - [x] pulse_app / pulse_window / pulse_asset / pulse_graphics — 已完成
-- [ ] pulse_math — header-only 数学库入口
+- [x] pulse_math — header-only 数学库入口
+- [ ] pulse_input — 统一输入抽象层
 - [ ] pulse_transform — 变换组件 + 层级系统
 - [ ] pulse_renderer — 渲染管线框架
 - [ ] pulse_imgui — ImGui 集成
