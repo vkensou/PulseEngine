@@ -36,6 +36,7 @@ EPulseResult input_plugin_build(PulseAppId app, void* ctx) {
     int num_keys = 0;
     const bool* current_kbd = SDL_GetKeyboardState(&num_keys);
     const size_t copy_count = (std::min)((size_t)PULSE_SCANCODE_COUNT, (size_t)num_keys);
+    std::memset(state->prev_keyboard, 0, sizeof(state->prev_keyboard));
     std::memcpy(state->prev_keyboard, current_kbd, copy_count * sizeof(bool));
 
     // Initialize previous mouse state

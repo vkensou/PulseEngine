@@ -37,12 +37,16 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
                 auto* info = tex->handle->info;
                 auto mipedSize = [](uint64_t s, uint64_t m) { return std::max<uint64_t>(s >> m, 1ull); };
                 uint32_t tex_comp = FormatUtil_BitSizeOfBlock(info->format) / 8;
+                uint32_t blockW = FormatUtil_WidthOfBlock(info->format);
+                uint32_t blockH = FormatUtil_HeightOfBlock(info->format);
                 const uint8_t* src = static_cast<const uint8_t*>(entry.data);
 
                 for (uint8_t mip = 0; mip < entry.source_mip_levels; ++mip) {
                     uint64_t mipW = mipedSize(info->width, mip);
                     uint64_t mipH = mipedSize(info->height, mip);
-                    uint64_t mipSize = mipW * mipH * tex_comp;
+                    uint64_t blocksW = std::max<uint64_t>((mipW + blockW - 1) / blockW, 1ull);
+                    uint64_t blocksH = std::max<uint64_t>((mipH + blockH - 1) / blockH, 1ull);
+                    uint64_t mipSize = blocksW * blocksH * tex_comp;
 
                     for (uint32_t slice = 0; slice < info->array_size_minus_one + 1; ++slice) {
                         pulse_rendergraph_add_uploadtexturepass_ex(
@@ -124,13 +128,17 @@ uint8_t* queue_staging_texture_full(
 {
     auto* info = texture->handle->info;
     uint32_t tex_comp = FormatUtil_BitSizeOfBlock(info->format) / 8;
+    uint32_t blockW = FormatUtil_WidthOfBlock(info->format);
+    uint32_t blockH = FormatUtil_HeightOfBlock(info->format);
     auto mipedSize = [](uint64_t s, uint64_t m) { return std::max<uint64_t>(s >> m, 1ull); };
 
     uint64_t totalSize = 0;
     for (uint8_t mip = 0; mip < source_mip_levels; ++mip) {
         uint64_t mipW = mipedSize(info->width, mip);
         uint64_t mipH = mipedSize(info->height, mip);
-        totalSize += mipW * mipH * tex_comp * (info->array_size_minus_one + 1);
+        uint64_t blocksW = std::max<uint64_t>((mipW + blockW - 1) / blockW, 1ull);
+        uint64_t blocksH = std::max<uint64_t>((mipH + blockH - 1) / blockH, 1ull);
+        totalSize += blocksW * blocksH * tex_comp * (info->array_size_minus_one + 1);
     }
 
     auto* ptr = static_cast<uint8_t*>(gstate->staging_pool.allocate(totalSize, alignof(std::max_align_t)));

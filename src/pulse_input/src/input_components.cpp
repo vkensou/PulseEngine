@@ -31,10 +31,12 @@ void input_system_run(ecs_iter_t* it) {
     // Get mutable access to the keyboard component singleton
     PulseKeyboardInput* kb = ecs_singleton_get_mut(world, PulseKeyboardInput);
     if (kb) {
+        // Zero entire component first to avoid stale data from unused scancode indices
+        std::memset(kb, 0, sizeof(PulseKeyboardInput));
         for (int i = 0; i < PULSE_SCANCODE_COUNT && i < num_keys; i++) {
+            kb->pressed[i] = current_kbd[i];
             kb->just_pressed[i] = current_kbd[i] && !state->prev_keyboard[i];
             kb->just_released[i] = !current_kbd[i] && state->prev_keyboard[i];
-            kb->pressed[i] = current_kbd[i];
         }
         ecs_singleton_modified(world, PulseKeyboardInput);
     }

@@ -8,7 +8,7 @@ namespace pulse_input_internal {
 
 struct pulse_input_plugin_state {
     PulseAppId app = nullptr;
-    bool prev_keyboard[PULSE_SCANCODE_COUNT];
+    bool prev_keyboard[PULSE_SCANCODE_COUNT]{};
     uint8_t prev_mouse;
 };
 
