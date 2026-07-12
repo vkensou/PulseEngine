@@ -16,6 +16,8 @@ extern "C" {
 #define PULSE_API
 #endif
 
+#define PULSE_SCANCODE_COUNT 512
+
 $cconsts
 
 $cenums
@@ -35,6 +37,7 @@ extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
 extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
 extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
 extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
+extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
 
 $c99decl
 

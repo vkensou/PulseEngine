@@ -167,11 +167,13 @@ void remove_window_components(pulse_window_plugin_state* state) {
     remove_id_from_all_entities(world, PulseWindowCloseRequested);
     remove_id_from_all_entities(world, PulseWindowResized);
     remove_id_from_all_entities(world, PulsePrimaryWindow);
+    remove_id_from_all_entities(world, ecs_id(PulseWindowMouseScroll));
 }
 
 void delete_window_components(ecs_world_t* world) {
     delete_entity_if_alive(world, ecs_id(PulseSdlWindow));
     delete_entity_if_alive(world, ecs_id(PulseWindow));
+    delete_entity_if_alive(world, ecs_id(PulseWindowMouseScroll));
     delete_registered_tag(world, PulseWindowCloseRequested, ecs_id(PulseWindowCloseRequested));
     delete_registered_tag(world, PulseWindowResized, ecs_id(PulseWindowResized));
     delete_registered_tag(world, PulsePrimaryWindow, ecs_id(PulsePrimaryWindow));
@@ -179,6 +181,7 @@ void delete_window_components(ecs_world_t* world) {
 
     ecs_id(PulseSdlWindow) = 0;
     ecs_id(PulseWindow) = 0;
+    ecs_id(PulseWindowMouseScroll) = 0;
 }
 
 void mark_window_close_requested(
@@ -219,6 +222,14 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
         return PULSE_RESULT_ERROR_INVALID_STATE;
     }
 
+    // Zero the raw mouse scroll singleton so it only contains this frame's deltas
+    PulseWindowMouseScroll* scroll = ecs_singleton_get_mut(world, PulseWindowMouseScroll);
+    if (scroll) {
+        scroll->x = 0.0f;
+        scroll->y = 0.0f;
+        ecs_singleton_modified(world, PulseWindowMouseScroll);
+    }
+
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
@@ -226,6 +237,18 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
             continue;
         }
 
+        // --- Mouse wheel: accumulate delta into raw scroll singleton ---
+        if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+            PulseWindowMouseScroll* ms = ecs_singleton_get_mut(world, PulseWindowMouseScroll);
+            if (ms) {
+                ms->x += event.wheel.x;
+                ms->y += event.wheel.y;
+                ecs_singleton_modified(world, PulseWindowMouseScroll);
+            }
+            continue;
+        }
+
+        // --- Window events (close, resize) ---
         const bool is_close_event = event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED;
         const bool is_resize_event =
             event.type == SDL_EVENT_WINDOW_RESIZED ||

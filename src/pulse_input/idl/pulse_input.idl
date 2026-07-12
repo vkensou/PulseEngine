@@ -19,10 +19,34 @@ typedef "ecs_entity_t" { cname = "ecs_entity_t" }
 
 const_value.InputPluginDescVersion { value = "1u" }
 
+struct.KeyboardInput
+    .pressed      "[512] bool"
+    .justPressed  "[512] bool"
+    .justReleased "[512] bool"
+    ()
+
+struct.MouseInput
+    .state        "uint8_t"
+    .justPressed  "uint8_t"
+    .justReleased "uint8_t"
+    ()
+
+struct.MouseMotion
+    .deltaX "float"
+    .deltaY "float"
+    .x      "float"
+    .y      "float"
+    ()
+
+struct.MouseScroll
+    .x "float"
+    .y "float"
+    ()
+
 struct.KeyEvent
     .scancode "int32_t"
     .pressed  "bool"
-    .repeat   "bool"
+    ["repeat"] "bool"
     ()
 
 struct.MouseButtonEvent
@@ -30,6 +54,11 @@ struct.MouseButtonEvent
     .pressed "bool"
     .x       "float"
     .y       "float"
+    ()
+
+struct.MouseScrollEvent
+    .x "float"
+    .y "float"
     ()
 
 func.AddInputPlugin

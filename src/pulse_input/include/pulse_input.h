@@ -9,68 +9,81 @@ extern "C" {
 
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
-#include <stdint.h>  // int32_t, uint8_t
+#include <stdint.h>  // int32_t
 #include "pulse_app.h"
 
 #ifndef PULSE_API
 #define PULSE_API
 #endif
 
+#define PULSE_SCANCODE_COUNT 512
+
 #define PULSE_INPUT_PLUGIN_DESC_VERSION 1u
-#define PULSE_SCANCODE_COUNT 512  // matches SDL_SCANCODE_COUNT
 
-typedef uint32_t EPulseFlags;
-typedef uint64_t EPulseFlags64;
 
-// ECS component structs
+
+
+
+
+
+
+
 
 typedef struct PulseKeyboardInput
 {
-    bool pressed[PULSE_SCANCODE_COUNT];
-    bool just_pressed[PULSE_SCANCODE_COUNT];
-    bool just_released[PULSE_SCANCODE_COUNT];
+    bool                 pressed[512];
+    bool                 just_pressed[512];
+    bool                 just_released[512];
 
 } PulseKeyboardInput;
 
 typedef struct PulseMouseInput
 {
-    uint8_t state;
-    uint8_t just_pressed;
-    uint8_t just_released;
+    uint8_t              state;
+    uint8_t              just_pressed;
+    uint8_t              just_released;
 
 } PulseMouseInput;
 
 typedef struct PulseMouseMotion
 {
-    float delta_x;
-    float delta_y;
-    float x;
-    float y;
+    float                delta_x;
+    float                delta_y;
+    float                x;
+    float                y;
 
 } PulseMouseMotion;
 
 typedef struct PulseMouseScroll
 {
-    float x;
-    float y;
+    float                x;
+    float                y;
 
 } PulseMouseScroll;
 
 typedef struct PulseKeyEvent
 {
-    int32_t scancode;  // physical key index (scancode)
-    bool pressed;       // true=pressed, false=released
-    bool repeat;        // auto-repeat flag
+    int32_t              scancode;
+    bool                 pressed;
+    bool                 repeat;
 
 } PulseKeyEvent;
 
 typedef struct PulseMouseButtonEvent
 {
-    uint8_t button;     // 0=left, 1=right, 2=middle, 3=back, 4=forward
-    bool pressed;       // true=pressed, false=released
-    float x, y;         // mouse position at event time
+    uint8_t              button;
+    bool                 pressed;
+    float                x;
+    float                y;
 
 } PulseMouseButtonEvent;
+
+typedef struct PulseMouseScrollEvent
+{
+    float                x;
+    float                y;
+
+} PulseMouseScrollEvent;
 
 
 // ECS declarations
@@ -80,6 +93,7 @@ extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
 extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
 extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
 extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
+extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
 
 PULSE_API EPulseResult pulse_add_input_plugin(PulseAppId app);
 PULSE_API bool pulse_input_is_key_down(PulseAppId app, int32_t scancode);

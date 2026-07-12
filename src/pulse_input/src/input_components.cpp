@@ -1,5 +1,7 @@
 #include "input_internal.h"
 
+#include "pulse_window.h"
+
 #include <algorithm>
 #include <cstring>
 
@@ -113,11 +115,13 @@ void input_system_run(ecs_iter_t* it) {
         ecs_singleton_modified(world, PulseMouseMotion);
     }
 
-    // --- Mouse scroll (not yet available via polling, stays at 0) ---
+    // --- Mouse scroll: read from PulseWindowMouseScroll (accumulated by pulse_window's SDL event poll) ---
+    const PulseWindowMouseScroll* raw_scroll =
+        ecs_singleton_get(world, PulseWindowMouseScroll);
     PulseMouseScroll* ms = ecs_singleton_get_mut(world, PulseMouseScroll);
     if (ms) {
-        ms->x = 0.0f;
-        ms->y = 0.0f;
+        ms->x = raw_scroll ? raw_scroll->x : 0.0f;
+        ms->y = raw_scroll ? raw_scroll->y : 0.0f;
         ecs_singleton_modified(world, PulseMouseScroll);
     }
 }

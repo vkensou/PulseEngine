@@ -35,6 +35,7 @@ $cstructs
 // ECS declarations
 extern ECS_COMPONENT_DECLARE(PulseWindow);
 extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
+extern ECS_COMPONENT_DECLARE(PulseWindowMouseScroll);
 extern ECS_TAG_DECLARE(PulsePrimaryWindow);
 extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 extern ECS_TAG_DECLARE(PulseWindowResized);
