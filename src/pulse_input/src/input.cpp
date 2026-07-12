@@ -32,17 +32,6 @@ EPulseResult input_plugin_build(PulseAppId app, void* ctx) {
     resource.state = state;
     ecs_singleton_set_ptr(world, pulse_input_state_resource, &resource);
 
-    // Initialize previous keyboard state with current (avoids spurious just_pressed on first frame)
-    int num_keys = 0;
-    const bool* current_kbd = SDL_GetKeyboardState(&num_keys);
-    const size_t copy_count = (std::min)((size_t)PULSE_SCANCODE_COUNT, (size_t)num_keys);
-    std::memset(state->prev_keyboard, 0, sizeof(state->prev_keyboard));
-    std::memcpy(state->prev_keyboard, current_kbd, copy_count * sizeof(bool));
-
-    // Initialize previous mouse state
-    float mx = 0.0f, my = 0.0f;
-    state->prev_mouse = static_cast<uint8_t>(SDL_GetMouseState(&mx, &my) & 0xFF);
-
     return PULSE_RESULT_OK;
 }
 

@@ -1,5 +1,7 @@
 #include "window_internal.h"
 
+#include "pulse_input.h"
+
 #include <algorithm>
 #include <vector>
 
@@ -152,6 +154,17 @@ EPulseResult pulse_window_create(
     return PULSE_RESULT_OK;
 }
 
+// Helper: get the ECS entity for the window associated with an SDL event.
+// Returns 0 if no valid window is found.
+ecs_entity_t window_entity_from_event(ecs_world_t* world, const SDL_Event* event) {
+    SDL_Window* sdl_window = SDL_GetWindowFromEvent(event);
+    if (!sdl_window) return 0;
+    SDL_PropertiesID props = SDL_GetWindowProperties(sdl_window);
+    ecs_entity_t entity = SDL_GetNumberProperty(props, "sdl.window.entity", 0);
+    if (!ecs_is_alive(world, entity)) return 0;
+    return entity;
+}
+
 void remove_window_components(pulse_window_plugin_state* state) {
     if (!state) {
         return;
@@ -167,13 +180,11 @@ void remove_window_components(pulse_window_plugin_state* state) {
     remove_id_from_all_entities(world, PulseWindowCloseRequested);
     remove_id_from_all_entities(world, PulseWindowResized);
     remove_id_from_all_entities(world, PulsePrimaryWindow);
-    remove_id_from_all_entities(world, ecs_id(PulseWindowMouseScroll));
 }
 
 void delete_window_components(ecs_world_t* world) {
     delete_entity_if_alive(world, ecs_id(PulseSdlWindow));
     delete_entity_if_alive(world, ecs_id(PulseWindow));
-    delete_entity_if_alive(world, ecs_id(PulseWindowMouseScroll));
     delete_registered_tag(world, PulseWindowCloseRequested, ecs_id(PulseWindowCloseRequested));
     delete_registered_tag(world, PulseWindowResized, ecs_id(PulseWindowResized));
     delete_registered_tag(world, PulsePrimaryWindow, ecs_id(PulsePrimaryWindow));
@@ -181,7 +192,6 @@ void delete_window_components(ecs_world_t* world) {
 
     ecs_id(PulseSdlWindow) = 0;
     ecs_id(PulseWindow) = 0;
-    ecs_id(PulseWindowMouseScroll) = 0;
 }
 
 void mark_window_close_requested(
@@ -222,14 +232,6 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
         return PULSE_RESULT_ERROR_INVALID_STATE;
     }
 
-    // Zero the raw mouse scroll singleton so it only contains this frame's deltas
-    PulseWindowMouseScroll* scroll = ecs_singleton_get_mut(world, PulseWindowMouseScroll);
-    if (scroll) {
-        scroll->x = 0.0f;
-        scroll->y = 0.0f;
-        ecs_singleton_modified(world, PulseWindowMouseScroll);
-    }
-
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
@@ -237,14 +239,62 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
             continue;
         }
 
-        // --- Mouse wheel: accumulate delta into raw scroll singleton ---
+        // --- Keyboard events: emit PulseKeyEvent with window info ---
+        if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
+            ecs_entity_t window_entity = window_entity_from_event(world, &event);
+            if (!window_entity) continue;
+
+            PulseKeyEvent key_evt = {
+                .scancode = event.key.scancode,
+                .pressed = (event.type == SDL_EVENT_KEY_DOWN),
+                .window = window_entity,
+            };
+            ecs_event_desc_t event_desc = {};
+            event_desc.event = ecs_id(PulseKeyEvent);
+            event_desc.entity = window_entity;
+            event_desc.const_param = &key_evt;
+            event_desc.observable = world;
+            ecs_enqueue(world, &event_desc);
+            continue;
+        }
+
+        // --- Mouse button events: emit PulseMouseButtonEvent with window info ---
+        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            ecs_entity_t window_entity = window_entity_from_event(world, &event);
+            if (!window_entity) continue;
+
+            PulseMouseButtonEvent btn_evt = {
+                .button = event.button.button,
+                .pressed = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN),
+                .x = event.button.x,
+                .y = event.button.y,
+                .window = window_entity,
+            };
+            ecs_event_desc_t event_desc = {};
+            event_desc.event = ecs_id(PulseMouseButtonEvent);
+            event_desc.entity = window_entity;
+            event_desc.const_param = &btn_evt;
+            event_desc.observable = world;
+            ecs_enqueue(world, &event_desc);
+            continue;
+        }
+
+        // --- Mouse wheel: emit PulseMouseScrollEvent with window info ---
         if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-            PulseWindowMouseScroll* ms = ecs_singleton_get_mut(world, PulseWindowMouseScroll);
-            if (ms) {
-                ms->x += event.wheel.x;
-                ms->y += event.wheel.y;
-                ecs_singleton_modified(world, PulseWindowMouseScroll);
-            }
+            ecs_entity_t window_entity = window_entity_from_event(world, &event);
+            if (!window_entity) continue;
+
+            PulseMouseScrollEvent scroll_evt = {
+                .x = event.wheel.x,
+                .y = event.wheel.y,
+                .window = window_entity,
+            };
+            ecs_event_desc_t event_desc = {};
+            event_desc.event = ecs_id(PulseMouseScrollEvent);
+            event_desc.entity = window_entity;
+            event_desc.const_param = &scroll_evt;
+            event_desc.observable = world;
+            ecs_enqueue(world, &event_desc);
             continue;
         }
 

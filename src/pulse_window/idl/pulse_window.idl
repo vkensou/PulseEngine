@@ -69,11 +69,6 @@ struct.SdlWindow
     .windowId   "uint32_t"
     .nativeView "*anyopaque"
 
-struct.WindowMouseScroll
-    .x  "float"
-    .y  "float"
-    ()
-
 func.WindowDescDefault
     "WindowDesc"
     ()

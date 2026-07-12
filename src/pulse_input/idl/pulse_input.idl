@@ -47,6 +47,7 @@ struct.KeyEvent
     .scancode "int32_t"
     .pressed  "bool"
     ["repeat"] "bool"
+    .window   "ecs_entity_t"
     ()
 
 struct.MouseButtonEvent
@@ -54,11 +55,13 @@ struct.MouseButtonEvent
     .pressed "bool"
     .x       "float"
     .y       "float"
+    .window  "ecs_entity_t"
     ()
 
 struct.MouseScrollEvent
     .x "float"
     .y "float"
+    .window "ecs_entity_t"
     ()
 
 func.AddInputPlugin

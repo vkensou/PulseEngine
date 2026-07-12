@@ -2,7 +2,6 @@
 
 ECS_COMPONENT_DECLARE(PulseWindow);
 ECS_COMPONENT_DECLARE(PulseSdlWindow);
-ECS_COMPONENT_DECLARE(PulseWindowMouseScroll);
 ECS_TAG_DECLARE(PulsePrimaryWindow);
 ECS_TAG_DECLARE(PulseWindowCloseRequested);
 ECS_TAG_DECLARE(PulseWindowResized);
@@ -146,7 +145,6 @@ void on_window_remove(ecs_iter_t* it)
 void register_components(ecs_world_t* world) {
     ECS_COMPONENT_DEFINE(world, PulseWindow);
     ECS_COMPONENT_DEFINE(world, PulseSdlWindow);
-    ECS_COMPONENT_DEFINE(world, PulseWindowMouseScroll);
     ECS_COMPONENT_DEFINE(world, pulse_window_state_resource);
     ecs_add_pair(world, ecs_id(PulseWindow), EcsWith, ecs_id(PulseSdlWindow));
 
