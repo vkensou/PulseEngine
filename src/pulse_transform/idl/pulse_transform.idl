@@ -1,0 +1,57 @@
+version(1)
+
+typedef "float"
+typedef "int32_t"
+typedef "uint32_t"
+typedef "void"
+typedef "bool"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "PulseAppId"
+
+--- From pulse_math.h
+typedef "HMM_Vec3" { cname = "HMM_Vec3" }
+typedef "HMM_Quat" { cname = "HMM_Quat" }
+typedef "HMM_Mat4" { cname = "HMM_Mat4" }
+
+--- From flecs.h
+typedef "ecs_entity_t" { cname = "ecs_entity_t" }
+
+const_value.TransformPluginDescVersion { value = "1u" }
+
+struct.Position
+    .value "HMM_Vec3"
+    ()
+
+struct.Rotation
+    .value "HMM_Quat"
+    ()
+
+struct.LocalTransform
+    .model "HMM_Mat4"
+    ()
+
+struct.WorldTransform
+    .value "HMM_Mat4"
+    ()
+
+struct.ShowMatrix
+    .model "HMM_Mat4"
+    ()
+
+struct.Tree
+    .parent           "ecs_entity_t"
+    .firstChild       "ecs_entity_t"
+    .lastChild        "ecs_entity_t"
+    .previousSibling  "ecs_entity_t"
+    .nextSibling      "ecs_entity_t"
+    ()
+
+
+func.AddTransformPlugin
+    "EPulseResult"
+    .app  "PulseAppId"
+    ()
