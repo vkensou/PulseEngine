@@ -68,6 +68,32 @@ typedef struct PulsePluginDesc
 struct PulseApp;
 typedef struct PulseApp PulseApp;
 
+/**
+ * Pipeline Tags (ECS tag components for system phase assignment)
+ *
+ */
+typedef struct PulseUpdatePipeline
+{
+    uint32_t             holder;
+
+} PulseUpdatePipeline;
+
+typedef struct PulsePostUpdatePipeline
+{
+    uint32_t             holder;
+
+} PulsePostUpdatePipeline;
+
+typedef struct PulseRenderPipeline
+{
+    uint32_t             holder;
+
+} PulseRenderPipeline;
+
+
+extern ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
+extern ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
+extern ECS_COMPONENT_DECLARE(PulseRenderPipeline);
 
 PULSE_API PulseAppId pulse_create_app(const char* name);
 PULSE_API void pulse_destroy_app(PulseAppId app);

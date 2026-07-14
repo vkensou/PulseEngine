@@ -2,6 +2,11 @@
 
 #include <utility>
 
+// Pipeline tag component variable definitions
+ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
+ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
+ECS_COMPONENT_DECLARE(PulseRenderPipeline);
+
 struct PulseApp {
     pulse::App impl;
 
@@ -14,6 +19,11 @@ namespace pulse {
 
 App::App(PulseAppId handle, const char* name)
     : handle_(handle), name_(name) {
+    // Register core pipeline tag components so they're available before any plugin
+    ecs_world_t* w = world_.c_ptr();
+    ECS_COMPONENT_DEFINE(w, PulseUpdatePipeline);
+    ECS_COMPONENT_DEFINE(w, PulsePostUpdatePipeline);
+    ECS_COMPONENT_DEFINE(w, PulseRenderPipeline);
 }
 
 App::~App() {

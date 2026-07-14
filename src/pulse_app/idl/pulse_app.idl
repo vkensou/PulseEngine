@@ -65,6 +65,14 @@ struct.PluginDesc
 
 struct.App()
 
+--- Pipeline Tags (ECS tag components for system phase assignment)
+struct.UpdatePipeline
+    .holder         "uint32_t"
+struct.PostUpdatePipeline
+    .holder         "uint32_t"
+struct.RenderPipeline
+    .holder         "uint32_t"
+
 func.CreateApp
     "?AppId"
     .name "?cstring"

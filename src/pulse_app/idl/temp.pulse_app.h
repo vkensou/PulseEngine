@@ -38,6 +38,10 @@ $cfuncptrs
 
 $cstructs
 
+extern ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
+extern ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
+extern ECS_COMPONENT_DECLARE(PulseRenderPipeline);
+
 $c99decl
 
 #ifdef __cplusplus
