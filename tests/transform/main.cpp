@@ -21,9 +21,9 @@ static void set_rot(ecs_world_t* w, ecs_entity_t e, HMM_Quat q) {
     PulseRotation d; d.value = q;
     ecs_set_id(w, e, ecs_id(PulseRotation), sizeof(PulseRotation), &d);
 }
-static void set_tree(ecs_world_t* w, ecs_entity_t e, ecs_entity_t p) {
-    PulseTree d; memset(&d, 0, sizeof(d)); d.parent = p;
-    ecs_set_id(w, e, ecs_id(PulseTree), sizeof(PulseTree), &d);
+static void set_scale(ecs_world_t* w, ecs_entity_t e, HMM_Vec3 v) {
+    PulseScale d; d.value = v;
+    ecs_set_id(w, e, ecs_id(PulseScale), sizeof(PulseScale), &d);
 }
 
 static bool mat4_eq(const HMM_Mat4* a, const HMM_Mat4* b, float tol) {
@@ -42,17 +42,17 @@ static void test_components() {
 
     assert(ecs_id(PulsePosition) != 0);
     assert(ecs_id(PulseRotation) != 0);
+    assert(ecs_id(PulseScale) != 0);
     assert(ecs_id(PulseLocalTransform) != 0);
     assert(ecs_id(PulseWorldTransform) != 0);
     assert(ecs_id(PulseShowMatrix) != 0);
-    assert(ecs_id(PulseTree) != 0);
 
     ecs_world_t* world = pulse_app_world(app);
     assert(ecs_get_type_info(world, ecs_id(PulsePosition))->size == sizeof(PulsePosition));
     assert(ecs_get_type_info(world, ecs_id(PulseRotation))->size == sizeof(PulseRotation));
+    assert(ecs_get_type_info(world, ecs_id(PulseScale))->size == sizeof(PulseScale));
     assert(ecs_get_type_info(world, ecs_id(PulseLocalTransform))->size == sizeof(PulseLocalTransform));
     assert(ecs_get_type_info(world, ecs_id(PulseWorldTransform))->size == sizeof(PulseWorldTransform));
-    assert(ecs_get_type_info(world, ecs_id(PulseTree))->size == sizeof(PulseTree));
 
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
     pulse_destroy_app(app);
@@ -82,7 +82,6 @@ static void test_single_transform() {
     assert(e);
 
     set_pos(world, e, HMM_V3(3.0f, 4.0f, 5.0f));
-    set_tree(world, e, 0);
 
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
@@ -118,7 +117,6 @@ static void test_rotation_transform() {
 
     set_pos(world, e, HMM_V3(1.0f, 2.0f, 3.0f));
     set_rot(world, e, HMM_QFromAxisAngle_RH(HMM_V3(0,0,1), HMM_AngleDeg(90)));
-    set_tree(world, e, 0);
 
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
@@ -135,6 +133,38 @@ static void test_rotation_transform() {
     assert(fabsf(lt->model.Elements[0][1] - 1.0f) < 1e-4f);
     assert(fabsf(lt->model.Elements[1][0] - (-1.0f)) < 1e-4f);
     assert(fabsf(lt->model.Elements[1][1] - 0.0f) < 1e-4f);
+
+    pulse_destroy_app(app);
+    printf("    PASS\n");
+}
+
+// ---------------------------------------------------------------------------
+static void test_scale_transform() {
+    printf("  test_scale_transform...\n");
+    PulseAppId app = pulse_create_app("t-scale");
+    assert(app);
+    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+
+    ecs_world_t* world = pulse_app_world(app);
+    ecs_entity_t e = ecs_new(world);
+    assert(e);
+
+    set_pos(world, e, HMM_V3(1.0f, 2.0f, 3.0f));
+    set_scale(world, e, HMM_V3(2.0f, 3.0f, 4.0f));
+
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+
+    const PulseLocalTransform* lt = ecs_get(world, e, PulseLocalTransform);
+    assert(lt);
+
+    // Translation should be in column 3, scaled values in diagonal
+    assert(fabsf(lt->model.Elements[3][0] - 1.0f) < 1e-4f);
+    assert(fabsf(lt->model.Elements[3][1] - 2.0f) < 1e-4f);
+    assert(fabsf(lt->model.Elements[3][2] - 3.0f) < 1e-4f);
+    // Scale in diagonal
+    assert(fabsf(lt->model.Elements[0][0] - 2.0f) < 1e-4f);
+    assert(fabsf(lt->model.Elements[1][1] - 3.0f) < 1e-4f);
+    assert(fabsf(lt->model.Elements[2][2] - 4.0f) < 1e-4f);
 
     pulse_destroy_app(app);
     printf("    PASS\n");
@@ -158,12 +188,12 @@ static void test_hierarchy() {
     set_pos(world, child, HMM_V3(0, 5, 0));
     set_pos(world, grandchild, HMM_V3(0, 0, 3));
 
-    set_tree(world, parent, 0);
-    set_tree(world, child, parent);
-    set_tree(world, grandchild, child);
+    // Build hierarchy via thin API (wraps EcsChildOf)
+    pulse_set_parent(app, child, parent);
+    pulse_set_parent(app, grandchild, child);
 
-    for (int f = 0; f < 3; ++f)
-        assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    // Single update is sufficient: EcsCascade guarantees parent-before-child order
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
     const PulseWorldTransform* pw = ecs_get(world, parent, PulseWorldTransform);
     assert(pw);
@@ -183,6 +213,48 @@ static void test_hierarchy() {
     assert(fabsf(gw->value.Elements[3][1] - 5.0f) < 1e-4f);
     assert(fabsf(gw->value.Elements[3][2] - 3.0f) < 1e-4f);
 
+    // Test get_parent
+    assert(pulse_get_parent(app, child) == parent);
+    assert(pulse_get_parent(app, grandchild) == child);
+    assert(pulse_get_parent(app, parent) == 0);
+
+    // Test remove_parent
+    pulse_remove_parent(app, grandchild);
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    // After removal, grandchild should be a root (world == local)
+    assert(pulse_get_parent(app, grandchild) == 0);
+    const PulseWorldTransform* gw2 = ecs_get(world, grandchild, PulseWorldTransform);
+    assert(gw2);
+    assert(fabsf(gw2->value.Elements[3][0] - 0.0f) < 1e-4f);  // just local pos
+    assert(fabsf(gw2->value.Elements[3][1] - 0.0f) < 1e-4f);
+    assert(fabsf(gw2->value.Elements[3][2] - 3.0f) < 1e-4f);
+
+    pulse_destroy_app(app);
+    printf("    PASS\n");
+}
+
+// ---------------------------------------------------------------------------
+static void test_auto_insertion() {
+    printf("  test_auto_insertion...\n");
+    PulseAppId app = pulse_create_app("t-auto");
+    assert(app);
+    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+
+    ecs_world_t* world = pulse_app_world(app);
+    ecs_entity_t e = ecs_new(world);
+    assert(e);
+
+    // Adding Position should auto-insert LocalTransform and WorldTransform (via EcsWith chain)
+    set_pos(world, e, HMM_V3(1, 2, 3));
+    assert(ecs_get(world, e, PulsePosition) != NULL);
+    assert(ecs_get(world, e, PulseLocalTransform) != NULL);
+    assert(ecs_get(world, e, PulseWorldTransform) != NULL);
+    // Auto-inserted via EcsWith: set triggers the pair, but it's a deferred effect.
+    // Run update to let flecs process the With relationships.
+    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(ecs_get(world, e, PulseLocalTransform) != NULL);
+    assert(ecs_get(world, e, PulseWorldTransform) != NULL);
+
     pulse_destroy_app(app);
     printf("    PASS\n");
 }
@@ -195,7 +267,9 @@ int main() {
     test_empty_update();
     test_single_transform();
     test_rotation_transform();
+    test_scale_transform();
     test_hierarchy();
+    test_auto_insertion();
     printf("\nAll transform tests passed!\n");
     return 0;
 }

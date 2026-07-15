@@ -31,10 +31,10 @@ $cstructs
 // ECS declarations
 extern ECS_COMPONENT_DECLARE(PulsePosition);
 extern ECS_COMPONENT_DECLARE(PulseRotation);
+extern ECS_COMPONENT_DECLARE(PulseScale);
 extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
 extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
 extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
-extern ECS_COMPONENT_DECLARE(PulseTree);
 
 $c99decl
 

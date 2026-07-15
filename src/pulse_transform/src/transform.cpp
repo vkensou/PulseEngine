@@ -81,4 +81,22 @@ EPulseResult pulse_add_transform_plugin(PulseAppId app) {
     return result;
 }
 
+void pulse_set_parent(PulseAppId app, ecs_entity_t child, ecs_entity_t parent) {
+    ecs_world_t* world = pulse_app_world(app);
+    if (!world || !child || !parent) return;
+    ecs_add_pair(world, child, EcsChildOf, parent);
+}
+
+void pulse_remove_parent(PulseAppId app, ecs_entity_t child) {
+    ecs_world_t* world = pulse_app_world(app);
+    if (!world || !child) return;
+    ecs_remove_pair(world, child, EcsChildOf, EcsWildcard);
+}
+
+ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child) {
+    ecs_world_t* world = pulse_app_world(app);
+    if (!world || !child) return 0;
+    return ecs_get_target(world, child, EcsChildOf, 0);
+}
+
 } // extern "C"
