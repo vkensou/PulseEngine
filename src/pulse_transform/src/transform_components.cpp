@@ -10,6 +10,24 @@ ECS_COMPONENT_DECLARE(PulseShowMatrix);
 namespace pulse_transform_internal {
 namespace {
 
+// EnsureWorldTransform: repair entities that have LocalTransform but are
+// missing WorldTransform (e.g. due to manual ecs_remove).
+// Runs before PropagateWorldTransform in the same PostUpdate phase.
+void ensure_world_transform(ecs_iter_t* it) {
+    PulseLocalTransform* local = ecs_field(it, PulseLocalTransform, 0);
+    if (!local) return;
+
+    for (int i = 0; i < it->count; i++) {
+        HMM_Mat4 local_mat = HMM_TRS(
+            local[i].translation,
+            local[i].rotation,
+            local[i].scale);
+        PulseWorldTransform wt;
+        wt.value = local_mat;
+        ecs_set_ptr(it->world, it->entities[i], PulseWorldTransform, &wt);
+    }
+}
+
 // PropagateWorldTransform: LocalTransform -> WorldTransform
 // Computes the local matrix from PulseLocalTransform's TRS fields on the fly,
 // then propagates through the hierarchy via EcsCascade.
@@ -49,6 +67,28 @@ void register_components(ecs_world_t* world) {
 }
 
 void install_transform_systems(ecs_world_t* world) {
+    // EnsureWorldTransform: repair entities that have LocalTransform but
+    // are missing WorldTransform. Runs before PropagateWorldTransform.
+    {
+        ecs_entity_desc_t entity_desc;
+        memset(&entity_desc, 0, sizeof(entity_desc));
+        entity_desc.name = "EnsureWorldTransform";
+        ecs_entity_t entity = ecs_entity_init(world, &entity_desc);
+
+        ecs_system_desc_t desc;
+        memset(&desc, 0, sizeof(desc));
+        desc.entity = entity;
+        desc.phase = EcsPostUpdate;
+        // Term 0: this entity's LocalTransform (read)
+        desc.query.terms[0].id = ecs_id(PulseLocalTransform);
+        desc.query.terms[0].inout = EcsIn;
+        // Term 1: must NOT have WorldTransform — filters out intact entities
+        desc.query.terms[1].id = ecs_id(PulseWorldTransform);
+        desc.query.terms[1].oper = EcsNot;
+        desc.callback = ensure_world_transform;
+        ecs_system_init(world, &desc);
+    }
+
     // PropagateWorldTransform: LocalTransform -> WorldTransform
     // EcsCascade guarantees parent-before-child iteration order via (ChildOf, *).
     {

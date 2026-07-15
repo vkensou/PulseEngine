@@ -77,8 +77,14 @@ static void test_single_transform() {
 
     set_local_pos(world, e, HMM_V3(3.0f, 4.0f, 5.0f));
 
+	assert(ecs_has_id(world, e, ecs_id(PulseWorldTransform)));
+
+	ecs_remove_id(world, e, ecs_id(PulseWorldTransform));
+    assert(!ecs_has_id(world, e, ecs_id(PulseWorldTransform)));
+
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
+    assert(ecs_has_id(world, e, ecs_id(PulseWorldTransform)));
     const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
     assert(wt);
     // Column-major: translation in column 3
