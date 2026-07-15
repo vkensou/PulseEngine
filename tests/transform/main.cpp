@@ -13,17 +13,17 @@
 // Rotation is in the upper-left 3x3: Elements[0..2][0..2]
 // ---------------------------------------------------------------------------
 
-static void set_pos(ecs_world_t* w, ecs_entity_t e, HMM_Vec3 v) {
-    PulsePosition d; d.value = v;
-    ecs_set_id(w, e, ecs_id(PulsePosition), sizeof(PulsePosition), &d);
+static void set_local_transform(ecs_world_t* w, ecs_entity_t e,
+                                 HMM_Vec3 translation, HMM_Quat rotation, HMM_Vec3 scale) {
+    PulseLocalTransform lt;
+    lt.translation = translation;
+    lt.rotation = rotation;
+    lt.scale = scale;
+    ecs_set_id(w, e, ecs_id(PulseLocalTransform), sizeof(PulseLocalTransform), &lt);
 }
-static void set_rot(ecs_world_t* w, ecs_entity_t e, HMM_Quat q) {
-    PulseRotation d; d.value = q;
-    ecs_set_id(w, e, ecs_id(PulseRotation), sizeof(PulseRotation), &d);
-}
-static void set_scale(ecs_world_t* w, ecs_entity_t e, HMM_Vec3 v) {
-    PulseScale d; d.value = v;
-    ecs_set_id(w, e, ecs_id(PulseScale), sizeof(PulseScale), &d);
+
+static void set_local_pos(ecs_world_t* w, ecs_entity_t e, HMM_Vec3 v) {
+    set_local_transform(w, e, v, HMM_Q(0.f, 0.f, 0.f, 1.f), HMM_V3(1.f, 1.f, 1.f));
 }
 
 static bool mat4_eq(const HMM_Mat4* a, const HMM_Mat4* b, float tol) {
@@ -40,17 +40,11 @@ static void test_components() {
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
-    assert(ecs_id(PulsePosition) != 0);
-    assert(ecs_id(PulseRotation) != 0);
-    assert(ecs_id(PulseScale) != 0);
     assert(ecs_id(PulseLocalTransform) != 0);
     assert(ecs_id(PulseWorldTransform) != 0);
     assert(ecs_id(PulseShowMatrix) != 0);
 
     ecs_world_t* world = pulse_app_world(app);
-    assert(ecs_get_type_info(world, ecs_id(PulsePosition))->size == sizeof(PulsePosition));
-    assert(ecs_get_type_info(world, ecs_id(PulseRotation))->size == sizeof(PulseRotation));
-    assert(ecs_get_type_info(world, ecs_id(PulseScale))->size == sizeof(PulseScale));
     assert(ecs_get_type_info(world, ecs_id(PulseLocalTransform))->size == sizeof(PulseLocalTransform));
     assert(ecs_get_type_info(world, ecs_id(PulseWorldTransform))->size == sizeof(PulseWorldTransform));
 
@@ -81,24 +75,20 @@ static void test_single_transform() {
     ecs_entity_t e = ecs_new(world);
     assert(e);
 
-    set_pos(world, e, HMM_V3(3.0f, 4.0f, 5.0f));
+    set_local_pos(world, e, HMM_V3(3.0f, 4.0f, 5.0f));
 
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
-    const PulseLocalTransform* lt = ecs_get(world, e, PulseLocalTransform);
-    assert(lt);
-    // Column-major: translation in column 3
-    assert(fabsf(lt->model.Elements[3][0] - 3.0f) < 1e-5f);
-    assert(fabsf(lt->model.Elements[3][1] - 4.0f) < 1e-5f);
-    assert(fabsf(lt->model.Elements[3][2] - 5.0f) < 1e-5f);
-    // Upper-left 3x3 should be identity
-    assert(fabsf(lt->model.Elements[0][0] - 1.0f) < 1e-5f);
-    assert(fabsf(lt->model.Elements[1][1] - 1.0f) < 1e-5f);
-    assert(fabsf(lt->model.Elements[2][2] - 1.0f) < 1e-5f);
-
     const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
     assert(wt);
-    assert(mat4_eq(&lt->model, &wt->value, 1e-5f));
+    // Column-major: translation in column 3
+    assert(fabsf(wt->value.Elements[3][0] - 3.0f) < 1e-5f);
+    assert(fabsf(wt->value.Elements[3][1] - 4.0f) < 1e-5f);
+    assert(fabsf(wt->value.Elements[3][2] - 5.0f) < 1e-5f);
+    // Upper-left 3x3 should be identity
+    assert(fabsf(wt->value.Elements[0][0] - 1.0f) < 1e-5f);
+    assert(fabsf(wt->value.Elements[1][1] - 1.0f) < 1e-5f);
+    assert(fabsf(wt->value.Elements[2][2] - 1.0f) < 1e-5f);
 
     pulse_destroy_app(app);
     printf("    PASS\n");
@@ -115,24 +105,24 @@ static void test_rotation_transform() {
     ecs_entity_t e = ecs_new(world);
     assert(e);
 
-    set_pos(world, e, HMM_V3(1.0f, 2.0f, 3.0f));
-    set_rot(world, e, HMM_QFromAxisAngle_RH(HMM_V3(0,0,1), HMM_AngleDeg(90)));
+    HMM_Quat rot = HMM_QFromAxisAngle_RH(HMM_V3(0, 0, 1), HMM_AngleDeg(90));
+    set_local_transform(world, e, HMM_V3(1.0f, 2.0f, 3.0f), rot, HMM_V3(1.f, 1.f, 1.f));
 
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
-    const PulseLocalTransform* lt = ecs_get(world, e, PulseLocalTransform);
-    assert(lt);
+    const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
+    assert(wt);
 
     // Translation in column 3
-    assert(fabsf(lt->model.Elements[3][0] - 1.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[3][1] - 2.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[3][2] - 3.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[3][0] - 1.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[3][1] - 2.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[3][2] - 3.0f) < 1e-4f);
 
     // 90-deg Z-rotation: X basis -> (0,1,0) in column 0; Y basis -> (-1,0,0) in column 1
-    assert(fabsf(lt->model.Elements[0][0] - 0.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[0][1] - 1.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[1][0] - (-1.0f)) < 1e-4f);
-    assert(fabsf(lt->model.Elements[1][1] - 0.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[0][0] - 0.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[0][1] - 1.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[1][0] - (-1.0f)) < 1e-4f);
+    assert(fabsf(wt->value.Elements[1][1] - 0.0f) < 1e-4f);
 
     pulse_destroy_app(app);
     printf("    PASS\n");
@@ -149,22 +139,22 @@ static void test_scale_transform() {
     ecs_entity_t e = ecs_new(world);
     assert(e);
 
-    set_pos(world, e, HMM_V3(1.0f, 2.0f, 3.0f));
-    set_scale(world, e, HMM_V3(2.0f, 3.0f, 4.0f));
+    set_local_transform(world, e, HMM_V3(1.0f, 2.0f, 3.0f),
+                        HMM_Q(0.f, 0.f, 0.f, 1.f), HMM_V3(2.0f, 3.0f, 4.0f));
 
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
 
-    const PulseLocalTransform* lt = ecs_get(world, e, PulseLocalTransform);
-    assert(lt);
+    const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
+    assert(wt);
 
     // Translation should be in column 3, scaled values in diagonal
-    assert(fabsf(lt->model.Elements[3][0] - 1.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[3][1] - 2.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[3][2] - 3.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[3][0] - 1.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[3][1] - 2.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[3][2] - 3.0f) < 1e-4f);
     // Scale in diagonal
-    assert(fabsf(lt->model.Elements[0][0] - 2.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[1][1] - 3.0f) < 1e-4f);
-    assert(fabsf(lt->model.Elements[2][2] - 4.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[0][0] - 2.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[1][1] - 3.0f) < 1e-4f);
+    assert(fabsf(wt->value.Elements[2][2] - 4.0f) < 1e-4f);
 
     pulse_destroy_app(app);
     printf("    PASS\n");
@@ -184,9 +174,9 @@ static void test_hierarchy() {
     ecs_entity_t grandchild = ecs_new(world);
     assert(parent && child && grandchild);
 
-    set_pos(world, parent, HMM_V3(10, 0, 0));
-    set_pos(world, child, HMM_V3(0, 5, 0));
-    set_pos(world, grandchild, HMM_V3(0, 0, 3));
+    set_local_pos(world, parent, HMM_V3(10, 0, 0));
+    set_local_pos(world, child, HMM_V3(0, 5, 0));
+    set_local_pos(world, grandchild, HMM_V3(0, 0, 3));
 
     // Build hierarchy via thin API (wraps EcsChildOf)
     pulse_set_parent(app, child, parent);
@@ -244,15 +234,12 @@ static void test_auto_insertion() {
     ecs_entity_t e = ecs_new(world);
     assert(e);
 
-    // Adding Position should auto-insert LocalTransform and WorldTransform (via EcsWith chain)
-    set_pos(world, e, HMM_V3(1, 2, 3));
-    assert(ecs_get(world, e, PulsePosition) != NULL);
+    // Adding LocalTransform should auto-insert WorldTransform (via EcsWith)
+    set_local_pos(world, e, HMM_V3(1, 2, 3));
     assert(ecs_get(world, e, PulseLocalTransform) != NULL);
-    assert(ecs_get(world, e, PulseWorldTransform) != NULL);
     // Auto-inserted via EcsWith: set triggers the pair, but it's a deferred effect.
     // Run update to let flecs process the With relationships.
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
-    assert(ecs_get(world, e, PulseLocalTransform) != NULL);
     assert(ecs_get(world, e, PulseWorldTransform) != NULL);
 
     pulse_destroy_app(app);

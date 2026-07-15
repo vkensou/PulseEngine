@@ -27,27 +27,11 @@ extern "C" {
 
 
 
-typedef struct PulsePosition
-{
-    HMM_Vec3             value;
-
-} PulsePosition;
-
-typedef struct PulseRotation
-{
-    HMM_Quat             value;
-
-} PulseRotation;
-
-typedef struct PulseScale
-{
-    HMM_Vec3             value;
-
-} PulseScale;
-
 typedef struct PulseLocalTransform
 {
-    HMM_Mat4             model;
+    HMM_Vec3             translation;
+    HMM_Quat             rotation;
+    HMM_Vec3             scale;
 
 } PulseLocalTransform;
 
@@ -65,9 +49,6 @@ typedef struct PulseShowMatrix
 
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulsePosition);
-extern ECS_COMPONENT_DECLARE(PulseRotation);
-extern ECS_COMPONENT_DECLARE(PulseScale);
 extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
 extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
 extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
