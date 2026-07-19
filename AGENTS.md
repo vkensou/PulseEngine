@@ -1,12 +1,10 @@
-跟我沟通请使用中文
-
 ## 项目简介
 
 PulseEngine是一个模块化的基于ECS（flecs）的游戏引擎，核心设计理念是**最小核心、可插拔、模块化**。所有功能模块以插件的形式构建，对外暴露capi。语言使用c++，采用xmake构建。
 
 使用SDL（窗口、文件、输入等） + cgpu（自研的渲染RHI）。
 
-当前状态为 **v0.1**：目标是基于 pulse 插件体系重新实现贪吃蛇游戏，达到 `examples/dascript` 同等能力。目前仓库里还混杂了老版本的代码，未来将会删除。
+当前状态为 **v0.1**：目标是基于 pulse 插件体系重新实现贪吃蛇游戏，达到 `legacy/examples/dascript` 同等能力。目前仓库里还混杂了老版本的代码，未来将会删除。
 
 ## 目录结构
 
@@ -17,8 +15,8 @@ PulseEngine是一个模块化的基于ECS（flecs）的游戏引擎，核心设�
 - `src/rendergraph` 是项目使用的rendergraph代码
 - `dascript` 是dascript目录
 - `tools` 是项目使用的工具，目前有： `tools/idl` 用于生成插件头文件
-- `src/rgframework`, `examples` 是之前的老代码
 - `khr` 是为ktx贴图格式引入的代码，还在用，未来会独立出去
+- `legacy` 是之前的老代码，仅作参考，未来删除
 
 ## 规则
 
