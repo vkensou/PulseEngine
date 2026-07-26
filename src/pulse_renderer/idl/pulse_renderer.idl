@@ -25,6 +25,12 @@ typedef "PulseMaterialHandle" { cname = "PulseMaterialHandle" }
 --- Constants
 const_value.RendererPluginDescVersion { value = "1u" }
 
+--- Renderer property type
+enum.RendererPropertyType { underscore }
+    .VpMatrix
+    .ModelMatrix
+    ()
+
 --- ECS Components
 struct.Camera
     .windowEntity "ecs_entity_t"
@@ -46,4 +52,11 @@ struct.Renderable
 func.AddRendererPlugin
     "EPulseResult"
     .app  "PulseAppId"
+    ()
+
+func.SetShaderPropertyNameMapper
+    "void"
+    .app  "PulseAppId"
+    .type "RendererPropertyType::Enum"
+    .name "cstring"
     ()

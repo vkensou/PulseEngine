@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string.h>
 #include <cmath>
+#include "hash.h"
 
 namespace pulse_renderer_internal {
 
@@ -81,8 +82,6 @@ void extract_cameras_system(ecs_iter_t* it) {
         view.width = width;
         view.height = height;
 
-        view.cam_data.view_proj = HMM_Mul(view.proj_matrix, view.view_matrix);
-
         packet.views.push_back(view);
     }
 }
@@ -115,14 +114,11 @@ void collect_renderables_system(ecs_iter_t* it) {
         obj.entity = entity;
         obj.mesh = renderable.mesh;
         obj.material = renderable.material;
-
-        ObjectUniformData obj_ubo_data;
-        obj_ubo_data.model = world_mat;
+        obj.world_matrix = world_mat;
 
         // Add to all views (v0.1: no frustum culling)
         for (auto& view : packet.views) {
             view.render_objects.push_back(obj);
-            view.render_data.push_back(obj_ubo_data);
         }
     }
 }
@@ -158,15 +154,34 @@ void sort_and_pack_system(ecs_iter_t* it) {
 struct ViewPassData {
     PulseAppId app;
     const RendererView* view;
-    pulse_buffer_handle_t cam_ubo;
-    pulse_buffer_handle_t object_ubo;
+    const pulse_renderer_state* state;
 };
+
+// Helper: get the property name mapped to a given data source type
+static const char* get_mapped_name(const pulse_renderer_state* state, EPulseRendererPropertyType type) {
+    if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT && state->property_names[(int)type])
+        return state->property_names[(int)type];
+    return nullptr;
+}
+
+// Helper: find the ubo_info for a renderer-managed UBO by property name
+static const pulse_shader_ubo_info_t* find_managed_ubo(const pulse_shader_data_t* shader, const char* prop_name) {
+    if (!shader || !prop_name) return nullptr;
+    const auto* prop = pulse_find_shader_property(shader, prop_name);
+    if (!prop) return nullptr;
+    for (uint32_t i = 0; i < shader->ubo_info_count; ++i) {
+        if (shader->p_ubo_infos[i].set == prop->set && shader->p_ubo_infos[i].binding == prop->binding)
+            return &shader->p_ubo_infos[i];
+    }
+    return nullptr;
+}
 
 static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* userdata) {
     ViewPassData* pass_data = static_cast<ViewPassData*>(userdata);
     if (!encoder || !pass_data || !pass_data->view) return;
 
     const RendererView& view = *pass_data->view;
+    PulseAppId app = pass_data->app;
 
     pulse_renderpass_encoder_set_viewport(
         encoder, 0.0f, 0.0f,
@@ -179,33 +194,60 @@ static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* us
     size_t obj_count = view.render_objects.size();
     if (obj_count == 0) return;
 
-    PulseAppId app = pass_data->app;
-
-    // Bind camera VP UBO (set 0, binding 0)
-    pulse_renderpass_encoder_set_global_buffer_handle(
-        encoder, pass_data->cam_ubo, 0, 0);
+    // Lazy binding: track last-bound descriptor set hashes to skip re-binding
+    uint64_t last_bound_sets[8] = {};
+    int last_bound_count = 0;
 
     for (size_t idx = 0; idx < obj_count; ++idx) {
         const RenderObject& obj = view.render_objects[idx];
 
-        // Acquire material
         PulseMaterial material_ref = {};
-        if (!pulse_acquire_material(app, obj.material, &material_ref)) {
+        if (!pulse_acquire_material(app, obj.material, &material_ref))
             continue;
-        }
 
-        // Acquire mesh
         PulseMesh mesh_ref = {};
         if (!pulse_acquire_mesh(app, obj.mesh, &mesh_ref)) {
             pulse_release_material(app, &material_ref);
             continue;
         }
 
-        // Bind per-object world matrix UBO (set 2, binding 0) at offset
-        uint64_t obj_offset = idx * sizeof(ObjectUniformData);
-        pulse_renderpass_encoder_set_global_buffer_offset(
-            encoder, pass_data->object_ubo, 2, 0,
-            obj_offset, sizeof(ObjectUniformData));
+        auto* mat_data = static_cast<pulse_material_data_t*>(material_ref.ptr);
+        auto* shader = mat_data ? mat_data->shader : nullptr;
+        if (!shader) {
+            pulse_release_mesh(app, &mesh_ref);
+            pulse_release_material(app, &material_ref);
+            continue;
+        }
+
+        // Bind renderer-managed UBO columns with hash-based lazy switching
+        for (const auto& col : view.ubo_columns) {
+            if (!pulse_rendergraph_buffer_handle_valid(col.gpu_handle))
+                continue;
+
+            uint64_t bind_hash = col.layout_hash;
+            HGEGraphics::hash_combine(bind_hash, col.data_hash);
+            if (col.is_per_draw)
+                HGEGraphics::hash_combine(bind_hash, (uint64_t)idx);
+
+            bool found = false;
+            for (int b = 0; b < last_bound_count; ++b) {
+                if (last_bound_sets[b] == bind_hash) { found = true; break; }
+            }
+            if (found) continue;
+
+            if (col.is_per_draw) {
+                uint64_t obj_offset = idx * col.stride;
+                pulse_renderpass_encoder_set_global_buffer_offset(
+                    encoder, col.gpu_handle, (uint32_t)col.set, col.binding,
+                    obj_offset, col.stride);
+            } else {
+                pulse_renderpass_encoder_set_global_buffer_handle(
+                    encoder, col.gpu_handle, (uint32_t)col.set, col.binding);
+            }
+
+            if (last_bound_count < 8)
+                last_bound_sets[last_bound_count++] = bind_hash;
+        }
 
         pulse_renderpass_encoder_draw(encoder, material_ref, mesh_ref);
 
@@ -223,28 +265,115 @@ static void record_renderer_callback(
         static_cast<pulse_renderer_state*>(user_data);
     if (!state || !graph) return;
 
-    const FrameRenderPacket& packet = state->read_packet();
+    FrameRenderPacket& packet = state->read_packet_mutable();
     if (packet.views.empty()) return;
 
-    for (const auto& view : packet.views) {
+    for (auto& view : packet.views) {
         if (view.window_entity == 0) continue;
 
-        // Import window backbuffer
         pulse_texture_handle_t target_handle =
             pulse_import_window_backbuffer(app, graph, view.window_entity);
-        if (!pulse_rendergraph_texture_handle_valid(target_handle)) {
+        if (!pulse_rendergraph_texture_handle_valid(target_handle))
             continue;
-        }
 
-        auto cam_ubo = pulse_rendergraph_declare_uniform_buffer_quick(
-            graph, sizeof(CameraUniformData), (void*)&view.cam_data);
+        // Build renderer-managed UBO columns from the first renderable's shader
+        view.ubo_columns.clear();
 
-        // Create combined object UBO (array of world matrices)
-        size_t obj_count = view.render_objects.size();
-        pulse_buffer_handle_t object_ubo = {};
-        if (obj_count > 0) {
-            object_ubo = pulse_rendergraph_declare_uniform_buffer_quick(
-                graph, obj_count * sizeof(ObjectUniformData), (void*)view.render_data.data());
+        if (!view.render_objects.empty()) {
+            // Acquire first object's material to get shader reference
+            PulseMaterial mat_ref = {};
+            if (pulse_acquire_material(app, view.render_objects[0].material, &mat_ref)) {
+                auto* mat_data = static_cast<pulse_material_data_t*>(mat_ref.ptr);
+                auto* shader = mat_data ? mat_data->shader : nullptr;
+
+                if (shader) {
+                    // For each renderer-managed UBO, build the cpu data
+                    for (uint32_t u = 0; u < shader->ubo_info_count; ++u) {
+                        const auto& info = shader->p_ubo_infos[u];
+                        if (!info.renderer_managed) continue;
+
+                        RendererUboColumn col = {};
+                        col.set = info.set;
+                        col.binding = info.binding;
+                        col.layout_hash = info.layout_hash;
+
+                        // Determine which properties in this UBO get pass vs draw data
+                        bool has_pass = false;
+                        bool has_draw = false;
+                        uint32_t ubo_size = 0;
+
+                        for (uint32_t p = 0; p < shader->property_count; ++p) {
+                            const auto& prop = shader->p_properties[p];
+                            if (prop.set != info.set || prop.binding != info.binding) continue;
+                            if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
+
+                            uint32_t prop_size = sizeof(HMM_Mat4); // assume mat4 for now
+                            uint32_t needed = prop.offset + prop_size;
+                            if (needed > ubo_size) ubo_size = needed;
+
+                            const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
+                            const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
+
+                            if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) has_pass = true;
+                            if (model_name && prop.name && strcmp(prop.name, model_name) == 0) has_draw = true;
+                        }
+
+                        if (has_draw) {
+                            col.is_per_draw = true;
+                            col.stride = ubo_size;
+                            size_t obj_count = view.render_objects.size();
+                            col.cpu_data.resize(ubo_size * obj_count, 0);
+
+                            for (size_t o = 0; o < obj_count; ++o) {
+                                for (uint32_t p = 0; p < shader->property_count; ++p) {
+                                    const auto& prop = shader->p_properties[p];
+                                    if (prop.set != info.set || prop.binding != info.binding) continue;
+                                    if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
+
+                                    const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
+                                    if (model_name && prop.name && strcmp(prop.name, model_name) == 0) {
+                                        memcpy(col.cpu_data.data() + o * ubo_size + prop.offset,
+                                               &view.render_objects[o].world_matrix, sizeof(HMM_Mat4));
+                                    }
+                                }
+                            }
+                        }
+
+                        if (has_pass) {
+                            if (!has_draw) {
+                                col.is_per_draw = false;
+                                col.cpu_data.resize(ubo_size, 0);
+                            }
+                            HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
+                            for (uint32_t p = 0; p < shader->property_count; ++p) {
+                                const auto& prop = shader->p_properties[p];
+                                if (prop.set != info.set || prop.binding != info.binding) continue;
+                                if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
+
+                                const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
+                                if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) {
+                                    memcpy(col.cpu_data.data() + prop.offset, &vp, sizeof(HMM_Mat4));
+                                }
+                            }
+                        }
+
+                        // Compute data_hash from the filled byte buffer
+                        col.data_hash = col.layout_hash;
+                        HGEGraphics::hash_combine(col.data_hash, HGEGraphics::murmur3(
+                            (const uint32_t*)col.cpu_data.data(),
+                            (uint32_t)col.cpu_data.size() / 4, 0));
+
+                        view.ubo_columns.push_back(std::move(col));
+                    }
+                }
+                pulse_release_material(app, &mat_ref);
+            }
+
+            // Declare GPU handles via rendergraph
+            for (auto& col : view.ubo_columns) {
+        col.gpu_handle = pulse_rendergraph_declare_uniform_buffer_quick(
+            graph, (uint32_t)col.cpu_data.size(), (void*)col.cpu_data.data());
+            }
         }
 
         // Build render pass
@@ -260,9 +389,10 @@ static void record_renderer_callback(
             0xff000000,  // black clear color
             CGPU_STORE_ACTION_STORE);
 
-        pulse_renderpass_use_buffer(&pass, cam_ubo);
-        if (pulse_rendergraph_buffer_handle_valid(object_ubo)) {
-            pulse_renderpass_use_buffer(&pass, object_ubo);
+        // Register UBO handles as used in this pass
+        for (const auto& col : view.ubo_columns) {
+            if (pulse_rendergraph_buffer_handle_valid(col.gpu_handle))
+                pulse_renderpass_use_buffer(&pass, col.gpu_handle);
         }
 
         // Set executable callback
@@ -276,8 +406,7 @@ static void record_renderer_callback(
         if (passdata) {
             passdata->app = app;
             passdata->view = &view;
-            passdata->cam_ubo = cam_ubo;
-            passdata->object_ubo = object_ubo;
+            passdata->state = state;
         }
     }
 }
@@ -381,6 +510,11 @@ EPulseResult renderer_plugin_build(PulseAppId app, void* ctx) {
     // Register ECS components
     register_renderer_components(world);
 
+    // Store state as singleton for later retrieval
+    pulse_renderer_state_resource state_res = {};
+    state_res.state = state;
+    ecs_singleton_set_ptr(world, pulse_renderer_state_resource, &state_res);
+
     // Install ECS systems
     install_renderer_systems(world, state);
 
@@ -442,6 +576,10 @@ EPulseResult pulse_add_renderer_plugin(PulseAppId app) {
         return PULSE_RESULT_ERROR_INTERNAL;
     }
 
+    // Set default property name mappings
+    state->property_names[PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX] = "vpMatrix";
+    state->property_names[PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX] = "wMatrix";
+
     PulsePluginDesc plugin_desc = {
         sizeof(PulsePluginDesc),
         PULSE_PLUGIN_DESC_VERSION,
@@ -457,6 +595,20 @@ EPulseResult pulse_add_renderer_plugin(PulseAppId app) {
         delete state;
     }
     return result;
+}
+
+void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropertyType type, const char* name)
+{
+    if (!app || !name) return;
+    ecs_world_t* world = pulse_app_world(app);
+    if (!world) return;
+
+    auto* state = pulse_renderer_internal::state_from_app(app);
+    if (!state) return;
+
+    if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT) {
+        state->property_names[(int)type] = name;
+    }
 }
 
 } // extern "C"

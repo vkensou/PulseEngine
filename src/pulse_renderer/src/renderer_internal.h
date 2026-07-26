@@ -18,17 +18,21 @@ struct RenderObject {
     ecs_entity_t entity;
     PulseMeshHandle mesh;
     PulseMaterialHandle material;
+    HMM_Mat4 world_matrix;      // cached from transform
 };
 
 // ============================================================
-// Uniform data layouts (must match shaders)
+// Dynamic UBO column (renderer-managed, per (set,binding))
 // ============================================================
-struct CameraUniformData {
-    HMM_Mat4 view_proj;
-};
-
-struct ObjectUniformData {
-    HMM_Mat4 model;
+struct RendererUboColumn {
+    uint32_t set;
+    uint32_t binding;
+    uint32_t stride;            // per-object byte size (0 = not per-draw)
+    uint64_t layout_hash;       // from shader's ubo_info
+    uint64_t data_hash;         // hash of the filled data (for lazy switching)
+    std::vector<uint8_t> cpu_data;
+    pulse_buffer_handle_t gpu_handle; // rendergraph handle
+    bool is_per_draw;           // true if holds per-object array
 };
 
 // ============================================================
@@ -45,14 +49,12 @@ struct RendererView {
     int width;
     int height;
     std::vector<RenderObject> render_objects;
-    CameraUniformData cam_data;
-    std::pmr::vector<ObjectUniformData> render_data;
+    // renderer-managed UBO columns for this view
+    std::vector<RendererUboColumn> ubo_columns;
 };
 
 // ============================================================
 // Double-buffered frame packet
-//   - write_index: logic thread writes this slot
-//   - read_index:  render callback reads this slot
 // ============================================================
 struct FrameRenderPacket {
     std::vector<RendererView> views;
@@ -70,6 +72,9 @@ struct pulse_renderer_state {
 
     bool record_callback_registered = false;
 
+    // Property name mapping: EPulseRendererPropertyType → shader property name
+    const char* property_names[PULSE_RENDERER_PROPERTY_TYPE_COUNT] = {};
+
     void swap_packets() {
         int w = write_index.load(std::memory_order_relaxed);
         write_index.store(1 - w, std::memory_order_release);
@@ -78,6 +83,7 @@ struct pulse_renderer_state {
 
     FrameRenderPacket& write_packet() { return packets[write_index.load(std::memory_order_relaxed)]; }
     const FrameRenderPacket& read_packet() const { return packets[read_index.load(std::memory_order_acquire)]; }
+    FrameRenderPacket& read_packet_mutable() { return packets[read_index.load(std::memory_order_acquire)]; }
 };
 
 // ============================================================
@@ -86,4 +92,11 @@ struct pulse_renderer_state {
 void register_renderer_components(ecs_world_t* world);
 void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state);
 
+pulse_renderer_state* state_from_app(PulseAppId app);
+
 } // namespace pulse_renderer_internal
+
+struct pulse_renderer_state_resource {
+    pulse_renderer_internal::pulse_renderer_state* state;
+};
+extern ECS_COMPONENT_DECLARE(pulse_renderer_state_resource);

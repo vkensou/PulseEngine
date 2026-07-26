@@ -218,6 +218,21 @@ struct.ShaderLibraryLoadDesc
     .path "cstring"
     ()
 
+--- Shader property role
+enum.ShaderPropertyRole { underscore }
+    .Material
+    .NonMaterial
+    ()
+
+--- Shader property descriptor
+struct.ShaderPropertyDesc
+    .name    "cstring"
+    .role    "ShaderPropertyRole::Enum"
+    .set     "uint32_t"
+    .binding "uint32_t"
+    .offset  "uint32_t"
+    ()
+
 --- Shader create from binary desc
 struct.ShaderCreateFromBinaryDesc
     .vsData             "*const anyopaque"
@@ -227,6 +242,8 @@ struct.ShaderCreateFromBinaryDesc
     .blendDesc          "CGPUBlendStateDescriptor"
     .depthDesc          "CGPUDepthStateDescriptor"
     .rasterizerState    "CGPURasterizerStateDescriptor"
+    .propertyCount      "uint32_t"
+    .pProperties        "*const ShaderPropertyDesc"
     ()
 
 --- Shader create from file desc
@@ -236,6 +253,8 @@ struct.ShaderCreateFromFileDesc
     .blendDesc          "CGPUBlendStateDescriptor"
     .depthDesc          "CGPUDepthStateDescriptor"
     .rasterizerState    "CGPURasterizerStateDescriptor"
+    .propertyCount      "uint32_t"
+    .pProperties        "*const ShaderPropertyDesc"
     ()
 
 --- Compute shader create from binary desc
@@ -592,6 +611,21 @@ func.Material.BindData
     .binding  "uint32_t"
     .size_    "size_t"
     .data     "*const anyopaque"
+    ()
+
+func.Material.SetFloat4
+    "void"
+    .name    "cstring"
+    .x       "float"
+    .y       "float"
+    .z       "float"
+    .w       "float"
+    ()
+
+func.Material.SetTexture
+    "void"
+    .name    "cstring"
+    .texture "TextureHandle"
     ()
 
 --- Encoder

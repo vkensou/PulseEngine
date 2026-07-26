@@ -6,6 +6,7 @@ namespace HGEGraphics
 {
     inline uint32_t murmur3(const uint32_t* key, size_t wordCount, uint32_t seed) noexcept {
         uint32_t h = seed;
+		if (wordCount == 0)return h;
         size_t i = wordCount;
         do {
             uint32_t k = *key++;

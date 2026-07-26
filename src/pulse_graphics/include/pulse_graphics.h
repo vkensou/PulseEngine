@@ -43,6 +43,18 @@ extern "C" {
 #define PULSE_TYPE_MATERIAL UINT64_C(0x1007)
 
 
+/**
+ * Shader property role
+ *
+ */
+typedef enum EPulseShaderPropertyRole
+{
+    PULSE_SHADER_PROPERTY_ROLE_MATERIAL,      /** ( 0)                                */
+    PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,  /** ( 1)                                */
+
+    PULSE_SHADER_PROPERTY_ROLE_COUNT
+
+} EPulseShaderPropertyRole;
 
 
 
@@ -283,6 +295,20 @@ typedef struct PulseShaderLibraryLoadDesc
 } PulseShaderLibraryLoadDesc;
 
 /**
+ * Shader property descriptor
+ *
+ */
+typedef struct PulseShaderPropertyDesc
+{
+    const char*          name;
+    EPulseShaderPropertyRole role;
+    uint32_t             set;
+    uint32_t             binding;
+    uint32_t             offset;
+
+} PulseShaderPropertyDesc;
+
+/**
  * Shader create from binary desc
  *
  */
@@ -295,6 +321,8 @@ typedef struct PulseShaderCreateFromBinaryDesc
     CGPUBlendStateDescriptor blend_desc;
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
+    uint32_t             property_count;
+    const PulseShaderPropertyDesc* p_properties;
 
 } PulseShaderCreateFromBinaryDesc;
 
@@ -309,6 +337,8 @@ typedef struct PulseShaderCreateFromFileDesc
     CGPUBlendStateDescriptor blend_desc;
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
+    uint32_t             property_count;
+    const PulseShaderPropertyDesc* p_properties;
 
 } PulseShaderCreateFromFileDesc;
 
@@ -714,6 +744,8 @@ PULSE_API void pulse_material_bind_buffer(PulseMaterial* _this, uint32_t set, ui
 PULSE_API void pulse_material_bind_texture(PulseMaterial* _this, uint32_t set, uint32_t binding, PulseTexture texture);
 PULSE_API void pulse_material_bind_sampler(PulseMaterial* _this, uint32_t set, uint32_t binding, PulseSampler sampler);
 PULSE_API void pulse_material_bind_data(PulseMaterial* _this, uint32_t set, uint32_t binding, size_t size, const void* data);
+PULSE_API void pulse_material_set_float4(PulseMaterial* _this, const char* name, float x, float y, float z, float w);
+PULSE_API void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture);
 
 /**
  * Encoder

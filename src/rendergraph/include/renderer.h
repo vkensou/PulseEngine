@@ -66,6 +66,9 @@ namespace HGEGraphics
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler);
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer);
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data);
+	pulse_material_ubo_column_t* material_find_or_create_ubo_column(pulse_material_data_t* material, uint32_t set, uint32_t binding);
+	void material_ubo_sync_to_gpu(pulse_material_data_t* material);
+	const uint8_t* material_get_property_data(pulse_material_data_t* material, uint32_t set, uint32_t binding, uint32_t offset, uint32_t size);
 
 	template<typename T>
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, const T& data)
@@ -153,6 +156,7 @@ namespace HGEGraphics
 		CGPUSamplerId last_samplers[4][64]{ 0 };
 		CGPUBufferId last_buffers[4][64]{ 0 };
 		uint64_t last_buffer_offset_sizes[4][128]{ 0 };
+		uint64_t last_dset_hashes[4]{ 0 };
 		CGPUTextureViewId textureviews[64]{ 0 };
 		CGPUSamplerId samplers[64]{ 0 };
 		CGPUBufferId buffers[64]{ 0 };

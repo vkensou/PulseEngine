@@ -57,6 +57,48 @@ void pulse_material_bind_data(PulseMaterial* material, uint32_t set, uint32_t bi
     HGEGraphics::material_bindBuffer(static_cast<pulse_material_data_t*>(material->ptr), set, binding, size, data);
 }
 
+void pulse_material_set_float4(PulseMaterial* _this, const char* name, float x, float y, float z, float w)
+{
+    if (!_this || !_this->ptr || !name) return;
+    auto* mat = static_cast<pulse_material_data_t*>(_this->ptr);
+    if (!mat->shader) return;
+
+    const auto* prop = pulse_find_shader_property(mat->shader, name);
+    if (!prop) return;
+
+    auto* col = HGEGraphics::material_find_or_create_ubo_column(mat, prop->set, prop->binding);
+
+    uint32_t needed = prop->offset + sizeof(float) * 4;
+    if (col->size < needed)
+    {
+        uint8_t* new_data = (uint8_t*)realloc(col->cpu_data, needed);
+        memset(new_data + col->size, 0, needed - col->size);
+        col->cpu_data = new_data;
+        col->size = needed;
+    }
+
+    float* dst = (float*)(col->cpu_data + prop->offset);
+    dst[0] = x; dst[1] = y; dst[2] = z; dst[3] = w;
+    col->dirty = true;
+}
+
+void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture)
+{
+    if (!_this || !_this->ptr || !name) return;
+    auto* mat = static_cast<pulse_material_data_t*>(_this->ptr);
+    if (!mat->shader) return;
+
+    const auto* prop = pulse_find_shader_property(mat->shader, name);
+    if (!prop) return;
+
+    PulseTexture tex_ref{};
+    if (pulse_acquire_texture(pulse_graphics_internal::g_loader_app, texture, &tex_ref)) {
+        auto* tex_data = static_cast<pulse_texture_data_t*>(tex_ref.ptr);
+        HGEGraphics::material_bindTexture(mat, (int)prop->set, (int)prop->binding, tex_data);
+        pulse_release_texture(pulse_graphics_internal::g_loader_app, &tex_ref);
+    }
+}
+
 bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle, PulseMaterial* material_ref) {
     PulseAssetRef ref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_material_to_handle(handle), &ref)) {

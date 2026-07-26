@@ -71,6 +71,28 @@ namespace HGEGraphics
 		}
 		shader->p_blend_attachment_states = nullptr;
 		shader->blend_attachment_states_count = 0;
+
+		if (shader->p_properties)
+		{
+			delete[] shader->p_properties;
+		}
+		shader->p_properties = nullptr;
+		shader->property_count = 0;
+
+		if (shader->p_ubo_infos)
+		{
+			delete[] shader->p_ubo_infos;
+		}
+		shader->p_ubo_infos = nullptr;
+		shader->ubo_info_count = 0;
+
+		if (shader->p_set_infos)
+		{
+			delete[] shader->p_set_infos;
+		}
+		shader->p_set_infos = nullptr;
+		shader->set_info_count = 0;
+
 		if (shader->root_sig)
 			cgpu_device_free_root_signature(shader->root_sig->device, shader->root_sig);
 		if (shader->vs.library)
@@ -385,6 +407,7 @@ namespace HGEGraphics
 		simple_vector_init(material->buffers.data, material->buffers.size, material->buffers.capacity);
 		simple_vector_init(material->textures.data, material->textures.size, material->textures.capacity);
 		simple_vector_init(material->samplers.data, material->samplers.size, material->samplers.capacity);
+		simple_vector_init(material->uboColumns.data, material->uboColumns.size, material->uboColumns.capacity);
 		simple_vector_init(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
 	}
 
@@ -395,6 +418,15 @@ namespace HGEGraphics
 		simple_vector_free(material->buffers.data, material->buffers.size, material->buffers.capacity);
 		simple_vector_free(material->textures.data, material->textures.size, material->textures.capacity);
 		simple_vector_free(material->samplers.data, material->samplers.size, material->samplers.capacity);
+		for (int i = 0; i < material->uboColumns.size; ++i)
+		{
+			auto& col = material->uboColumns.data[i];
+			if (col.cpu_data)
+				free(col.cpu_data);
+			if (col.gpu_buffer)
+				free_buffer(col.gpu_buffer);
+		}
+		simple_vector_free(material->uboColumns.data, material->uboColumns.size, material->uboColumns.capacity);
 		for (int i = 0; i < material->ownedBuffers.size; ++i)
 		{
 			free_buffer(material->ownedBuffers.data[i]);
@@ -498,6 +530,7 @@ namespace HGEGraphics
 			}
 			encoder->last_render_pipeline = pipeline->handle;
 			memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
+			memset(encoder->last_dset_hashes, 0, sizeof(encoder->last_dset_hashes));
 		}
 	}
 
@@ -602,12 +635,12 @@ namespace HGEGraphics
 
 			if (data_count > 0)
 			{
-				bool dset_dirty = !compare(datas, encoder->last_bind_resources[i], data_count);
-				bool buffer_dirty = memcmp(encoder->buffers, encoder->last_buffers[i], buffer_count);
-				bool textureview_dirty = memcmp(encoder->textureviews, encoder->last_textureviews[i], texture_view_count);
-				bool sampler_dirty = memcmp(encoder->samplers, encoder->last_samplers[i], sampler_count);
-				bool offset_size_dirty = memcmp(encoder->buffer_offset_sizes, encoder->last_buffer_offset_sizes[i], sizeof(float) * 2 * offset_size_count);
-				if (dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
+				uint64_t hash = HGEGraphics::murmur3((const uint32_t*)encoder->buffers, buffer_count, 0);
+				hash ^= HGEGraphics::murmur3((const uint32_t*)encoder->textureviews, texture_view_count, 0);
+				hash ^= HGEGraphics::murmur3((const uint32_t*)encoder->samplers, sampler_count, 0);
+				hash ^= HGEGraphics::murmur3((const uint32_t*)encoder->buffer_offset_sizes, offset_size_count * 2, 0);
+				hash ^= HGEGraphics::murmur3((const uint32_t*)datas, data_count * sizeof(CGPUDescriptorData) / 4, 0);
+				if (hash != encoder->last_dset_hashes[i])
 				{
 					cgpu_descriptor_set_update(dset->handle, data_count, datas);
 					if (is_graphics)
@@ -619,13 +652,70 @@ namespace HGEGraphics
 					memcpy(encoder->last_textureviews[i], encoder->textureviews, sizeof(CGPUTextureViewId) * texture_view_count);
 					memcpy(encoder->last_samplers[i], encoder->samplers, sizeof(CGPUSamplerId) * sampler_count);
 					memcpy(encoder->last_buffer_offset_sizes[i], encoder->buffer_offset_sizes, sizeof(float) * 2 * offset_size_count);
+					encoder->last_dset_hashes[i] = hash;
 				}
 			}
 		}
 	}
 
+	pulse_material_ubo_column_t* material_find_or_create_ubo_column(pulse_material_data_t* material, uint32_t set, uint32_t binding)
+	{
+		for (int i = 0; i < material->uboColumns.size; ++i)
+		{
+			auto& col = material->uboColumns.data[i];
+			if (col.set == set && col.binding == binding)
+				return &col;
+		}
+		pulse_material_ubo_column_t col = {};
+		col.set = set;
+		col.binding = binding;
+		simple_vector_push_back<pulse_material_ubo_column_t>(material->uboColumns.data, material->uboColumns.size, material->uboColumns.capacity, col);
+		return &material->uboColumns.data[material->uboColumns.size - 1];
+	}
+
+	void material_ubo_sync_to_gpu(pulse_material_data_t* material)
+	{
+		for (int i = 0; i < material->uboColumns.size; ++i)
+		{
+			auto& col = material->uboColumns.data[i];
+			if (!col.dirty) continue;
+			if (!col.gpu_buffer)
+			{
+				auto desc = CGPUBufferDescriptor{
+					.size = col.size,
+					.name = "Material UBO",
+					.descriptors = CGPU_RESOURCE_TYPE_UNIFORM_BUFFER,
+					.memory_usage = CGPU_MEMORY_USAGE_CPU_TO_GPU,
+				};
+				col.gpu_buffer = create_buffer(material->device, desc);
+			}
+			cgpu_buffer_map(col.gpu_buffer->handle, nullptr);
+			memcpy(col.gpu_buffer->handle->info->cpu_mapped_address, col.cpu_data, col.size);
+			cgpu_buffer_unmap(col.gpu_buffer->handle);
+			col.dirty = false;
+		}
+	}
+
+	const uint8_t* material_get_property_data(pulse_material_data_t* material, uint32_t set, uint32_t binding, uint32_t offset, uint32_t size)
+	{
+		for (int i = 0; i < material->uboColumns.size; ++i)
+		{
+			auto& col = material->uboColumns.data[i];
+			if (col.set == set && col.binding == binding && col.cpu_data && col.size >= offset + size)
+				return col.cpu_data + offset;
+		}
+		return nullptr;
+	}
+
 	void update_material(RenderPassEncoder* encoder, pulse_material_data_t* material)
 	{
+		material_ubo_sync_to_gpu(material);
+		for (int i = 0; i < material->uboColumns.size; ++i)
+		{
+			auto& col = material->uboColumns.data[i];
+			if (col.gpu_buffer)
+				set_global_buffer(encoder, col.gpu_buffer, (int)col.set, (int)col.binding);
+		}
 		for (int i = 0; i < material->buffers.size; ++i)
 		{
 			auto& bind = material->buffers.data[i];

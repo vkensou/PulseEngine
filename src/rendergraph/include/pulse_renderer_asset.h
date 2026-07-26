@@ -2,6 +2,7 @@
 
 #include "cgpu/api.h"
 #include "resource_type.h"
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +41,30 @@ struct pulse_mesh_data_t
 	bool prepared;
 };
 
+struct pulse_shader_property_t
+{
+    const char* name;
+    int role;
+    uint32_t set;
+    uint32_t binding;
+    uint32_t offset;
+};
+
+struct pulse_shader_ubo_info_t
+{
+    uint32_t set;
+    uint32_t binding;
+    bool renderer_managed;
+    uint64_t layout_hash;
+};
+
+struct pulse_shader_set_info_t
+{
+    uint32_t set_index;
+    bool renderer_managed;
+    uint64_t layout_hash;
+};
+
 struct pulse_shader_data_t
 {
 	CGPURootSignatureId root_sig;
@@ -50,6 +75,12 @@ struct pulse_shader_data_t
 	CGPUBlendAttachmentState* p_blend_attachment_states;
 	CGPUDepthStateDescriptor depth_desc;
 	CGPURasterizerStateDescriptor rasterizer_state;
+	uint32_t property_count;
+	pulse_shader_property_t* p_properties;
+	uint32_t ubo_info_count;
+	pulse_shader_ubo_info_t* p_ubo_infos;
+	uint32_t set_info_count;
+	pulse_shader_set_info_t* p_set_infos;
 };
 
 struct pulse_compute_shader_data_t
@@ -100,6 +131,23 @@ struct pulse_material_bind_sampler_array_t
 	pulse_material_bind_sampler_t* data;
 };
 
+struct pulse_material_ubo_column_t
+{
+	uint32_t set;
+	uint32_t binding;
+	uint8_t* cpu_data;
+	uint32_t size;
+	bool dirty;
+	pulse_buffer_data_t* gpu_buffer;
+};
+
+struct pulse_material_ubo_columns_t
+{
+	int size;
+	int capacity;
+	pulse_material_ubo_column_t* data;
+};
+
 struct pulse_material_owned_buffer_array_t
 {
 	int size;
@@ -114,6 +162,7 @@ struct pulse_material_data_t
 	pulse_material_bind_buffer_array_t buffers;
 	pulse_material_bind_texture_array_t textures;
 	pulse_material_bind_sampler_array_t samplers;
+	pulse_material_ubo_columns_t uboColumns;
 	pulse_material_owned_buffer_array_t ownedBuffers;
 };
 
@@ -129,6 +178,16 @@ typedef struct pulse_shader_library_data {
 typedef struct pulse_sampler_data {
     CGPUSamplerId handle;
 } pulse_sampler_data_t;
+
+static inline const pulse_shader_property_t* pulse_find_shader_property(const pulse_shader_data_t* shader, const char* name)
+{
+	if (!shader || !shader->p_properties || !name) return nullptr;
+	for (uint32_t i = 0; i < shader->property_count; ++i) {
+		if (shader->p_properties[i].name && strcmp(shader->p_properties[i].name, name) == 0)
+			return &shader->p_properties[i];
+	}
+	return nullptr;
+}
 
 #ifdef __cplusplus
 }

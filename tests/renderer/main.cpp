@@ -81,6 +81,13 @@ int main(void) {
         .blend_alpha_op = CGPU_BLEND_OP_ADD,
         .color_mask = CGPU_COLOR_MASK_RGBA,
     };
+
+    PulseShaderPropertyDesc shader_props[] = {
+        { .name = "vpMatrix", .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0 },
+        { .name = "albedo",   .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0 },
+        { .name = "wMatrix",  .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0 },
+    };
+
     PulseShaderCreateFromFileDesc shader_desc = {
         .vert_path = "color.vert.spv",
         .frag_path = "color.frag.spv",
@@ -99,7 +106,9 @@ int main(void) {
         .rasterizer_state = {
             .cull_mode = CGPU_CULL_MODE_BACK,
             .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-        }
+        },
+        .property_count = 3,
+        .p_properties = shader_props,
     };
     PulseShaderHandle shader = pulse_create_shader_from_file(app, &shader_desc);
 
@@ -122,12 +131,11 @@ int main(void) {
         pulse_app_update(app);
     }
 
-    // Bind material data (Set 1, Binding 0 = albedo etc.)
+    // Bind material color via property name (replaces manual set/binding)
     if (pulse_material_is_ready(app, material)) {
         PulseMaterial mat_ref = {};
         if (pulse_acquire_material(app, material, &mat_ref)) {
-            struct { float x, y, z, w; } albedo = { 1.0f, 0.0f, 0.0f, 1.0f };
-            pulse_material_bind_data(&mat_ref, 1, 0, sizeof(albedo), &albedo);
+            pulse_material_set_float4(&mat_ref, "albedo", 1.0f, 0.0f, 0.0f, 1.0f);
             pulse_release_material(app, &mat_ref);
         }
     }
@@ -157,12 +165,23 @@ int main(void) {
     camera.far_plane = 1000.0f;
     ecs_set_ptr(world, camera_entity, PulseCamera, &camera);
 
-    // Create a renderable entity
-    ecs_entity_t renderable_entity = create_transform_entity(world, 0, 0, 0);
-    PulseRenderable renderable = {};
-    renderable.mesh = mesh;
-    renderable.material = material;
-    ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+    {
+        // Create a renderable entity
+        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0);
+        PulseRenderable renderable = {};
+        renderable.mesh = mesh;
+        renderable.material = material;
+        ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+    }
+
+    {
+        // Create a renderable entity
+        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0);
+        PulseRenderable renderable = {};
+        renderable.mesh = mesh;
+        renderable.material = material;
+        ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+    }
 
     // Create a light entity (optional)
     ecs_entity_t light_entity = ecs_new(world);
@@ -194,7 +213,7 @@ int main(void) {
     while (ecs_query_next(&it)) {
         renderable_count += it.count;
     }
-    assert(renderable_count == 1);
+    assert(renderable_count == 2);
     ecs_query_fini(renderable_query);
 
     // ---- Cleanup ----
