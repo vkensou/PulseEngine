@@ -409,6 +409,32 @@ namespace HGEGraphics
 		simple_vector_init(material->samplers.data, material->samplers.size, material->samplers.capacity);
 		simple_vector_init(material->uboColumns.data, material->uboColumns.size, material->uboColumns.capacity);
 		simple_vector_init(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
+		simple_vector_init(material->materialDsets.data, material->materialDsets.size, material->materialDsets.capacity);
+
+		// Create descriptor sets for pure-material sets
+		if (shader) {
+			for (uint32_t i = 0; i < shader->set_info_count; ++i) {
+				auto& set_info = shader->p_set_infos[i];
+				if (set_info.renderer_managed) continue;
+
+				CGPUDescriptorSetDescriptor dset_desc = {};
+				dset_desc.root_signature = shader->root_sig;
+				dset_desc.set_index = set_info.set_index;
+				auto dset_handle = cgpu_device_create_descriptor_set(device, &dset_desc);
+				if (dset_handle) {
+					pulse_material_descriptor_set_t mdset = {};
+					mdset.set_index = set_info.set_index;
+					mdset.handle = dset_handle;
+					mdset.data_hash = 0;
+					mdset.dirty = true;
+					simple_vector_push_back<pulse_material_descriptor_set_t>(
+						material->materialDsets.data,
+						material->materialDsets.size,
+						material->materialDsets.capacity,
+						mdset);
+				}
+			}
+		}
 	}
 
 	void free_material(pulse_material_data_t* material)
@@ -432,30 +458,52 @@ namespace HGEGraphics
 			free_buffer(material->ownedBuffers.data[i]);
 		}
 		simple_vector_free(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
+		for (int i = 0; i < material->materialDsets.size; ++i)
+		{
+			if (material->materialDsets.data[i].handle)
+				cgpu_device_free_descriptor_set(material->device, material->materialDsets.data[i].handle);
+		}
+		simple_vector_free(material->materialDsets.data, material->materialDsets.size, material->materialDsets.capacity);
+	}
+
+	static void material_mark_dset_dirty(pulse_material_data_t* material, uint32_t set_index)
+	{
+		for (int i = 0; i < material->materialDsets.size; ++i)
+		{
+			if (material->materialDsets.data[i].set_index == set_index)
+			{
+				material->materialDsets.data[i].dirty = true;
+				break;
+			}
+		}
 	}
 
 	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture)
 	{
 		pulse_material_bind_texture_t bindbuffer = pulse_material_bind_texture_t(set, bind, texture);
 		simple_vector_push_back<pulse_material_bind_texture_t>(material->textures.data, material->textures.size, material->textures.capacity, bindbuffer);
+		material_mark_dset_dirty(material, (uint32_t)set);
 	}
 
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, pulse_sampler_data_t* sampler)
 	{
 		pulse_material_bind_sampler_t bindbuffer = pulse_material_bind_sampler_t(set, bind, sampler->handle);
 		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, bindbuffer);
+		material_mark_dset_dirty(material, (uint32_t)set);
 	}
 
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler)
 	{
 		pulse_material_bind_sampler_t bindbuffer = pulse_material_bind_sampler_t(set, bind, sampler);
 		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, bindbuffer);
+		material_mark_dset_dirty(material, (uint32_t)set);
 	}
 
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer)
 	{
 		pulse_material_bind_buffer_t bindbuffer = pulse_material_bind_buffer_t(set, bind, buffer);
 		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, bindbuffer);
+		material_mark_dset_dirty(material, (uint32_t)set);
 	}
 
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data)
@@ -475,6 +523,7 @@ namespace HGEGraphics
 		pulse_material_bind_buffer_t bindbuffer = pulse_material_bind_buffer_t(set, bind, buffer);
 		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, bindbuffer);
 		simple_vector_push_back<pulse_buffer_data_t*>(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity, buffer);
+		material_mark_dset_dirty(material, (uint32_t)set);
 	}
 
 	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index)
@@ -539,6 +588,28 @@ namespace HGEGraphics
 		for (uint32_t i = 0; i < std::min(4u, root_sig->table_count); ++i)
 		{
 			auto& table = root_sig->p_tables[i];
+
+			// Check for pre-built descriptor set (from material)
+			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
+			for (auto iter = encoder->context->global_dset_table.rbegin();
+				 iter != encoder->context->global_dset_table.rend(); ++iter)
+			{
+				if (iter->set_index == (int)table.set_index)
+				{
+					prebuilt_dset = iter->dset;
+					break;
+				}
+			}
+			if (prebuilt_dset)
+			{
+				if (is_graphics)
+					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, prebuilt_dset);
+				else
+					cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, prebuilt_dset);
+				encoder->last_dset_hashes[i] = 0;
+				continue;
+			}
+
 			CGPUDescriptorSetDescriptor dset_desc =
 			{
 				.root_signature = root_sig,
@@ -707,9 +778,134 @@ namespace HGEGraphics
 		return nullptr;
 	}
 
+	void material_sync_descriptor_sets(RenderPassEncoder* encoder, pulse_material_data_t* material)
+	{
+		if (!material->shader) return;
+		auto root_sig = material->shader->root_sig;
+
+		for (int m = 0; m < material->materialDsets.size; ++m)
+		{
+			auto& mdset = material->materialDsets.data[m];
+			if (!mdset.dirty) continue;
+
+			uint32_t set_idx = mdset.set_index;
+
+			// Find the table in root signature for this set
+			uint32_t table_idx = 0;
+			for (; table_idx < root_sig->table_count; ++table_idx)
+			{
+				if (root_sig->p_tables[table_idx].set_index == set_idx)
+					break;
+			}
+			if (table_idx >= root_sig->table_count)
+			{
+				mdset.dirty = false;
+				continue;
+			}
+
+			auto& table = root_sig->p_tables[table_idx];
+			const uint32_t data_size = 64;
+			CGPUDescriptorData datas[data_size] = {};
+			uint32_t data_count = 0;
+			uint32_t tex_view_count = 0;
+			uint32_t sampler_count = 0;
+			uint32_t buffer_count = 0;
+
+			CGPUTextureViewId tex_views[data_size];
+			CGPUSamplerId samplers[data_size];
+			CGPUBufferId buffers[data_size];
+
+			for (uint32_t j = 0; j < std::min(data_size, table.resources_count); ++j)
+			{
+				auto& res = table.p_resources[j];
+				CGPUDescriptorData data = {};
+				data.binding = res.binding;
+				data.binding_type = res.type;
+				data.count = 1;
+
+				if (res.type == CGPU_RESOURCE_TYPE_TEXTURE)
+				{
+					CGPUTextureViewId tex_view = CGPU_NULLPTR;
+					for (int b = 0; b < material->textures.size; ++b)
+					{
+						auto& bind = material->textures.data[b];
+						if ((uint32_t)bind.set == set_idx && (uint32_t)bind.bind == res.binding)
+						{
+							if (bind.texture && bind.texture->view)
+								tex_view = bind.texture->view;
+							break;
+						}
+					}
+					if (!tex_view && encoder->context->default_texture)
+						tex_view = encoder->context->default_texture;
+					tex_views[tex_view_count] = tex_view;
+					data.resources.textures = tex_views + tex_view_count;
+					++tex_view_count;
+				}
+				else if (res.type == CGPU_RESOURCE_TYPE_SAMPLER)
+				{
+					CGPUSamplerId sampler = CGPU_NULLPTR;
+					for (int b = 0; b < material->samplers.size; ++b)
+					{
+						auto& bind = material->samplers.data[b];
+						if ((uint32_t)bind.set == set_idx && (uint32_t)bind.bind == res.binding)
+						{
+							sampler = bind.sampler;
+							break;
+						}
+					}
+					samplers[sampler_count] = sampler;
+					data.resources.samplers = samplers + sampler_count;
+					++sampler_count;
+				}
+				else if (res.type == CGPU_RESOURCE_TYPE_UNIFORM_BUFFER || res.type == CGPU_RESOURCE_TYPE_RW_BUFFER)
+				{
+					CGPUBufferId buffer = CGPU_NULLPTR;
+					// Search material buffers first
+					for (int b = 0; b < material->buffers.size; ++b)
+					{
+						auto& bind = material->buffers.data[b];
+						if ((uint32_t)bind.set == set_idx && (uint32_t)bind.bind == res.binding)
+						{
+							if (bind.buffer)
+								buffer = bind.buffer->handle;
+							break;
+						}
+					}
+					// Search material UBO columns as fallback
+					if (!buffer)
+					{
+						for (int b = 0; b < material->uboColumns.size; ++b)
+						{
+							auto& col = material->uboColumns.data[b];
+							if (col.set == set_idx && col.binding == res.binding && col.gpu_buffer)
+							{
+								buffer = col.gpu_buffer->handle;
+								break;
+							}
+						}
+					}
+					buffers[buffer_count] = buffer;
+					data.resources.buffers = buffers + buffer_count;
+					++buffer_count;
+				}
+
+				if (data.resources.ptrs != nullptr)
+					datas[data_count++] = data;
+			}
+
+			if (data_count > 0)
+				cgpu_descriptor_set_update(mdset.handle, data_count, datas);
+
+			mdset.dirty = false;
+		}
+	}
+
 	void update_material(RenderPassEncoder* encoder, pulse_material_data_t* material)
 	{
 		material_ubo_sync_to_gpu(material);
+		material_sync_descriptor_sets(encoder, material);
+
 		for (int i = 0; i < material->uboColumns.size; ++i)
 		{
 			auto& col = material->uboColumns.data[i];
@@ -730,6 +926,16 @@ namespace HGEGraphics
 		{
 			auto& bind = material->samplers.data[i];
 			set_global_sampler(encoder, bind.sampler, bind.set, bind.bind);
+		}
+		// Push pre-built descriptor sets to global dset table
+		for (int i = 0; i < material->materialDsets.size; ++i)
+		{
+			auto& mdset = material->materialDsets.data[i];
+			if (mdset.handle)
+			{
+				ShaderDescriptorSetBinder binder = { mdset.handle, (int)mdset.set_index };
+				encoder->context->global_dset_table.push_back(binder);
+			}
 		}
 	}
 
@@ -928,6 +1134,7 @@ namespace HGEGraphics
 		global_texture_table.clear();
 		global_sampler_table.clear();
 		global_buffer_table.clear();
+		global_dset_table.clear();
 
 		framebufferPool.newFrame();
 		descriptorSetPool.newFrame();

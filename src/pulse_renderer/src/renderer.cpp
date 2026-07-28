@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string.h>
 #include <cmath>
+#include <utility>
 #include "hash.h"
 
 namespace pulse_renderer_internal {
@@ -194,9 +195,7 @@ static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* us
     size_t obj_count = view.render_objects.size();
     if (obj_count == 0) return;
 
-    // Lazy binding: track last-bound descriptor set hashes to skip re-binding
-    uint64_t last_bound_sets[8] = {};
-    int last_bound_count = 0;
+    const pulse_shader_data_t* last_shader = nullptr;
 
     for (size_t idx = 0; idx < obj_count; ++idx) {
         const RenderObject& obj = view.render_objects[idx];
@@ -219,41 +218,123 @@ static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* us
             continue;
         }
 
-        // Bind renderer-managed UBO columns with hash-based lazy switching
+        bool shader_changed = (shader != last_shader);
+
+        // Bind renderer-managed UBO columns matching this shader
         for (const auto& col : view.ubo_columns) {
+            if (col.shader != shader) continue;
             if (!pulse_rendergraph_buffer_handle_valid(col.gpu_handle))
                 continue;
 
-            uint64_t bind_hash = col.layout_hash;
-            HGEGraphics::hash_combine(bind_hash, col.data_hash);
-            if (col.is_per_draw)
-                HGEGraphics::hash_combine(bind_hash, (uint64_t)idx);
-
-            bool found = false;
-            for (int b = 0; b < last_bound_count; ++b) {
-                if (last_bound_sets[b] == bind_hash) { found = true; break; }
-            }
-            if (found) continue;
-
             if (col.is_per_draw) {
+                // Per-draw UBO: bind every draw with current offset
                 uint64_t obj_offset = idx * col.stride;
                 pulse_renderpass_encoder_set_global_buffer_offset(
                     encoder, col.gpu_handle, (uint32_t)col.set, col.binding,
                     obj_offset, col.stride);
-            } else {
+            } else if (shader_changed) {
+                // Per-pass UBO: bind once when entering this shader
                 pulse_renderpass_encoder_set_global_buffer_handle(
                     encoder, col.gpu_handle, (uint32_t)col.set, col.binding);
             }
-
-            if (last_bound_count < 8)
-                last_bound_sets[last_bound_count++] = bind_hash;
         }
+
+        last_shader = shader;
 
         pulse_renderpass_encoder_draw(encoder, material_ref, mesh_ref);
 
         pulse_release_mesh(app, &mesh_ref);
         pulse_release_material(app, &material_ref);
     }
+}
+
+// Helper: build a single renderer-managed UBO column for a given shader+ubo_info
+static void build_ubo_column_for_shader(
+    const pulse_renderer_state* state,
+    pulse_rendergraph_t* graph,
+    RendererView& view,
+    const pulse_shader_data_t* shader,
+    const pulse_shader_ubo_info_t& info)
+{
+    RendererUboColumn col = {};
+    col.shader = shader;
+    col.set = info.set;
+    col.binding = info.binding;
+    col.layout_hash = info.layout_hash;
+
+    bool has_pass = false;
+    bool has_draw = false;
+    uint32_t ubo_size = 0;
+
+    for (uint32_t p = 0; p < shader->property_count; ++p) {
+        const auto& prop = shader->p_properties[p];
+        if (prop.set != info.set || prop.binding != info.binding) continue;
+        if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
+
+        uint32_t prop_size = sizeof(HMM_Mat4);
+        uint32_t needed = prop.offset + prop_size;
+        if (needed > ubo_size) ubo_size = needed;
+
+        const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
+        const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
+        if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) has_pass = true;
+        if (model_name && prop.name && strcmp(prop.name, model_name) == 0) has_draw = true;
+    }
+
+    if (has_draw) {
+        col.is_per_draw = true;
+        col.stride = ubo_size;
+        size_t obj_count = view.render_objects.size();
+        col.cpu_data.resize(ubo_size * obj_count, 0);
+
+        for (size_t o = 0; o < obj_count; ++o) {
+            for (uint32_t p = 0; p < shader->property_count; ++p) {
+                const auto& prop = shader->p_properties[p];
+                if (prop.set != info.set || prop.binding != info.binding) continue;
+                if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
+
+                const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
+                if (model_name && prop.name && strcmp(prop.name, model_name) == 0) {
+                    memcpy(col.cpu_data.data() + o * ubo_size + prop.offset,
+                           &view.render_objects[o].world_matrix, sizeof(HMM_Mat4));
+                }
+            }
+        }
+    }
+
+    if (has_pass) {
+        if (!has_draw) {
+            col.is_per_draw = false;
+            col.stride = ubo_size;
+            col.cpu_data.resize(ubo_size, 0);
+        }
+        HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
+        size_t vp_slot_count = has_draw ? view.render_objects.size() : 1;
+        for (size_t o = 0; o < vp_slot_count; ++o) {
+            for (uint32_t p = 0; p < shader->property_count; ++p) {
+                const auto& prop = shader->p_properties[p];
+                if (prop.set != info.set || prop.binding != info.binding) continue;
+                if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
+
+                const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
+                if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) {
+                    memcpy(col.cpu_data.data() + o * ubo_size + prop.offset, &vp, sizeof(HMM_Mat4));
+                }
+            }
+        }
+    }
+
+    // Compute data_hash from the filled byte buffer
+    col.data_hash = col.layout_hash;
+    HGEGraphics::hash_combine(col.data_hash, HGEGraphics::murmur3(
+        (const uint32_t*)col.cpu_data.data(),
+        (uint32_t)col.cpu_data.size() / 4, 0));
+
+    // Declare GPU handle via rendergraph
+    col.gpu_handle = pulse_rendergraph_declare_uniform_buffer_quick(
+        graph, (uint32_t)col.cpu_data.size(), (void*)col.cpu_data.data());
+
+    view.ubo_columns.push_back(std::move(col));
 }
 
 static void record_renderer_callback(
@@ -276,103 +357,35 @@ static void record_renderer_callback(
         if (!pulse_rendergraph_texture_handle_valid(target_handle))
             continue;
 
-        // Build renderer-managed UBO columns from the first renderable's shader
+        // Build renderer-managed UBO columns per unique shader
         view.ubo_columns.clear();
 
-        if (!view.render_objects.empty()) {
-            // Acquire first object's material to get shader reference
+        // Collect unique shaders from all renderables
+        struct pulse_shader_data_t* all_shaders[64] = {};
+        uint32_t shader_count = 0;
+        for (auto& obj : view.render_objects) {
             PulseMaterial mat_ref = {};
-            if (pulse_acquire_material(app, view.render_objects[0].material, &mat_ref)) {
-                auto* mat_data = static_cast<pulse_material_data_t*>(mat_ref.ptr);
-                auto* shader = mat_data ? mat_data->shader : nullptr;
-
-                if (shader) {
-                    // For each renderer-managed UBO, build the cpu data
-                    for (uint32_t u = 0; u < shader->ubo_info_count; ++u) {
-                        const auto& info = shader->p_ubo_infos[u];
-                        if (!info.renderer_managed) continue;
-
-                        RendererUboColumn col = {};
-                        col.set = info.set;
-                        col.binding = info.binding;
-                        col.layout_hash = info.layout_hash;
-
-                        // Determine which properties in this UBO get pass vs draw data
-                        bool has_pass = false;
-                        bool has_draw = false;
-                        uint32_t ubo_size = 0;
-
-                        for (uint32_t p = 0; p < shader->property_count; ++p) {
-                            const auto& prop = shader->p_properties[p];
-                            if (prop.set != info.set || prop.binding != info.binding) continue;
-                            if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
-
-                            uint32_t prop_size = sizeof(HMM_Mat4); // assume mat4 for now
-                            uint32_t needed = prop.offset + prop_size;
-                            if (needed > ubo_size) ubo_size = needed;
-
-                            const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
-                            const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
-
-                            if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) has_pass = true;
-                            if (model_name && prop.name && strcmp(prop.name, model_name) == 0) has_draw = true;
-                        }
-
-                        if (has_draw) {
-                            col.is_per_draw = true;
-                            col.stride = ubo_size;
-                            size_t obj_count = view.render_objects.size();
-                            col.cpu_data.resize(ubo_size * obj_count, 0);
-
-                            for (size_t o = 0; o < obj_count; ++o) {
-                                for (uint32_t p = 0; p < shader->property_count; ++p) {
-                                    const auto& prop = shader->p_properties[p];
-                                    if (prop.set != info.set || prop.binding != info.binding) continue;
-                                    if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
-
-                                    const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
-                                    if (model_name && prop.name && strcmp(prop.name, model_name) == 0) {
-                                        memcpy(col.cpu_data.data() + o * ubo_size + prop.offset,
-                                               &view.render_objects[o].world_matrix, sizeof(HMM_Mat4));
-                                    }
-                                }
-                            }
-                        }
-
-                        if (has_pass) {
-                            if (!has_draw) {
-                                col.is_per_draw = false;
-                                col.cpu_data.resize(ubo_size, 0);
-                            }
-                            HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
-                            for (uint32_t p = 0; p < shader->property_count; ++p) {
-                                const auto& prop = shader->p_properties[p];
-                                if (prop.set != info.set || prop.binding != info.binding) continue;
-                                if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
-
-                                const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
-                                if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) {
-                                    memcpy(col.cpu_data.data() + prop.offset, &vp, sizeof(HMM_Mat4));
-                                }
-                            }
-                        }
-
-                        // Compute data_hash from the filled byte buffer
-                        col.data_hash = col.layout_hash;
-                        HGEGraphics::hash_combine(col.data_hash, HGEGraphics::murmur3(
-                            (const uint32_t*)col.cpu_data.data(),
-                            (uint32_t)col.cpu_data.size() / 4, 0));
-
-                        view.ubo_columns.push_back(std::move(col));
-                    }
+            if (!pulse_acquire_material(app, obj.material, &mat_ref)) continue;
+            auto* mat_data = static_cast<pulse_material_data_t*>(mat_ref.ptr);
+            auto* sdr = mat_data ? mat_data->shader : nullptr;
+            if (sdr) {
+                bool found = false;
+                for (uint32_t si = 0; si < shader_count; ++si) {
+                    if (all_shaders[si] == sdr) { found = true; break; }
                 }
-                pulse_release_material(app, &mat_ref);
+                if (!found && shader_count < 64)
+                    all_shaders[shader_count++] = sdr;
             }
+            pulse_release_material(app, &mat_ref);
+        }
 
-            // Declare GPU handles via rendergraph
-            for (auto& col : view.ubo_columns) {
-        col.gpu_handle = pulse_rendergraph_declare_uniform_buffer_quick(
-            graph, (uint32_t)col.cpu_data.size(), (void*)col.cpu_data.data());
+        // Build UBO columns for each unique shader
+        for (uint32_t si = 0; si < shader_count; ++si) {
+            auto* shader = all_shaders[si];
+            for (uint32_t u = 0; u < shader->ubo_info_count; ++u) {
+                const auto& info = shader->p_ubo_infos[u];
+                if (!info.renderer_managed) continue;
+                build_ubo_column_for_shader(state, graph, view, shader, info);
             }
         }
 

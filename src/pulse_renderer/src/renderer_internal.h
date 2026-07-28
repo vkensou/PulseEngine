@@ -3,6 +3,7 @@
 #include "pulse_renderer.h"
 #include "pulse_transform.h"
 #include "pulse_window.h"
+#include "pulse_renderer_asset.h"
 
 #include <vector>
 #include <cstdint>
@@ -25,6 +26,7 @@ struct RenderObject {
 // Dynamic UBO column (renderer-managed, per (set,binding))
 // ============================================================
 struct RendererUboColumn {
+    const struct pulse_shader_data_t* shader; // owning shader
     uint32_t set;
     uint32_t binding;
     uint32_t stride;            // per-object byte size (0 = not per-draw)

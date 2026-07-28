@@ -102,6 +102,12 @@ namespace HGEGraphics
 		uint64_t offset, size;
 	};
 
+	struct ShaderDescriptorSetBinder
+	{
+		CGPUDescriptorSetId dset;
+		int set_index;
+	};
+
 	struct ExecutorContext
 	{
 		std::pmr::memory_resource* memory_resource = nullptr;
@@ -118,6 +124,7 @@ namespace HGEGraphics
 		std::pmr::vector<ShaderTextureBinder> global_texture_table;
 		std::pmr::vector<ShaderSamplerBinder> global_sampler_table;
 		std::pmr::vector<ShaderBufferBinder> global_buffer_table;
+		std::pmr::vector<ShaderDescriptorSetBinder> global_dset_table;
 		DescriptorSetPool descriptorSetPool;
 		std::pmr::vector<DescriptorSet*> allocated_dsets;
 		CGPUDeviceId device = { CGPU_NULLPTR };

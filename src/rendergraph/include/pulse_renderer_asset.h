@@ -155,6 +155,21 @@ struct pulse_material_owned_buffer_array_t
 	pulse_buffer_data_t** data;
 };
 
+struct pulse_material_descriptor_set_t
+{
+    uint32_t set_index;
+    CGPUDescriptorSetId handle;
+    uint64_t data_hash;
+    bool dirty;
+};
+
+struct pulse_material_descriptor_set_array_t
+{
+    int size;
+    int capacity;
+    pulse_material_descriptor_set_t* data;
+};
+
 struct pulse_material_data_t
 {
 	CGPUDeviceId device;
@@ -164,6 +179,7 @@ struct pulse_material_data_t
 	pulse_material_bind_sampler_array_t samplers;
 	pulse_material_ubo_columns_t uboColumns;
 	pulse_material_owned_buffer_array_t ownedBuffers;
+	pulse_material_descriptor_set_array_t materialDsets;
 };
 
 struct pulse_backbuffer_data_t

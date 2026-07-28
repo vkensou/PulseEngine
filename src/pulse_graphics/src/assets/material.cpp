@@ -80,6 +80,16 @@ void pulse_material_set_float4(PulseMaterial* _this, const char* name, float x, 
     float* dst = (float*)(col->cpu_data + prop->offset);
     dst[0] = x; dst[1] = y; dst[2] = z; dst[3] = w;
     col->dirty = true;
+
+    // Mark the material descriptor set dirty for the UBO's set
+    for (int i = 0; i < mat->materialDsets.size; ++i)
+    {
+        if (mat->materialDsets.data[i].set_index == prop->set)
+        {
+            mat->materialDsets.data[i].dirty = true;
+            break;
+        }
+    }
 }
 
 void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture)
