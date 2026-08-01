@@ -397,6 +397,13 @@ function converter.types(params)
 		local t = typ.name:match "([%u%l%d]*)Id"
 		yield("pub const " .. typ.name .. " = *" .. t .. ";")
 	elseif hasSuffix(typ.name, "::Enum") then
+		local has_value = false
+		for _, enum in ipairs(typ.enum) do
+			if enum.value ~= nil then
+				has_value = true
+				break
+			end
+		end
 		yield("pub const " .. typ.typename .. " = enum(u32) {")
 		for idx, enum in ipairs(typ.enum) do
             local comment = ""
@@ -404,13 +411,29 @@ function converter.types(params)
                 comment = table.concat(enum.comment, " ")
             end
             local iname = handle_embed_keyword(upperCamelcase_to_underscorecase(enum.name))
-			local code = string.format("    %s, // (%2d) %s%s", iname, idx - 1, namealign(comment, 30), comment)
+			local assign = ""
+			if enum.value ~= nil then
+				assign = " = " .. tostring(enum.value)
+			end
+			local code
+			if enum.value ~= nil then
+				-- explicit value: drop the auto index annotation, keep user comment
+				if comment ~= "" then
+					code = string.format("    %s%s, // %s", iname, assign, comment)
+				else
+					code = "    " .. iname .. assign .. ","
+				end
+			else
+				code = string.format("    %s%s, // (%2d) %s%s", iname, assign, idx - 1, namealign(comment, 30), comment)
+			end
 			code = trimRight(code)
             yield(code)
 		end
 		yield("};")
 
-		enum["[" .. typ.typename .. "::Count]"] = #typ.enum
+		if not has_value then
+			enum["[" .. typ.typename .. "::Count]"] = #typ.enum
+		end
 
 	elseif typ.bits ~= nil then
 		FlagBlock(typ)

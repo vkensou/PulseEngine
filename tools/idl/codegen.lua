@@ -885,17 +885,36 @@ struct $NAME
 };
 ]]
 
+local enum_temp_no_count = [[
+struct $NAME
+{
+	$COMMENT
+	enum Enum
+	{
+		$ITEMS
+	};
+};
+]]
+
 function codegen.gen_enum_define(enum)
 	assert(type(enum.enum) == "table", "Not an enum")
+	local has_value = false
 	local items = {}
 	for _, item in ipairs(enum.enum) do
+		if item.value ~= nil then
+			has_value = true
+		end
+		local assign = ""
+		if item.value ~= nil then
+			assign = " = " .. tostring(item.value)
+		end
 		local text
 		if not item.comment then
-			text = item.name .. ","
+			text = item.name .. assign .. ","
 		else
 			local comment = table.concat(item.comment, " ")
-			text = string.format("%s,%s //!< %s",
-				item.name, namealign(item.name), comment)
+			text = string.format("%s%s,%s //!< %s",
+				item.name, assign, namealign(item.name .. assign), comment)
 		end
 		items[#items+1] = text
 	end
@@ -908,7 +927,8 @@ function codegen.gen_enum_define(enum)
 		COMMENT = comment,
 		ITEMS = table.concat(items, "\n\t\t"),
 	}
-	return (enum_temp:gsub("$(%u+)", temp))
+	local template = has_value and enum_temp_no_count or enum_temp
+	return (template:gsub("$(%u+)", temp))
 end
 
 local cenum_temp = [[
@@ -920,23 +940,51 @@ typedef enum $NAME
 
 } $NAME;
 ]]
+
+local cenum_temp_no_count = [[
+typedef enum $NAME
+{
+	$ITEMS
+} $NAME;
+]]
+
 function codegen.gen_enum_cdefine(enum)
 	assert(type(enum.enum) == "table", "Not an enum")
 	local cname = enum.cname
 	local uname = (codegen._naming.L_ .. camelcase_to_underscorecase(enum.name:match("(.-)::Enum$"))):upper()
+	local has_value = false
 	local items = {}
 	for index , item in ipairs(enum.enum) do
+		if item.value ~= nil then
+			has_value = true
+		end
 		local comment = ""
 		if item.comment then
 			comment = table.concat(item.comment, " ")
 		end
 		local cname = item.cname
-		items[#items+1] = string.format("%s,%s /** (%2d) %s%s */",
-			cname,
-			namealign(cname, 40),
-			index - 1,
-			comment,
-			namealign(comment, 30))
+		local assign = ""
+		if item.value ~= nil then
+			assign = " = " .. tostring(item.value)
+		end
+		local text
+		if item.value ~= nil then
+			-- explicit value: drop the auto index annotation, keep user comment
+			if comment ~= "" then
+				text = string.format("%s%s,%s /** %s */", cname, assign, namealign(cname .. assign, 40), comment)
+			else
+				text = cname .. assign .. ","
+			end
+		else
+			text = string.format("%s%s,%s /** (%2d) %s%s */",
+				cname,
+				assign,
+				namealign(cname .. assign, 40),
+				index - 1,
+				comment,
+				namealign(comment, 30))
+		end
+		items[#items+1] = text
 	end
 
 	local temp = {
@@ -944,8 +992,9 @@ function codegen.gen_enum_cdefine(enum)
 		COUNT = uname .. "_COUNT",
 		ITEMS = table.concat(items, "\n\t"),
 	}
+	local template = has_value and cenum_temp_no_count or cenum_temp
 
-	return (cenum_temp:gsub("$(%u+)", temp))
+	return (template:gsub("$(%u+)", temp))
 end
 
 local function flag_format(flag)

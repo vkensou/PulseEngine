@@ -85,6 +85,30 @@ typedef enum EPulseResult
 } EPulseResult;
 ```
 
+#### 枚举指定值
+
+枚举项可用 `{ value = ... }` 指定显式值，数字或字符串均原样透传：
+
+```lua
+enum.DepthBits { underscore }
+    .D32 { value = 32 }    --- 32-bit depth
+    .D24 { value = 24 }
+    .D16 { value = 16 }
+    ()
+```
+
+编译结果：
+```c
+typedef enum EPulseDepthBits
+{
+    PULSE_DEPTH_BITS_D32 = 32,
+    PULSE_DEPTH_BITS_D24 = 24,
+    PULSE_DEPTH_BITS_D16 = 16,
+} EPulseDepthBits;
+```
+
+注意：任一枚举项带 `value` 时，自动追加的 `COUNT` 项会被跳过（否则自动递增语义会错误）。因此此类枚举不能用 `"DepthBits::Count"` 作数组尺寸。
+
 ### 位标志（flags）
 
 ```lua
