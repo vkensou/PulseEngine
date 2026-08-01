@@ -86,23 +86,23 @@ struct test_render_passdata {
     PulseGraphicsBuffer buffer;
 };
 
-static void on_test_render(pulse_renderpass_encoder_t* encoder, void* userdata) {
+static void on_test_render(PulseRenderPassEncoder* encoder, void* userdata) {
     auto* data = static_cast<test_render_passdata*>(userdata);
     if (!encoder) return;
 
-    pulse_renderpass_encoder_set_viewport(encoder, 0, 0, 800, 600, 0, 1);
-    pulse_renderpass_encoder_set_scissor(encoder, 0, 0, 800, 600);
-    pulse_renderpass_encoder_set_global_texture_handle(encoder, pulse_texture_handle_t{}, 0, 0);
-    pulse_renderpass_encoder_set_global_buffer_handle(encoder, pulse_buffer_handle_t{}, 0, 0);
-    pulse_renderpass_encoder_set_global_buffer_offset(encoder, pulse_buffer_handle_t{}, 0, 0, 0, 256);
-    pulse_renderpass_encoder_push_constants(encoder, data->shader, "test", nullptr);
-    pulse_renderpass_encoder_draw(encoder, data->material, data->mesh);
-    pulse_renderpass_encoder_draw_submesh(encoder, data->material, data->mesh, 3, 0, 3, 0);
-    pulse_renderpass_encoder_draw_procedure(encoder, data->material, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
-    pulse_renderpass_encoder_dispatch(encoder, data->compute, 1, 1, 1);
-    pulse_renderpass_encoder_set_global_texture(encoder, data->texture, 0, 0);
-    pulse_renderpass_encoder_set_global_buffer(encoder, data->buffer, 0, 0);
-    pulse_renderpass_encoder_set_global_sampler(encoder, {}, 0, 0);
+    pulse_render_pass_encoder_set_viewport(encoder, 0, 0, 800, 600, 0, 1);
+    pulse_render_pass_encoder_set_scissor(encoder, 0, 0, 800, 600);
+    pulse_render_pass_encoder_set_global_texture_handle(encoder, PulseRGTextureHandle{}, 0, 0);
+    pulse_render_pass_encoder_set_global_buffer_handle(encoder, PulseRGBufferHandle{}, 0, 0);
+    pulse_render_pass_encoder_set_global_buffer_offset(encoder, PulseRGBufferHandle{}, 0, 0, 0, 256);
+    pulse_render_pass_encoder_push_constants(encoder, data->shader, "test", nullptr);
+    pulse_render_pass_encoder_draw(encoder, data->material, data->mesh);
+    pulse_render_pass_encoder_draw_submesh(encoder, data->material, data->mesh, 3, 0, 3, 0);
+    pulse_render_pass_encoder_draw_procedure(encoder, data->material, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
+    pulse_render_pass_encoder_dispatch(encoder, data->compute, 1, 1, 1);
+    pulse_render_pass_encoder_set_global_texture(encoder, data->texture, 0, 0);
+    pulse_render_pass_encoder_set_global_buffer(encoder, data->buffer, 0, 0);
+    pulse_render_pass_encoder_set_global_sampler(encoder, {}, 0, 0);
 }
 
 struct test_render_state {
@@ -118,7 +118,7 @@ struct test_render_state {
 
 static void record_test_graphic(
     PulseAppId app,
-    pulse_rendergraph_t* graph,
+    PulseRenderGraphId graph,
     void* user_data
 ) {
     test_render_state* state = static_cast<test_render_state*>(user_data);
@@ -146,9 +146,9 @@ static void record_test_graphic(
             ecs_entity_t entity = it.entities[i];
             const auto& window = windows[i];
 
-            pulse_texture_handle_t target_handle =
+            PulseRGTextureHandle target_handle =
                 pulse_import_window_backbuffer(app, graph, entity);
-            if (!pulse_rendergraph_texture_handle_valid(target_handle)) {
+            if (!pulse_rgtexture_handle_is_valid(target_handle)) {
                 continue;
             }
 
@@ -163,12 +163,12 @@ static void record_test_graphic(
             auto objectMat = Mat4_Translate(0, 0, 0);
             state->objectData = { objectMat };
 
-            auto pass_ubo_handle = pulse_rendergraph_declare_uniform_buffer_quick(graph, sizeof(PassData), &state->passData);
-            auto object_ubo_handle = pulse_rendergraph_declare_uniform_buffer_quick(graph, sizeof(ObjectData), &state->objectData);
+            auto pass_ubo_handle = pulse_render_graph_declare_uniform_buffer_quick(graph, sizeof(PassData), &state->passData);
+            auto object_ubo_handle = pulse_render_graph_declare_uniform_buffer_quick(graph, sizeof(ObjectData), &state->objectData);
 
-            pulse_renderpass_builder_t pass =
-                pulse_rendergraph_add_renderpass(graph, "TestCallbackPass");
-            pulse_renderpass_add_color_attachment(
+            PulseRenderPassBuilder pass =
+                pulse_render_graph_add_render_pass(graph, "TestCallbackPass");
+            pulse_render_pass_builder_add_color_attachment(
                 &pass,
                 target_handle,
                 CGPU_LOAD_ACTION_CLEAR,
@@ -180,23 +180,23 @@ static void record_test_graphic(
                 continue;
             }
 
-            pulse_renderpass_use_buffer(&pass, pass_ubo_handle);
-            pulse_renderpass_use_buffer(&pass, object_ubo_handle);
+            pulse_render_pass_builder_use_buffer(&pass, pass_ubo_handle);
+            pulse_render_pass_builder_use_buffer(&pass, object_ubo_handle);
 
             struct MainPassPassData
             {
                 PulseMaterial material_ref;
                 PulseMesh mesh_ref;
-                pulse_buffer_handle_t pass_ubo_handle;
-                pulse_buffer_handle_t object_ubo_handle;
+                PulseRGBufferHandle pass_ubo_handle;
+                PulseRGBufferHandle object_ubo_handle;
             };
             MainPassPassData* passdata;
-            pulse_renderpass_set_executable(&pass, [](pulse_renderpass_encoder_t* encoder, void* passdata)
+            pulse_render_pass_builder_set_executable(&pass, [](PulseRenderPassEncoder* encoder, void* passdata)
                 {
                     MainPassPassData* resolved_passdata = (MainPassPassData*)passdata;
-                    pulse_renderpass_encoder_set_global_buffer_handle(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
-                    pulse_renderpass_encoder_set_global_buffer_offset(encoder, resolved_passdata->object_ubo_handle, 2, 0, 0, sizeof(ObjectData));
-                    pulse_renderpass_encoder_draw(encoder, resolved_passdata->material_ref, resolved_passdata->mesh_ref);
+                    pulse_render_pass_encoder_set_global_buffer_handle(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
+                    pulse_render_pass_encoder_set_global_buffer_offset(encoder, resolved_passdata->object_ubo_handle, 2, 0, 0, sizeof(ObjectData));
+                    pulse_render_pass_encoder_draw(encoder, resolved_passdata->material_ref, resolved_passdata->mesh_ref);
                     //set_global_dynamic_buffer(encoder, resolved_passdata->pass_ubo_handle, 0, 0);
                     //for (size_t i = 0; i < resolved_passdata->view->renderObjects.size(); ++i)
                     //{

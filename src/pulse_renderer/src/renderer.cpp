@@ -177,18 +177,18 @@ static const pulse_shader_ubo_info_t* find_managed_ubo(const pulse_shader_data_t
     return nullptr;
 }
 
-static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* userdata) {
+static void render_view_executable(PulseRenderPassEncoder* encoder, void* userdata) {
     ViewPassData* pass_data = static_cast<ViewPassData*>(userdata);
     if (!encoder || !pass_data || !pass_data->view) return;
 
     const RendererView& view = *pass_data->view;
     PulseAppId app = pass_data->app;
 
-    pulse_renderpass_encoder_set_viewport(
+    pulse_render_pass_encoder_set_viewport(
         encoder, 0.0f, 0.0f,
         static_cast<float>(view.width), static_cast<float>(view.height),
         0.0f, 1.0f);
-    pulse_renderpass_encoder_set_scissor(
+    pulse_render_pass_encoder_set_scissor(
         encoder, 0, 0,
         static_cast<uint32_t>(view.width), static_cast<uint32_t>(view.height));
 
@@ -223,25 +223,25 @@ static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* us
         // Bind renderer-managed UBO columns matching this shader
         for (const auto& col : view.ubo_columns) {
             if (col.shader != shader) continue;
-            if (!pulse_rendergraph_buffer_handle_valid(col.gpu_handle))
+            if (!pulse_rgbuffer_handle_is_valid(col.gpu_handle))
                 continue;
 
             if (col.is_per_draw) {
                 // Per-draw UBO: bind every draw with current offset
                 uint64_t obj_offset = idx * col.stride;
-                pulse_renderpass_encoder_set_global_buffer_offset(
+                pulse_render_pass_encoder_set_global_buffer_offset(
                     encoder, col.gpu_handle, (uint32_t)col.set, col.binding,
                     obj_offset, col.stride);
             } else if (shader_changed) {
                 // Per-pass UBO: bind once when entering this shader
-                pulse_renderpass_encoder_set_global_buffer_handle(
+                pulse_render_pass_encoder_set_global_buffer_handle(
                     encoder, col.gpu_handle, (uint32_t)col.set, col.binding);
             }
         }
 
         last_shader = shader;
 
-        pulse_renderpass_encoder_draw(encoder, material_ref, mesh_ref);
+        pulse_render_pass_encoder_draw(encoder, material_ref, mesh_ref);
 
         pulse_release_mesh(app, &mesh_ref);
         pulse_release_material(app, &material_ref);
@@ -251,7 +251,7 @@ static void render_view_executable(pulse_renderpass_encoder_t* encoder, void* us
 // Helper: build a single renderer-managed UBO column for a given shader+ubo_info
 static void build_ubo_column_for_shader(
     const pulse_renderer_state* state,
-    pulse_rendergraph_t* graph,
+    PulseRenderGraphId graph,
     RendererView& view,
     const pulse_shader_data_t* shader,
     const pulse_shader_ubo_info_t& info)
@@ -331,7 +331,7 @@ static void build_ubo_column_for_shader(
         (uint32_t)col.cpu_data.size() / 4, 0));
 
     // Declare GPU handle via rendergraph
-    col.gpu_handle = pulse_rendergraph_declare_uniform_buffer_quick(
+    col.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(
         graph, (uint32_t)col.cpu_data.size(), (void*)col.cpu_data.data());
 
     view.ubo_columns.push_back(std::move(col));
@@ -339,7 +339,7 @@ static void build_ubo_column_for_shader(
 
 static void record_renderer_callback(
     PulseAppId app,
-    pulse_rendergraph_t* graph,
+    PulseRenderGraphId graph,
     void* user_data)
 {
     pulse_renderer_state* state =
@@ -352,9 +352,9 @@ static void record_renderer_callback(
     for (auto& view : packet.views) {
         if (view.window_entity == 0) continue;
 
-        pulse_texture_handle_t target_handle =
+        PulseRGTextureHandle target_handle =
             pulse_import_window_backbuffer(app, graph, view.window_entity);
-        if (!pulse_rendergraph_texture_handle_valid(target_handle))
+        if (!pulse_rgtexture_handle_is_valid(target_handle))
             continue;
 
         // Build renderer-managed UBO columns per unique shader
@@ -393,10 +393,10 @@ static void record_renderer_callback(
         char pass_name[64];
         snprintf(pass_name, sizeof(pass_name), "RendererView_%llu",
                  static_cast<unsigned long long>(view.camera_entity));
-        pulse_renderpass_builder_t pass =
-            pulse_rendergraph_add_renderpass(graph, pass_name);
+        PulseRenderPassBuilder pass =
+            pulse_render_graph_add_render_pass(graph, pass_name);
 
-        pulse_renderpass_add_color_attachment(
+        pulse_render_pass_builder_add_color_attachment(
             &pass, target_handle,
             CGPU_LOAD_ACTION_CLEAR,
             0xff000000,  // black clear color
@@ -404,13 +404,13 @@ static void record_renderer_callback(
 
         // Register UBO handles as used in this pass
         for (const auto& col : view.ubo_columns) {
-            if (pulse_rendergraph_buffer_handle_valid(col.gpu_handle))
-                pulse_renderpass_use_buffer(&pass, col.gpu_handle);
+            if (pulse_rgbuffer_handle_is_valid(col.gpu_handle))
+                pulse_render_pass_builder_use_buffer(&pass, col.gpu_handle);
         }
 
         // Set executable callback
         ViewPassData* passdata = nullptr;
-        pulse_renderpass_set_executable(
+        pulse_render_pass_builder_set_executable(
             &pass,
             render_view_executable,
             sizeof(ViewPassData),

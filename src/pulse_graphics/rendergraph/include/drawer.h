@@ -25,10 +25,10 @@ namespace HGEGraphics
 	void draw_procedure(RenderPassEncoder* encoder, pulse_material_data_t* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
 	void dispatch(RenderPassEncoder* encoder, pulse_compute_shader_data_t* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z);
 	void set_global_texture(RenderPassEncoder* encoder, pulse_texture_data_t* texture, int set, int slot);
-	void set_global_texture_handle(RenderPassEncoder* encoder, pulse_texture_handle_t texture, int set, int slot);
+	void set_global_texture_handle(RenderPassEncoder* encoder, PulseRGTextureHandle texture, int set, int slot);
 	void set_global_sampler(RenderPassEncoder* encoder, CGPUSamplerId sampler, int set, int slot);
 	void set_global_buffer(RenderPassEncoder* encoder, pulse_buffer_data_t* buffer, int set, int slot);
-	void set_global_dynamic_buffer(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot);
-	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size);
+	void set_global_dynamic_buffer(RenderPassEncoder* encoder, PulseRGBufferHandle buffer, int set, int slot);
+	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, PulseRGBufferHandle buffer, int set, int slot, uint64_t offset, uint64_t size);
 	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data);
 }

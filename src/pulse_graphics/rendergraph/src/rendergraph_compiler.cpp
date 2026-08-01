@@ -7,7 +7,7 @@
 
 namespace HGEGraphics
 {
-	CompiledRenderGraph Compiler::Compile(pulse_rendergraph_t* renderGraph, std::pmr::memory_resource* const memory_resource)
+	CompiledRenderGraph Compiler::Compile(PulseRenderGraphId renderGraph, std::pmr::memory_resource* const memory_resource)
 	{
 		auto& impl = *to_impl(renderGraph);
 		auto resourceCount = impl.resources.size();
@@ -247,7 +247,7 @@ namespace HGEGraphics
 
 extern "C" {
 
-CGPUBufferId pulse_rendergraph_resolve_buffer(pulse_renderpass_encoder_t* encoder, pulse_buffer_handle_t buffer_handle)
+CGPUBufferId pulse_render_pass_encoder_resolve_buffer(PulseRenderPassEncoder* encoder, PulseRGBufferHandle buffer_handle)
 {
 	auto* enc = (HGEGraphics::RenderPassEncoder*)encoder;
 	auto crg = enc->compiled_graph;
@@ -256,7 +256,7 @@ CGPUBufferId pulse_rendergraph_resolve_buffer(pulse_renderpass_encoder_t* encode
 	return buffer;
 }
 
-CGPUTextureViewId pulse_rendergraph_resolve_texture_view(pulse_renderpass_encoder_t* encoder, pulse_texture_handle_t texture_handle)
+CGPUTextureViewId pulse_render_pass_encoder_resolve_texture_view(PulseRenderPassEncoder* encoder, PulseRGTextureHandle texture_handle)
 {
 	using namespace HGEGraphics;
 	auto* enc = (RenderPassEncoder*)encoder;

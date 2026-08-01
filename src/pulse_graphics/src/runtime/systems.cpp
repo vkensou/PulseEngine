@@ -260,8 +260,8 @@ void render_begin_graph_system_run(ecs_iter_t* it) {
     for (ecs_entity_t entity : frame_context.prepared_entities) {
         auto target_handle = pulse_import_window_backbuffer(
             state->app, *frame_context.graph.get(), entity);
-        if (pulse_rendergraph_texture_handle_valid(target_handle)) {
-            pulse_rendergraph_present(*frame_context.graph.get(), target_handle);
+        if (pulse_rgtexture_handle_is_valid(target_handle)) {
+            pulse_render_graph_present(*frame_context.graph.get(), target_handle);
         }
     }
 }
@@ -520,15 +520,15 @@ void uninstall_render_systems(pulse_graphics_state* state, ecs_world_t* world) {
 
 } // namespace pulse_graphics_internal
 
-pulse_texture_handle_t pulse_import_window_backbuffer(
+PulseRGTextureHandle pulse_import_window_backbuffer(
     PulseAppId app,
-    pulse_rendergraph_t* graph,
+    PulseRenderGraphId graph,
     ecs_entity_t window_entity
 ) {
     const PulseSwapchain* swapchain =
         pulse_get_swapchain(app, window_entity);
     if (!swapchain || !swapchain->current_backbuffer) {
-        return pulse_texture_handle_t{};
+        return PulseRGTextureHandle{};
     }
-    return pulse_rendergraph_import_backbuffer(graph, swapchain->current_backbuffer);
+    return pulse_render_graph_import_backbuffer(graph, swapchain->current_backbuffer);
 }

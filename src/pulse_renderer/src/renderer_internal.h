@@ -33,7 +33,7 @@ struct RendererUboColumn {
     uint64_t layout_hash;       // from shader's ubo_info
     uint64_t data_hash;         // hash of the filled data (for lazy switching)
     std::vector<uint8_t> cpu_data;
-    pulse_buffer_handle_t gpu_handle; // rendergraph handle
+    PulseRGBufferHandle gpu_handle; // rendergraph handle
     bool is_per_draw;           // true if holds per-object array
 };
 

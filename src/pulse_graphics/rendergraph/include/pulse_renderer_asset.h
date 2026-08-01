@@ -16,7 +16,7 @@ struct pulse_texture_data_t
 	ECGPUResourceStateFlags* p_cur_states;
 	bool states_consistent;
 	bool prepared;
-	pulse_texture_handle_t dynamic_handle;
+	PulseRGTextureHandle dynamic_handle;
 };
 
 struct pulse_buffer_data_t
@@ -24,7 +24,7 @@ struct pulse_buffer_data_t
 	CGPUBufferId handle;
 	ECGPUResourceTypeFlags type;
 	ECGPUResourceStateFlags cur_state;
-	pulse_buffer_handle_t dynamic_handle;
+	PulseRGBufferHandle dynamic_handle;
 };
 
 struct pulse_mesh_data_t

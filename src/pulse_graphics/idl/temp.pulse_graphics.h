@@ -11,7 +11,6 @@
 #include "pulse_app.h"
 #include "pulse_asset.h"
 #include "pulse_math.h"
-#include "rendergraph.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +20,10 @@ extern "C" {
 #define PULSE_API
 #endif
 
+typedef struct pulse_backbuffer_data_t pulse_backbuffer_data_t;
+typedef struct pulse_texture_data_t pulse_texture_data_t;
+typedef struct pulse_buffer_data_t pulse_buffer_data_t;
+
 $cconsts
 
 $cenums
@@ -28,6 +31,9 @@ $cenums
 $cflags
 
 $cids
+
+typedef struct PulseRenderPassEncoder PulseRenderPassEncoder;
+typedef struct PulseUploadPassEncoder PulseUploadPassEncoder;
 
 $cfuncptrs
 

@@ -22,11 +22,11 @@ typedef "cstring"
 typedef "EPulseResult"
 typedef "PulseAppId"
 typedef "ecs_entity_t"
-typedef "pulse_rendergraph_t"
-typedef "pulse_renderpass_encoder_t"
-typedef "pulse_texture_handle_t"
-typedef "pulse_buffer_handle_t"
+
+--- Rendergraph opaque types (forward declared in template)
 typedef "pulse_backbuffer_data_t"
+typedef "pulse_texture_data_t"
+typedef "pulse_buffer_data_t"
 
 --- CGPU types
 typedef "ECGPUBackend"
@@ -49,6 +49,13 @@ typedef "CGPUBlendStateDescriptor"
 typedef "CGPUDepthStateDescriptor"
 typedef "CGPURasterizerStateDescriptor"
 typedef "ECGPUPrimitiveTopology"
+typedef "ECGPULoadAction"
+typedef "ECGPUStoreAction"
+typedef "ECGPUResourceTypeFlags"
+typedef "ECGPUResourceStateFlags"
+typedef "ECGPUMemoryUsage"
+typedef "CGPUBufferId"
+typedef "CGPUSamplerId"
 
 --- From pulse_math.h
 typedef "HMM_Vec4" { cname = "HMM_Vec4" }
@@ -64,6 +71,47 @@ const_value.TypeShader { value = "UINT64_C(0x1004)" }
 const_value.TypeComputeShader { value = "UINT64_C(0x1005)" }
 const_value.TypeMesh { value = "UINT64_C(0x1006)" }
 const_value.TypeMaterial { value = "UINT64_C(0x1007)" }
+const_value.MaxIndex { value = "(UINT32_MAX - 2)" }
+
+--- Rendergraph resource handle types
+
+id "RenderGraphId"
+
+struct.RenderGraph()
+
+struct.RGTextureHandle
+    .index "uint32_t"
+    ()
+
+struct.RGBufferHandle
+    .index "uint32_t"
+    ()
+
+struct.RenderPassBuilder
+    .renderGraph "RenderGraphId"
+    .passNode    "*anyopaque"
+    .passIndex   "uint32_t"
+    ()
+
+struct.ComputePassBuilder
+    .renderGraph "RenderGraphId"
+    .passNode    "*anyopaque"
+    .passIndex   "uint32_t"
+    ()
+
+struct.RenderPassEncoder()
+struct.UploadPassEncoder()
+
+--- Rendergraph function pointers
+funcptr.RenderPassExecutable
+    "void"
+    .encoder  "*RenderPassEncoder"
+    .userdata "?*anyopaque"
+
+funcptr.UploadpassExecutable
+    "void"
+    .encoder  "*UploadPassEncoder"
+    .userdata "?*anyopaque"
 
 --- Asset handle types (value structs with index+generation)
 struct.ShaderHandle
@@ -151,7 +199,7 @@ struct.Sampler
 funcptr.RenderRecordCallback
     "void"
     .app        "PulseAppId"
-    .graph      "*pulse_rendergraph_t"
+    .graph      "RenderGraphId"
     .userData   "?*anyopaque"
 
 --- Plugin descriptor
@@ -239,6 +287,12 @@ enum.ShaderPropertyType { underscore }
     .Mat4
     .Texture
     .Sampler
+    ()
+
+enum.DepthBits { underscore }
+    .D32        { value = 32 }
+    .D24        { value = 24 }
+    .D16        { value = 16 }
     ()
 
 --- Shader property descriptor
@@ -384,9 +438,9 @@ func.RemoveRenderRecordCallback
     ()
 
 func.ImportWindowBackbuffer
-    "pulse_texture_handle_t"
+    "RGTextureHandle"
     .app           "PulseAppId"
-    .graph         "*pulse_rendergraph_t"
+    .graph         "RenderGraphId"
     .windowEntity  "ecs_entity_t"
     ()
 
@@ -627,17 +681,312 @@ func.Material.SetSampler
     .sampler "SamplerHandle"
     ()
 
---- Encoder
-func.RenderpassEncoderDraw
+--- ======== Rendergraph Functions ========
+
+--- Rendergraph lifecycle
+func.CreateRenderGraph
+    "RenderGraphId"
+    .estimateResourceCount "uint32_t"
+    .estimatePassCount     "uint32_t"
+    .estimateEdgeCount     "uint32_t"
+    .blitShader            "*anyopaque"
+    .blitSampler           "CGPUSamplerId"
+    ()
+
+func.DestroyRenderGraph
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
+    .renderGraph "RenderGraphId"
+    ()
+
+func.RenderGraph.Reset
+    "void"
+    ()
+
+--- Rendergraph handle validation
+func.RGTextureHandleIsValid
+    "bool"
+    .handle "RGTextureHandle"
+    ()
+
+func.RGBufferHandleIsValid
+    "bool"
+    .handle "RGBufferHandle"
+    ()
+
+--- Rendergraph resource declaration/import
+func.RenderGraph.DeclareTexture
+    "RGTextureHandle"
+    ()
+
+func.RenderGraph.ImportTexture
+    "RGTextureHandle"
+    .imported "*pulse_texture_data_t"
+    ()
+
+func.RenderGraph.ImportBackbuffer
+    "RGTextureHandle"
+    .importedBackbuffer "*pulse_backbuffer_data_t"
+    ()
+
+func.RenderGraph.DeclareBuffer
+    "RGBufferHandle"
+    ()
+
+func.RenderGraph.ImportBuffer
+    "RGBufferHandle"
+    .imported "*pulse_buffer_data_t"
+    ()
+
+func.RenderGraph.ImportDynamicBuffer
+    "RGBufferHandle"
+    .imported "*anyopaque"
+    ()
+
+func.RenderGraph.DeclareUniformBufferQuick
+    "RGBufferHandle"
+    .size_ "uint32_t"
+    .data  "*anyopaque"
+    ()
+
+func.RenderGraph.DeclareTextureSubresource
+    "RGTextureHandle"
+    .parent     "RGTextureHandle"
+    .mipLevel   "uint8_t"
+    .arraySlice "uint8_t"
+    ()
+
+--- Rendergraph texture properties
+func.RenderGraph.TextureSetExtent
+    "void"
+    .texture "RGTextureHandle"
+    .width  "uint32_t"
+    .height "uint32_t"
+    .depth  "uint32_t"
+    ()
+
+func.RenderGraph.TextureSetFormat
+    "void"
+    .texture "RGTextureHandle"
+    .format "ECGPUTextureFormat"
+    ()
+
+func.RenderGraph.TextureSetDepthFormat
+    "void"
+    .texture    "RGTextureHandle"
+    .depthBits  "DepthBits::Enum"
+    .needStencil "bool"
+    ()
+
+func.RenderGraph.TextureGetWidth
+    "uint32_t"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.TextureGetHeight
+    "uint32_t"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.TextureGetDepth
+    "uint32_t"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.TextureGetFormat
+    "ECGPUTextureFormat"
+    .texture "RGTextureHandle"
+    ()
+
+--- Rendergraph buffer properties
+func.RenderGraph.BufferSetSize
+    "void"
+    .buffer "RGBufferHandle"
+    .size_  "uint32_t"
+    ()
+
+func.RenderGraph.BufferSetType
+    "void"
+    .buffer "RGBufferHandle"
+    .type   "ECGPUResourceTypeFlags"
+    ()
+
+func.RenderGraph.BufferSetUsage
+    "void"
+    .buffer "RGBufferHandle"
+    .usage  "ECGPUMemoryUsage"
+    ()
+
+func.RenderGraph.BufferSetHoldOnLast
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+--- Rendergraph pass management
+func.RenderGraph.AddRenderPass
+    "RenderPassBuilder"
+    .name "cstring"
+    ()
+
+func.RenderGraph.AddComputePass
+    "ComputePassBuilder"
+    .name "cstring"
+    ()
+
+func.RenderGraph.AddHoldpass
+    "RenderPassBuilder"
+    .name "cstring"
+    ()
+
+func.RenderGraph.AddUploadtexturepass
+    "void"
+    .name         "cstring"
+    .texture      "RGTextureHandle"
+    .mipLevel     "uint8_t"
+    .slice        "uint8_t"
+    .executable   "UploadpassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "**anyopaque"
+    ()
+
+func.RenderGraph.AddUploadtexturepassEx
+    "void"
+    .name         "cstring"
+    .texture      "RGTextureHandle"
+    .mipLevel     "uint8_t"
+    .slice        "uint8_t"
+    .size_        "uint64_t"
+    .offset       "uint64_t"
+    .data         "*anyopaque"
+    .executable   "UploadpassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "**anyopaque"
+    ()
+
+func.RenderGraph.AddUploadbufferpass
+    "void"
+    .name         "cstring"
+    .buffer       "RGBufferHandle"
+    .executable   "UploadpassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "**anyopaque"
+    ()
+
+func.RenderGraph.AddUploadbufferpassEx
+    "void"
+    .name         "cstring"
+    .buffer       "RGBufferHandle"
+    .size_        "uint64_t"
+    .offset       "uint64_t"
+    .data         "*anyopaque"
+    .executable   "UploadpassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "**anyopaque"
+    ()
+
+func.RenderGraph.AddGenerateMipmap
+    "void"
+    .texture     "RGTextureHandle"
+    .fromMipLevel "uint8_t"
+    ()
+
+func.RenderGraph.Present
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.AddEdge
+    "uint32_t"
+    .from  "uint32_t"
+    .to    "uint32_t"
+    .usage "ECGPUResourceStateFlags"
+    ()
+
+--- RenderPass builder
+func.RenderPassBuilder.AddColorAttachment
+    "void"
+    .texture    "RGTextureHandle"
+    .loadAction "ECGPULoadAction"
+    .clearColor "uint32_t"
+    .storeAction "ECGPUStoreAction"
+    ()
+
+func.RenderPassBuilder.AddDepthAttachment
+    "void"
+    .texture           "RGTextureHandle"
+    .depthLoadAction   "ECGPULoadAction"
+    .clearDepth        "float"
+    .depthStoreAction  "ECGPUStoreAction"
+    .stencilLoadAction "ECGPULoadAction"
+    .clearStencil      "uint8_t"
+    .stencilStoreAction "ECGPUStoreAction"
+    ()
+
+func.RenderPassBuilder.Sample
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderPassBuilder.UseBuffer
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+func.RenderPassBuilder.UseBufferAs
+    "void"
+    .buffer "RGBufferHandle"
+    .state  "ECGPUResourceStateFlags"
+    ()
+
+func.RenderPassBuilder.SetExecutable
+    "void"
+    .executable   "RenderPassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "**anyopaque"
+    ()
+
+--- ComputePass builder
+func.ComputePassBuilder.Sample
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.ComputePassBuilder.UseBuffer
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+func.ComputePassBuilder.UseBufferAs
+    "void"
+    .buffer "RGBufferHandle"
+    .state  "ECGPUResourceStateFlags"
+    ()
+
+func.ComputePassBuilder.ReadwriteTexture
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.ComputePassBuilder.ReadwriteBuffer
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+func.ComputePassBuilder.SetExecutable
+    "void"
+    .executable   "RenderPassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "**anyopaque"
+    ()
+
+--- Encoder
+func.RenderPassEncoder.Draw
+    "void"
     .material "Material"
     .mesh     "Mesh"
     ()
 
-func.RenderpassEncoderDrawSubmesh
+func.RenderPassEncoder.DrawSubmesh
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .material "Material"
     .mesh     "Mesh"
     .idxCount "uint32_t"
@@ -646,76 +995,67 @@ func.RenderpassEncoderDrawSubmesh
     .firstVtx "uint32_t"
     ()
 
-func.RenderpassEncoderDrawProcedure
+func.RenderPassEncoder.DrawProcedure
     "void"
-    .encoder   "*pulse_renderpass_encoder_t"
     .material  "Material"
     .topology  "ECGPUPrimitiveTopology"
     .vertexCount "uint32_t"
     ()
 
-func.RenderpassEncoderDispatch
+func.RenderPassEncoder.Dispatch
     "void"
-    .encoder      "*pulse_renderpass_encoder_t"
     .computeShader "ComputeShader"
     .x            "uint32_t"
     .y            "uint32_t"
     .z            "uint32_t"
     ()
 
-func.RenderpassEncoderSetGlobalTexture
+func.RenderPassEncoder.SetGlobalTexture
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .texture  "Texture"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
-func.RenderpassEncoderSetGlobalBuffer
+func.RenderPassEncoder.SetGlobalBuffer
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .buffer   "GraphicsBuffer"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
-func.RenderpassEncoderSetGlobalSampler
+func.RenderPassEncoder.SetGlobalSampler
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .sampler  "Sampler"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
-func.RenderpassEncoderSetGlobalTextureHandle
+func.RenderPassEncoder.SetGlobalTextureHandle
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
-    .handle   "pulse_texture_handle_t"
+    .handle   "RGTextureHandle"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
-func.RenderpassEncoderSetGlobalBufferHandle
+func.RenderPassEncoder.SetGlobalBufferHandle
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
-    .handle   "pulse_buffer_handle_t"
+    .handle   "RGBufferHandle"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
-func.RenderpassEncoderSetGlobalBufferOffset
+func.RenderPassEncoder.SetGlobalBufferOffset
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
-    .handle   "pulse_buffer_handle_t"
+    .handle   "RGBufferHandle"
     .set      "uint32_t"
     .binding  "uint32_t"
     .offset   "uint64_t"
     .size_    "uint64_t"
     ()
 
-func.RenderpassEncoderSetViewport
+func.RenderPassEncoder.SetViewport
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .x        "float"
     .y        "float"
     .width    "float"
@@ -724,21 +1064,29 @@ func.RenderpassEncoderSetViewport
     .maxDepth "float"
     ()
 
-func.RenderpassEncoderSetScissor
+func.RenderPassEncoder.SetScissor
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .x        "uint32_t"
     .y        "uint32_t"
     .width    "uint32_t"
     .height   "uint32_t"
     ()
 
-func.RenderpassEncoderPushConstants
+func.RenderPassEncoder.PushConstants
     "void"
-    .encoder  "*pulse_renderpass_encoder_t"
     .shader   "Shader"
     .name     "cstring"
     .data     "*const anyopaque"
+    ()
+
+func.RenderPassEncoder.ResolveBuffer
+    "CGPUBufferId"
+    .bufferHandle "RGBufferHandle"
+    ()
+
+func.RenderPassEncoder.ResolveTextureView
+    "CGPUTextureViewId"
+    .textureHandle "RGTextureHandle"
     ()
 
 switch_table.ShaderPropertyIsUniform

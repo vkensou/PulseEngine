@@ -295,7 +295,7 @@ namespace HGEGraphics
 					.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
 				};
 				memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
-				pass.executable((pulse_renderpass_encoder_t*)&rg_encoder, pass.passdata);
+				pass.executable((PulseRenderPassEncoder*)&rg_encoder, pass.passdata);
 			}
 
 			cgpu_state_buffer_close_raster_state_encoder(state_buffer, raster_state_encoder);
@@ -325,7 +325,7 @@ namespace HGEGraphics
 				.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
 			};
 			memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
-			pass.executable((pulse_renderpass_encoder_t*)&rg_encoder, pass.passdata);
+			pass.executable((PulseRenderPassEncoder*)&rg_encoder, pass.passdata);
 		}
 
 		cgpu_command_buffer_end_compute_pass(cmd, encoder);
@@ -349,7 +349,7 @@ namespace HGEGraphics
 				.address = src_buffer->info->cpu_mapped_address,
 			};
 
-			pass.uploadTextureExecutable((pulse_upload_encoder_t*)&up_encoder, pass.passdata);
+			pass.uploadTextureExecutable((PulseUploadPassEncoder*)&up_encoder, pass.passdata);
 		}
 
 		auto& dest_resource_node = compiledRenderGraph.resources[pass.dest_texture];
@@ -383,7 +383,7 @@ namespace HGEGraphics
 				.address = src_buffer->info->cpu_mapped_address,
 			};
 
-			pass.uploadTextureExecutable((pulse_upload_encoder_t*)&up_encoder, pass.passdata);
+			pass.uploadTextureExecutable((PulseUploadPassEncoder*)&up_encoder, pass.passdata);
 		}
 
 		auto& dest_resource_node = compiledRenderGraph.resources[pass.dest_buffer];

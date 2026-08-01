@@ -8,8 +8,8 @@
 
 namespace HGEGraphics
 {
-	typedef pulse_index_t index_type_t;
-	const pulse_index_t MAX_INDEX = PULSE_MAX_INDEX;
+	typedef uint32_t index_type_t;
+	const uint32_t MAX_INDEX = PULSE_MAX_INDEX;
 
 	enum class ResourceType { Texture, Buffer };
 	enum class ManageType { Managed, Imported, SubResource };
@@ -61,7 +61,7 @@ namespace HGEGraphics
 		uint8_t mipCount;
 		uint8_t arraySize;
 		uint32_t size;
-		pulse_index_t parent;
+		uint32_t parent;
 		uint8_t mipLevel;
 		uint8_t arraySlice;
 		ECGPUResourceTypeFlags bufferType;
@@ -71,8 +71,8 @@ namespace HGEGraphics
 
 	struct RenderGraphEdge
 	{
-		const pulse_index_t from;
-		const pulse_index_t to;
+		const uint32_t from;
+		const uint32_t to;
 		const ECGPUResourceStateFlags usage;
 	};
 
@@ -91,12 +91,12 @@ namespace HGEGraphics
 			int colorAttachmentCount{ 0 };
 			std::array<ColorAttachmentInfo, 8> colorAttachments;
 			DepthAttachmentInfo depthAttachment;
-			pulse_renderpass_executable_t executable;
+			PulseProcRenderPassExecutable executable;
 		};
 
 		struct compute_context_t
 		{
-			pulse_renderpass_executable_t executable;
+			PulseProcRenderPassExecutable executable;
 		};
 
 		struct present_context_t
@@ -105,9 +105,9 @@ namespace HGEGraphics
 
 		struct upload_texture_context_t
 		{
-			pulse_buffer_handle_t staging_buffer;
-			pulse_texture_handle_t dest_texture;
-			pulse_uploadpass_executable_t executable;
+			PulseRGBufferHandle staging_buffer;
+			PulseRGTextureHandle dest_texture;
+			PulseProcUploadpassExecutable executable;
 			uint64_t size;
 			uint64_t offset;
 			void* data;
@@ -117,9 +117,9 @@ namespace HGEGraphics
 
 		struct upload_buffer_context_t
 		{
-			pulse_buffer_handle_t staging_buffer;
-			pulse_buffer_handle_t dest_buffer;
-			pulse_uploadpass_executable_t executable;
+			PulseRGBufferHandle staging_buffer;
+			PulseRGBufferHandle dest_buffer;
+			PulseProcUploadpassExecutable executable;
 			uint64_t size;
 			uint64_t offset;
 			void* data;
@@ -151,7 +151,7 @@ namespace HGEGraphics
 		std::pmr::vector<pulse_buffer_data_t*> imported_buffers;
 	};
 
-	inline pulse_rendergraph_impl_t* to_impl(pulse_rendergraph_t* h) { return (pulse_rendergraph_impl_t*)h; }
-	inline pulse_rendergraph_t* from_impl(pulse_rendergraph_impl_t* impl) { return (pulse_rendergraph_t*)impl; }
+	inline pulse_rendergraph_impl_t* to_impl(PulseRenderGraphId h) { return (pulse_rendergraph_impl_t*)h; }
+	inline PulseRenderGraphId from_impl(pulse_rendergraph_impl_t* impl) { return (PulseRenderGraphId)impl; }
 
 }

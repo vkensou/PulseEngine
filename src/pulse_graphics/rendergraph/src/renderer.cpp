@@ -256,23 +256,23 @@ namespace HGEGraphics
 		return mesh;
 	}
 
-	pulse_buffer_handle_t declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count)
+	PulseRGBufferHandle declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, PulseRenderGraphId rg, uint32_t count)
 	{
-		auto dynamic_vertex_buffer = pulse_rendergraph_import_dynamic_buffer(rg, mesh->vertex_buffer);
-		pulse_rendergraph_buffer_set_size(rg, dynamic_vertex_buffer, count * mesh->vertex_stride);
-		pulse_rendergraph_buffer_set_type(rg, dynamic_vertex_buffer, CGPU_RESOURCE_TYPE_VERTEX_BUFFER);
-		pulse_rendergraph_buffer_set_usage(rg, dynamic_vertex_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
+		auto dynamic_vertex_buffer = pulse_render_graph_import_dynamic_buffer(rg, mesh->vertex_buffer);
+		pulse_render_graph_buffer_set_size(rg, dynamic_vertex_buffer, count * mesh->vertex_stride);
+		pulse_render_graph_buffer_set_type(rg, dynamic_vertex_buffer, CGPU_RESOURCE_TYPE_VERTEX_BUFFER);
+		pulse_render_graph_buffer_set_usage(rg, dynamic_vertex_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
 		mesh->vertex_buffer->dynamic_handle = dynamic_vertex_buffer;
 		mesh->vertices_count = count;
 		return mesh->vertex_buffer->dynamic_handle;
 	}
 
-	pulse_buffer_handle_t declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count)
+	PulseRGBufferHandle declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, PulseRenderGraphId rg, uint32_t count)
 	{
-		auto dynamic_index_buffer = pulse_rendergraph_import_dynamic_buffer(rg, mesh->index_buffer);
-		pulse_rendergraph_buffer_set_size(rg, dynamic_index_buffer, count * mesh->index_stride);
-		pulse_rendergraph_buffer_set_type(rg, dynamic_index_buffer, CGPU_RESOURCE_TYPE_INDEX_BUFFER);
-		pulse_rendergraph_buffer_set_usage(rg, dynamic_index_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
+		auto dynamic_index_buffer = pulse_render_graph_import_dynamic_buffer(rg, mesh->index_buffer);
+		pulse_render_graph_buffer_set_size(rg, dynamic_index_buffer, count * mesh->index_stride);
+		pulse_render_graph_buffer_set_type(rg, dynamic_index_buffer, CGPU_RESOURCE_TYPE_INDEX_BUFFER);
+		pulse_render_graph_buffer_set_usage(rg, dynamic_index_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
 		mesh->index_buffer->dynamic_handle = dynamic_index_buffer;
 		mesh->index_count = count;
 		return mesh->index_buffer->dynamic_handle;
@@ -874,8 +874,8 @@ namespace HGEGraphics
 							auto& binder = *iter;
 							if (binder.set == table.set_index && binder.bind == res.binding)
 							{
-								if (pulse_rendergraph_texture_handle_valid(binder.texture_handle))
-									textureview = pulse_rendergraph_resolve_texture_view((pulse_renderpass_encoder_t*)encoder, binder.texture_handle);
+								if (pulse_rgtexture_handle_is_valid(binder.texture_handle))
+									textureview = pulse_render_pass_encoder_resolve_texture_view((PulseRenderPassEncoder*)encoder, binder.texture_handle);
 								else if (binder.texture && binder.texture->prepared)
 									textureview = binder.texture->view;
 								break;
@@ -956,8 +956,8 @@ namespace HGEGraphics
 							auto& binder = *iter;
 							if (binder.set == table.set_index && binder.bind == res.binding)
 							{
-								if (pulse_rendergraph_buffer_handle_valid(binder.buffer_handle))
-									buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, binder.buffer_handle);
+								if (pulse_rgbuffer_handle_is_valid(binder.buffer_handle))
+									buffer = pulse_render_pass_encoder_resolve_buffer((PulseRenderPassEncoder*)encoder, binder.buffer_handle);
 								else
 									buffer = binder.buffer->handle;
 								if (binder.offset != 0 || binder.size != 0)
@@ -1018,10 +1018,10 @@ namespace HGEGraphics
 		CGPUBufferId vertex_buffer = CGPU_NULLPTR;
 		if (mesh->vertex_buffer)
 		{
-			if (pulse_rendergraph_buffer_handle_valid(mesh->vertex_buffer->dynamic_handle))
+			if (pulse_rgbuffer_handle_is_valid(mesh->vertex_buffer->dynamic_handle))
 			{
 				auto vertex_buffer_handle = mesh->vertex_buffer->dynamic_handle;
-				vertex_buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, vertex_buffer_handle);
+				vertex_buffer = pulse_render_pass_encoder_resolve_buffer((PulseRenderPassEncoder*)encoder, vertex_buffer_handle);
 			}
 			else
 			{
@@ -1040,10 +1040,10 @@ namespace HGEGraphics
 		CGPUBufferId index_buffer = CGPU_NULLPTR;
 		if (mesh->index_buffer)
 		{
-			if (pulse_rendergraph_buffer_handle_valid(mesh->index_buffer->dynamic_handle))
+			if (pulse_rgbuffer_handle_is_valid(mesh->index_buffer->dynamic_handle))
 			{
 				auto index_buffer_handle = mesh->index_buffer->dynamic_handle;
-				index_buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, index_buffer_handle);
+				index_buffer = pulse_render_pass_encoder_resolve_buffer((PulseRenderPassEncoder*)encoder, index_buffer_handle);
 			}
 			else
 			{
@@ -1166,7 +1166,7 @@ namespace HGEGraphics
 		encoder->global_texture_table.push_back({ texture, {}, set, slot });
 	}
 
-	void set_global_texture_handle(RenderPassEncoder* encoder, pulse_texture_handle_t texture, int set, int slot)
+	void set_global_texture_handle(RenderPassEncoder* encoder, PulseRGTextureHandle texture, int set, int slot)
 	{
 		encoder->global_texture_table.push_back({ nullptr, texture, set, slot });
 	}
@@ -1181,12 +1181,12 @@ namespace HGEGraphics
 		encoder->global_buffer_table.push_back({ buffer, {}, set, slot, 0, 0 });
 	}
 
-	void set_global_dynamic_buffer(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot)
+	void set_global_dynamic_buffer(RenderPassEncoder* encoder, PulseRGBufferHandle buffer, int set, int slot)
 	{
 		encoder->global_buffer_table.push_back({ nullptr, buffer, set, slot, 0, 0 });
 	}
 
-	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size)
+	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, PulseRGBufferHandle buffer, int set, int slot, uint64_t offset, uint64_t size)
 	{
 		encoder->global_buffer_table.push_back({ nullptr, buffer, set, slot, offset, size });
 	}

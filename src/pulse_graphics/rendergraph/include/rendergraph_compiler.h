@@ -9,7 +9,7 @@ namespace HGEGraphics
 
 	struct CompiledResourceNode
 	{
-		CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, pulse_texture_data_t* texture, uint8_t mipCount, uint8_t arraySize, pulse_index_t parent, uint8_t mipLevel, uint8_t arraySlice);
+		CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, pulse_texture_data_t* texture, uint8_t mipCount, uint8_t arraySize, uint32_t parent, uint8_t mipLevel, uint8_t arraySlice);
 		CompiledResourceNode(const char* name, ManageType type, uint32_t size, pulse_buffer_data_t* imported_buffer, ECGPUResourceTypeFlags bufferType, ECGPUMemoryUsage memoryUsage);
 		CompiledResourceNode();
 
@@ -29,14 +29,14 @@ namespace HGEGraphics
 		const ECGPUMemoryUsage memoryUsage;
 		uint8_t mipCount;;
 		uint8_t arraySize;
-		pulse_index_t parent;
+		uint32_t parent;
 		uint8_t mipLevel;
 		uint8_t arraySlice;
 	};
 
 	struct CompiledEdge
 	{
-		pulse_index_t index;
+		uint32_t index;
 		ECGPUResourceStateFlags usage;
 	};
 
@@ -49,17 +49,17 @@ namespace HGEGraphics
 		pass_type type;
 		std::pmr::vector<CompiledEdge> writes;
 		std::pmr::vector<CompiledEdge> reads;
-		std::pmr::vector<pulse_index_t> devirtualize;
-		std::pmr::vector<pulse_index_t> destroy;
+		std::pmr::vector<uint32_t> devirtualize;
+		std::pmr::vector<uint32_t> destroy;
 		void* passdata;
 		int colorAttachmentCount{ 0 };
 		std::array<ColorAttachmentInfo, 8> colorAttachments;
 		DepthAttachmentInfo depthAttachment;
-		pulse_renderpass_executable_t executable;
+		PulseProcRenderPassExecutable executable;
 		uint16_t staging_buffer;
 		uint16_t dest_texture;
 		uint16_t dest_buffer;
-		pulse_uploadpass_executable_t uploadTextureExecutable;
+		PulseProcUploadpassExecutable uploadTextureExecutable;
 		uint64_t size, offset;
 		void* data;
 		uint8_t mipmap;
@@ -75,7 +75,7 @@ namespace HGEGraphics
 
 	struct Compiler
 	{
-		static CompiledRenderGraph Compile(pulse_rendergraph_t* renderGraph, std::pmr::memory_resource* const memory_resource);
+		static CompiledRenderGraph Compile(PulseRenderGraphId renderGraph, std::pmr::memory_resource* const memory_resource);
 	};
 
 }

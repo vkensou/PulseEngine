@@ -6,7 +6,7 @@ namespace pulse_graphics_internal {
 
 static constexpr int kMaxUploadsPerFrame = 10;
 
-static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, void* user_data) {
+static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, void* user_data) {
     (void)user_data;
     pulse_graphics_state* st = state_from_app(app);
     if (!st || !graph) return;
@@ -32,7 +32,7 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
             }
             if (!tex) break;
 
-            auto tex_rh = pulse_rendergraph_import_texture(graph, tex);
+            auto tex_rh = pulse_render_graph_import_texture(graph, tex);
             if (entry.data && entry.data_size > 0) {
                 auto* info = tex->handle->info;
                 auto mipedSize = [](uint64_t s, uint64_t m) { return std::max<uint64_t>(s >> m, 1ull); };
@@ -49,7 +49,7 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
                     uint64_t mipSize = blocksW * blocksH * tex_comp;
 
                     for (uint32_t slice = 0; slice < info->array_size_minus_one + 1; ++slice) {
-                        pulse_rendergraph_add_uploadtexturepass_ex(
+                        pulse_render_graph_add_uploadtexturepass_ex(
                             graph, "tex_up", tex_rh,
                             mip, slice, mipSize, 0,
                             const_cast<uint8_t*>(src), nullptr, 0, nullptr);
@@ -58,7 +58,7 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
                 }
 
                 if (entry.generate_mipmap)
-                    pulse_rendergraph_add_generate_mipmap(graph, tex_rh, entry.source_mip_levels);
+                    pulse_render_graph_add_generate_mipmap(graph, tex_rh, entry.source_mip_levels);
             }
 
             if (ref.ptr) pulse_release_texture(app, &ref);
@@ -75,9 +75,9 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
             }
             if (!buf) break;
 
-            auto buf_rh = pulse_rendergraph_import_buffer(graph, buf);
+            auto buf_rh = pulse_render_graph_import_buffer(graph, buf);
             if (entry.data && entry.data_size > 0) {
-                pulse_rendergraph_add_uploadbufferpass_ex(
+                pulse_render_graph_add_uploadbufferpass_ex(
                     graph, "buf_up", buf_rh,
                     entry.data_size, 0,
                     const_cast<void*>(entry.data), nullptr, 0, nullptr);
@@ -110,7 +110,7 @@ static void upload_record_callback(PulseAppId app, pulse_rendergraph_t* graph, v
                     buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
             }
             if (buf) {
-                (void)pulse_rendergraph_import_buffer(graph, buf);
+                (void)pulse_render_graph_import_buffer(graph, buf);
             }
             if (ref.ptr) pulse_release_graphics_buffer(app, &ref);
         }

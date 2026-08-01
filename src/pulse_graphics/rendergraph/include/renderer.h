@@ -48,8 +48,8 @@ namespace HGEGraphics
 	void init_mesh(pulse_mesh_data_t* mesh, CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
 	std::unique_ptr<pulse_mesh_data_t> create_mesh(CGPUDeviceId device, uint32_t vertex_count, uint32_t index_count, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride, bool update_vertex_data_from_compute_shader, bool update_index_data_from_compute_shader);
 	std::unique_ptr<pulse_mesh_data_t> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride);
-	pulse_buffer_handle_t declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count);
-	pulse_buffer_handle_t declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, pulse_rendergraph_t* rg, uint32_t count);
+	PulseRGBufferHandle declare_dynamic_vertex_buffer(pulse_mesh_data_t* mesh, PulseRenderGraphId rg, uint32_t count);
+	PulseRGBufferHandle declare_dynamic_index_buffer(pulse_mesh_data_t* mesh, PulseRenderGraphId rg, uint32_t count);
 	void dynamic_mesh_reset(pulse_mesh_data_t* mesh);
 	void free_mesh(pulse_mesh_data_t* mesh);
 
@@ -78,7 +78,7 @@ namespace HGEGraphics
 	struct ShaderTextureBinder
 	{
 		pulse_texture_data_t* texture;
-		pulse_texture_handle_t texture_handle;
+		PulseRGTextureHandle texture_handle;
 		int set, bind;
 	};
 
@@ -91,7 +91,7 @@ namespace HGEGraphics
 	struct ShaderBufferBinder
 	{
 		pulse_buffer_data_t* buffer;
-		pulse_buffer_handle_t buffer_handle;
+		PulseRGBufferHandle buffer_handle;
 		int set, bind;
 		uint64_t offset, size;
 	};
