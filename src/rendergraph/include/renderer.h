@@ -96,12 +96,6 @@ namespace HGEGraphics
 		uint64_t offset, size;
 	};
 
-	struct ShaderDescriptorSetBinder
-	{
-		CGPUDescriptorSetId dset;
-		int set_index;
-	};
-
 	struct ExecutorContext
 	{
 		std::pmr::memory_resource* memory_resource = nullptr;
@@ -115,10 +109,6 @@ namespace HGEGraphics
 		CGPUCommandPoolId cmdPool = { CGPU_NULLPTR };
 		std::pmr::vector<CGPUCommandBufferId> cmds;
 		std::pmr::vector<CGPUCommandBufferId> allocated_cmds;
-		std::pmr::vector<ShaderTextureBinder> global_texture_table;
-		std::pmr::vector<ShaderSamplerBinder> global_sampler_table;
-		std::pmr::vector<ShaderBufferBinder> global_buffer_table;
-		std::pmr::vector<ShaderDescriptorSetBinder> global_dset_table;
 		DescriptorSetPool descriptorSetPool;
 		std::pmr::vector<DescriptorSet*> allocated_dsets;
 		CGPUDeviceId device = { CGPU_NULLPTR };
@@ -169,6 +159,9 @@ namespace HGEGraphics
 		pulse_material_data_t* last_material;
 		pulse_shader_data_t* last_shader;
 		uint64_t last_set_layout_hashes[4]{ 0 };
+		std::pmr::vector<ShaderTextureBinder> global_texture_table;
+		std::pmr::vector<ShaderSamplerBinder> global_sampler_table;
+		std::pmr::vector<ShaderBufferBinder> global_buffer_table;
 	};
 
 	struct UploadEncoder

@@ -30,6 +30,5 @@ namespace HGEGraphics
 	void set_global_buffer(RenderPassEncoder* encoder, pulse_buffer_data_t* buffer, int set, int slot);
 	void set_global_dynamic_buffer(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot);
 	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size);
-	void set_global_descriptor_set(RenderPassEncoder* encoder, CGPUDescriptorSetId dset, int set);
 	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data);
 }

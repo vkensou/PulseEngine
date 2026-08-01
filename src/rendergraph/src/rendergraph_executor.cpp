@@ -280,11 +280,6 @@ namespace HGEGraphics
 
 			if (pass.executable)
 			{
-				context.global_texture_table.clear();
-				context.global_sampler_table.clear();
-				context.global_buffer_table.clear();
-				context.global_dset_table.clear();
-
 				RenderPassEncoder rg_encoder = {
 					.encoder = encoder,
 					.state_buffer = state_buffer,
@@ -295,6 +290,9 @@ namespace HGEGraphics
 					.context = &context,
 					.compiled_graph = &compiledRenderGraph,
 					.last_render_pipeline = 0,
+					.global_texture_table = std::pmr::vector<ShaderTextureBinder>(context.memory_resource),
+					.global_sampler_table = std::pmr::vector<ShaderSamplerBinder>(context.memory_resource),
+					.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
 				};
 				memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
 				pass.executable((pulse_renderpass_encoder_t*)&rg_encoder, pass.passdata);
@@ -317,16 +315,14 @@ namespace HGEGraphics
 
 		if (pass.executable)
 		{
-			context.global_texture_table.clear();
-			context.global_sampler_table.clear();
-			context.global_buffer_table.clear();
-			context.global_dset_table.clear();
-
 			RenderPassEncoder rg_encoder = {
 				.compute_encoder = encoder,
 				.context = &context,
 				.compiled_graph = &compiledRenderGraph,
 				.last_render_pipeline = 0,
+				.global_texture_table = std::pmr::vector<ShaderTextureBinder>(context.memory_resource),
+				.global_sampler_table = std::pmr::vector<ShaderSamplerBinder>(context.memory_resource),
+				.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
 			};
 			memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
 			pass.executable((pulse_renderpass_encoder_t*)&rg_encoder, pass.passdata);
