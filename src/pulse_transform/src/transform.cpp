@@ -1,4 +1,4 @@
-#include "transform_internal.h"
+﻿#include "transform_internal.h"
 
 namespace pulse_transform_internal {
 

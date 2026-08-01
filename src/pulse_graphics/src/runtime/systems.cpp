@@ -2,7 +2,7 @@
 
 namespace pulse_graphics_internal {
 
-bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue) {
+bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId default_texture, CGPUSamplerId default_sampler) {
     fence = cgpu_device_create_fence(device);
     if (!fence) {
         return false;
@@ -23,6 +23,8 @@ bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue) {
             false,
             exec_memory.get()
         );
+    exec_context->default_texture = default_texture;
+    exec_context->default_sampler = default_sampler;
     return exec_context != nullptr;
 }
 

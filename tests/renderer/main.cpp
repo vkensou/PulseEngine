@@ -83,9 +83,9 @@ int main(void) {
     };
 
     PulseShaderPropertyDesc shader_props[] = {
-        { .name = "vpMatrix", .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0 },
-        { .name = "albedo",   .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0 },
-        { .name = "wMatrix",  .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0 },
+        { .name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
+        { .name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
+        { .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
     };
 
     PulseShaderCreateFromFileDesc shader_desc = {
@@ -135,7 +135,7 @@ int main(void) {
     if (pulse_material_is_ready(app, material)) {
         PulseMaterial mat_ref = {};
         if (pulse_acquire_material(app, material, &mat_ref)) {
-            pulse_material_set_float4(&mat_ref, "albedo", 1.0f, 0.0f, 0.0f, 1.0f);
+            pulse_material_set_float4(&mat_ref, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
             pulse_release_material(app, &mat_ref);
         }
     }

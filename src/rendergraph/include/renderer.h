@@ -61,20 +61,14 @@ namespace HGEGraphics
 	void init_material(pulse_material_data_t* material, CGPUDeviceId device, pulse_shader_data_t* shader);
 	void free_material(pulse_material_data_t* material);
 
+	void material_mark_dset_binding_dirty(pulse_material_data_t* material, uint32_t set_index);
 	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture);
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, pulse_sampler_data_t* sampler);
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler);
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer);
-	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data);
-	pulse_material_ubo_column_t* material_find_or_create_ubo_column(pulse_material_data_t* material, uint32_t set, uint32_t binding);
+	pulse_material_ubo_column_t* material_find_ubo_column(pulse_material_data_t* material, uint32_t set, uint32_t binding);
 	void material_ubo_sync_to_gpu(pulse_material_data_t* material);
 	const uint8_t* material_get_property_data(pulse_material_data_t* material, uint32_t set, uint32_t binding, uint32_t offset, uint32_t size);
-
-	template<typename T>
-	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, const T& data)
-	{
-		material_bindBuffer(material, set, bind, sizeof(T), &data);
-	}
 
 	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index);
 	void free_backbuffer(pulse_backbuffer_data_t* backbuffer);
@@ -132,6 +126,7 @@ namespace HGEGraphics
 		Profiler* profiler = nullptr;
 		double gpuTicksPerSecond = 0;
 		CGPUTextureViewId default_texture = CGPU_NULLPTR;
+		CGPUSamplerId default_sampler = CGPU_NULLPTR;
 		bool support_shading_rate;
 
 		ExecutorContext(CGPUDeviceId device, CGPUQueueId gfx_queue, bool profile, std::pmr::memory_resource* memory_resource);
@@ -163,7 +158,6 @@ namespace HGEGraphics
 		CGPUSamplerId last_samplers[4][64]{ 0 };
 		CGPUBufferId last_buffers[4][64]{ 0 };
 		uint64_t last_buffer_offset_sizes[4][128]{ 0 };
-		uint64_t last_dset_hashes[4]{ 0 };
 		CGPUTextureViewId textureviews[64]{ 0 };
 		CGPUSamplerId samplers[64]{ 0 };
 		CGPUBufferId buffers[64]{ 0 };
@@ -172,6 +166,9 @@ namespace HGEGraphics
 		CGPUBufferId last_index_buffer;
 		uint32_t last_vertex_buffer_stride;
 		uint32_t last_index_buffer_stride;
+		pulse_material_data_t* last_material;
+		pulse_shader_data_t* last_shader;
+		uint64_t last_set_layout_hashes[4]{ 0 };
 	};
 
 	struct UploadEncoder

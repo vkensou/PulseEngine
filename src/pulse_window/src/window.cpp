@@ -327,7 +327,7 @@ EPulseResult window_runner(PulseAppId app, void* ctx) {
     if (!state) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
-    int times = 0;
+
     while (!state->quit_requested) {
         EPulseResult result = pulse_window_poll_events(app, state);
         if (result != PULSE_RESULT_OK) {
@@ -340,9 +340,6 @@ EPulseResult window_runner(PulseAppId app, void* ctx) {
         }
 
         SDL_Delay(0);
-
-        times++;
-        if (times > 20) break;
     }
 
     return PULSE_RESULT_OK;

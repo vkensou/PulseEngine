@@ -1,6 +1,8 @@
-#pragma once
+﻿#pragma once
 
+#include "cgpu/api.h"
 #include <stdint.h>
+#include <string_view>
 
 namespace HGEGraphics
 {
@@ -41,203 +43,236 @@ namespace HGEGraphics
         return seed ^ (hasher(v) << 1u);
     }
 
-    // ������������Ϲ�ϣֵ
+    // 辅助函数：组合哈希值
     template<typename T>
     void hash_combine(size_t& seed, const T& value)
     {
         std::hash<T> hasher;
         seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
+
+    // 辅助函数：组合哈希值，字符串特化版
+    template<>
+    inline void hash_combine<const char*>(size_t& seed, const char* const& value)
+    {
+        if (value == nullptr)
+            return;
+        std::hash<std::string_view> hasher;
+        seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
 }
 
 namespace std {
-	template <>
-	struct hash<CGPUVertexLayout> {
-		size_t operator()(const CGPUVertexLayout& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUVertexLayout> {
+        size_t operator()(const CGPUVertexLayout& a) const noexcept {
+            size_t seed = 0;
 
-			HGEGraphics::hash_combine(seed, a.attribute_count);
-			HGEGraphics::hash_combine(seed, a.p_attributes);
+            HGEGraphics::hash_combine(seed, a.attribute_count);
+            if (!a.p_attributes) return seed;
+            for (uint32_t i = 0; i < a.attribute_count; ++i)
+            {
+                const auto& attr = a.p_attributes[i];
+                HGEGraphics::hash_combine(seed, attr.semantic_name);
+                HGEGraphics::hash_combine(seed, attr.array_size);
+                HGEGraphics::hash_combine(seed, attr.format);
+                HGEGraphics::hash_combine(seed, attr.binding);
+                HGEGraphics::hash_combine(seed, attr.offset);
+                HGEGraphics::hash_combine(seed, attr.elem_stride);
+                HGEGraphics::hash_combine(seed, attr.rate);
+            }
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUBlendStateDescriptor> {
-		size_t operator()(const CGPUBlendStateDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUBlendStateDescriptor> {
+        size_t operator()(const CGPUBlendStateDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			HGEGraphics::hash_combine(seed, a.attachment_count);
-			HGEGraphics::hash_combine(seed, a.p_attachments);
-			HGEGraphics::hash_combine(seed, a.alpha_to_coverage);
-			HGEGraphics::hash_combine(seed, a.independent_blend);
+            HGEGraphics::hash_combine(seed, a.attachment_count);
+            if (!a.p_attachments) return seed;
+            for (uint32_t i = 0; i < a.attachment_count; ++i)
+            {
+                const auto& att = a.p_attachments[i];
+                HGEGraphics::hash_combine(seed, att.enable);
+                HGEGraphics::hash_combine(seed, att.src_factor);
+                HGEGraphics::hash_combine(seed, att.dst_factor);
+                HGEGraphics::hash_combine(seed, att.src_alpha_factor);
+                HGEGraphics::hash_combine(seed, att.dst_alpha_factor);
+                HGEGraphics::hash_combine(seed, att.blend_op);
+                HGEGraphics::hash_combine(seed, att.blend_alpha_op);
+                HGEGraphics::hash_combine(seed, att.color_mask);
+            }
+            HGEGraphics::hash_combine(seed, a.alpha_to_coverage);
+            HGEGraphics::hash_combine(seed, a.independent_blend);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUDepthStateDescriptor> {
-		size_t operator()(const CGPUDepthStateDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUDepthStateDescriptor> {
+        size_t operator()(const CGPUDepthStateDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			HGEGraphics::hash_combine(seed, a.depth_test);
-			HGEGraphics::hash_combine(seed, a.depth_write);
-			HGEGraphics::hash_combine(seed, a.depth_op);
-			HGEGraphics::hash_combine(seed, a.stencil_test);
-			HGEGraphics::hash_combine(seed, a.stencil_read_mask);
-			HGEGraphics::hash_combine(seed, a.stencil_write_mask);
-			HGEGraphics::hash_combine(seed, a.stencil_front_op);
-			HGEGraphics::hash_combine(seed, a.stencil_front_fail_op);
-			HGEGraphics::hash_combine(seed, a.depth_front_fail_op);
-			HGEGraphics::hash_combine(seed, a.stencil_front_pass_op);
-			HGEGraphics::hash_combine(seed, a.stencil_back_op);
-			HGEGraphics::hash_combine(seed, a.stencil_back_fail_op);
-			HGEGraphics::hash_combine(seed, a.depth_back_fail_op);
-			HGEGraphics::hash_combine(seed, a.stencil_back_pass_op);
+            HGEGraphics::hash_combine(seed, a.depth_test);
+            HGEGraphics::hash_combine(seed, a.depth_write);
+            HGEGraphics::hash_combine(seed, a.depth_op);
+            HGEGraphics::hash_combine(seed, a.stencil_test);
+            HGEGraphics::hash_combine(seed, a.stencil_read_mask);
+            HGEGraphics::hash_combine(seed, a.stencil_write_mask);
+            HGEGraphics::hash_combine(seed, a.stencil_front_op);
+            HGEGraphics::hash_combine(seed, a.stencil_front_fail_op);
+            HGEGraphics::hash_combine(seed, a.depth_front_fail_op);
+            HGEGraphics::hash_combine(seed, a.stencil_front_pass_op);
+            HGEGraphics::hash_combine(seed, a.stencil_back_op);
+            HGEGraphics::hash_combine(seed, a.stencil_back_fail_op);
+            HGEGraphics::hash_combine(seed, a.depth_back_fail_op);
+            HGEGraphics::hash_combine(seed, a.stencil_back_pass_op);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPURasterizerStateDescriptor> {
-		size_t operator()(const CGPURasterizerStateDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPURasterizerStateDescriptor> {
+        size_t operator()(const CGPURasterizerStateDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.cull_mode);
-			HGEGraphics::hash_combine(seed, a.depth_bias);
-			HGEGraphics::hash_combine(seed, a.slope_scaled_depth_bias);
-			HGEGraphics::hash_combine(seed, a.fill_mode);
-			HGEGraphics::hash_combine(seed, a.front_face);
-			HGEGraphics::hash_combine(seed, a.enable_multi_sample);
-			HGEGraphics::hash_combine(seed, a.enable_scissor);
-			HGEGraphics::hash_combine(seed, a.enable_depth_clamp);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.cull_mode);
+            HGEGraphics::hash_combine(seed, a.depth_bias);
+            HGEGraphics::hash_combine(seed, a.slope_scaled_depth_bias);
+            HGEGraphics::hash_combine(seed, a.fill_mode);
+            HGEGraphics::hash_combine(seed, a.front_face);
+            HGEGraphics::hash_combine(seed, a.enable_multi_sample);
+            HGEGraphics::hash_combine(seed, a.enable_scissor);
+            HGEGraphics::hash_combine(seed, a.enable_depth_clamp);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUBufferDescriptor> {
-		size_t operator()(const CGPUBufferDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUBufferDescriptor> {
+        size_t operator()(const CGPUBufferDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.size);
-			HGEGraphics::hash_combine(seed, a.count_buffer);
-			HGEGraphics::hash_combine(seed, a.name);
-			HGEGraphics::hash_combine(seed, a.descriptors);
-			HGEGraphics::hash_combine(seed, a.memory_usage);
-			HGEGraphics::hash_combine(seed, a.format);
-			HGEGraphics::hash_combine(seed, a.flags);
-			HGEGraphics::hash_combine(seed, a.first_element);
-			HGEGraphics::hash_combine(seed, a.element_count);
-			HGEGraphics::hash_combine(seed, a.element_stride);
-			HGEGraphics::hash_combine(seed, a.owner_queue);
-			HGEGraphics::hash_combine(seed, a.start_state);
-			HGEGraphics::hash_combine(seed, a.prefer_on_device);
-			HGEGraphics::hash_combine(seed, a.prefer_on_host);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.size);
+            HGEGraphics::hash_combine(seed, a.count_buffer);
+            HGEGraphics::hash_combine(seed, a.name);
+            HGEGraphics::hash_combine(seed, a.descriptors);
+            HGEGraphics::hash_combine(seed, a.memory_usage);
+            HGEGraphics::hash_combine(seed, a.format);
+            HGEGraphics::hash_combine(seed, a.flags);
+            HGEGraphics::hash_combine(seed, a.first_element);
+            HGEGraphics::hash_combine(seed, a.element_count);
+            HGEGraphics::hash_combine(seed, a.element_stride);
+            HGEGraphics::hash_combine(seed, a.owner_queue);
+            HGEGraphics::hash_combine(seed, a.start_state);
+            HGEGraphics::hash_combine(seed, a.prefer_on_device);
+            HGEGraphics::hash_combine(seed, a.prefer_on_host);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUDescriptorSetDescriptor> {
-		size_t operator()(const CGPUDescriptorSetDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUDescriptorSetDescriptor> {
+        size_t operator()(const CGPUDescriptorSetDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.root_signature);
-			HGEGraphics::hash_combine(seed, a.set_index);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.root_signature);
+            HGEGraphics::hash_combine(seed, a.set_index);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUFramebufferDescriptor> {
-		size_t operator()(const CGPUFramebufferDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUFramebufferDescriptor> {
+        size_t operator()(const CGPUFramebufferDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.renderpass);
-			HGEGraphics::hash_combine(seed, a.attachment_count);
-			HGEGraphics::hash_combine(seed, a.p_attachments[0]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[1]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[2]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[3]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[4]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[5]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[6]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[7]);
-			HGEGraphics::hash_combine(seed, a.p_attachments[8]);
-			HGEGraphics::hash_combine(seed, a.width);
-			HGEGraphics::hash_combine(seed, a.height);
-			HGEGraphics::hash_combine(seed, a.layers);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.renderpass);
+            HGEGraphics::hash_combine(seed, a.attachment_count);
+            HGEGraphics::hash_combine(seed, a.p_attachments[0]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[1]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[2]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[3]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[4]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[5]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[6]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[7]);
+            HGEGraphics::hash_combine(seed, a.p_attachments[8]);
+            HGEGraphics::hash_combine(seed, a.width);
+            HGEGraphics::hash_combine(seed, a.height);
+            HGEGraphics::hash_combine(seed, a.layers);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPURenderPassDescriptor> {
-		size_t operator()(const CGPURenderPassDescriptor& a) const noexcept {
-			return HGEGraphics::MurmurHashFn<CGPURenderPassDescriptor>()(a);;
-		}
-	};
+    template <>
+    struct hash<CGPURenderPassDescriptor> {
+        size_t operator()(const CGPURenderPassDescriptor& a) const noexcept {
+            return HGEGraphics::MurmurHashFn<CGPURenderPassDescriptor>()(a);
+        }
+    };
 
-	template <>
-	struct hash<CGPUColorAttachment> {
-		size_t operator()(const CGPUColorAttachment& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUColorAttachment> {
+        size_t operator()(const CGPUColorAttachment& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.format);
-			HGEGraphics::hash_combine(seed, a.load_action);
-			HGEGraphics::hash_combine(seed, a.store_action);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.format);
+            HGEGraphics::hash_combine(seed, a.load_action);
+            HGEGraphics::hash_combine(seed, a.store_action);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUDepthStencilAttachment> {
-		size_t operator()(const CGPUDepthStencilAttachment& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUDepthStencilAttachment> {
+        size_t operator()(const CGPUDepthStencilAttachment& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.format);
-			HGEGraphics::hash_combine(seed, a.depth_load_action);
-			HGEGraphics::hash_combine(seed, a.depth_store_action);
-			HGEGraphics::hash_combine(seed, a.stencil_load_action);
-			HGEGraphics::hash_combine(seed, a.stencil_store_action);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.format);
+            HGEGraphics::hash_combine(seed, a.depth_load_action);
+            HGEGraphics::hash_combine(seed, a.depth_store_action);
+            HGEGraphics::hash_combine(seed, a.stencil_load_action);
+            HGEGraphics::hash_combine(seed, a.stencil_store_action);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 
-	template <>
-	struct hash<CGPUTextureViewDescriptor> {
-		size_t operator()(const CGPUTextureViewDescriptor& a) const noexcept {
-			size_t seed = 0;
+    template <>
+    struct hash<CGPUTextureViewDescriptor> {
+        size_t operator()(const CGPUTextureViewDescriptor& a) const noexcept {
+            size_t seed = 0;
 
-			// ��ϸ����ֶεĹ�ϣֵ
-			HGEGraphics::hash_combine(seed, a.name);
-			HGEGraphics::hash_combine(seed, a.texture);
-			HGEGraphics::hash_combine(seed, a.format);
-			HGEGraphics::hash_combine(seed, a.usages);
-			HGEGraphics::hash_combine(seed, a.aspects);
-			HGEGraphics::hash_combine(seed, a.dims);
-			HGEGraphics::hash_combine(seed, a.base_array_layer);
-			HGEGraphics::hash_combine(seed, a.array_layer_count);
-			HGEGraphics::hash_combine(seed, a.base_mip_level);
-			HGEGraphics::hash_combine(seed, a.mip_level_count);
+			// 组合各个字段的哈希值
+            HGEGraphics::hash_combine(seed, a.name);
+            HGEGraphics::hash_combine(seed, a.texture);
+            HGEGraphics::hash_combine(seed, a.format);
+            HGEGraphics::hash_combine(seed, a.usages);
+            HGEGraphics::hash_combine(seed, a.aspects);
+            HGEGraphics::hash_combine(seed, a.dims);
+            HGEGraphics::hash_combine(seed, a.base_array_layer);
+            HGEGraphics::hash_combine(seed, a.array_layer_count);
+            HGEGraphics::hash_combine(seed, a.base_mip_level);
+            HGEGraphics::hash_combine(seed, a.mip_level_count);
 
-			return seed;
-		}
-	};
+            return seed;
+        }
+    };
 }

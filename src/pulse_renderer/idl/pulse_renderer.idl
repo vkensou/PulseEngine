@@ -14,11 +14,10 @@ typedef "PulseAppId"
 --- From flecs.h
 typedef "ecs_entity_t"
 
---- From pulse_math.h (forward — 实际类型在 pulse_math.h 中，这里仅声明引用)
---- HMM_Vec4 的类型名
+--- From pulse_math.h
 typedef "HMM_Vec4" { cname = "HMM_Vec4" }
 
---- From pulse_graphics.h (值类型句柄)
+--- From pulse_graphics.h
 typedef "PulseMeshHandle" { cname = "PulseMeshHandle" }
 typedef "PulseMaterialHandle" { cname = "PulseMaterialHandle" }
 

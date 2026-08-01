@@ -24,81 +24,52 @@ void register_material_type(PulseAppId app, CGPUDeviceId device)
     pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
 }
 
+std::tuple<pulse_material_data_t*, const pulse_shader_property_t*> get_material_shader_property(PulseMaterial* _this, const char* name, EPulseShaderPropertyType type)
+{
+    if (!_this || !_this->ptr || !name) return { nullptr, nullptr };
+    auto* mat = static_cast<pulse_material_data_t*>(_this->ptr);
+    if (!mat->shader) return { nullptr, nullptr };
+
+    const auto* prop = pulse_find_shader_property(mat->shader, name);
+    if (!prop || prop->role != PULSE_SHADER_PROPERTY_ROLE_MATERIAL || (EPulseShaderPropertyType)prop->type != type) return { nullptr, nullptr };
+    return { mat, prop };
+}
+
+std::tuple<const pulse_shader_property_t*, pulse_material_ubo_column_t*> get_material_ubo_column(PulseMaterial* _this, const char* name, EPulseShaderPropertyType type)
+{
+    auto[mat, prop] = get_material_shader_property(_this, name, type);
+    if (!prop || (EPulseShaderPropertyType)prop->type != type) return { nullptr, nullptr };
+
+    return { prop, HGEGraphics::material_find_ubo_column(mat, prop->set, prop->binding) };
+}
+
 } // namespace pulse_graphics_internal
 
 extern "C" {
 
-void pulse_material_bind_buffer(
-    PulseMaterial* material,
-    uint32_t set, uint32_t binding,
-    PulseGraphicsBuffer buffer)
+void pulse_material_set_float4(PulseMaterial* _this, const char* name, HMM_Vec4 value)
 {
-    HGEGraphics::material_bindBuffer(static_cast<pulse_material_data_t*>(material->ptr), set, binding, static_cast<pulse_buffer_data_t*>(buffer.ptr));
-}
+    auto[prop, col] = pulse_graphics_internal::get_material_ubo_column(_this, name, PULSE_SHADER_PROPERTY_TYPE_FLOAT4);
+    if (!prop || !col || !col->cpu_data) return;
 
-void pulse_material_bind_texture(
-    PulseMaterial* material,
-    uint32_t set, uint32_t binding,
-    PulseTexture texture)
-{
-    HGEGraphics::material_bindTexture(static_cast<pulse_material_data_t*>(material->ptr), set, binding, static_cast<pulse_texture_data_t*>(texture.ptr));
-}
-
-void pulse_material_bind_sampler(
-    PulseMaterial* material,
-    uint32_t set, uint32_t binding,
-    PulseSampler sampler)
-{
-    HGEGraphics::material_bindSampler(static_cast<pulse_material_data_t*>(material->ptr), set, binding, static_cast<pulse_sampler_data_t*>(sampler.ptr));
-}
-
-void pulse_material_bind_data(PulseMaterial* material, uint32_t set, uint32_t binding, size_t size, const void* data)
-{
-    HGEGraphics::material_bindBuffer(static_cast<pulse_material_data_t*>(material->ptr), set, binding, size, data);
-}
-
-void pulse_material_set_float4(PulseMaterial* _this, const char* name, float x, float y, float z, float w)
-{
-    if (!_this || !_this->ptr || !name) return;
-    auto* mat = static_cast<pulse_material_data_t*>(_this->ptr);
-    if (!mat->shader) return;
-
-    const auto* prop = pulse_find_shader_property(mat->shader, name);
-    if (!prop) return;
-
-    auto* col = HGEGraphics::material_find_or_create_ubo_column(mat, prop->set, prop->binding);
-
-    uint32_t needed = prop->offset + sizeof(float) * 4;
-    if (col->size < needed)
-    {
-        uint8_t* new_data = (uint8_t*)realloc(col->cpu_data, needed);
-        memset(new_data + col->size, 0, needed - col->size);
-        col->cpu_data = new_data;
-        col->size = needed;
-    }
-
-    float* dst = (float*)(col->cpu_data + prop->offset);
-    dst[0] = x; dst[1] = y; dst[2] = z; dst[3] = w;
+    static_assert(sizeof(HMM_Vec4) == 16);
+    memcpy(col->cpu_data + prop->offset, &value, sizeof(HMM_Vec4));
     col->dirty = true;
+}
 
-    // Mark the material descriptor set dirty for the UBO's set
-    for (int i = 0; i < mat->materialDsets.size; ++i)
-    {
-        if (mat->materialDsets.data[i].set_index == prop->set)
-        {
-            mat->materialDsets.data[i].dirty = true;
-            break;
-        }
-    }
+void pulse_material_set_mat4(PulseMaterial* _this, const char* name, HMM_Mat4 value)
+{
+    auto[prop, col] = pulse_graphics_internal::get_material_ubo_column(_this, name, PULSE_SHADER_PROPERTY_TYPE_MAT4);
+    if (!prop || !col || !col->cpu_data) return;
+
+    static_assert(sizeof(HMM_Mat4) == 64);
+    memcpy(col->cpu_data + prop->offset, &value, sizeof(HMM_Mat4));
+    col->dirty = true;
 }
 
 void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture)
 {
-    if (!_this || !_this->ptr || !name) return;
-    auto* mat = static_cast<pulse_material_data_t*>(_this->ptr);
-    if (!mat->shader) return;
-
-    const auto* prop = pulse_find_shader_property(mat->shader, name);
+    auto [mat, prop] = pulse_graphics_internal::get_material_shader_property(_this, name, PULSE_SHADER_PROPERTY_TYPE_TEXTURE);
     if (!prop) return;
 
     PulseTexture tex_ref{};
@@ -106,6 +77,23 @@ void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTex
         auto* tex_data = static_cast<pulse_texture_data_t*>(tex_ref.ptr);
         HGEGraphics::material_bindTexture(mat, (int)prop->set, (int)prop->binding, tex_data);
         pulse_release_texture(pulse_graphics_internal::g_loader_app, &tex_ref);
+
+        HGEGraphics::material_mark_dset_binding_dirty(mat, prop->set);
+    }
+}
+
+void pulse_material_set_sampler(PulseMaterial* _this, const char* name, PulseSamplerHandle sampler)
+{
+    auto [mat, prop] = pulse_graphics_internal::get_material_shader_property(_this, name, PULSE_SHADER_PROPERTY_TYPE_SAMPLER);
+    if (!prop) return;
+
+    PulseSampler smp_ref{};
+    if (pulse_acquire_sampler(pulse_graphics_internal::g_loader_app, sampler, &smp_ref)) {
+        auto* smp_data = static_cast<pulse_sampler_data_t*>(smp_ref.ptr);
+        HGEGraphics::material_bindSampler(mat, (int)prop->set, (int)prop->binding, smp_data);
+        pulse_release_sampler(pulse_graphics_internal::g_loader_app, &smp_ref);
+
+        HGEGraphics::material_mark_dset_binding_dirty(mat, prop->set);
     }
 }
 

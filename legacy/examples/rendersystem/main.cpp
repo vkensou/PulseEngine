@@ -1,6 +1,7 @@
 ﻿#include "framework.h"
 #include "imgui.h"
 #include <flecs.h>
+#include <algorithm>
 #include <bit>
 #include <filesystem>
 #define TINYGLTF_NO_STB_IMAGE
@@ -811,7 +812,9 @@ void load_scene(Application& app, flecs::world& world, const char* filepath, pul
 				gltf_material.pbrMetallicRoughness.baseColorFactor[0], 
 				gltf_material.pbrMetallicRoughness.baseColorFactor[0]),
 		};
-		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
+		auto* col = HGEGraphics::material_find_ubo_column(material, 1, 0);
+		memcpy(col->cpu_data, &materialData, std::min(col->size, sizeof(MaterialData)));
+		col->dirty = true;
 		app.materials.push_back(material);
 	}
 

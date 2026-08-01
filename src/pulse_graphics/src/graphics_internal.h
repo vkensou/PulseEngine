@@ -23,7 +23,7 @@ struct frame_data {
     std::unique_ptr<std::pmr::unsynchronized_pool_resource> exec_memory;
     std::unique_ptr<HGEGraphics::ExecutorContext> exec_context;
 
-    bool init(CGPUDeviceId device, CGPUQueueId queue);
+    bool init(CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId default_texture, CGPUSamplerId default_sampler);
     void begin_frame();
     CGPUCommandBufferId request_command_buffer();
     void destroy();
@@ -86,6 +86,9 @@ struct pulse_graphics_state {
 
     PulseShader blit_shader;
     PulseSampler blit_linear_sampler;
+
+    PulseTexture default_texture;
+    PulseSampler default_sampler;
 
     void sort_record_callbacks();
 

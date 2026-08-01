@@ -88,6 +88,11 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 		#include "blit.ps.spv.h"
 	};
 
+    PulseShaderPropertyDesc shader_props[] = {
+        {.name = "source",        .type = PULSE_SHADER_PROPERTY_TYPE_TEXTURE, .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 0 },
+        {.name = "linearSampler", .type = PULSE_SHADER_PROPERTY_TYPE_SAMPLER, .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 1, .offset = 0, .size = 0 },
+    };
+
     PulseShaderCreateFromBinaryDesc blit_shader_desc = {
         .vs_data = blit_vert_spv,
         .vs_size = sizeof(blit_vert_spv),
@@ -107,6 +112,8 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
         .rasterizer_state = {
             .cull_mode = CGPU_CULL_MODE_NONE,
         },
+        .property_count = 2,
+        .p_properties = shader_props,
     };
 
     state->blit_shader.handle = pulse_create_shader_from_binary(app, &blit_shader_desc);
@@ -126,6 +133,43 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 	};
 	state->blit_linear_sampler.handle = pulse_create_sampler(app, &blit_linear_sampler_desc);
     pulse_acquire_sampler(app, state->blit_linear_sampler.handle, &state->blit_linear_sampler);
+}
+
+void create_default_resources(PulseAppId app, pulse_graphics_state* state) {
+    const uint64_t width = 4;
+    const uint64_t height = 4;
+    const uint64_t count = width * height;
+
+    CGPUTextureDescriptor default_texture_desc =
+    {
+        .name = "default_texture",
+        .width = width,
+        .height = height,
+        .depth = 1,
+        .array_size = 1,
+        .format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,
+        .mip_levels = 1,
+        .descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
+    };
+    uint32_t colors[count];
+    std::fill(colors, colors + count, 0xffff00ff);
+    //state->default_texture.handle = pulse_create_texture();
+    pulse_acquire_texture(app, state->default_texture.handle, &state->default_texture);
+
+    PulseSamplerCreateDesc default_sampler_desc = {
+    .desc = {
+        .min_filter = CGPU_FILTER_TYPE_LINEAR,
+        .mag_filter = CGPU_FILTER_TYPE_LINEAR,
+        .mipmap_mode = CGPU_MIP_MAP_MODE_LINEAR,
+        .address_u = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .address_v = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .address_w = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .mip_lod_bias = 0,
+        .max_anisotropy = 1,
+    }
+    };
+    state->default_sampler.handle = pulse_create_sampler(app, &default_sampler_desc);
+    pulse_acquire_sampler(app, state->default_sampler.handle, &state->default_sampler);
 }
 
 EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
@@ -149,6 +193,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     CGPUDeviceId device = get_device(app);
     register_graphics_asset_types_and_loaders(app, device);
 
+    create_default_resources(app, state);
     create_blit_shader(app, state);
 
     install_upload_callback(app);

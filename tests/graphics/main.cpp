@@ -132,15 +132,7 @@ static void record_test_graphic(
 
     if (state->material_ref.handle.index == 0 && pulse_material_is_ready(app, state->material) && pulse_texture_is_ready(app, state->texture)) {
         pulse_acquire_material(app, state->material, &state->material_ref);
-        PulseTexture texture_ref;
-        pulse_acquire_texture(app, state->texture, &texture_ref);
-        pulse_material_bind_texture(&state->material_ref, 0, 1, texture_ref);
-        pulse_release_texture(app, &texture_ref);
-
-        auto materialData = MaterialData{
-            .albedo = Vec4{1, 0, 0, 1},
-        };
-        pulse_material_bind_data(&state->material_ref, 1, 0, sizeof(MaterialData), &materialData);
+        pulse_material_set_float4(&state->material_ref, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
     }
 
     if (state->mesh_ref.handle.index == 0 && pulse_mesh_is_ready(app, state->mesh)) {
@@ -255,6 +247,11 @@ int main(void) {
         .blend_alpha_op = CGPU_BLEND_OP_ADD,
         .color_mask = CGPU_COLOR_MASK_RGBA,
     };
+    PulseShaderPropertyDesc shader_props[] = {
+        {.name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
+        {.name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
+        {.name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
+    };
     PulseShaderCreateFromFileDesc shader_desc = {
         .vert_path = "color.vert.spv",
         .frag_path = "color.frag.spv",
@@ -273,7 +270,9 @@ int main(void) {
         .rasterizer_state = {
             .cull_mode = CGPU_CULL_MODE_BACK,
             .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-        }
+        },
+        .property_count = 3,
+        .p_properties = shader_props,
     };
     PulseShaderHandle shader = pulse_create_shader_from_file(app, &shader_desc);
 

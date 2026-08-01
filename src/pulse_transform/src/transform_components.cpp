@@ -1,4 +1,4 @@
-#include "transform_internal.h"
+﻿#include "transform_internal.h"
 
 #include <assert.h>
 #include <string.h>
@@ -41,7 +41,7 @@ void propagate_world_transform(ecs_iter_t* it) {
 
     for (int i = 0; i < it->count; i++) {
         // Compute local matrix from TRS: T * R * S
-		const PulseLocalTransform& local_transform = local[i];
+        const PulseLocalTransform& local_transform = local[i];
         HMM_Mat4 local_mat = HMM_TRS(local_transform.translation, local_transform.rotation, local_transform.scale);
 
         if (wt_parent) {

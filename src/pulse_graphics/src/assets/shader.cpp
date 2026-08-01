@@ -1,12 +1,13 @@
-#include "../graphics_internal.h"
+﻿#include "../graphics_internal.h"
 
 namespace pulse_graphics_internal {
 
 static void destroy_shader(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
     pulse_shader_data_t* data = static_cast<pulse_shader_data_t*>(ptr);
-    if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
-	if (data->p_blend_attachment_states) delete[] data->p_blend_attachment_states;
+    data->vs.library = CGPU_NULLPTR;
+    data->ps.library = CGPU_NULLPTR;
+    HGEGraphics::free_shader(data);
 }
 
 void register_shader_type(PulseAppId app, CGPUDeviceId device)

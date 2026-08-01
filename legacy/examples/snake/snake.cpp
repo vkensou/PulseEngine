@@ -1,6 +1,7 @@
 ﻿#include "snake.h"
 
 #include "handmademath.h"
+#include <algorithm>
 #include <optional>
 #include <random>
 #include <span>
@@ -333,7 +334,9 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 1, 1, 1),
 		};
-		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
+		auto* col = HGEGraphics::material_find_ubo_column(material, 1, 0);
+		memcpy(col->cpu_data, &materialData, std::min(col->size, sizeof(MaterialData)));
+		col->dirty = true;
 		boardMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}
@@ -343,7 +346,9 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 0, 0, 0),
 		};
-		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
+		auto* col = HGEGraphics::material_find_ubo_column(material, 1, 0);
+		memcpy(col->cpu_data, &materialData, sizeof(MaterialData));
+		col->dirty = true;
 		appleMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}
@@ -353,7 +358,9 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(1, 1, 0, 1),
 		};
-		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
+		auto* col = HGEGraphics::material_find_ubo_column(material, 1, 0);
+		memcpy(col->cpu_data, &materialData, sizeof(MaterialData));
+		col->dirty = true;
 		snakeHeadMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}
@@ -363,7 +370,9 @@ void loadSnakeResourcesSystem(pulse::res<ResourceManager> resourceManager, pulse
 		auto materialData = MaterialData{
 			.albedo = HMM_V4(0, 1, 0, 1),
 		};
-		HGEGraphics::material_bindBuffer<MaterialData>(material, 1, 0, materialData);
+		auto* col = HGEGraphics::material_find_ubo_column(material, 1, 0);
+		memcpy(col->cpu_data, &materialData, std::min(col->size, sizeof(MaterialData)));
+		col->dirty = true;
 		snakeBodyMatIndex = resourceManager.get().materials.size();
 		resourceManager.get().materials.push_back(material);
 	}

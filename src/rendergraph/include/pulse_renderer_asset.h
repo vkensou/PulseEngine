@@ -44,18 +44,22 @@ struct pulse_mesh_data_t
 struct pulse_shader_property_t
 {
     const char* name;
+    int type;
     int role;
     uint32_t set;
     uint32_t binding;
     uint32_t offset;
+    uint32_t size;
 };
 
 struct pulse_shader_ubo_info_t
 {
+    uint64_t layout_hash;
     uint32_t set;
     uint32_t binding;
-    bool renderer_managed;
-    uint64_t layout_hash;
+    uint32_t ubo_size;
+	bool material_managed;
+	bool renderer_managed;
 };
 
 struct pulse_shader_set_info_t
@@ -160,7 +164,7 @@ struct pulse_material_descriptor_set_t
     uint32_t set_index;
     CGPUDescriptorSetId handle;
     uint64_t data_hash;
-    bool dirty;
+    bool binding_dirty;
 };
 
 struct pulse_material_descriptor_set_array_t

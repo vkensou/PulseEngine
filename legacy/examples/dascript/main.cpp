@@ -577,7 +577,10 @@ void material_bind_buffer(pulse::ResourceManager& resourceManager, size_t materi
 		context->throw_error_at(at, "material index(%lld) out of range", materialIndex);
 
 	auto material = resourceManager.materials[materialIndex];
-	HGEGraphics::material_bindBuffer(material, set, bind, size, ptr);
+	auto* col = HGEGraphics::material_find_ubo_column(material, (uint32_t)set, (uint32_t)bind);
+	if (col->size < (uint32_t)size) return;
+	memcpy(col->cpu_data, ptr, size);
+	col->dirty = true;
 }
 
 MAKE_EXTERNAL_TYPE_FACTORY(Shader, pulse_shader_data_t);

@@ -50,6 +50,10 @@ typedef "CGPUDepthStateDescriptor"
 typedef "CGPURasterizerStateDescriptor"
 typedef "ECGPUPrimitiveTopology"
 
+--- From pulse_math.h
+typedef "HMM_Vec4" { cname = "HMM_Vec4" }
+typedef "HMM_Mat4" { cname = "HMM_Mat4" }
+
 --- Constants
 const_value.GraphicsPluginDescVersion { value = "1u" }
 const_value.TypeTexture { value = "UINT64_C(0x1000)" }
@@ -224,13 +228,28 @@ enum.ShaderPropertyRole { underscore }
     .NonMaterial
     ()
 
+--- Shader property type
+enum.ShaderPropertyType { underscore }
+    .Unknown
+    .Float
+    .Float2
+    .Float3
+    .Float4
+    .Int
+    .Mat4
+    .Texture
+    .Sampler
+    ()
+
 --- Shader property descriptor
 struct.ShaderPropertyDesc
     .name    "cstring"
+    .type    "ShaderPropertyType::Enum"
     .role    "ShaderPropertyRole::Enum"
     .set     "uint32_t"
     .binding "uint32_t"
     .offset  "uint32_t"
+    .size_   "uint32_t"
     ()
 
 --- Shader create from binary desc
@@ -583,49 +602,29 @@ func.ReleaseMaterial
     .ref  "*Material"
     ()
 
---- Material bind
-func.Material.BindBuffer
-    "void"
-    .set      "uint32_t"
-    .binding  "uint32_t"
-    .buffer   "GraphicsBuffer"
-    ()
-
-func.Material.BindTexture
-    "void"
-    .set      "uint32_t"
-    .binding  "uint32_t"
-    .texture  "Texture"
-    ()
-
-func.Material.BindSampler
-    "void"
-    .set      "uint32_t"
-    .binding  "uint32_t"
-    .sampler  "Sampler"
-    ()
-
-func.Material.BindData
-    "void"
-    .set      "uint32_t"
-    .binding  "uint32_t"
-    .size_    "size_t"
-    .data     "*const anyopaque"
-    ()
-
+--- Material property setters (name-driven, Unity-style)
 func.Material.SetFloat4
     "void"
     .name    "cstring"
-    .x       "float"
-    .y       "float"
-    .z       "float"
-    .w       "float"
+    .value   "HMM_Vec4"
+    ()
+
+func.Material.SetMat4
+    "void"
+    .name    "cstring"
+    .value   "HMM_Mat4"
     ()
 
 func.Material.SetTexture
     "void"
     .name    "cstring"
     .texture "TextureHandle"
+    ()
+
+func.Material.SetSampler
+    "void"
+    .name    "cstring"
+    .sampler "SamplerHandle"
     ()
 
 --- Encoder
@@ -741,3 +740,16 @@ func.RenderpassEncoderPushConstants
     .name     "cstring"
     .data     "*const anyopaque"
     ()
+
+switch_table.ShaderPropertyIsUniform
+    .arg            "ShaderPropertyType::Enum"
+    .ret            "bool"
+    .cases          ({
+                        { Float = true },
+                        { Float2 = true },
+                        { Float3 = true },
+                        { Float4 = true },
+                        { Int = true },
+                        { Mat4 = true },
+                    })
+    .default        (false)

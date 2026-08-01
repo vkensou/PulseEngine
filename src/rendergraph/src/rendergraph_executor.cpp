@@ -280,6 +280,11 @@ namespace HGEGraphics
 
 			if (pass.executable)
 			{
+				context.global_texture_table.clear();
+				context.global_sampler_table.clear();
+				context.global_buffer_table.clear();
+				context.global_dset_table.clear();
+
 				RenderPassEncoder rg_encoder = {
 					.encoder = encoder,
 					.state_buffer = state_buffer,
@@ -312,6 +317,11 @@ namespace HGEGraphics
 
 		if (pass.executable)
 		{
+			context.global_texture_table.clear();
+			context.global_sampler_table.clear();
+			context.global_buffer_table.clear();
+			context.global_dset_table.clear();
+
 			RenderPassEncoder rg_encoder = {
 				.compute_encoder = encoder,
 				.context = &context,

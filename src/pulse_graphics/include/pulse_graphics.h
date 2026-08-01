@@ -10,6 +10,7 @@
 #include "cgpu/api.h"
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_math.h"
 #include "rendergraph.h"
 
 #ifdef __cplusplus
@@ -55,6 +56,26 @@ typedef enum EPulseShaderPropertyRole
     PULSE_SHADER_PROPERTY_ROLE_COUNT
 
 } EPulseShaderPropertyRole;
+
+/**
+ * Shader property type
+ *
+ */
+typedef enum EPulseShaderPropertyType
+{
+    PULSE_SHADER_PROPERTY_TYPE_UNKNOWN,       /** ( 0)                                */
+    PULSE_SHADER_PROPERTY_TYPE_FLOAT,         /** ( 1)                                */
+    PULSE_SHADER_PROPERTY_TYPE_FLOAT2,        /** ( 2)                                */
+    PULSE_SHADER_PROPERTY_TYPE_FLOAT3,        /** ( 3)                                */
+    PULSE_SHADER_PROPERTY_TYPE_FLOAT4,        /** ( 4)                                */
+    PULSE_SHADER_PROPERTY_TYPE_INT,           /** ( 5)                                */
+    PULSE_SHADER_PROPERTY_TYPE_MAT4,          /** ( 6)                                */
+    PULSE_SHADER_PROPERTY_TYPE_TEXTURE,       /** ( 7)                                */
+    PULSE_SHADER_PROPERTY_TYPE_SAMPLER,       /** ( 8)                                */
+
+    PULSE_SHADER_PROPERTY_TYPE_COUNT
+
+} EPulseShaderPropertyType;
 
 
 
@@ -301,10 +322,12 @@ typedef struct PulseShaderLibraryLoadDesc
 typedef struct PulseShaderPropertyDesc
 {
     const char*          name;
+    EPulseShaderPropertyType type;
     EPulseShaderPropertyRole role;
     uint32_t             set;
     uint32_t             binding;
     uint32_t             offset;
+    uint32_t             size;
 
 } PulseShaderPropertyDesc;
 
@@ -733,19 +756,16 @@ PULSE_API bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle
 PULSE_API void pulse_release_material(PulseAppId app, PulseMaterial* ref);
 
 /**
- * Material bind
+ * Material property setters (name-driven, Unity-style)
  *
- * @param[in] set
- * @param[in] binding
- * @param[in] buffer
+ * @param[in] name
+ * @param[in] value
  *
  */
-PULSE_API void pulse_material_bind_buffer(PulseMaterial* _this, uint32_t set, uint32_t binding, PulseGraphicsBuffer buffer);
-PULSE_API void pulse_material_bind_texture(PulseMaterial* _this, uint32_t set, uint32_t binding, PulseTexture texture);
-PULSE_API void pulse_material_bind_sampler(PulseMaterial* _this, uint32_t set, uint32_t binding, PulseSampler sampler);
-PULSE_API void pulse_material_bind_data(PulseMaterial* _this, uint32_t set, uint32_t binding, size_t size, const void* data);
-PULSE_API void pulse_material_set_float4(PulseMaterial* _this, const char* name, float x, float y, float z, float w);
+PULSE_API void pulse_material_set_float4(PulseMaterial* _this, const char* name, HMM_Vec4 value);
+PULSE_API void pulse_material_set_mat4(PulseMaterial* _this, const char* name, HMM_Mat4 value);
 PULSE_API void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture);
+PULSE_API void pulse_material_set_sampler(PulseMaterial* _this, const char* name, PulseSamplerHandle sampler);
 
 /**
  * Encoder
@@ -768,6 +788,20 @@ PULSE_API void pulse_renderpass_encoder_set_global_buffer_offset(pulse_renderpas
 PULSE_API void pulse_renderpass_encoder_set_viewport(pulse_renderpass_encoder_t* encoder, float x, float y, float width, float height, float min_depth, float max_depth);
 PULSE_API void pulse_renderpass_encoder_set_scissor(pulse_renderpass_encoder_t* encoder, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 PULSE_API void pulse_renderpass_encoder_push_constants(pulse_renderpass_encoder_t* encoder, PulseShader shader, const char* name, const void* data);
+
+static PULSE_FORCEINLINE bool ShaderPropertyIsUniform(EPulseShaderPropertyType const arg) {
+    switch(arg) {
+        case PULSE_SHADER_PROPERTY_TYPE_FLOAT: return true;
+        case PULSE_SHADER_PROPERTY_TYPE_FLOAT2: return true;
+        case PULSE_SHADER_PROPERTY_TYPE_FLOAT3: return true;
+        case PULSE_SHADER_PROPERTY_TYPE_FLOAT4: return true;
+        case PULSE_SHADER_PROPERTY_TYPE_INT: return true;
+        case PULSE_SHADER_PROPERTY_TYPE_MAT4: return true;
+        default: return false;
+    }
+    return false;
+}
+
 
 #ifdef __cplusplus
 }

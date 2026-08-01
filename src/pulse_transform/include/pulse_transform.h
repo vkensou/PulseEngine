@@ -55,23 +55,7 @@ extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
 
 PULSE_API EPulseResult pulse_add_transform_plugin(PulseAppId app);
 PULSE_API void pulse_set_parent(PulseAppId app, ecs_entity_t child, ecs_entity_t parent);
-
-/**
- * 移除实体的父级关系
- *
- * @param[in] app
- * @param[in] child
- *
- */
 PULSE_API void pulse_remove_parent(PulseAppId app, ecs_entity_t child);
-
-/**
- * 获取实体的父实体（无父级返回 0）
- *
- * @param[in] app
- * @param[in] child
- *
- */
 PULSE_API ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child);
 
 #ifdef __cplusplus

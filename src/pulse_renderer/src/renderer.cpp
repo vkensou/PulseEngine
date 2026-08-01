@@ -1,4 +1,4 @@
-#include "renderer_internal.h"
+﻿#include "renderer_internal.h"
 
 #include <algorithm>
 #include <string.h>
@@ -264,22 +264,20 @@ static void build_ubo_column_for_shader(
 
     bool has_pass = false;
     bool has_draw = false;
-    uint32_t ubo_size = 0;
+    uint32_t ubo_size = info.ubo_size;
 
     for (uint32_t p = 0; p < shader->property_count; ++p) {
         const auto& prop = shader->p_properties[p];
         if (prop.set != info.set || prop.binding != info.binding) continue;
         if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
 
-        uint32_t prop_size = sizeof(HMM_Mat4);
-        uint32_t needed = prop.offset + prop_size;
-        if (needed > ubo_size) ubo_size = needed;
-
         const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
         const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
         if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) has_pass = true;
         if (model_name && prop.name && strcmp(prop.name, model_name) == 0) has_draw = true;
     }
+
+    if (ubo_size == 0) return;
 
     if (has_draw) {
         col.is_per_draw = true;
@@ -295,8 +293,9 @@ static void build_ubo_column_for_shader(
 
                 const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
                 if (model_name && prop.name && strcmp(prop.name, model_name) == 0) {
+                    uint32_t copy_size = prop.size > 0 ? prop.size : sizeof(HMM_Mat4);
                     memcpy(col.cpu_data.data() + o * ubo_size + prop.offset,
-                           &view.render_objects[o].world_matrix, sizeof(HMM_Mat4));
+                           &view.render_objects[o].world_matrix, copy_size);
                 }
             }
         }
@@ -318,7 +317,8 @@ static void build_ubo_column_for_shader(
 
                 const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
                 if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) {
-                    memcpy(col.cpu_data.data() + o * ubo_size + prop.offset, &vp, sizeof(HMM_Mat4));
+                    uint32_t copy_size = prop.size > 0 ? prop.size : sizeof(HMM_Mat4);
+                    memcpy(col.cpu_data.data() + o * ubo_size + prop.offset, &vp, copy_size);
                 }
             }
         }

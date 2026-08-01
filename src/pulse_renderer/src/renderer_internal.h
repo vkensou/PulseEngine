@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "pulse_renderer.h"
 #include "pulse_transform.h"

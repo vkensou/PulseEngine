@@ -10,6 +10,7 @@
 #include "cgpu/api.h"
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_math.h"
 #include "rendergraph.h"
 
 #ifdef __cplusplus
@@ -188,6 +189,8 @@ static inline void pulse_unload_material(PulseAppId app, PulseMaterialHandle mat
 }
 
 $c99decl
+
+$cswitches
 
 #ifdef __cplusplus
 }

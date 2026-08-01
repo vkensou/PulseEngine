@@ -18,6 +18,14 @@ extern "C" {
 #define PULSE_API
 #endif
 
+#ifndef PULSE_FORCEINLINE
+#if defined(_MSC_VER) && !defined(__clang__)
+#define PULSE_FORCEINLINE __forceinline
+#else
+#define PULSE_FORCEINLINE inline __attribute__((always_inline))
+#endif
+#endif
+
 #define PULSE_PLUGIN_DESC_VERSION 1u
 
 

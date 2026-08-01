@@ -1,4 +1,4 @@
-#include "input_internal.h"
+﻿#include "input_internal.h"
 
 #include <algorithm>
 #include <cstring>

@@ -48,14 +48,12 @@ func.SetParent
     .parent  "ecs_entity_t"
     ()
 
---- 移除实体的父级关系
 func.RemoveParent
     "void"
     .app   "PulseAppId"
     .child "ecs_entity_t"
     ()
 
---- 获取实体的父实体（无父级返回 0）
 func.GetParent
     "ecs_entity_t"
     .app   "PulseAppId"

@@ -39,7 +39,7 @@ bool pulse_acquire_sampler(PulseAppId app, PulseSamplerHandle handle, PulseSampl
     return false;
 }
 
-void pulse_graphics_sampler_release(PulseAppId app, PulseSampler* sampler_ref) {
+void pulse_release_sampler(PulseAppId app, PulseSampler* sampler_ref) {
     PulseAssetRef ref{ pulse_sampler_to_handle(sampler_ref->handle), nullptr };
     pulse_asset_system_release(pulse_get_asset_system(app), &ref);
     sampler_ref->handle = {};

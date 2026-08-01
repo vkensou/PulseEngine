@@ -1,6 +1,6 @@
 #pragma once
 
-#include "stdint.h"
+#include <stdint.h>
 #include "resource_type.h"
 #include "cgpu/api.h"
 #include "renderer.h"
@@ -14,9 +14,6 @@ struct pulse_material_data_t;
 
 namespace HGEGraphics
 {
-	struct RenderPassEncoder;
-	struct UploadEncoder;
-
 	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth);
 	void set_scissor(RenderPassEncoder* encoder, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 	void push_constants(RenderPassEncoder* encoder, pulse_shader_data_t* shader, const char* name, const void* data);
@@ -33,5 +30,6 @@ namespace HGEGraphics
 	void set_global_buffer(RenderPassEncoder* encoder, pulse_buffer_data_t* buffer, int set, int slot);
 	void set_global_dynamic_buffer(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot);
 	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size);
+	void set_global_descriptor_set(RenderPassEncoder* encoder, CGPUDescriptorSetId dset, int set);
 	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data);
 }

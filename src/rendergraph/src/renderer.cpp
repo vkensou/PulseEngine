@@ -54,9 +54,17 @@ namespace HGEGraphics
 		shader->vs = ppl_shaders[0];
 		shader->ps = ppl_shaders[1];
 		shader->blend_desc = blend_desc;
-		shader->blend_attachment_states_count = blend_desc.attachment_count;
-		shader->p_blend_attachment_states = new CGPUBlendAttachmentState[shader->blend_attachment_states_count];
-		std::copy(blend_desc.p_attachments, blend_desc.p_attachments + blend_desc.attachment_count, shader->p_blend_attachment_states);
+		if (blend_desc.attachment_count > 0 && blend_desc.p_attachments)
+		{
+			shader->blend_attachment_states_count = blend_desc.attachment_count;
+			shader->p_blend_attachment_states = new CGPUBlendAttachmentState[shader->blend_attachment_states_count];
+			std::copy(blend_desc.p_attachments, blend_desc.p_attachments + blend_desc.attachment_count, shader->p_blend_attachment_states);
+		}
+		else
+		{
+			shader->blend_attachment_states_count = 0;
+			shader->p_blend_attachment_states = nullptr;
+		}
 		shader->blend_desc.p_attachments = shader->p_blend_attachment_states;
 		shader->depth_desc = depth_desc;
 		shader->rasterizer_state = rasterizer_state;
@@ -74,6 +82,8 @@ namespace HGEGraphics
 
 		if (shader->p_properties)
 		{
+			for (uint32_t i = 0; i < shader->property_count; ++i)
+				delete[] shader->p_properties[i].name;
 			delete[] shader->p_properties;
 		}
 		shader->p_properties = nullptr;
@@ -135,8 +145,10 @@ namespace HGEGraphics
 
 	void free_compute_shader(pulse_compute_shader_data_t* compute_shader)
 	{
-		cgpu_device_free_root_signature(compute_shader->root_sig->device, compute_shader->root_sig);
-		cgpu_device_free_shader_library(compute_shader->cs.library->device, compute_shader->cs.library);
+		if (compute_shader->root_sig)
+			cgpu_device_free_root_signature(compute_shader->root_sig->device, compute_shader->root_sig);
+		if (compute_shader->cs.library)
+			cgpu_device_free_shader_library(compute_shader->cs.library->device, compute_shader->cs.library);
 	}
 
 	pulse_buffer_data_t* create_empty_buffer()
@@ -411,8 +423,25 @@ namespace HGEGraphics
 		simple_vector_init(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
 		simple_vector_init(material->materialDsets.data, material->materialDsets.size, material->materialDsets.capacity);
 
-		// Create descriptor sets for pure-material sets
 		if (shader) {
+			for (uint32_t i = 0; i < shader->ubo_info_count; ++i) {
+				auto& ubo_info = shader->p_ubo_infos[i];
+				pulse_material_ubo_column_t col = {};
+				col.set = ubo_info.set;
+				col.binding = ubo_info.binding;
+				col.size = ubo_info.ubo_size;
+				if (ubo_info.material_managed) {
+					col.cpu_data = (uint8_t*)calloc(1, ubo_info.ubo_size);
+				}
+				col.dirty = ubo_info.material_managed;
+				col.gpu_buffer = nullptr;
+				simple_vector_push_back<pulse_material_ubo_column_t>(
+					material->uboColumns.data,
+					material->uboColumns.size,
+					material->uboColumns.capacity,
+					col);
+			}
+
 			for (uint32_t i = 0; i < shader->set_info_count; ++i) {
 				auto& set_info = shader->p_set_infos[i];
 				if (set_info.renderer_managed) continue;
@@ -421,26 +450,24 @@ namespace HGEGraphics
 				dset_desc.root_signature = shader->root_sig;
 				dset_desc.set_index = set_info.set_index;
 				auto dset_handle = cgpu_device_create_descriptor_set(device, &dset_desc);
-				if (dset_handle) {
-					pulse_material_descriptor_set_t mdset = {};
-					mdset.set_index = set_info.set_index;
-					mdset.handle = dset_handle;
-					mdset.data_hash = 0;
-					mdset.dirty = true;
-					simple_vector_push_back<pulse_material_descriptor_set_t>(
-						material->materialDsets.data,
-						material->materialDsets.size,
-						material->materialDsets.capacity,
-						mdset);
-				}
+			if (dset_handle) {
+				pulse_material_descriptor_set_t mdset = {};
+				mdset.set_index = set_info.set_index;
+				mdset.handle = dset_handle;
+				mdset.data_hash = 0;
+				mdset.binding_dirty = true;
+				simple_vector_push_back<pulse_material_descriptor_set_t>(
+					material->materialDsets.data,
+					material->materialDsets.size,
+					material->materialDsets.capacity,
+					mdset);
+			}
 			}
 		}
 	}
 
 	void free_material(pulse_material_data_t* material)
 	{
-		material->shader = nullptr;
-		material->device = nullptr;
 		simple_vector_free(material->buffers.data, material->buffers.size, material->buffers.capacity);
 		simple_vector_free(material->textures.data, material->textures.size, material->textures.capacity);
 		simple_vector_free(material->samplers.data, material->samplers.size, material->samplers.capacity);
@@ -464,15 +491,17 @@ namespace HGEGraphics
 				cgpu_device_free_descriptor_set(material->device, material->materialDsets.data[i].handle);
 		}
 		simple_vector_free(material->materialDsets.data, material->materialDsets.size, material->materialDsets.capacity);
+		material->shader = nullptr;
+		material->device = nullptr;
 	}
 
-	static void material_mark_dset_dirty(pulse_material_data_t* material, uint32_t set_index)
+	void material_mark_dset_binding_dirty(pulse_material_data_t* material, uint32_t set_index)
 	{
 		for (int i = 0; i < material->materialDsets.size; ++i)
 		{
 			if (material->materialDsets.data[i].set_index == set_index)
 			{
-				material->materialDsets.data[i].dirty = true;
+				material->materialDsets.data[i].binding_dirty = true;
 				break;
 			}
 		}
@@ -480,256 +509,58 @@ namespace HGEGraphics
 
 	void material_bindTexture(pulse_material_data_t* material, int set, int bind, pulse_texture_data_t* texture)
 	{
-		pulse_material_bind_texture_t bindbuffer = pulse_material_bind_texture_t(set, bind, texture);
-		simple_vector_push_back<pulse_material_bind_texture_t>(material->textures.data, material->textures.size, material->textures.capacity, bindbuffer);
-		material_mark_dset_dirty(material, (uint32_t)set);
+		for (int i = 0; i < material->textures.size; ++i)
+		{
+			if (material->textures.data[i].set == set && material->textures.data[i].bind == bind)
+			{
+				material->textures.data[i].texture = texture;
+				material_mark_dset_binding_dirty(material, (uint32_t)set);
+				return;
+			}
+		}
+		pulse_material_bind_texture_t entry = pulse_material_bind_texture_t(set, bind, texture);
+		simple_vector_push_back<pulse_material_bind_texture_t>(material->textures.data, material->textures.size, material->textures.capacity, entry);
+		material_mark_dset_binding_dirty(material, (uint32_t)set);
 	}
 
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, pulse_sampler_data_t* sampler)
 	{
-		pulse_material_bind_sampler_t bindbuffer = pulse_material_bind_sampler_t(set, bind, sampler->handle);
-		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, bindbuffer);
-		material_mark_dset_dirty(material, (uint32_t)set);
+		material_bindSampler(material, set, bind, sampler->handle);
 	}
 
 	void material_bindSampler(pulse_material_data_t* material, int set, int bind, CGPUSamplerId sampler)
 	{
-		pulse_material_bind_sampler_t bindbuffer = pulse_material_bind_sampler_t(set, bind, sampler);
-		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, bindbuffer);
-		material_mark_dset_dirty(material, (uint32_t)set);
+		for (int i = 0; i < material->samplers.size; ++i)
+		{
+			if (material->samplers.data[i].set == set && material->samplers.data[i].bind == bind)
+			{
+				material->samplers.data[i].sampler = sampler;
+				material_mark_dset_binding_dirty(material, (uint32_t)set);
+				return;
+			}
+		}
+		pulse_material_bind_sampler_t entry = pulse_material_bind_sampler_t(set, bind, sampler);
+		simple_vector_push_back<pulse_material_bind_sampler_t>(material->samplers.data, material->samplers.size, material->samplers.capacity, entry);
+		material_mark_dset_binding_dirty(material, (uint32_t)set);
 	}
 
 	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, pulse_buffer_data_t* buffer)
 	{
-		pulse_material_bind_buffer_t bindbuffer = pulse_material_bind_buffer_t(set, bind, buffer);
-		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, bindbuffer);
-		material_mark_dset_dirty(material, (uint32_t)set);
-	}
-
-	void material_bindBuffer(pulse_material_data_t* material, int set, int bind, size_t size, const void* data)
-	{
-		auto align_size = std::bit_ceil(size);
-		auto desc = CGPUBufferDescriptor{
-			.size = align_size,
-			.name = "Material Data Buffer",
-			.descriptors = CGPU_RESOURCE_TYPE_UNIFORM_BUFFER,
-			.memory_usage = CGPU_MEMORY_USAGE_CPU_TO_GPU,
-		};
-		auto buffer = create_buffer(material->device, desc);
-		cgpu_buffer_map(buffer->handle, nullptr);
-		memcpy(buffer->handle->info->cpu_mapped_address, data, size);
-		cgpu_buffer_unmap(buffer->handle);
-
-		pulse_material_bind_buffer_t bindbuffer = pulse_material_bind_buffer_t(set, bind, buffer);
-		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, bindbuffer);
-		simple_vector_push_back<pulse_buffer_data_t*>(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity, buffer);
-		material_mark_dset_dirty(material, (uint32_t)set);
-	}
-
-	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index)
-	{
-		backbuffer->texture.handle = swapchain->p_back_buffers[index];
-		backbuffer->texture.view = CGPU_NULLPTR;
-		backbuffer->texture.cur_state_count = 1;
-		backbuffer->texture.p_cur_states = new ECGPUResourceStateFlags[backbuffer->texture.cur_state_count];
-		backbuffer->texture.p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
-		backbuffer->texture.states_consistent = true;
-		backbuffer->texture.dynamic_handle = {};
-	}
-
-	void free_backbuffer(pulse_backbuffer_data_t* backbuffer)
-	{
-		backbuffer->texture.handle = CGPU_NULLPTR;
-		backbuffer->texture.view = CGPU_NULLPTR;
-		backbuffer->texture.cur_state_count = 0;
-		delete[] backbuffer->texture.p_cur_states;
-		backbuffer->texture.p_cur_states = nullptr;
-		backbuffer->texture.states_consistent = false;
-	}
-
-	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth)
-	{
-		cgpu_render_pass_encoder_set_viewport(encoder->encoder, x, y, width, height, min_depth, max_depth);
-	}
-
-	void set_scissor(RenderPassEncoder* encoder, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
-	{
-		cgpu_render_pass_encoder_set_scissor(encoder->encoder, x, y, width, height);
-	}
-
-	void push_constants(RenderPassEncoder* encoder, pulse_shader_data_t* shader, const char* name, const void* data)
-	{
-		cgpu_render_pass_encoder_push_constants(encoder->encoder, shader->root_sig, name, data);
-	}
-
-	void update_render_pipeline(RenderPassEncoder* encoder, pulse_shader_data_t* shader, ECGPUPrimitiveTopology mesh_topology, const CGPUVertexLayout& vertex_layout)
-	{
-		auto pipeline = encoder->context->pipelinePool.getGraphicsPipeline(encoder, shader, mesh_topology, vertex_layout);
-		if (pipeline && pipeline->handle != encoder->last_render_pipeline)
+		for (int i = 0; i < material->buffers.size; ++i)
 		{
-			cgpu_render_pass_encoder_bind_render_pipeline(encoder->encoder, pipeline->handle);
-			if (encoder->context->pipelinePool.dynamicStateT1Enabled())
+			if (material->buffers.data[i].set == set && material->buffers.data[i].bind == bind)
 			{
-				cgpu_raster_state_encoder_set_cull_mode(encoder->raster_state_encoder, shader->rasterizer_state.cull_mode);
-				cgpu_raster_state_encoder_set_front_face(encoder->raster_state_encoder, shader->rasterizer_state.front_face);
-				cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
-				cgpu_raster_state_encoder_set_depth_test_enabled(encoder->raster_state_encoder, shader->depth_desc.depth_test);
-				cgpu_raster_state_encoder_set_depth_write_enabled(encoder->raster_state_encoder, shader->depth_desc.depth_write);
-				cgpu_raster_state_encoder_set_depth_compare_op(encoder->raster_state_encoder, shader->depth_desc.depth_op);
-			}
-			encoder->last_render_pipeline = pipeline->handle;
-			memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
-			memset(encoder->last_dset_hashes, 0, sizeof(encoder->last_dset_hashes));
-		}
-	}
-
-	void update_descriptor_set(RenderPassEncoder* encoder, CGPURootSignatureId root_sig, bool is_graphics)
-	{
-		for (uint32_t i = 0; i < std::min(4u, root_sig->table_count); ++i)
-		{
-			auto& table = root_sig->p_tables[i];
-
-			// Check for pre-built descriptor set (from material)
-			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
-			for (auto iter = encoder->context->global_dset_table.rbegin();
-				 iter != encoder->context->global_dset_table.rend(); ++iter)
-			{
-				if (iter->set_index == (int)table.set_index)
-				{
-					prebuilt_dset = iter->dset;
-					break;
-				}
-			}
-			if (prebuilt_dset)
-			{
-				if (is_graphics)
-					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, prebuilt_dset);
-				else
-					cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, prebuilt_dset);
-				encoder->last_dset_hashes[i] = 0;
-				continue;
-			}
-
-			CGPUDescriptorSetDescriptor dset_desc =
-			{
-				.root_signature = root_sig,
-				.set_index = table.set_index,
-			};
-			
-			auto dset = encoder->context->descriptorSetPool.getDescriptorSet(dset_desc);
-			encoder->context->allocated_dsets.push_back(dset);
-
-			const uint32_t data_size = 64;
-			CGPUDescriptorData datas[data_size] = { 0 };
-			uint32_t data_count = 0;
-			uint32_t texture_view_count = 0;
-			uint32_t sampler_count = 0;
-			uint32_t buffer_count = 0;
-			uint32_t offset_size_count = 0;
-			for (uint32_t j = 0; j < std::min(data_size, table.resources_count); ++j)
-			{
-				auto& res = table.p_resources[j];
-				CGPUDescriptorData data =
-				{
-					.binding = res.binding,
-					.binding_type = res.type,
-					.count = 1,
-				};
-				if (res.type == CGPU_RESOURCE_TYPE_TEXTURE)
-				{
-					CGPUTextureViewId textureview = CGPU_NULLPTR;
-					for (auto iter = encoder->context->global_texture_table.rbegin(); iter != encoder->context->global_texture_table.rend(); ++iter)
-					{
-						auto& binder = *iter;
-						if (binder.set == i && binder.bind == res.binding)
-						{
-							if (pulse_rendergraph_texture_handle_valid(binder.texture_handle))
-								textureview = pulse_rendergraph_resolve_texture_view((pulse_renderpass_encoder_t*)encoder, binder.texture_handle);
-							else if (binder.texture && binder.texture->prepared)
-								textureview = binder.texture->view;
-							break;
-						}
-					}
-					if (!textureview)
-						textureview = encoder->context->default_texture;
-					encoder->textureviews[texture_view_count] = textureview;
-					data.resources.textures = encoder->textureviews + texture_view_count;
-					++texture_view_count;
-				}
-				else if (res.type == CGPU_RESOURCE_TYPE_SAMPLER)
-				{
-					CGPUSamplerId sampler = CGPU_NULLPTR;
-					for (auto iter = encoder->context->global_sampler_table.rbegin(); iter != encoder->context->global_sampler_table.rend(); ++iter)
-					{
-						auto& binder = *iter;
-						if (binder.set == i && binder.bind == res.binding)
-						{
-							sampler = binder.sampler;
-							break;
-						}
-					}
-					if (!sampler)
-						;	// TODO
-					encoder->samplers[sampler_count] = sampler;
-					data.resources.samplers = encoder->samplers + sampler_count;
-					++sampler_count;
-				}
-				else if (res.type == CGPU_RESOURCE_TYPE_UNIFORM_BUFFER || res.type == CGPU_RESOURCE_TYPE_RW_BUFFER)
-				{
-					for (auto iter = encoder->context->global_buffer_table.rbegin(); iter != encoder->context->global_buffer_table.rend(); ++iter)
-					{
-						auto& binder = *iter;
-						if (binder.set == i && binder.bind == res.binding)
-						{
-							CGPUBufferId buffer;
-							if (pulse_rendergraph_buffer_handle_valid(binder.buffer_handle))
-								buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, binder.buffer_handle);
-							else
-								buffer = binder.buffer->handle;
-							encoder->buffers[buffer_count] = buffer;
-							if (binder.offset != 0 || binder.size != 0)
-							{
-								encoder->buffer_offset_sizes[offset_size_count] = binder.offset;
-								data.params.buffers_params.offsets = encoder->buffer_offset_sizes + (offset_size_count++);
-								encoder->buffer_offset_sizes[offset_size_count] = binder.size;
-								data.params.buffers_params.sizes = encoder->buffer_offset_sizes + (offset_size_count++);
-							}
-							data.resources.buffers = encoder->buffers + buffer_count;
-							++buffer_count;
-							break;
-						}
-					}
-				}
-				if (data.resources.ptrs != nullptr)
-					datas[data_count++] = data;
-			}
-
-			if (data_count > 0)
-			{
-				uint64_t hash = HGEGraphics::murmur3((const uint32_t*)encoder->buffers, buffer_count, 0);
-				hash ^= HGEGraphics::murmur3((const uint32_t*)encoder->textureviews, texture_view_count, 0);
-				hash ^= HGEGraphics::murmur3((const uint32_t*)encoder->samplers, sampler_count, 0);
-				hash ^= HGEGraphics::murmur3((const uint32_t*)encoder->buffer_offset_sizes, offset_size_count * 2, 0);
-				hash ^= HGEGraphics::murmur3((const uint32_t*)datas, data_count * sizeof(CGPUDescriptorData) / 4, 0);
-				if (hash != encoder->last_dset_hashes[i])
-				{
-					cgpu_descriptor_set_update(dset->handle, data_count, datas);
-					if (is_graphics)
-						cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset->handle);
-					else
-						cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset->handle);
-					memcpy(encoder->last_bind_resources[i], datas, sizeof(CGPUDescriptorData) * data_count);
-					memcpy(encoder->last_buffers[i], encoder->buffers, sizeof(CGPUBufferId) * buffer_count);
-					memcpy(encoder->last_textureviews[i], encoder->textureviews, sizeof(CGPUTextureViewId) * texture_view_count);
-					memcpy(encoder->last_samplers[i], encoder->samplers, sizeof(CGPUSamplerId) * sampler_count);
-					memcpy(encoder->last_buffer_offset_sizes[i], encoder->buffer_offset_sizes, sizeof(float) * 2 * offset_size_count);
-					encoder->last_dset_hashes[i] = hash;
-				}
+				material->buffers.data[i].buffer = buffer;
+				material_mark_dset_binding_dirty(material, (uint32_t)set);
+				return;
 			}
 		}
+		pulse_material_bind_buffer_t entry = pulse_material_bind_buffer_t(set, bind, buffer);
+		simple_vector_push_back<pulse_material_bind_buffer_t>(material->buffers.data, material->buffers.size, material->buffers.capacity, entry);
+		material_mark_dset_binding_dirty(material, (uint32_t)set);
 	}
 
-	pulse_material_ubo_column_t* material_find_or_create_ubo_column(pulse_material_data_t* material, uint32_t set, uint32_t binding)
+	pulse_material_ubo_column_t* material_find_ubo_column(pulse_material_data_t* material, uint32_t set, uint32_t binding)
 	{
 		for (int i = 0; i < material->uboColumns.size; ++i)
 		{
@@ -737,11 +568,7 @@ namespace HGEGraphics
 			if (col.set == set && col.binding == binding)
 				return &col;
 		}
-		pulse_material_ubo_column_t col = {};
-		col.set = set;
-		col.binding = binding;
-		simple_vector_push_back<pulse_material_ubo_column_t>(material->uboColumns.data, material->uboColumns.size, material->uboColumns.capacity, col);
-		return &material->uboColumns.data[material->uboColumns.size - 1];
+		return nullptr;
 	}
 
 	void material_ubo_sync_to_gpu(pulse_material_data_t* material)
@@ -786,7 +613,7 @@ namespace HGEGraphics
 		for (int m = 0; m < material->materialDsets.size; ++m)
 		{
 			auto& mdset = material->materialDsets.data[m];
-			if (!mdset.dirty) continue;
+			if (!mdset.binding_dirty) continue;
 
 			uint32_t set_idx = mdset.set_index;
 
@@ -799,7 +626,7 @@ namespace HGEGraphics
 			}
 			if (table_idx >= root_sig->table_count)
 			{
-				mdset.dirty = false;
+				mdset.binding_dirty = false;
 				continue;
 			}
 
@@ -897,7 +724,219 @@ namespace HGEGraphics
 			if (data_count > 0)
 				cgpu_descriptor_set_update(mdset.handle, data_count, datas);
 
-			mdset.dirty = false;
+			mdset.binding_dirty = false;
+		}
+	}
+
+	void init_backbuffer(pulse_backbuffer_data_t* backbuffer, CGPUSwapChainId swapchain, int index)
+	{
+		backbuffer->texture.handle = swapchain->p_back_buffers[index];
+		backbuffer->texture.view = CGPU_NULLPTR;
+		backbuffer->texture.cur_state_count = 1;
+		backbuffer->texture.p_cur_states = new ECGPUResourceStateFlags[backbuffer->texture.cur_state_count];
+		backbuffer->texture.p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
+		backbuffer->texture.states_consistent = true;
+		backbuffer->texture.dynamic_handle = {};
+	}
+
+	void free_backbuffer(pulse_backbuffer_data_t* backbuffer)
+	{
+		backbuffer->texture.handle = CGPU_NULLPTR;
+		backbuffer->texture.view = CGPU_NULLPTR;
+		backbuffer->texture.cur_state_count = 0;
+		delete[] backbuffer->texture.p_cur_states;
+		backbuffer->texture.p_cur_states = nullptr;
+		backbuffer->texture.states_consistent = false;
+	}
+
+	void set_viewport(RenderPassEncoder* encoder, float x, float y, float width, float height, float min_depth, float max_depth)
+	{
+		cgpu_render_pass_encoder_set_viewport(encoder->encoder, x, y, width, height, min_depth, max_depth);
+	}
+
+	void set_scissor(RenderPassEncoder* encoder, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+	{
+		cgpu_render_pass_encoder_set_scissor(encoder->encoder, x, y, width, height);
+	}
+
+	void push_constants(RenderPassEncoder* encoder, pulse_shader_data_t* shader, const char* name, const void* data)
+	{
+		cgpu_render_pass_encoder_push_constants(encoder->encoder, shader->root_sig, name, data);
+	}
+
+	void update_render_pipeline(RenderPassEncoder* encoder, pulse_shader_data_t* shader, ECGPUPrimitiveTopology mesh_topology, const CGPUVertexLayout& vertex_layout)
+	{
+		auto pipeline = encoder->context->pipelinePool.getGraphicsPipeline(encoder, shader, mesh_topology, vertex_layout);
+		if (pipeline && pipeline->handle != encoder->last_render_pipeline)
+		{
+			cgpu_render_pass_encoder_bind_render_pipeline(encoder->encoder, pipeline->handle);
+			if (encoder->context->pipelinePool.dynamicStateT1Enabled())
+			{
+				cgpu_raster_state_encoder_set_cull_mode(encoder->raster_state_encoder, shader->rasterizer_state.cull_mode);
+				cgpu_raster_state_encoder_set_front_face(encoder->raster_state_encoder, shader->rasterizer_state.front_face);
+				cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
+				cgpu_raster_state_encoder_set_depth_test_enabled(encoder->raster_state_encoder, shader->depth_desc.depth_test);
+				cgpu_raster_state_encoder_set_depth_write_enabled(encoder->raster_state_encoder, shader->depth_desc.depth_write);
+				cgpu_raster_state_encoder_set_depth_compare_op(encoder->raster_state_encoder, shader->depth_desc.depth_op);
+			}
+			encoder->last_render_pipeline = pipeline->handle;
+
+			if (shader != encoder->last_shader)
+			{
+				memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
+				memset(encoder->last_textureviews, 0, sizeof(encoder->last_textureviews));
+				memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
+				memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
+				memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
+				for (uint32_t i = 0; i < std::min(shader->set_info_count, 4u); ++i)
+					encoder->last_set_layout_hashes[i] = shader->p_set_infos[i].layout_hash;
+				encoder->last_shader = shader;
+			}
+		}
+	}
+
+	void update_descriptor_set(RenderPassEncoder* encoder, CGPURootSignatureId root_sig, bool is_graphics)
+	{
+		for (uint32_t i = 0; i < std::min(4u, root_sig->table_count); ++i)
+		{
+			auto& table = root_sig->p_tables[i];
+
+			// Check for pre-built descriptor set (from material)
+			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
+			for (auto iter = encoder->context->global_dset_table.rbegin();
+				 iter != encoder->context->global_dset_table.rend(); ++iter)
+			{
+				if (iter->set_index == (int)table.set_index)
+				{
+					prebuilt_dset = iter->dset;
+					break;
+				}
+			}
+			if (prebuilt_dset)
+			{
+				if (is_graphics)
+					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, prebuilt_dset);
+				else
+					cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, prebuilt_dset);
+				memset(encoder->last_bind_resources[i], 0, sizeof(encoder->last_bind_resources[i]));
+				continue;
+			}
+
+			CGPUDescriptorSetDescriptor dset_desc =
+			{
+				.root_signature = root_sig,
+				.set_index = table.set_index,
+			};
+
+			auto dset = encoder->context->descriptorSetPool.getDescriptorSet(dset_desc);
+			encoder->context->allocated_dsets.push_back(dset);
+
+			const uint32_t data_size = 64;
+			CGPUDescriptorData datas[data_size] = { 0 };
+			uint32_t data_count = 0;
+			uint32_t texture_view_count = 0;
+			uint32_t sampler_count = 0;
+			uint32_t buffer_count = 0;
+			uint32_t offset_size_count = 0;
+			for (uint32_t j = 0; j < std::min(data_size, table.resources_count); ++j)
+			{
+				auto& res = table.p_resources[j];
+				CGPUDescriptorData data =
+				{
+					.binding = res.binding,
+					.binding_type = res.type,
+					.count = 1,
+				};
+				if (res.type == CGPU_RESOURCE_TYPE_TEXTURE)
+				{
+					CGPUTextureViewId textureview = CGPU_NULLPTR;
+					for (auto iter = encoder->context->global_texture_table.rbegin(); iter != encoder->context->global_texture_table.rend(); ++iter)
+					{
+						auto& binder = *iter;
+						if (binder.set == table.set_index && binder.bind == res.binding)
+						{
+							if (pulse_rendergraph_texture_handle_valid(binder.texture_handle))
+								textureview = pulse_rendergraph_resolve_texture_view((pulse_renderpass_encoder_t*)encoder, binder.texture_handle);
+							else if (binder.texture && binder.texture->prepared)
+								textureview = binder.texture->view;
+							break;
+						}
+					}
+					if (!textureview)
+						textureview = encoder->context->default_texture;
+					encoder->textureviews[texture_view_count] = textureview;
+					data.resources.textures = encoder->textureviews + texture_view_count;
+					++texture_view_count;
+				}
+				else if (res.type == CGPU_RESOURCE_TYPE_SAMPLER)
+				{
+					CGPUSamplerId sampler = CGPU_NULLPTR;
+					for (auto iter = encoder->context->global_sampler_table.rbegin(); iter != encoder->context->global_sampler_table.rend(); ++iter)
+					{
+						auto& binder = *iter;
+						if (binder.set == table.set_index && binder.bind == res.binding)
+						{
+							sampler = binder.sampler;
+							break;
+						}
+					}
+					if (!sampler)
+						sampler = encoder->context->default_sampler;
+					encoder->samplers[sampler_count] = sampler;
+					data.resources.samplers = encoder->samplers + sampler_count;
+					++sampler_count;
+				}
+				else if (res.type == CGPU_RESOURCE_TYPE_UNIFORM_BUFFER || res.type == CGPU_RESOURCE_TYPE_RW_BUFFER)
+				{
+					for (auto iter = encoder->context->global_buffer_table.rbegin(); iter != encoder->context->global_buffer_table.rend(); ++iter)
+					{
+						auto& binder = *iter;
+						if (binder.set == table.set_index && binder.bind == res.binding)
+						{
+							CGPUBufferId buffer;
+							if (pulse_rendergraph_buffer_handle_valid(binder.buffer_handle))
+								buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, binder.buffer_handle);
+							else
+								buffer = binder.buffer->handle;
+							encoder->buffers[buffer_count] = buffer;
+							if (binder.offset != 0 || binder.size != 0)
+							{
+								encoder->buffer_offset_sizes[offset_size_count] = binder.offset;
+								data.params.buffers_params.offsets = encoder->buffer_offset_sizes + (offset_size_count++);
+								encoder->buffer_offset_sizes[offset_size_count] = binder.size;
+								data.params.buffers_params.sizes = encoder->buffer_offset_sizes + (offset_size_count++);
+							}
+							data.resources.buffers = encoder->buffers + buffer_count;
+							++buffer_count;
+							break;
+						}
+					}
+				}
+				if (data.resources.ptrs != nullptr)
+					datas[data_count++] = data;
+			}
+
+			if (data_count > 0)
+			{
+				bool dset_dirty = !compare(datas, encoder->last_bind_resources[i], data_count);
+				bool buffer_dirty = memcmp(encoder->buffers, encoder->last_buffers[i], sizeof(CGPUBufferId) * buffer_count);
+				bool textureview_dirty = memcmp(encoder->textureviews, encoder->last_textureviews[i], sizeof(CGPUTextureViewId) * texture_view_count);
+				bool sampler_dirty = memcmp(encoder->samplers, encoder->last_samplers[i], sizeof(CGPUSamplerId) * sampler_count);
+				bool offset_size_dirty = memcmp(encoder->buffer_offset_sizes, encoder->last_buffer_offset_sizes[i], sizeof(uint64_t) * offset_size_count);
+				if (dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
+				{
+					cgpu_descriptor_set_update(dset->handle, data_count, datas);
+					if (is_graphics)
+						cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset->handle);
+					else
+						cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset->handle);
+					memcpy(encoder->last_bind_resources[i], datas, sizeof(CGPUDescriptorData) * data_count);
+					memcpy(encoder->last_buffers[i], encoder->buffers, sizeof(CGPUBufferId) * buffer_count);
+					memcpy(encoder->last_textureviews[i], encoder->textureviews, sizeof(CGPUTextureViewId) * texture_view_count);
+					memcpy(encoder->last_samplers[i], encoder->samplers, sizeof(CGPUSamplerId) * sampler_count);
+					memcpy(encoder->last_buffer_offset_sizes[i], encoder->buffer_offset_sizes, sizeof(uint64_t) * offset_size_count);
+				}
+			}
 		}
 	}
 
@@ -906,50 +945,58 @@ namespace HGEGraphics
 		material_ubo_sync_to_gpu(material);
 		material_sync_descriptor_sets(encoder, material);
 
-		for (int i = 0; i < material->uboColumns.size; ++i)
+		if (material != encoder->last_material)
 		{
-			auto& col = material->uboColumns.data[i];
-			if (col.gpu_buffer)
-				set_global_buffer(encoder, col.gpu_buffer, (int)col.set, (int)col.binding);
-		}
-		for (int i = 0; i < material->buffers.size; ++i)
-		{
-			auto& bind = material->buffers.data[i];
-			set_global_buffer(encoder, bind.buffer, bind.set, bind.bind);
-		}
-		for (int i = 0; i < material->textures.size; ++i)
-		{
-			auto& bind = material->textures.data[i];
-			set_global_texture(encoder, bind.texture, bind.set, bind.bind);
-		}
-		for (int i = 0; i < material->samplers.size; ++i)
-		{
-			auto& bind = material->samplers.data[i];
-			set_global_sampler(encoder, bind.sampler, bind.set, bind.bind);
-		}
-		// Push pre-built descriptor sets to global dset table
-		for (int i = 0; i < material->materialDsets.size; ++i)
-		{
-			auto& mdset = material->materialDsets.data[i];
-			if (mdset.handle)
+			for (int i = 0; i < material->uboColumns.size; ++i)
 			{
-				ShaderDescriptorSetBinder binder = { mdset.handle, (int)mdset.set_index };
-				encoder->context->global_dset_table.push_back(binder);
+				auto& col = material->uboColumns.data[i];
+				if (!material->shader || !material->shader->p_ubo_infos)
+					continue;
+				auto& info = material->shader->p_ubo_infos[i];
+				if (!info.renderer_managed && col.gpu_buffer)
+					set_global_buffer(encoder, col.gpu_buffer, (int)col.set, (int)col.binding);
 			}
+			for (int i = 0; i < material->buffers.size; ++i)
+			{
+				auto& bind = material->buffers.data[i];
+				set_global_buffer(encoder, bind.buffer, bind.set, bind.bind);
+			}
+			for (int i = 0; i < material->textures.size; ++i)
+			{
+				auto& bind = material->textures.data[i];
+				set_global_texture(encoder, bind.texture, bind.set, bind.bind);
+			}
+			for (int i = 0; i < material->samplers.size; ++i)
+			{
+				auto& bind = material->samplers.data[i];
+				set_global_sampler(encoder, bind.sampler, bind.set, bind.bind);
+			}
+			for (int i = 0; i < material->materialDsets.size; ++i)
+			{
+				auto& mdset = material->materialDsets.data[i];
+				if (mdset.handle)
+				{
+					set_global_descriptor_set(encoder, mdset.handle, mdset.set_index);
+				}
+			}
+			encoder->last_material = material;
 		}
 	}
 
 	void update_mesh(RenderPassEncoder* encoder, pulse_mesh_data_t* mesh)
 	{
 		CGPUBufferId vertex_buffer = CGPU_NULLPTR;
-		if (pulse_rendergraph_buffer_handle_valid(mesh->vertex_buffer->dynamic_handle))
+		if (mesh->vertex_buffer)
 		{
-			auto vertex_buffer_handle = mesh->vertex_buffer->dynamic_handle;
-			vertex_buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, vertex_buffer_handle);
-		}
-		else if (mesh->vertex_buffer)
-		{
-			vertex_buffer = mesh->vertex_buffer->handle;
+			if (pulse_rendergraph_buffer_handle_valid(mesh->vertex_buffer->dynamic_handle))
+			{
+				auto vertex_buffer_handle = mesh->vertex_buffer->dynamic_handle;
+				vertex_buffer = pulse_rendergraph_resolve_buffer((pulse_renderpass_encoder_t*)encoder, vertex_buffer_handle);
+			}
+			else
+			{
+				vertex_buffer = mesh->vertex_buffer->handle;
+			}
 		}
 		const uint32_t vert_stride = mesh->vertex_stride;
 		if (encoder->last_vertex_buffer != vertex_buffer || encoder->last_vertex_buffer_stride != vert_stride)
@@ -1034,7 +1081,7 @@ namespace HGEGraphics
 
 	void draw_submesh(RenderPassEncoder* encoder, pulse_material_data_t* material, pulse_mesh_data_t* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
 	{
-		if (!mesh->prepared)
+		if (!mesh->prepared || !material)
 			return;
 		update_material(encoder, material);
 		auto shader = material->shader;
@@ -1049,6 +1096,8 @@ namespace HGEGraphics
 
 	void draw_procedure(RenderPassEncoder* encoder, pulse_material_data_t* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count)
 	{
+		if (!material)
+			return;
 		update_material(encoder, material);
 		auto shader = material->shader;
 		update_render_pipeline(encoder, shader, mesh_topology, procedure_vertex_layout);
@@ -1064,6 +1113,10 @@ namespace HGEGraphics
 			cgpu_compute_pass_encoder_bind_compute_pipeline(encoder->compute_encoder, pipeline->handle);
 			encoder->last_compute_pipeline = pipeline->handle;
 			memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
+			memset(encoder->last_textureviews, 0, sizeof(encoder->last_textureviews));
+			memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
+			memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
+			memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
 		}
 	}
 
@@ -1102,6 +1155,11 @@ namespace HGEGraphics
 	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, pulse_buffer_handle_t buffer, int set, int slot, uint64_t offset, uint64_t size)
 	{
 		encoder->context->global_buffer_table.push_back({ nullptr, buffer, set, slot, offset, size });
+	}
+
+	void set_global_descriptor_set(RenderPassEncoder* encoder, CGPUDescriptorSetId dset, int set)
+	{
+		encoder->context->global_dset_table.push_back({ dset, set });
 	}
 
 	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data)
