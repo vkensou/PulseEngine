@@ -20,7 +20,6 @@ end
 add_requires("libsdl3", {configs = {sdlmain = false, shared = is_plat("android")}})
 add_requires("imgui v1.92.1-docking")
 add_requires("mimalloc")
--- add_requires("flecs")
 add_requires("enkits")
 
 if is_plat("windows", "linux", "android") then
@@ -42,8 +41,6 @@ target("rendergraph")
 includes("src/khr/xmake.lua")
 
 includes("dascript/xmake.lua")
-
-includes("legacy/xmake.lua")
 
 target("pulse_app")
     set_kind("static")
