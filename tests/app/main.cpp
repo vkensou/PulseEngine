@@ -134,17 +134,17 @@ int main(void) {
     assert(pulse_app_run(app) == PULSE_RESULT_OK);
 
     assert(post_build_called);
-    assert(shutdown_called);
     assert(sub_post_build_called);
-    assert(sub_shutdown_called);
     assert(extract_called);
 
     PulseAppId removed = pulse_app_remove_subapp(app, "Sub");
     assert(removed == sub);
     assert(pulse_app_get_subapp(app, "Sub") == nullptr);
     pulse_destroy_app(removed);
+    assert(sub_shutdown_called);
 
     pulse_destroy_app(app);
+    assert(shutdown_called);
 
     printf("All tests passed!\n");
     return 0;
