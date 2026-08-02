@@ -182,7 +182,7 @@ local function to_ctype(all_types, namespace, arg)
 					ctype = all_types[fulltype]
 				end
 				if not ctype then
-					error ("Undefined type " .. oldtype .. " in " .. namespace.name)
+					error ("Undefined type " .. fulltype .. " in " .. namespace.name)
 				end
 				return ctype.cname
 			end
