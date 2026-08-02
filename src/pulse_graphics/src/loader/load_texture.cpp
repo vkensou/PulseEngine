@@ -49,7 +49,7 @@ EPulseAssetLoaderStatus step_texture_stb(
 
         HGEGraphics::init_texture(texture, device, texture_desc);
 
-        auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
+        auto* gstate = state_from_app(ctx->app);
         if (gstate) {
             auto* staging = queue_staging_texture_full(gstate, texture, 1, (mipLevels > 1), nullptr, &s->upload_completed);
             memcpy(staging, pixels, w * h * 4);
@@ -163,7 +163,7 @@ EPulseAssetLoaderStatus step_texture_ktx(
 
         HGEGraphics::init_texture(texture, device, texture_desc);
 
-        auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
+        auto* gstate = state_from_app(ctx->app);
         if (!gstate) {
             ktxTexture_Destroy(ktxTexture);
             return PULSE_ASSET_LOADER_STATUS_FAILED;

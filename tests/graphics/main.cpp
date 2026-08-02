@@ -131,8 +131,8 @@ static void record_test_graphic(
     }
 
     if (state->material_ref.handle.index == 0 && pulse_material_is_ready(app, state->material) && pulse_texture_is_ready(app, state->texture)) {
+        pulse_set_material_property_float4(app, state->material, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
         pulse_acquire_material(app, state->material, &state->material_ref);
-        pulse_material_set_float4(&state->material_ref, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
     }
 
     if (state->mesh_ref.handle.index == 0 && pulse_mesh_is_ready(app, state->mesh)) {

@@ -617,7 +617,7 @@ func.LoadMesh
 func.UpdateMeshVertices
     "void"
     .app   "PulseAppId"
-    .mesh  "*MeshHandle"
+    .mesh  "MeshHandle"
     .data  "*const anyopaque"
     .count "uint32_t"
     ()
@@ -625,7 +625,7 @@ func.UpdateMeshVertices
 func.UpdateMeshIndices
     "void"
     .app   "PulseAppId"
-    .mesh  "*MeshHandle"
+    .mesh  "MeshHandle"
     .data  "*const anyopaque"
     .count "uint32_t"
     ()
@@ -664,26 +664,34 @@ func.ReleaseMaterial
     ()
 
 --- Material property setters (name-driven, Unity-style)
-func.Material.SetFloat4
+func.SetMaterialPropertyFloat4
     "void"
+    .app     "PulseAppId"
+    .mat     "MaterialHandle"
     .name    "cstring"
     .value   "HMM_Vec4"
     ()
 
-func.Material.SetMat4
+func.SetMaterialPropertyMat4
     "void"
+    .app     "PulseAppId"
+    .mat     "MaterialHandle"
     .name    "cstring"
     .value   "HMM_Mat4"
     ()
 
-func.Material.SetTexture
+func.SetMaterialPropertyTexture
     "void"
+    .app     "PulseAppId"
+    .mat     "MaterialHandle"
     .name    "cstring"
     .texture "TextureHandle"
     ()
 
-func.Material.SetSampler
+func.SetMaterialPropertySampler
     "void"
+    .app     "PulseAppId"
+    .mat     "MaterialHandle"
     .name    "cstring"
     .sampler "SamplerHandle"
     ()

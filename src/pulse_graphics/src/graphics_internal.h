@@ -13,7 +13,6 @@
 namespace pulse_graphics_internal {
 
 extern const char* kPluginName;
-extern PulseAppId g_loader_app;
 
 struct frame_data {
     CGPUFenceId fence = CGPU_NULLPTR;

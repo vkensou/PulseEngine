@@ -232,6 +232,7 @@ typedef struct PulseAssetTypeDesc
  */
 typedef struct PulseAssetLoadTask
 {
+    PulseAppId           app;
     PulseAssetSystemId   asset_system;
     uint64_t             type_id;
     const char*          path;

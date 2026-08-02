@@ -140,6 +140,7 @@ struct.AssetTypeDesc
 
 --- Load task context (passed to loader callbacks)
 struct.AssetLoadTask
+    .app                "PulseAppId"
     .AssetSystem        "AssetSystemId"
     .typeId             "uint64_t"
     .path               "?cstring"

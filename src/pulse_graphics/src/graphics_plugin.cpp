@@ -9,7 +9,6 @@ namespace pulse_graphics_internal {
 
 constexpr uint32_t kDefaultImageCount = 3;
 const char* kPluginName = "PulseGraphicPlugin";
-PulseAppId g_loader_app = nullptr;
 ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
 void pulse_graphics_state::sort_record_callbacks() {
@@ -176,7 +175,6 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
     state->app = app;
-    g_loader_app = app;
 
     if (!create_renderer(state)) {
         destroy_renderer(state);

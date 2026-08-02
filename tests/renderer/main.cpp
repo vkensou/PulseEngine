@@ -133,11 +133,7 @@ int main(void) {
 
     // Bind material color via property name (replaces manual set/binding)
     if (pulse_material_is_ready(app, material)) {
-        PulseMaterial mat_ref = {};
-        if (pulse_acquire_material(app, material, &mat_ref)) {
-            pulse_material_set_float4(&mat_ref, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
-            pulse_release_material(app, &mat_ref);
-        }
+        pulse_set_material_property_float4(app, material, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
     }
 
     // ---- Create ECS entities ----

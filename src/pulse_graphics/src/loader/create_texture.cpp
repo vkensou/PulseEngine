@@ -24,7 +24,7 @@ EPulseAssetLoaderStatus step_texture_create(
         HGEGraphics::init_texture(texture, device, create_desc->desc);
 
 		if (create_desc->pixel_data && create_desc->pixel_data_size > 0) {
-			auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
+			auto* gstate = state_from_app(ctx->app);
 			if (gstate) {
                 uint64_t staging_size = 0;
 				auto* staging = queue_staging_texture_full(gstate, texture, 1, create_desc->generate_mipmaps, &staging_size, &s->upload_completed);

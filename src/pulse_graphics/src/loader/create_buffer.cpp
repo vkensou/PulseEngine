@@ -31,7 +31,7 @@ EPulseAssetLoaderStatus step_buffer_create(
         buf->dynamic_handle = {};
 
         if (create_desc->data && create_desc->data_size > 0) {
-            auto* gstate = state_from_app(pulse_graphics_internal::g_loader_app);
+            auto* gstate = state_from_app(ctx->app);
             if (gstate) {
                 auto* staging = queue_staging_buffer_full(gstate, buf, create_desc->data_size, &s->upload_completed);
                 memcpy(staging, create_desc->data, create_desc->data_size);

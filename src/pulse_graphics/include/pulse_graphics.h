@@ -822,8 +822,8 @@ PULSE_API void pulse_release_texture(PulseAppId app, PulseTexture* ref);
 PULSE_API PulseMeshHandle pulse_create_mesh_from_data(PulseAppId app, const PulseMeshCreateFromDataDesc* desc);
 PULSE_API PulseMeshHandle pulse_create_mesh_dynamic(PulseAppId app, const PulseMeshCreateDynamicDesc* desc);
 PULSE_API PulseMeshHandle pulse_load_mesh(PulseAppId app, const char* filepath);
-PULSE_API void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count);
-PULSE_API void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle* mesh, const void* data, uint32_t count);
+PULSE_API void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle mesh, const void* data, uint32_t count);
+PULSE_API void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle mesh, const void* data, uint32_t count);
 PULSE_API bool pulse_acquire_mesh(PulseAppId app, PulseMeshHandle handle, PulseMesh* out_ref);
 PULSE_API void pulse_release_mesh(PulseAppId app, PulseMesh* ref);
 
@@ -841,14 +841,16 @@ PULSE_API void pulse_release_material(PulseAppId app, PulseMaterial* ref);
 /**
  * Material property setters (name-driven, Unity-style)
  *
+ * @param[in] app
+ * @param[in] mat
  * @param[in] name
  * @param[in] value
  *
  */
-PULSE_API void pulse_material_set_float4(PulseMaterial* _this, const char* name, HMM_Vec4 value);
-PULSE_API void pulse_material_set_mat4(PulseMaterial* _this, const char* name, HMM_Mat4 value);
-PULSE_API void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture);
-PULSE_API void pulse_material_set_sampler(PulseMaterial* _this, const char* name, PulseSamplerHandle sampler);
+PULSE_API void pulse_set_material_property_float4(PulseAppId app, PulseMaterialHandle mat, const char* name, HMM_Vec4 value);
+PULSE_API void pulse_set_material_property_mat4(PulseAppId app, PulseMaterialHandle mat, const char* name, HMM_Mat4 value);
+PULSE_API void pulse_set_material_property_texture(PulseAppId app, PulseMaterialHandle mat, const char* name, PulseTextureHandle texture);
+PULSE_API void pulse_set_material_property_sampler(PulseAppId app, PulseMaterialHandle mat, const char* name, PulseSamplerHandle sampler);
 
 /**
  * ======== Rendergraph Functions ========

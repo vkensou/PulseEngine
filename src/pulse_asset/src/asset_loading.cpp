@@ -63,6 +63,7 @@ EPulseResult LoadJob::add_dependency(PulseAssetHandle dependency, EPulseLoadDepe
 }
 
 void LoadContext::refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
+    job.ctx.app = system.app();
     job.ctx.asset_system = (PulseAssetSystemId)&system;
     job.ctx.type_id = job.handle.type_id;
     job.ctx.path = slot.path.c_str();

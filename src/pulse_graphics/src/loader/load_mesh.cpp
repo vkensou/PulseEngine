@@ -156,7 +156,7 @@ EPulseAssetLoaderStatus step_mesh_load(
         vb_desc.size = verts.size() * vstride;
 
         PulseGraphicsBufferCreateDesc vb_create_desc = { vb_desc, vb_desc.size, verts.data() };
-        s->vb_handle = pulse_create_graphics_buffer(pulse_graphics_internal::g_loader_app, &vb_create_desc);
+        s->vb_handle = pulse_create_graphics_buffer(ctx->app, &vb_create_desc);
         pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_graphics_buffer_to_handle(s->vb_handle), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
         // Create index buffer asset
@@ -169,7 +169,7 @@ EPulseAssetLoaderStatus step_mesh_load(
         ib_desc.size = ib_bytes;
 
         PulseGraphicsBufferCreateDesc ib_create_desc = { ib_desc, ib_bytes, indices.data() };
-        s->ib_handle = pulse_create_graphics_buffer(pulse_graphics_internal::g_loader_app, &ib_create_desc);
+        s->ib_handle = pulse_create_graphics_buffer(ctx->app, &ib_create_desc);
         pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_graphics_buffer_to_handle(s->ib_handle), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
         s->phase = MESH_LOAD_WAIT_BUFFERS;
