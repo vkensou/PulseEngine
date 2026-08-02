@@ -35,7 +35,7 @@ EPulseAssetLoaderStatus step_material_create(
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
-        HGEGraphics::init_material(mat, device, static_cast<PulseShaderData*>(shader_ref.ptr));
+        HGEGraphics::init_material(mat, device, shader_ref);
         internal_release_shader(ctx->asset_system, &shader_ref);
 
         s->initialized = true;

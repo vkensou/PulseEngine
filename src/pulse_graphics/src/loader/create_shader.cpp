@@ -8,7 +8,7 @@ struct ShaderCreateSettings {
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
     uint32_t property_count;
-    const PulseShaderPropertyDesc* p_properties;
+    const PulseShaderProperty* p_properties;
 };
 
 struct ShaderLoaderState {
@@ -16,20 +16,14 @@ struct ShaderLoaderState {
     bool psPrepared = false;
 };
 
-static bool validate_shader_properties_declare(const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, pulse_shader_property_t** out_sorted_props, const char** out_validation_error)
+static bool validate_shader_properties_declare(const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty** out_sorted_props, const char** out_validation_error)
 {
-    pulse_shader_property_t* sorted_props = new pulse_shader_property_t[desc->property_count];
+    PulseShaderProperty* sorted_props = new PulseShaderProperty[desc->property_count];
     for (uint32_t i = 0; i < desc->property_count; ++i) {
-        sorted_props[i].name = desc->p_properties[i].name;
-        sorted_props[i].type = (int)desc->p_properties[i].type;
-        sorted_props[i].role = (int)desc->p_properties[i].role;
-        sorted_props[i].set = desc->p_properties[i].set;
-        sorted_props[i].binding = desc->p_properties[i].binding;
-        sorted_props[i].offset = desc->p_properties[i].offset;
-        sorted_props[i].size = desc->p_properties[i].size;
+        sorted_props[i] = desc->p_properties[i];
     }
     std::sort(sorted_props, sorted_props + desc->property_count,
-        [](const pulse_shader_property_t& a, const pulse_shader_property_t& b) {
+        [](const PulseShaderProperty& a, const PulseShaderProperty& b) {
             if (a.set != b.set) return a.set < b.set;
             if (a.binding != b.binding) return a.binding < b.binding;
             return a.offset < b.offset;
@@ -93,7 +87,7 @@ static bool validate_shader_properties_declare(const ShaderCreateSettings* desc,
     }
 }
 
-static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, pulse_shader_property_t* sorted_props)
+static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty* sorted_props)
 {
     if (sorted_props != nullptr) {
         data->property_count = desc->property_count;
@@ -121,7 +115,7 @@ static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings
                     ++ubo_count;
 
         data->ubo_info_count = ubo_count;
-        data->p_ubo_infos = ubo_count > 0 ? new pulse_shader_ubo_info_t[ubo_count] : nullptr;
+        data->p_ubo_infos = ubo_count > 0 ? new PulseUboInfo[ubo_count] : nullptr;
 
         uint32_t ubo_idx = 0;
         uint32_t prop_idx = 0;
@@ -138,11 +132,11 @@ static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings
                     ++prop_idx;
                 }
 
-                pulse_shader_ubo_info_t& entry = data->p_ubo_infos[ubo_idx];
+                PulseUboInfo& entry = data->p_ubo_infos[ubo_idx];
                 entry = {};
                 entry.set = set;
                 entry.binding = res.binding;
-                entry.ubo_size = res.size;
+                entry.size = res.size;
                 entry.material_managed = false;
                 entry.renderer_managed = false;
                 entry.layout_hash = 0;
@@ -302,7 +296,7 @@ static EPulseAssetLoaderStatus step_shader_from_deps(
     }
 
     // === Pre-validation: sort properties and validate against root_sig before any allocation ===
-    pulse_shader_property_t* sorted_props = nullptr;
+    PulseShaderProperty* sorted_props = nullptr;
     const char* validation_error = nullptr;
     if (desc->property_count > 0 && desc->p_properties
         && !validate_shader_properties_declare(desc, root_sig, &sorted_props, &validation_error)) {

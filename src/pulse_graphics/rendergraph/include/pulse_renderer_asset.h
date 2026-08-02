@@ -80,9 +80,9 @@ struct PulseShaderData
 	CGPUDepthStateDescriptor depth_desc;
 	CGPURasterizerStateDescriptor rasterizer_state;
 	uint32_t property_count;
-	pulse_shader_property_t* p_properties;
+	PulseShaderProperty* p_properties;
 	uint32_t ubo_info_count;
-	pulse_shader_ubo_info_t* p_ubo_infos;
+	PulseUboInfo* p_ubo_infos;
 	uint32_t set_info_count;
 	pulse_shader_set_info_t* p_set_infos;
 };
@@ -177,7 +177,7 @@ struct pulse_material_descriptor_set_array_t
 struct PulseMaterialData
 {
 	CGPUDeviceId device;
-	PulseShaderData* shader;
+	PulseShader shader;
 	pulse_material_bind_buffer_array_t buffers;
 	pulse_material_bind_texture_array_t textures;
 	pulse_material_bind_sampler_array_t samplers;
@@ -199,7 +199,7 @@ typedef struct PulseSamplerData {
     CGPUSamplerId handle;
 } PulseSamplerData;
 
-static inline const pulse_shader_property_t* pulse_find_shader_property(const PulseShaderData* shader, const char* name)
+static inline const PulseShaderProperty* pulse_find_shader_property(const PulseShaderData* shader, const char* name)
 {
 	if (!shader || !shader->p_properties || !name) return nullptr;
 	for (uint32_t i = 0; i < shader->property_count; ++i) {

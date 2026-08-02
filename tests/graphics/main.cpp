@@ -131,8 +131,8 @@ static void record_test_graphic(
     }
 
     if (state->material_ref.handle.index == 0 && pulse_material_is_ready(app, state->material) && pulse_texture_is_ready(app, state->texture)) {
-        pulse_set_material_property_float4(app, state->material, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
         pulse_acquire_material(app, state->material, &state->material_ref);
+        pulse_material_set_property_float4(state->material_ref, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
     }
 
     if (state->mesh_ref.handle.index == 0 && pulse_mesh_is_ready(app, state->mesh)) {
@@ -247,7 +247,7 @@ int main(void) {
         .blend_alpha_op = CGPU_BLEND_OP_ADD,
         .color_mask = CGPU_COLOR_MASK_RGBA,
     };
-    PulseShaderPropertyDesc shader_props[] = {
+    PulseShaderProperty shader_props[] = {
         {.name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
         {.name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
         {.name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },

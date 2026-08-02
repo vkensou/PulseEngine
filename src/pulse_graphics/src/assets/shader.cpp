@@ -29,6 +29,22 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
+uint32_t pulse_shader_get_shader_property_count(PulseShader self) {
+    return self.ptr->property_count;
+}
+
+PulseShaderProperty pulse_shader_get_shader_property(PulseShader self, uint32_t index) {
+    return self.ptr->p_properties[index];
+}
+
+uint32_t pulse_shader_get_ubo_info_count(PulseShader self) {
+    return self.ptr->ubo_info_count;
+}
+
+PulseUboInfo pulse_shader_get_ubo_info(PulseShader self, uint32_t index) {
+    return self.ptr->p_ubo_infos[index];
+}
+
 bool pulse_acquire_shader(PulseAppId app, PulseShaderHandle handle, PulseShader* ref) {
     PulseAssetRef aref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_to_handle(handle), &aref)) {

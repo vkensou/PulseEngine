@@ -24,26 +24,25 @@ void register_material_type(PulseAppId app, CGPUDeviceId device)
     pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
 }
 
-std::tuple<PulseMaterialData*, const pulse_shader_property_t*> get_material_shader_property(PulseMaterial* _this, const char* name, EPulseShaderPropertyType type)
+const PulseShaderProperty* get_material_shader_property(PulseMaterialData* _this, const char* name, EPulseShaderPropertyType type)
 {
-    if (!_this || !_this->ptr || !name) return { nullptr, nullptr };
-    auto* mat = _this->ptr;
-    if (!mat->shader) return { nullptr, nullptr };
+    if (!_this || !name) return nullptr;
+    if (!_this->shader.ptr) return nullptr;
 
-    const auto* prop = pulse_find_shader_property(mat->shader, name);
-    if (!prop || prop->role != PULSE_SHADER_PROPERTY_ROLE_MATERIAL || (EPulseShaderPropertyType)prop->type != type) return { nullptr, nullptr };
-    return { mat, prop };
+    const auto* prop = pulse_find_shader_property(_this->shader.ptr, name);
+    if (!prop || prop->role != PULSE_SHADER_PROPERTY_ROLE_MATERIAL || (EPulseShaderPropertyType)prop->type != type) return nullptr;
+    return prop;
 }
 
-std::tuple<const pulse_shader_property_t*, pulse_material_ubo_column_t*> get_material_ubo_column(PulseMaterial* _this, const char* name, EPulseShaderPropertyType type)
+std::tuple<const PulseShaderProperty*, pulse_material_ubo_column_t*> get_material_ubo_column(PulseMaterialData* _this, const char* name, EPulseShaderPropertyType type)
 {
-    auto[mat, prop] = get_material_shader_property(_this, name, type);
+    auto prop = get_material_shader_property(_this, name, type);
     if (!prop || (EPulseShaderPropertyType)prop->type != type) return { nullptr, nullptr };
 
-    return { prop, HGEGraphics::material_find_ubo_column(mat, prop->set, prop->binding) };
+    return { prop, HGEGraphics::material_find_ubo_column(_this, prop->set, prop->binding) };
 }
 
-void pulse_material_set_float4(PulseMaterial* _this, const char* name, HMM_Vec4 value)
+void pulse_material_set_float4(PulseMaterialData* _this, const char* name, HMM_Vec4 value)
 {
     auto[prop, col] = pulse_graphics_internal::get_material_ubo_column(_this, name, PULSE_SHADER_PROPERTY_TYPE_FLOAT4);
     if (!prop || !col || !col->cpu_data) return;
@@ -53,7 +52,7 @@ void pulse_material_set_float4(PulseMaterial* _this, const char* name, HMM_Vec4 
     col->dirty = true;
 }
 
-void pulse_material_set_mat4(PulseMaterial* _this, const char* name, HMM_Mat4 value)
+void pulse_material_set_mat4(PulseMaterialData* _this, const char* name, HMM_Mat4 value)
 {
     auto[prop, col] = pulse_graphics_internal::get_material_ubo_column(_this, name, PULSE_SHADER_PROPERTY_TYPE_MAT4);
     if (!prop || !col || !col->cpu_data) return;
@@ -63,74 +62,49 @@ void pulse_material_set_mat4(PulseMaterial* _this, const char* name, HMM_Mat4 va
     col->dirty = true;
 }
 
-void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTextureHandle texture, PulseAppId app)
+void pulse_material_set_texture(PulseMaterialData* _this, const char* name, PulseTexture texture)
 {
-    auto [mat, prop] = pulse_graphics_internal::get_material_shader_property(_this, name, PULSE_SHADER_PROPERTY_TYPE_TEXTURE);
+    auto prop = pulse_graphics_internal::get_material_shader_property(_this, name, PULSE_SHADER_PROPERTY_TYPE_TEXTURE);
     if (!prop) return;
-
-    PulseTexture tex_ref{};
-    if (pulse_acquire_texture(app, texture, &tex_ref)) {
-        auto* tex_data = tex_ref.ptr;
-        HGEGraphics::material_bindTexture(mat, (int)prop->set, (int)prop->binding, tex_data);
-        pulse_release_texture(app, &tex_ref);
-
-        HGEGraphics::material_mark_dset_binding_dirty(mat, prop->set);
-    }
+    HGEGraphics::material_bindTexture(_this, (int)prop->set, (int)prop->binding, texture.ptr);
+    HGEGraphics::material_mark_dset_binding_dirty(_this, prop->set);
 }
 
-void pulse_material_set_sampler(PulseMaterial* _this, const char* name, PulseSamplerHandle sampler, PulseAppId app)
+void pulse_material_set_sampler(PulseMaterialData* _this, const char* name, PulseSampler sampler)
 {
-    auto [mat, prop] = pulse_graphics_internal::get_material_shader_property(_this, name, PULSE_SHADER_PROPERTY_TYPE_SAMPLER);
+    auto prop = pulse_graphics_internal::get_material_shader_property(_this, name, PULSE_SHADER_PROPERTY_TYPE_SAMPLER);
     if (!prop) return;
-
-    PulseSampler smp_ref{};
-    if (pulse_acquire_sampler(app, sampler, &smp_ref)) {
-        auto* smp_data = smp_ref.ptr;
-        HGEGraphics::material_bindSampler(mat, (int)prop->set, (int)prop->binding, smp_data);
-        pulse_release_sampler(app, &smp_ref);
-
-        HGEGraphics::material_mark_dset_binding_dirty(mat, prop->set);
-    }
+    HGEGraphics::material_bindSampler(_this, (int)prop->set, (int)prop->binding, sampler.ptr);
+    HGEGraphics::material_mark_dset_binding_dirty(_this, prop->set);
 }
 
 } // namespace pulse_graphics_internal
 
 extern "C" {
 
-void pulse_set_material_property_float4(PulseAppId app, PulseMaterialHandle mat, const char* name, HMM_Vec4 value)
+PulseShader pulse_material_get_shader(PulseMaterial self)
 {
-    PulseMaterial mat_ref = {};
-    if (pulse_acquire_material(app, mat, &mat_ref)) {
-        pulse_graphics_internal::pulse_material_set_float4(&mat_ref, name, value);
-        pulse_release_material(app, &mat_ref);
-    }
+    return self.ptr->shader;
 }
 
-void pulse_set_material_property_mat4(PulseAppId app, PulseMaterialHandle mat, const char* name, HMM_Mat4 value)
+void pulse_material_set_property_float4(PulseMaterial self, const char* name, HMM_Vec4 value)
 {
-    PulseMaterial mat_ref = {};
-    if (pulse_acquire_material(app, mat, &mat_ref)) {
-        pulse_graphics_internal::pulse_material_set_mat4(&mat_ref, name, value);
-        pulse_release_material(app, &mat_ref);
-    }
+    pulse_graphics_internal::pulse_material_set_float4(self.ptr, name, value);
 }
 
-void pulse_set_material_property_texture(PulseAppId app, PulseMaterialHandle mat, const char* name, PulseTextureHandle texture)
+void pulse_material_set_property_mat4(PulseMaterial self, const char* name, HMM_Mat4 value)
 {
-    PulseMaterial mat_ref = {};
-    if (pulse_acquire_material(app, mat, &mat_ref)) {
-        pulse_graphics_internal::pulse_material_set_texture(&mat_ref, name, texture, app);
-        pulse_release_material(app, &mat_ref);
-    }
+    pulse_graphics_internal::pulse_material_set_mat4(self.ptr, name, value);
 }
 
-void pulse_set_material_property_sampler(PulseAppId app, PulseMaterialHandle mat, const char* name, PulseSamplerHandle sampler)
+void pulse_material_set_property_texture(PulseMaterial self, const char* name, PulseTexture texture)
 {
-    PulseMaterial mat_ref = {};
-    if (pulse_acquire_material(app, mat, &mat_ref)) {
-        pulse_graphics_internal::pulse_material_set_sampler(&mat_ref, name, sampler, app);
-        pulse_release_material(app, &mat_ref);
-    }
+    pulse_graphics_internal::pulse_material_set_texture(self.ptr, name, texture);
+}
+
+void pulse_material_set_property_sampler(PulseMaterial self, const char* name, PulseSampler sampler)
+{
+    pulse_graphics_internal::pulse_material_set_sampler(self.ptr, name, sampler);
 }
 
 bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle, PulseMaterial* material_ref) {

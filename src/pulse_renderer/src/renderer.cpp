@@ -4,7 +4,6 @@
 #include <string.h>
 #include <cmath>
 #include <utility>
-#include "pulse_renderer_asset.h"
 #include "hash.h"
 
 namespace pulse_renderer_internal {
@@ -200,7 +199,7 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
         }
 
         auto* mat_data = static_cast<PulseMaterialData*>(material_ref.ptr);
-        auto* shader = mat_data ? mat_data->shader : nullptr;
+        auto* shader = mat_data ? pulse_material_get_shader(material_ref).ptr : nullptr;
         if (!shader) {
             pulse_release_mesh(app, &mesh_ref);
             pulse_release_material(app, &material_ref);
@@ -242,21 +241,21 @@ static void build_ubo_column_for_shader(
     const pulse_renderer_state* state,
     PulseRenderGraphId graph,
     RendererView& view,
-    const PulseShaderData* shader,
-    const pulse_shader_ubo_info_t& info)
+    PulseShader shader,
+    const PulseUboInfo& info)
 {
     RendererUboColumn col = {};
-    col.shader = shader;
+    col.shader = shader.ptr;
     col.set = info.set;
     col.binding = info.binding;
     col.layout_hash = info.layout_hash;
 
     bool has_pass = false;
     bool has_draw = false;
-    uint32_t ubo_size = info.ubo_size;
+    uint32_t ubo_size = info.size;
 
-    for (uint32_t p = 0; p < shader->property_count; ++p) {
-        const auto& prop = shader->p_properties[p];
+    for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(shader); ++p) {
+        const auto& prop = pulse_shader_get_shader_property(shader, p);
         if (prop.set != info.set || prop.binding != info.binding) continue;
         if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
 
@@ -275,8 +274,8 @@ static void build_ubo_column_for_shader(
         col.cpu_data.resize(ubo_size * obj_count, 0);
 
         for (size_t o = 0; o < obj_count; ++o) {
-            for (uint32_t p = 0; p < shader->property_count; ++p) {
-                const auto& prop = shader->p_properties[p];
+            for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(shader); ++p) {
+                const auto& prop = pulse_shader_get_shader_property(shader, p);
                 if (prop.set != info.set || prop.binding != info.binding) continue;
                 if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
 
@@ -299,8 +298,8 @@ static void build_ubo_column_for_shader(
         HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
         size_t vp_slot_count = has_draw ? view.render_objects.size() : 1;
         for (size_t o = 0; o < vp_slot_count; ++o) {
-            for (uint32_t p = 0; p < shader->property_count; ++p) {
-                const auto& prop = shader->p_properties[p];
+            for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(shader); ++p) {
+                const auto& prop = pulse_shader_get_shader_property(shader, p);
                 if (prop.set != info.set || prop.binding != info.binding) continue;
                 if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
 
@@ -315,7 +314,7 @@ static void build_ubo_column_for_shader(
 
     // Compute data_hash from the filled byte buffer
     col.data_hash = col.layout_hash;
-    HGEGraphics::hash_combine(col.data_hash, HGEGraphics::murmur3(
+    pulse_renderer_internal::hash_combine(col.data_hash, pulse_renderer_internal::murmur3(
         (const uint32_t*)col.cpu_data.data(),
         (uint32_t)col.cpu_data.size() / 4, 0));
 
@@ -350,17 +349,17 @@ static void record_renderer_callback(
         view.ubo_columns.clear();
 
         // Collect unique shaders from all renderables
-        struct PulseShaderData* all_shaders[64] = {};
+        struct PulseShader all_shaders[64] = {};
         uint32_t shader_count = 0;
         for (auto& obj : view.render_objects) {
             PulseMaterial mat_ref = {};
             if (!pulse_acquire_material(app, obj.material, &mat_ref)) continue;
-            auto* mat_data = static_cast<PulseMaterialData*>(mat_ref.ptr);
-            auto* sdr = mat_data ? mat_data->shader : nullptr;
-            if (sdr) {
+            auto* mat_data = mat_ref.ptr;
+            auto sdr = mat_data ? pulse_material_get_shader(mat_ref) : PulseShader{};
+            if (sdr.ptr) {
                 bool found = false;
                 for (uint32_t si = 0; si < shader_count; ++si) {
-                    if (all_shaders[si] == sdr) { found = true; break; }
+                    if (all_shaders[si].ptr == sdr.ptr) { found = true; break; }
                 }
                 if (!found && shader_count < 64)
                     all_shaders[shader_count++] = sdr;
@@ -370,9 +369,9 @@ static void record_renderer_callback(
 
         // Build UBO columns for each unique shader
         for (uint32_t si = 0; si < shader_count; ++si) {
-            auto* shader = all_shaders[si];
-            for (uint32_t u = 0; u < shader->ubo_info_count; ++u) {
-                const auto& info = shader->p_ubo_infos[u];
+            auto shader = all_shaders[si];
+            for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(shader); ++u) {
+                const auto& info = pulse_shader_get_ubo_info(shader, u);
                 if (!info.renderer_managed) continue;
                 build_ubo_column_for_shader(state, graph, view, shader, info);
             }

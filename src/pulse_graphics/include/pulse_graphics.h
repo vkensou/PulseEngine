@@ -295,6 +295,29 @@ typedef struct PulseSampler
 
 } PulseSampler;
 
+typedef struct PulseShaderProperty
+{
+    const char*          name;
+    EPulseShaderPropertyType type;
+    EPulseShaderPropertyRole role;
+    uint32_t             set;
+    uint32_t             binding;
+    uint32_t             offset;
+    uint32_t             size;
+
+} PulseShaderProperty;
+
+typedef struct PulseUboInfo
+{
+    uint64_t             layout_hash;
+    uint32_t             set;
+    uint32_t             binding;
+    uint32_t             size;
+    bool                 material_managed;
+    bool                 renderer_managed;
+
+} PulseUboInfo;
+
 /**
  * Plugin descriptor
  *
@@ -399,22 +422,6 @@ typedef struct PulseShaderLibraryLoadDesc
 } PulseShaderLibraryLoadDesc;
 
 /**
- * Shader property descriptor
- *
- */
-typedef struct PulseShaderPropertyDesc
-{
-    const char*          name;
-    EPulseShaderPropertyType type;
-    EPulseShaderPropertyRole role;
-    uint32_t             set;
-    uint32_t             binding;
-    uint32_t             offset;
-    uint32_t             size;
-
-} PulseShaderPropertyDesc;
-
-/**
  * Shader create from binary desc
  *
  */
@@ -428,7 +435,7 @@ typedef struct PulseShaderCreateFromBinaryDesc
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
     uint32_t             property_count;
-    const PulseShaderPropertyDesc* p_properties;
+    const PulseShaderProperty* p_properties;
 
 } PulseShaderCreateFromBinaryDesc;
 
@@ -444,7 +451,7 @@ typedef struct PulseShaderCreateFromFileDesc
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
     uint32_t             property_count;
-    const PulseShaderPropertyDesc* p_properties;
+    const PulseShaderProperty* p_properties;
 
 } PulseShaderCreateFromFileDesc;
 
@@ -837,20 +844,24 @@ PULSE_API void pulse_release_mesh(PulseAppId app, PulseMesh* ref);
 PULSE_API PulseMaterialHandle pulse_create_material(PulseAppId app, const PulseMaterialCreateDesc* desc);
 PULSE_API bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle, PulseMaterial* out_ref);
 PULSE_API void pulse_release_material(PulseAppId app, PulseMaterial* ref);
+PULSE_API PulseShader pulse_material_get_shader(PulseMaterial self);
 
 /**
  * Material property setters (name-driven, Unity-style)
  *
- * @param[in] app
- * @param[in] mat
+ * @param[in] self
  * @param[in] name
  * @param[in] value
  *
  */
-PULSE_API void pulse_set_material_property_float4(PulseAppId app, PulseMaterialHandle mat, const char* name, HMM_Vec4 value);
-PULSE_API void pulse_set_material_property_mat4(PulseAppId app, PulseMaterialHandle mat, const char* name, HMM_Mat4 value);
-PULSE_API void pulse_set_material_property_texture(PulseAppId app, PulseMaterialHandle mat, const char* name, PulseTextureHandle texture);
-PULSE_API void pulse_set_material_property_sampler(PulseAppId app, PulseMaterialHandle mat, const char* name, PulseSamplerHandle sampler);
+PULSE_API void pulse_material_set_property_float4(PulseMaterial self, const char* name, HMM_Vec4 value);
+PULSE_API void pulse_material_set_property_mat4(PulseMaterial self, const char* name, HMM_Mat4 value);
+PULSE_API void pulse_material_set_property_texture(PulseMaterial self, const char* name, PulseTexture texture);
+PULSE_API void pulse_material_set_property_sampler(PulseMaterial self, const char* name, PulseSampler sampler);
+PULSE_API uint32_t pulse_shader_get_shader_property_count(PulseShader self);
+PULSE_API PulseShaderProperty pulse_shader_get_shader_property(PulseShader self, uint32_t index);
+PULSE_API uint32_t pulse_shader_get_ubo_info_count(PulseShader self);
+PULSE_API PulseUboInfo pulse_shader_get_ubo_info(PulseShader self, uint32_t index);
 
 /**
  * ======== Rendergraph Functions ========

@@ -87,7 +87,7 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 		#include "blit.ps.spv.h"
 	};
 
-    PulseShaderPropertyDesc shader_props[] = {
+    PulseShaderProperty shader_props[] = {
         {.name = "source",        .type = PULSE_SHADER_PROPERTY_TYPE_TEXTURE, .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 0 },
         {.name = "linearSampler", .type = PULSE_SHADER_PROPERTY_TYPE_SAMPLER, .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 1, .offset = 0, .size = 0 },
     };

@@ -412,7 +412,7 @@ namespace HGEGraphics
 		capacity = 0;
 	}
 
-	void init_material(PulseMaterialData* material, CGPUDeviceId device, PulseShaderData* shader)
+	void init_material(PulseMaterialData* material, CGPUDeviceId device, PulseShader shader)
 	{
 		material->device = device;
 		material->shader = shader;
@@ -423,15 +423,15 @@ namespace HGEGraphics
 		simple_vector_init(material->ownedBuffers.data, material->ownedBuffers.size, material->ownedBuffers.capacity);
 		simple_vector_init(material->materialDsets.data, material->materialDsets.size, material->materialDsets.capacity);
 
-		if (shader) {
-			for (uint32_t i = 0; i < shader->ubo_info_count; ++i) {
-				auto& ubo_info = shader->p_ubo_infos[i];
+		if (shader.ptr) {
+			for (uint32_t i = 0; i < shader.ptr->ubo_info_count; ++i) {
+				auto& ubo_info = shader.ptr->p_ubo_infos[i];
 				pulse_material_ubo_column_t col = {};
 				col.set = ubo_info.set;
 				col.binding = ubo_info.binding;
-				col.size = ubo_info.ubo_size;
+				col.size = ubo_info.size;
 				if (ubo_info.material_managed) {
-					col.cpu_data = (uint8_t*)calloc(1, ubo_info.ubo_size);
+					col.cpu_data = (uint8_t*)calloc(1, ubo_info.size);
 				}
 				col.dirty = ubo_info.material_managed;
 				col.gpu_buffer = nullptr;
@@ -442,12 +442,12 @@ namespace HGEGraphics
 					col);
 			}
 
-			for (uint32_t i = 0; i < shader->set_info_count; ++i) {
-				auto& set_info = shader->p_set_infos[i];
+			for (uint32_t i = 0; i < shader.ptr->set_info_count; ++i) {
+				auto& set_info = shader.ptr->p_set_infos[i];
 				if (set_info.renderer_managed) continue;
 
 				CGPUDescriptorSetDescriptor dset_desc = {};
-				dset_desc.root_signature = shader->root_sig;
+				dset_desc.root_signature = shader.ptr->root_sig;
 				dset_desc.set_index = set_info.set_index;
 				auto dset_handle = cgpu_device_create_descriptor_set(device, &dset_desc);
 			if (dset_handle) {
@@ -491,7 +491,7 @@ namespace HGEGraphics
 				cgpu_device_free_descriptor_set(material->device, material->materialDsets.data[i].handle);
 		}
 		simple_vector_free(material->materialDsets.data, material->materialDsets.size, material->materialDsets.capacity);
-		material->shader = nullptr;
+		material->shader.ptr = nullptr;
 		material->device = nullptr;
 	}
 
@@ -607,8 +607,8 @@ namespace HGEGraphics
 
 	void material_sync_descriptor_sets(RenderPassEncoder* encoder, PulseMaterialData* material)
 	{
-		if (!material->shader) return;
-		auto root_sig = material->shader->root_sig;
+		if (!material->shader.ptr) return;
+		auto root_sig = material->shader.ptr->root_sig;
 
 		for (int m = 0; m < material->materialDsets.size; ++m)
 		{
@@ -1102,7 +1102,7 @@ namespace HGEGraphics
 		if (!mesh->prepared || !material)
 			return;
 		update_material(encoder, material);
-		auto shader = material->shader;
+		auto shader = material->shader.ptr;
 		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		update_mesh(encoder, mesh);
@@ -1117,7 +1117,7 @@ namespace HGEGraphics
 		if (!mesh->prepared || !material)
 			return;
 		update_material(encoder, material);
-		auto shader = material->shader;
+		auto shader = material->shader.ptr;
 		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		update_mesh(encoder, mesh);
@@ -1132,7 +1132,7 @@ namespace HGEGraphics
 		if (!material)
 			return;
 		update_material(encoder, material);
-		auto shader = material->shader;
+		auto shader = material->shader.ptr;
 		update_render_pipeline(encoder, shader, mesh_topology, procedure_vertex_layout);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);

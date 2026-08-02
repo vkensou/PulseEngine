@@ -56,7 +56,7 @@ namespace HGEGraphics
 	PulseTextureData* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
 	void free_texture(PulseTextureData* texture);
 
-	void init_material(PulseMaterialData* material, CGPUDeviceId device, PulseShaderData* shader);
+	void init_material(PulseMaterialData* material, CGPUDeviceId device, PulseShader shader);
 	void free_material(PulseMaterialData* material);
 
 	void material_mark_dset_binding_dirty(PulseMaterialData* material, uint32_t set_index);

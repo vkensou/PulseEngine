@@ -202,6 +202,23 @@ struct.Sampler
     .ptr    "*SamplerData"
     ()
 
+struct.ShaderProperty
+    .name       "cstring"
+    .type       "ShaderPropertyType::Enum"
+    .role       "ShaderPropertyRole::Enum"
+    .set        "uint32_t"
+    .binding    "uint32_t"
+    .offset     "uint32_t"
+    .size       "uint32_t"
+
+struct.UboInfo
+    .layoutHash        "uint64_t"
+    .set                "uint32_t"
+    .binding            "uint32_t"
+    .size               "uint32_t"
+	.materialManaged    "bool"
+	.rendererManaged    "bool"
+
 --- Function pointer: render record callback
 funcptr.RenderRecordCallback
     "void"
@@ -302,17 +319,6 @@ enum.DepthBits { underscore }
     .D16        { value = 16 }
     ()
 
---- Shader property descriptor
-struct.ShaderPropertyDesc
-    .name    "cstring"
-    .type    "ShaderPropertyType::Enum"
-    .role    "ShaderPropertyRole::Enum"
-    .set     "uint32_t"
-    .binding "uint32_t"
-    .offset  "uint32_t"
-    .size_   "uint32_t"
-    ()
-
 --- Shader create from binary desc
 struct.ShaderCreateFromBinaryDesc
     .vsData             "*const anyopaque"
@@ -323,7 +329,7 @@ struct.ShaderCreateFromBinaryDesc
     .depthDesc          "CGPUDepthStateDescriptor"
     .rasterizerState    "CGPURasterizerStateDescriptor"
     .propertyCount      "uint32_t"
-    .pProperties        "*const ShaderPropertyDesc"
+    .pProperties        "*const ShaderProperty"
     ()
 
 --- Shader create from file desc
@@ -334,7 +340,7 @@ struct.ShaderCreateFromFileDesc
     .depthDesc          "CGPUDepthStateDescriptor"
     .rasterizerState    "CGPURasterizerStateDescriptor"
     .propertyCount      "uint32_t"
-    .pProperties        "*const ShaderPropertyDesc"
+    .pProperties        "*const ShaderProperty"
     ()
 
 --- Compute shader create from binary desc
@@ -663,38 +669,59 @@ func.ReleaseMaterial
     .ref  "*Material"
     ()
 
+func.MaterialGetShader
+    "Shader"
+    .self   "Material"
+    ()
+
 --- Material property setters (name-driven, Unity-style)
-func.SetMaterialPropertyFloat4
+func.MaterialSetPropertyFloat4
     "void"
-    .app     "PulseAppId"
-    .mat     "MaterialHandle"
+    .self   "Material"
     .name    "cstring"
     .value   "HMM_Vec4"
     ()
 
-func.SetMaterialPropertyMat4
+func.MaterialSetPropertyMat4
     "void"
-    .app     "PulseAppId"
-    .mat     "MaterialHandle"
+    .self   "Material"
     .name    "cstring"
     .value   "HMM_Mat4"
     ()
 
-func.SetMaterialPropertyTexture
+func.MaterialSetPropertyTexture
     "void"
-    .app     "PulseAppId"
-    .mat     "MaterialHandle"
+    .self   "Material"
     .name    "cstring"
-    .texture "TextureHandle"
+    .texture "Texture"
     ()
 
-func.SetMaterialPropertySampler
+func.MaterialSetPropertySampler
     "void"
-    .app     "PulseAppId"
-    .mat     "MaterialHandle"
-    .name    "cstring"
-    .sampler "SamplerHandle"
+    .self       "Material"
+    .name       "cstring"
+    .Sampler    "Sampler"
     ()
+
+func.ShaderGetShaderPropertyCount
+    "uint32_t"
+    .self   "Shader"
+    ()
+
+func.ShaderGetShaderProperty
+    "ShaderProperty"
+    .self   "Shader"
+    .index  "uint32_t"
+
+func.ShaderGetUboInfoCount
+    "uint32_t"
+    .self   "Shader"
+    ()
+
+func.ShaderGetUboInfo
+    "UboInfo"
+    .self   "Shader"
+    .index  "uint32_t"
 
 --- ======== Rendergraph Functions ========
 
