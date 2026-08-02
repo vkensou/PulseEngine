@@ -90,10 +90,10 @@ end
 
 local function match_arg(all_types, namespace, _fulltype)
 	local fulltype = _fulltype:match "^%s*(.*)%s*$"	-- trim
-	local optional, optional_fulltype = fulltype:match "(?)%s*(.*)"
-	local array, array_fulltype = fulltype:match "(%[%s*[%d%a_:%*]*%s*%])%s*(.*)"
-	local ptr, ptr_fulltype = fulltype:match "(*)%s*(.*)"
-	local const, const_fulltype = fulltype:match "(const)%s*(.*)"
+	local optional, optional_fulltype = fulltype:match "^(?)%s*(.*)"
+	local array, array_fulltype = fulltype:match "^(%[%s*[%d%a_:%*]*%s*%])%s*(.*)"
+	local ptr, ptr_fulltype = fulltype:match "^(*)%s*(.*)"
+	local const, const_fulltype = fulltype:match "^(const)%s*(.*)"
 	if optional then
 		local arg = {}
 		arg.optional = true
