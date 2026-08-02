@@ -338,26 +338,26 @@ int main(void) {
     PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
 
     //// ---- Acquire/release cycle ----
-    //pulse_shader_data_t* shader_data = pulse_acquire_shader(app, &shader);
+    //PulseShaderData* shader_data = pulse_acquire_shader(app, &shader);
     //if (shader_data) pulse_graphics_shader_release(app, &shader);
     //pulse_graphics_is_available(app, shader);
 
-    //pulse_compute_shader_data_t* cs_data = pulse_graphics_compute_shader_acquire(app, &compute);
+    //PulseComputeShaderData* cs_data = pulse_graphics_compute_shader_acquire(app, &compute);
     //if (cs_data) pulse_graphics_shader_release(app, &compute);
 
-    //pulse_buffer_data_t* buf_data = pulse_acquire_graphics_buffer(app, &buffer);
+    //PulseGraphicsBufferData* buf_data = pulse_acquire_graphics_buffer(app, &buffer);
     //if (buf_data) pulse_release_graphics_buffer(app, &buffer);
 
-    //pulse_sampler_data_t* smp_data = pulse_acquire_sampler(app, &sampler);
+    //PulseSamplerData* smp_data = pulse_acquire_sampler(app, &sampler);
     //if (smp_data) pulse_graphics_sampler_release(app, &sampler);
 
-    //pulse_texture_data_t* tex_data = pulse_acquire_texture(app, &texture);
+    //PulseTextureData* tex_data = pulse_acquire_texture(app, &texture);
     //if (tex_data) pulse_release_texture(app, &texture);
 
-    //pulse_mesh_data_t* mesh_data = pulse_acquire_mesh(app, &mesh);
+    //PulseMeshData* mesh_data = pulse_acquire_mesh(app, &mesh);
     //if (mesh_data) pulse_release_mesh(app, &mesh);
 
-    //pulse_material_data_t* mat_data = pulse_acquire_material(app, &material);
+    //PulseMaterialData* mat_data = pulse_acquire_material(app, &material);
     //if (mat_data) pulse_graphics_material_release(app, &material);
 
     //// ---- Dynamic mesh update ----
@@ -366,7 +366,7 @@ int main(void) {
     //    CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, &vtx_layout);
     //pulse_graphics_mesh_update_vertices(app, &dyn_mesh, verts, 3);
     //pulse_graphics_mesh_update_indices(app, &dyn_mesh, idxs, 3);
-    //pulse_mesh_data_t* dyn_data = pulse_acquire_mesh(app, &dyn_mesh);
+    //PulseMeshData* dyn_data = pulse_acquire_mesh(app, &dyn_mesh);
     //if (dyn_data) pulse_release_mesh(app, &dyn_mesh);
 
     // ---- Register record callback with graphic resources ----

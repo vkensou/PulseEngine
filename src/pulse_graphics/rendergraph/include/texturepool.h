@@ -4,7 +4,7 @@
 #include "cgpu/api.h"
 #include "hash.h"
 
-struct pulse_texture_data_t;
+struct PulseTextureData;
 
 namespace HGEGraphics
 {
@@ -41,7 +41,7 @@ namespace HGEGraphics
 			return _descriptor;
 		}
 		TextureDescriptor _descriptor;
-		pulse_texture_data_t* texture;
+		PulseTextureData* texture;
 	};
 
 	class TexturePool

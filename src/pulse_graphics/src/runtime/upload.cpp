@@ -24,11 +24,11 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
         switch (entry.content) {
         case UPLOAD_TEXTURE:
         case UPLOAD_TEXTURE_DATA: {
-            pulse_texture_data_t* tex = entry.texture_data;
+            PulseTextureData* tex = entry.texture_data;
             PulseTexture ref{};
             if (!tex) {
                 if (pulse_acquire_texture(app, entry.texture, &ref))
-                    tex = static_cast<pulse_texture_data_t*>(ref.ptr);
+                    tex = static_cast<PulseTextureData*>(ref.ptr);
             }
             if (!tex) break;
 
@@ -67,11 +67,11 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
         }
         case UPLOAD_BUFFER:
         case UPLOAD_BUFFER_DATA: {
-            pulse_buffer_data_t* buf = entry.buffer_data;
+            PulseGraphicsBufferData* buf = entry.buffer_data;
             PulseGraphicsBuffer ref{};
             if (!buf) {
                 if (pulse_acquire_graphics_buffer(app, entry.buffer, &ref))
-                    buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
+                    buf = static_cast<PulseGraphicsBufferData*>(ref.ptr);
             }
             if (!buf) break;
 
@@ -103,11 +103,11 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
 
     for (auto& entry : st->dynamic_updates) {
         if (entry.content == UPLOAD_BUFFER || entry.content == UPLOAD_BUFFER_DATA) {
-            pulse_buffer_data_t* buf = entry.buffer_data;
+            PulseGraphicsBufferData* buf = entry.buffer_data;
             PulseGraphicsBuffer ref{};
             if (!buf) {
                 if (pulse_acquire_graphics_buffer(app, entry.buffer, &ref))
-                    buf = static_cast<pulse_buffer_data_t*>(ref.ptr);
+                    buf = static_cast<PulseGraphicsBufferData*>(ref.ptr);
             }
             if (buf) {
                 (void)pulse_render_graph_import_buffer(graph, buf);
@@ -120,7 +120,7 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
 
 uint8_t* queue_staging_texture_full(
     pulse_graphics_state* gstate,
-    pulse_texture_data_t* texture,
+    PulseTextureData* texture,
     uint8_t source_mip_levels,
     bool generate_mipmap,
     uint64_t* out_size,
@@ -158,7 +158,7 @@ uint8_t* queue_staging_texture_full(
 
 uint8_t* queue_staging_buffer_full(
     pulse_graphics_state* gstate,
-    pulse_buffer_data_t* buffer,
+    PulseGraphicsBufferData* buffer,
     uint64_t size,
     bool* completed)
 {

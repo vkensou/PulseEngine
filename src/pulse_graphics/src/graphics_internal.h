@@ -55,8 +55,8 @@ struct UploadEntry {
     int content;  // UploadContentType
     PulseTextureHandle texture;
     PulseGraphicsBufferHandle buffer;
-    pulse_texture_data_t* texture_data = nullptr;
-    pulse_buffer_data_t* buffer_data = nullptr;
+    PulseTextureData* texture_data = nullptr;
+    PulseGraphicsBufferData* buffer_data = nullptr;
     const void* data = nullptr;
     uint64_t data_size = 0;
     bool* completed = nullptr;
@@ -180,7 +180,7 @@ inline PulseAssetHandle asset_build(
 inline bool internal_acquire_shader(PulseAssetSystemId as, PulseShaderHandle handle, PulseShader* ref) {
     PulseAssetRef aref{};
     if (!pulse_asset_system_acquire(as, pulse_shader_to_handle(handle), &aref)) return false;
-    ref->handle = handle; ref->ptr = aref.ptr; return true;
+    ref->handle = handle; ref->ptr = static_cast<PulseShaderData*>(aref.ptr); return true;
 }
 inline void internal_release_shader(PulseAssetSystemId as, PulseShader* ref) {
     PulseAssetRef aref{ pulse_shader_to_handle(ref->handle), nullptr };
@@ -189,7 +189,7 @@ inline void internal_release_shader(PulseAssetSystemId as, PulseShader* ref) {
 inline bool internal_acquire_shader_library(PulseAssetSystemId as, PulseShaderLibraryHandle handle, PulseShaderLibrary* ref) {
     PulseAssetRef aref{};
     if (!pulse_asset_system_acquire(as, pulse_shader_library_to_handle(handle), &aref)) return false;
-    ref->handle = handle; ref->ptr = aref.ptr; return true;
+    ref->handle = handle; ref->ptr = static_cast<PulseShaderLibraryData*>(aref.ptr); return true;
 }
 inline void internal_release_shader_library(PulseAssetSystemId as, PulseShaderLibrary* ref) {
     PulseAssetRef aref{ pulse_shader_library_to_handle(ref->handle), nullptr };
@@ -198,7 +198,7 @@ inline void internal_release_shader_library(PulseAssetSystemId as, PulseShaderLi
 inline bool internal_acquire_buffer(PulseAssetSystemId as, PulseGraphicsBufferHandle handle, PulseGraphicsBuffer* ref) {
     PulseAssetRef aref{};
     if (!pulse_asset_system_acquire(as, pulse_graphics_buffer_to_handle(handle), &aref)) return false;
-    ref->handle = handle; ref->ptr = aref.ptr; return true;
+    ref->handle = handle; ref->ptr = static_cast<PulseGraphicsBufferData*>(aref.ptr); return true;
 }
 inline void internal_release_buffer(PulseAssetSystemId as, PulseGraphicsBuffer* ref) {
     PulseAssetRef aref{ pulse_graphics_buffer_to_handle(ref->handle), nullptr };
@@ -207,7 +207,7 @@ inline void internal_release_buffer(PulseAssetSystemId as, PulseGraphicsBuffer* 
 
 uint8_t* queue_staging_texture_full(
     pulse_graphics_state* gstate,
-    pulse_texture_data_t* texture,
+    PulseTextureData* texture,
     uint8_t source_mip_levels,
     bool generate_mipmap,
     uint64_t* out_size,
@@ -215,7 +215,7 @@ uint8_t* queue_staging_texture_full(
 
 uint8_t* queue_staging_buffer_full(
     pulse_graphics_state* gstate,
-    pulse_buffer_data_t* buffer,
+    PulseGraphicsBufferData* buffer,
     uint64_t size,
     bool* completed);
 

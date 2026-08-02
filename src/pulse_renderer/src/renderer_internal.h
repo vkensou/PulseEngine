@@ -26,7 +26,7 @@ struct RenderObject {
 // Dynamic UBO column (renderer-managed, per (set,binding))
 // ============================================================
 struct RendererUboColumn {
-    const struct pulse_shader_data_t* shader; // owning shader
+    const struct PulseShaderData* shader; // owning shader
     uint32_t set;
     uint32_t binding;
     uint32_t stride;            // per-object byte size (0 = not per-draw)

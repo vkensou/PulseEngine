@@ -17,7 +17,7 @@ EPulseAssetLoaderStatus step_texture_create(
 
     if (!s->upload_requested) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
+        auto* texture = static_cast<PulseTextureData*>(ctx->out_asset);
 
 		auto create_desc = static_cast<const PulseTextureCreateDesc*>(ctx->settings);
 

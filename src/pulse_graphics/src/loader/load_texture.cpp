@@ -20,7 +20,7 @@ EPulseAssetLoaderStatus step_texture_stb(
 
     if (!s->upload_requested) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
+        auto* texture = static_cast<PulseTextureData*>(ctx->out_asset);
 
         auto load_desc = static_cast<const PulseTextureLoadDesc*>(ctx->settings);
 
@@ -110,7 +110,7 @@ EPulseAssetLoaderStatus step_texture_ktx(
 
     if (!s->upload_requested) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* texture = static_cast<pulse_texture_data_t*>(ctx->out_asset);
+        auto* texture = static_cast<PulseTextureData*>(ctx->out_asset);
 
         auto load_desc = static_cast<const PulseTextureLoadDesc*>(ctx->settings);
 

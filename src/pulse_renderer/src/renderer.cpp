@@ -166,7 +166,7 @@ static const char* get_mapped_name(const pulse_renderer_state* state, EPulseRend
 }
 
 // Helper: find the ubo_info for a renderer-managed UBO by property name
-static const pulse_shader_ubo_info_t* find_managed_ubo(const pulse_shader_data_t* shader, const char* prop_name) {
+static const pulse_shader_ubo_info_t* find_managed_ubo(const PulseShaderData* shader, const char* prop_name) {
     if (!shader || !prop_name) return nullptr;
     const auto* prop = pulse_find_shader_property(shader, prop_name);
     if (!prop) return nullptr;
@@ -195,7 +195,7 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
     size_t obj_count = view.render_objects.size();
     if (obj_count == 0) return;
 
-    const pulse_shader_data_t* last_shader = nullptr;
+    const PulseShaderData* last_shader = nullptr;
 
     for (size_t idx = 0; idx < obj_count; ++idx) {
         const RenderObject& obj = view.render_objects[idx];
@@ -210,7 +210,7 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
             continue;
         }
 
-        auto* mat_data = static_cast<pulse_material_data_t*>(material_ref.ptr);
+        auto* mat_data = static_cast<PulseMaterialData*>(material_ref.ptr);
         auto* shader = mat_data ? mat_data->shader : nullptr;
         if (!shader) {
             pulse_release_mesh(app, &mesh_ref);
@@ -253,7 +253,7 @@ static void build_ubo_column_for_shader(
     const pulse_renderer_state* state,
     PulseRenderGraphId graph,
     RendererView& view,
-    const pulse_shader_data_t* shader,
+    const PulseShaderData* shader,
     const pulse_shader_ubo_info_t& info)
 {
     RendererUboColumn col = {};
@@ -361,12 +361,12 @@ static void record_renderer_callback(
         view.ubo_columns.clear();
 
         // Collect unique shaders from all renderables
-        struct pulse_shader_data_t* all_shaders[64] = {};
+        struct PulseShaderData* all_shaders[64] = {};
         uint32_t shader_count = 0;
         for (auto& obj : view.render_objects) {
             PulseMaterial mat_ref = {};
             if (!pulse_acquire_material(app, obj.material, &mat_ref)) continue;
-            auto* mat_data = static_cast<pulse_material_data_t*>(mat_ref.ptr);
+            auto* mat_data = static_cast<PulseMaterialData*>(mat_ref.ptr);
             auto* sdr = mat_data ? mat_data->shader : nullptr;
             if (sdr) {
                 bool found = false;

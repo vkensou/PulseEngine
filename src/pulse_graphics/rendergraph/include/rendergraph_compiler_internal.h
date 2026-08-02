@@ -9,7 +9,7 @@
 namespace HGEGraphics
 {
 	typedef uint32_t index_type_t;
-	const uint32_t MAX_INDEX = PULSE_MAX_INDEX;
+	const uint32_t MAX_INDEX = PULSE_RENDER_GRAPH_MAX_INDEX;
 
 	enum class ResourceType { Texture, Buffer };
 	enum class ManageType { Managed, Imported, SubResource };
@@ -52,8 +52,8 @@ namespace HGEGraphics
 		const char* name;
 		ResourceType resourceType;
 		ManageType manageType;
-		pulse_texture_data_t* texture;
-		pulse_buffer_data_t* buffer;
+		PulseTextureData* texture;
+		PulseGraphicsBufferData* buffer;
 		uint16_t width;
 		uint16_t height;
 		uint16_t depth;
@@ -139,16 +139,16 @@ namespace HGEGraphics
 	{
 		using allocator_type = std::pmr::polymorphic_allocator<std::byte>;
 
-		pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, pulse_shader_data_t* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource);
+		pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource);
 
 		std::pmr::vector<ResourceNode> resources;
 		std::pmr::vector<RenderPassNode> passes;
 		std::pmr::vector<RenderGraphEdge> edges;
 		allocator_type allocator;
-		pulse_shader_data_t* blitShader;
+		PulseShaderData* blitShader;
 		CGPUSamplerId blitSampler;
-		std::pmr::vector<pulse_texture_data_t*> imported_textures;
-		std::pmr::vector<pulse_buffer_data_t*> imported_buffers;
+		std::pmr::vector<PulseTextureData*> imported_textures;
+		std::pmr::vector<PulseGraphicsBufferData*> imported_buffers;
 	};
 
 	inline pulse_rendergraph_impl_t* to_impl(PulseRenderGraphId h) { return (pulse_rendergraph_impl_t*)h; }

@@ -67,7 +67,7 @@ bool create_renderer(pulse_graphics_state* state) {
 
     state->frames.resize(renderer.image_count);
     for (frame_data& frame : state->frames) {
-        if (!frame.init(renderer.device, renderer.graphics_queue, static_cast<CGPUTextureViewId>(state->default_texture.ptr), static_cast<CGPUSamplerId>(state->default_sampler.ptr))) {
+        if (!frame.init(renderer.device, renderer.graphics_queue, CGPU_NULLPTR, CGPU_NULLPTR)) {
             return false;
         }
     }

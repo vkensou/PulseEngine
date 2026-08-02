@@ -20,7 +20,7 @@ static EPulseAssetLoaderStatus step_shader_library_load(
     auto* lib = cgpu_device_create_shader_library(device, &desc);
     if (!lib) { *out_error = "shader library: create failed"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
-    auto* data = static_cast<pulse_shader_library_data_t*>(ctx->out_asset);
+    auto* data = static_cast<PulseShaderLibraryData*>(ctx->out_asset);
     data->library = lib;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
@@ -68,7 +68,7 @@ bool pulse_acquire_shader_library(PulseAppId app, PulseShaderLibraryHandle handl
     PulseAssetRef aref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_library_to_handle(handle), &aref)) {
         sl_ref->handle = handle;
-        sl_ref->ptr = static_cast<pulse_shader_library_data_t*>(aref.ptr);
+        sl_ref->ptr = static_cast<PulseShaderLibraryData*>(aref.ptr);
         return true;
     }
     sl_ref->handle = {};

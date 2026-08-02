@@ -21,8 +21,6 @@ extern "C" {
 #endif
 
 typedef struct pulse_backbuffer_data_t pulse_backbuffer_data_t;
-typedef struct pulse_texture_data_t pulse_texture_data_t;
-typedef struct pulse_buffer_data_t pulse_buffer_data_t;
 
 $cconsts
 

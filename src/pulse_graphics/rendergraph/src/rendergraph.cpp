@@ -53,7 +53,7 @@ static void allocate_passdata(pulse_rendergraph_impl_t* self, RenderPassNode* pa
 }
 
 // pulse_rendergraph_impl_t constructor
-pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, pulse_shader_data_t* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
+pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
 	: allocator(resource), resources(resource), passes(resource), edges(resource), blitShader(blitShader), blitSampler(blitSampler), imported_textures(resource), imported_buffers(resource)
 {
 	resources.reserve(estimate_resource_count);
@@ -85,7 +85,7 @@ PulseRenderGraphId pulse_create_render_graph(uint32_t estimate_resource_count, u
 {
 	auto* impl = new pulse_rendergraph_impl_t(
 		estimate_resource_count, estimate_pass_count, estimate_edge_count,
-		(pulse_shader_data_t*)blit_shader, blit_sampler,
+		(PulseShaderData*)blit_shader, blit_sampler,
 		std::pmr::new_delete_resource());
 	return from_impl(impl);
 }
@@ -116,7 +116,7 @@ bool pulse_rgbuffer_handle_is_valid(PulseRGBufferHandle handle)
 PulseRGTextureHandle pulse_render_graph_declare_texture(PulseRenderGraphId self)
 {
 	auto* impl = to_impl(self);
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	resourceNode.width = 0;
@@ -129,13 +129,13 @@ PulseRGTextureHandle pulse_render_graph_declare_texture(PulseRenderGraphId self)
 	return make_texture_handle(impl->resources.size() - 1);
 }
 
-PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId self, pulse_texture_data_t* imported)
+PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId self, PulseTextureData* imported)
 {
 	auto* impl = to_impl(self);
 	if (is_valid_dynamic_texture_handle(impl->resources, imported->dynamic_handle))
 		return imported->dynamic_handle;
 
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	resourceNode.texture = imported;
@@ -156,7 +156,7 @@ PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId self, 
 PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderGraphId self, pulse_backbuffer_data_t* imported)
 {
 	auto* impl = to_impl(self);
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	auto texture = &imported->texture;
@@ -168,7 +168,7 @@ PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderGraphId sel
 PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId self)
 {
 	auto* impl = to_impl(self);
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resource = impl->resources.back();
 	resource.resourceType = ResourceType::Buffer;
@@ -177,10 +177,10 @@ PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId self)
 	return make_buffer_handle(impl->resources.size() - 1);
 }
 
-PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId self, pulse_buffer_data_t* imported)
+PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId self, PulseGraphicsBufferData* imported)
 {
 	auto* impl = to_impl(self);
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resourceNode = impl->resources.back();
 	resourceNode.resourceType = ResourceType::Buffer;
@@ -197,11 +197,11 @@ PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId self, pu
 PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId self, void* imported)
 {
 	auto* impl = to_impl(self);
-	auto* buf = (pulse_buffer_data_t*)imported;
+	auto* buf = (PulseGraphicsBufferData*)imported;
 	if (is_valid_dynamic_buffer_handle(impl->resources, buf->dynamic_handle))
 		return buf->dynamic_handle;
 
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->resources.push_back(ResourceNode());
 	auto& resource = impl->resources.back();
 	resource.resourceType = ResourceType::Buffer;
@@ -215,7 +215,7 @@ PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId 
 PulseRGBufferHandle pulse_render_graph_declare_uniform_buffer_quick(PulseRenderGraphId self, uint32_t size, void* data)
 {
 	auto* impl = to_impl(self);
-	assert(impl->resources.size() <= PULSE_MAX_INDEX);
+	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	auto nextPowerOfTwo = [](uint32_t n) -> uint32_t
 		{
 			if (n == 0)
@@ -424,7 +424,7 @@ void pulse_render_graph_buffer_set_hold_on_last(PulseRenderGraphId self, PulseRG
 PulseRenderPassBuilder pulse_render_graph_add_render_pass(PulseRenderGraphId self, const char* name)
 {
 	auto* impl = to_impl(self);
-	assert(impl->passes.size() <= PULSE_MAX_INDEX);
+	assert(impl->passes.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->passes.emplace_back(name, PASS_TYPE_RENDER, impl->allocator.resource());
 	PulseRenderPassBuilder builder;
 	builder.render_graph = self;
@@ -436,7 +436,7 @@ PulseRenderPassBuilder pulse_render_graph_add_render_pass(PulseRenderGraphId sel
 PulseComputePassBuilder pulse_render_graph_add_compute_pass(PulseRenderGraphId self, const char* name)
 {
 	auto* impl = to_impl(self);
-	assert(impl->passes.size() <= PULSE_MAX_INDEX);
+	assert(impl->passes.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->passes.emplace_back(name, PASS_TYPE_COMPUTE, impl->allocator.resource());
 	PulseComputePassBuilder builder;
 	builder.render_graph = self;
@@ -448,7 +448,7 @@ PulseComputePassBuilder pulse_render_graph_add_compute_pass(PulseRenderGraphId s
 PulseRenderPassBuilder pulse_render_graph_add_holdpass(PulseRenderGraphId self, const char* name)
 {
 	auto* impl = to_impl(self);
-	assert(impl->passes.size() <= PULSE_MAX_INDEX);
+	assert(impl->passes.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	impl->passes.emplace_back(name, PASS_TYPE_HOLDON, impl->allocator.resource());
 	PulseRenderPassBuilder builder;
 	builder.render_graph = self;
@@ -465,7 +465,7 @@ void pulse_render_graph_add_uploadtexturepass(PulseRenderGraphId self, const cha
 void pulse_render_graph_add_uploadtexturepass_ex(PulseRenderGraphId self, const char* name, PulseRGTextureHandle texture, uint8_t mipmap, uint8_t slice, uint64_t size, uint64_t offset, void* data, PulseProcUploadpassExecutable executable, uint32_t passdata_size, void** out_passdata)
 {
 	auto* impl = to_impl(self);
-	assert(impl->passes.size() <= PULSE_MAX_INDEX);
+	assert(impl->passes.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	auto& pass = impl->passes.emplace_back(name, PASS_TYPE_UPLOAD_TEXTURE, impl->allocator.resource());
 	int passIndex = (int)(impl->passes.size() - 1);
 
@@ -523,7 +523,7 @@ void pulse_render_graph_add_uploadbufferpass(PulseRenderGraphId self, const char
 void pulse_render_graph_add_uploadbufferpass_ex(PulseRenderGraphId self, const char* name, PulseRGBufferHandle buffer, uint64_t size, uint64_t offset, void* data, PulseProcUploadpassExecutable executable, uint32_t passdata_size, void** out_passdata)
 {
 	auto* impl = to_impl(self);
-	assert(impl->passes.size() <= PULSE_MAX_INDEX);
+	assert(impl->passes.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	auto& pass = impl->passes.emplace_back(name, PASS_TYPE_UPLOAD_BUFFER, impl->allocator.resource());
 	int passIndex = (int)(impl->passes.size() - 1);
 
@@ -573,7 +573,7 @@ void pulse_render_graph_add_generate_mipmap(PulseRenderGraphId self, PulseRGText
 
 		struct BlitMipmapPassData
 		{
-			pulse_shader_data_t* blitShader;
+			PulseShaderData* blitShader;
 			CGPUSamplerId blitSampler;
 			PulseRGTextureHandle source;
 		};
@@ -596,7 +596,7 @@ void pulse_render_graph_add_generate_mipmap(PulseRenderGraphId self, PulseRGText
 void pulse_render_graph_present(PulseRenderGraphId self, PulseRGTextureHandle texture)
 {
 	auto* impl = to_impl(self);
-	assert(impl->passes.size() <= PULSE_MAX_INDEX);
+	assert(impl->passes.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
 	auto& passNode = impl->passes.emplace_back("Present", PASS_TYPE_PRESENT, impl->allocator.resource());
 	int passIndex = (int)(impl->passes.size() - 1);
 	auto edge = pulse_render_graph_add_edge(self, get_texture_handle_index(texture), passIndex, CGPU_RESOURCE_STATE_PRESENT);

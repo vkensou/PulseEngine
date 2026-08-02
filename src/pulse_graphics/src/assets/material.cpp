@@ -7,7 +7,7 @@ namespace pulse_graphics_internal {
 
 static void destroy_material(void* ptr, void* user_data) {
     (void)user_data;
-    pulse_material_data_t* data = static_cast<pulse_material_data_t*>(ptr);
+    PulseMaterialData* data = static_cast<PulseMaterialData*>(ptr);
     HGEGraphics::free_material(data);
 }
 
@@ -17,17 +17,17 @@ void register_material_type(PulseAppId app, CGPUDeviceId device)
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
     type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
     type_desc.type_id = PULSE_TYPE_MATERIAL;
-    type_desc.size = sizeof(pulse_material_data_t);
-    type_desc.align = alignof(pulse_material_data_t);
+    type_desc.size = sizeof(PulseMaterialData);
+    type_desc.align = alignof(PulseMaterialData);
     type_desc.destroy = destroy_material;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
 }
 
-std::tuple<pulse_material_data_t*, const pulse_shader_property_t*> get_material_shader_property(PulseMaterial* _this, const char* name, EPulseShaderPropertyType type)
+std::tuple<PulseMaterialData*, const pulse_shader_property_t*> get_material_shader_property(PulseMaterial* _this, const char* name, EPulseShaderPropertyType type)
 {
     if (!_this || !_this->ptr || !name) return { nullptr, nullptr };
-    auto* mat = static_cast<pulse_material_data_t*>(_this->ptr);
+    auto* mat = _this->ptr;
     if (!mat->shader) return { nullptr, nullptr };
 
     const auto* prop = pulse_find_shader_property(mat->shader, name);
@@ -74,7 +74,7 @@ void pulse_material_set_texture(PulseMaterial* _this, const char* name, PulseTex
 
     PulseTexture tex_ref{};
     if (pulse_acquire_texture(pulse_graphics_internal::g_loader_app, texture, &tex_ref)) {
-        auto* tex_data = static_cast<pulse_texture_data_t*>(tex_ref.ptr);
+        auto* tex_data = tex_ref.ptr;
         HGEGraphics::material_bindTexture(mat, (int)prop->set, (int)prop->binding, tex_data);
         pulse_release_texture(pulse_graphics_internal::g_loader_app, &tex_ref);
 
@@ -89,7 +89,7 @@ void pulse_material_set_sampler(PulseMaterial* _this, const char* name, PulseSam
 
     PulseSampler smp_ref{};
     if (pulse_acquire_sampler(pulse_graphics_internal::g_loader_app, sampler, &smp_ref)) {
-        auto* smp_data = static_cast<pulse_sampler_data_t*>(smp_ref.ptr);
+        auto* smp_data = smp_ref.ptr;
         HGEGraphics::material_bindSampler(mat, (int)prop->set, (int)prop->binding, smp_data);
         pulse_release_sampler(pulse_graphics_internal::g_loader_app, &smp_ref);
 
@@ -101,7 +101,7 @@ bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle, PulseMat
     PulseAssetRef ref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_material_to_handle(handle), &ref)) {
         material_ref->handle = handle;
-        material_ref->ptr = static_cast<pulse_material_data_t*>(ref.ptr);
+        material_ref->ptr = static_cast<PulseMaterialData*>(ref.ptr);
         return true;
     }
 

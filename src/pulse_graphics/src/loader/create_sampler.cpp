@@ -14,7 +14,7 @@ EPulseAssetLoaderStatus step_sampler_create(
     CGPUSamplerId sampler = cgpu_device_create_sampler(device, &create_desc->desc);
     if (!sampler) return PULSE_ASSET_LOADER_STATUS_FAILED;
 
-    auto* sam = static_cast<pulse_sampler_data_t*>(ctx->out_asset);
+    auto* sam = static_cast<PulseSamplerData*>(ctx->out_asset);
     sam->handle = sampler;
 
     return PULSE_ASSET_LOADER_STATUS_DONE;;

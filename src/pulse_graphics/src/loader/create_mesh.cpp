@@ -51,7 +51,7 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
         return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;
 
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-    auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
+    auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
     auto* desc = static_cast<const PulseMeshCreateFromDataDesc*>(ctx->settings);
     
     if (ctx->dependency_count < 2) {
@@ -83,8 +83,8 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
     mesh->index_count = desc->index_count;
     mesh->index_stride = desc->index_stride;
     
-    mesh->vertex_buffer = static_cast<pulse_buffer_data_t*>(vb_ref.ptr);
-    mesh->index_buffer = hasIndexBuffer ? static_cast<pulse_buffer_data_t*>(ib_ref.ptr) : nullptr;
+    mesh->vertex_buffer = static_cast<PulseGraphicsBufferData*>(vb_ref.ptr);
+    mesh->index_buffer = hasIndexBuffer ? static_cast<PulseGraphicsBufferData*>(ib_ref.ptr) : nullptr;
     mesh->prepared = true;
     
     internal_release_buffer(ctx->asset_system, &vb_ref);
@@ -105,7 +105,7 @@ EPulseAssetLoaderStatus step_mesh_create_dynamic(
 
     if (!s->initialized) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
+        auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
         auto* desc = static_cast<const PulseMeshCreateDynamicDesc*>(ctx->settings);
 
         const CGPUVertexLayout& use_layout = desc->layout;

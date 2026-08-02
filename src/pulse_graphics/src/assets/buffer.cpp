@@ -5,7 +5,7 @@ namespace pulse_graphics_internal {
 
 static void destroy_buffer(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_buffer_data_t* data = static_cast<pulse_buffer_data_t*>(ptr);
+    PulseGraphicsBufferData* data = static_cast<PulseGraphicsBufferData*>(ptr);
     if (data->handle) cgpu_device_free_buffer(device, data->handle);
 }
 
@@ -15,8 +15,8 @@ void register_buffer_type(PulseAppId app, CGPUDeviceId device)
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
     type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
     type_desc.type_id = PULSE_TYPE_GRAPHICS_BUFFER;
-    type_desc.size = sizeof(pulse_buffer_data_t);
-    type_desc.align = alignof(pulse_buffer_data_t);
+    type_desc.size = sizeof(PulseGraphicsBufferData);
+    type_desc.align = alignof(PulseGraphicsBufferData);
     type_desc.destroy = destroy_buffer;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
@@ -30,7 +30,7 @@ bool pulse_acquire_graphics_buffer(PulseAppId app, PulseGraphicsBufferHandle han
     PulseAssetRef ref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_buffer_to_handle(handle), &ref)) {
         buffer_ref->handle = handle;
-        buffer_ref->ptr = static_cast<pulse_buffer_data_t*>(ref.ptr);
+        buffer_ref->ptr = static_cast<PulseGraphicsBufferData*>(ref.ptr);
         return true;
     }
 

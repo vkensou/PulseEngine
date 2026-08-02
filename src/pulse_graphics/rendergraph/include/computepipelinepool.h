@@ -5,11 +5,11 @@
 #include "hash.h"
 #include <string.h>
 
-struct pulse_compute_shader_data_t;
+struct PulseComputeShaderData;
 
 namespace HGEGraphics
 {
-	using CPSOKey = pulse_compute_shader_data_t*;
+	using CPSOKey = PulseComputeShaderData*;
 
 	struct ComputePipeline
 	{
@@ -27,9 +27,9 @@ namespace HGEGraphics
 	public:
 		ComputePipelinePool(CGPUDeviceId device, ComputePipelinePool* upstream, std::pmr::memory_resource* const memory_resource);
 
-		ComputePipeline* getComputePipeline(pulse_compute_shader_data_t* shader);
+		ComputePipeline* getComputePipeline(PulseComputeShaderData* shader);
 
-		// Í¨¹ý ResourcePool ¼Ì³Ð
+		// é€šè¿‡ ResourcePool ç»§æ‰¿
 		virtual ComputePipeline* getResource_impl(const CPSOKey& descriptor) override;
 
 		virtual void destroyResource_impl(ComputePipeline* resource) override;

@@ -4,7 +4,7 @@ namespace pulse_graphics_internal {
 
 static void destroy_compute_shader(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_compute_shader_data_t* data = static_cast<pulse_compute_shader_data_t*>(ptr);
+    PulseComputeShaderData* data = static_cast<PulseComputeShaderData*>(ptr);
     if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
 }
 
@@ -14,8 +14,8 @@ void register_compute_shader_type(PulseAppId app, CGPUDeviceId device)
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
     type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
     type_desc.type_id = PULSE_TYPE_COMPUTE_SHADER;
-    type_desc.size = sizeof(pulse_compute_shader_data_t);
-    type_desc.align = alignof(pulse_compute_shader_data_t);
+    type_desc.size = sizeof(PulseComputeShaderData);
+    type_desc.align = alignof(PulseComputeShaderData);
     type_desc.destroy = destroy_compute_shader;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
@@ -31,7 +31,7 @@ bool pulse_acquire_compute_shader(PulseAppId app, PulseComputeShaderHandle handl
     PulseAssetRef aref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_compute_shader_to_handle(handle), &aref)) {
         ref->handle = handle;
-        ref->ptr = static_cast<pulse_compute_shader_data_t*>(aref.ptr);
+        ref->ptr = static_cast<PulseComputeShaderData*>(aref.ptr);
         return true;
     }
     ref->handle = {};

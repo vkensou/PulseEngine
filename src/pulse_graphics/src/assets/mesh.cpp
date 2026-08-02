@@ -5,7 +5,7 @@ namespace pulse_graphics_internal {
 
 static void destroy_mesh(void* ptr, void* user_data) {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(user_data);
-    pulse_mesh_data_t* data = static_cast<pulse_mesh_data_t*>(ptr);
+    PulseMeshData* data = static_cast<PulseMeshData*>(ptr);
     if (data->p_vertex_attributes) {
         delete[] data->p_vertex_attributes;
         data->p_vertex_attributes = nullptr;
@@ -20,8 +20,8 @@ void register_mesh_type(PulseAppId app, CGPUDeviceId device)
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
     type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
     type_desc.type_id = PULSE_TYPE_MESH;
-    type_desc.size = sizeof(pulse_mesh_data_t);
-    type_desc.align = alignof(pulse_mesh_data_t);
+    type_desc.size = sizeof(PulseMeshData);
+    type_desc.align = alignof(PulseMeshData);
     type_desc.destroy = destroy_mesh;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
@@ -36,7 +36,7 @@ void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle* mesh, const voi
     if (st && mesh) {
         PulseMesh ref{};
         if (pulse_acquire_mesh(app, *mesh, &ref)) {
-            auto* m = static_cast<pulse_mesh_data_t*>(ref.ptr);
+            auto* m = ref.ptr;
             pulse_graphics_internal::UploadEntry entry{};
             entry.content = pulse_graphics_internal::UPLOAD_BUFFER_DATA;
             entry.buffer_data = m->vertex_buffer;
@@ -53,7 +53,7 @@ void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle* mesh, const void
     if (st && mesh) {
         PulseMesh ref{};
         if (pulse_acquire_mesh(app, *mesh, &ref)) {
-            auto* m = static_cast<pulse_mesh_data_t*>(ref.ptr);
+            auto* m = ref.ptr;
             pulse_graphics_internal::UploadEntry entry{};
             entry.content = pulse_graphics_internal::UPLOAD_BUFFER_DATA;
             entry.buffer_data = m->index_buffer;
@@ -69,7 +69,7 @@ bool pulse_acquire_mesh(PulseAppId app, PulseMeshHandle handle, PulseMesh* mesh_
     PulseAssetRef ref{};
     if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_mesh_to_handle(handle), &ref)) {
         mesh_ref->handle = handle;
-        mesh_ref->ptr = static_cast<pulse_mesh_data_t*>(ref.ptr);
+        mesh_ref->ptr = static_cast<PulseMeshData*>(ref.ptr);
         return true;
     }
 

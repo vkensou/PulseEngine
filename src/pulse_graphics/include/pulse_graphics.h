@@ -21,8 +21,6 @@ extern "C" {
 #endif
 
 typedef struct pulse_backbuffer_data_t pulse_backbuffer_data_t;
-typedef struct pulse_texture_data_t pulse_texture_data_t;
-typedef struct pulse_buffer_data_t pulse_buffer_data_t;
 
 /**
  * Constants
@@ -46,7 +44,7 @@ typedef struct pulse_buffer_data_t pulse_buffer_data_t;
 
 #define PULSE_TYPE_MATERIAL UINT64_C(0x1007)
 
-#define PULSE_MAX_INDEX (UINT32_MAX - 2)
+#define PULSE_RENDER_GRAPH_MAX_INDEX (UINT32_MAX - 2)
 
 
 /**
@@ -213,6 +211,30 @@ typedef struct PulseSamplerHandle
 
 } PulseSamplerHandle;
 
+struct PulseShaderData;
+typedef struct PulseShaderData PulseShaderData;
+
+struct PulseShaderLibraryData;
+typedef struct PulseShaderLibraryData PulseShaderLibraryData;
+
+struct PulseComputeShaderData;
+typedef struct PulseComputeShaderData PulseComputeShaderData;
+
+struct PulseGraphicsBufferData;
+typedef struct PulseGraphicsBufferData PulseGraphicsBufferData;
+
+struct PulseTextureData;
+typedef struct PulseTextureData PulseTextureData;
+
+struct PulseMeshData;
+typedef struct PulseMeshData PulseMeshData;
+
+struct PulseMaterialData;
+typedef struct PulseMaterialData PulseMaterialData;
+
+struct PulseSamplerData;
+typedef struct PulseSamplerData PulseSamplerData;
+
 /**
  * Asset ref types (handle + data ptr)
  *
@@ -220,56 +242,56 @@ typedef struct PulseSamplerHandle
 typedef struct PulseShader
 {
     PulseShaderHandle    handle;
-    void*                ptr;
+    PulseShaderData*     ptr;
 
 } PulseShader;
 
 typedef struct PulseShaderLibrary
 {
     PulseShaderLibraryHandle handle;
-    void*                ptr;
+    PulseShaderLibraryData* ptr;
 
 } PulseShaderLibrary;
 
 typedef struct PulseComputeShader
 {
     PulseComputeShaderHandle handle;
-    void*                ptr;
+    PulseComputeShaderData* ptr;
 
 } PulseComputeShader;
 
 typedef struct PulseGraphicsBuffer
 {
     PulseGraphicsBufferHandle handle;
-    void*                ptr;
+    PulseGraphicsBufferData* ptr;
 
 } PulseGraphicsBuffer;
 
 typedef struct PulseTexture
 {
     PulseTextureHandle   handle;
-    void*                ptr;
+    PulseTextureData*    ptr;
 
 } PulseTexture;
 
 typedef struct PulseMesh
 {
     PulseMeshHandle      handle;
-    void*                ptr;
+    PulseMeshData*       ptr;
 
 } PulseMesh;
 
 typedef struct PulseMaterial
 {
     PulseMaterialHandle  handle;
-    void*                ptr;
+    PulseMaterialData*   ptr;
 
 } PulseMaterial;
 
 typedef struct PulseSampler
 {
     PulseSamplerHandle   handle;
-    void*                ptr;
+    PulseSamplerData*    ptr;
 
 } PulseSampler;
 
@@ -857,10 +879,10 @@ PULSE_API bool pulse_rgbuffer_handle_is_valid(PulseRGBufferHandle handle);
  *
  */
 PULSE_API PulseRGTextureHandle pulse_render_graph_declare_texture(PulseRenderGraphId _this);
-PULSE_API PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId _this, pulse_texture_data_t* imported);
+PULSE_API PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId _this, PulseTextureData* imported);
 PULSE_API PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderGraphId _this, pulse_backbuffer_data_t* imported_backbuffer);
 PULSE_API PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId _this);
-PULSE_API PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId _this, pulse_buffer_data_t* imported);
+PULSE_API PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId _this, PulseGraphicsBufferData* imported);
 PULSE_API PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId _this, void* imported);
 PULSE_API PulseRGBufferHandle pulse_render_graph_declare_uniform_buffer_quick(PulseRenderGraphId _this, uint32_t size, void* data);
 PULSE_API PulseRGTextureHandle pulse_render_graph_declare_texture_subresource(PulseRenderGraphId _this, PulseRGTextureHandle parent, uint8_t mip_level, uint8_t array_slice);

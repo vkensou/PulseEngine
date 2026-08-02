@@ -9,7 +9,7 @@ namespace HGEGraphics
 	{
 	}
 
-	ComputePipeline* ComputePipelinePool::getComputePipeline(pulse_compute_shader_data_t* shader)
+	ComputePipeline* ComputePipelinePool::getComputePipeline(PulseComputeShaderData* shader)
 	{
 		auto key = shader;
 		return getResource(key);

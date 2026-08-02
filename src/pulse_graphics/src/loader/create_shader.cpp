@@ -93,7 +93,7 @@ static bool validate_shader_properties_declare(const ShaderCreateSettings* desc,
     }
 }
 
-static void fill_property_data(pulse_shader_data_t* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, pulse_shader_property_t* sorted_props)
+static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, pulse_shader_property_t* sorted_props)
 {
     if (sorted_props != nullptr) {
         data->property_count = desc->property_count;
@@ -276,11 +276,11 @@ static EPulseAssetLoaderStatus step_shader_from_deps(
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
-    CGPUShaderLibraryId vs_lib = static_cast<pulse_shader_library_data_t*>(vs_ref.ptr)->library;
-    CGPUShaderLibraryId fs_lib = static_cast<pulse_shader_library_data_t*>(ps_ref.ptr)->library;
+    CGPUShaderLibraryId vs_lib = static_cast<PulseShaderLibraryData*>(vs_ref.ptr)->library;
+    CGPUShaderLibraryId fs_lib = static_cast<PulseShaderLibraryData*>(ps_ref.ptr)->library;
 
     auto* desc = static_cast<const ShaderCreateSettings*>(ctx->settings);
-    auto* data = static_cast<pulse_shader_data_t*>(ctx->out_asset);
+    auto* data = static_cast<PulseShaderData*>(ctx->out_asset);
 
     CGPUShaderEntryDescriptor ppl_shaders[2];
     ppl_shaders[0].stage = CGPU_SHADER_STAGE_VERTEX;

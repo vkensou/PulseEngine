@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-struct pulse_texture_data_t
+struct PulseTextureData
 {
 	CGPUTextureId handle;
 	CGPUTextureViewId view;
@@ -19,7 +19,7 @@ struct pulse_texture_data_t
 	PulseRGTextureHandle dynamic_handle;
 };
 
-struct pulse_buffer_data_t
+struct PulseGraphicsBufferData
 {
 	CGPUBufferId handle;
 	ECGPUResourceTypeFlags type;
@@ -27,7 +27,7 @@ struct pulse_buffer_data_t
 	PulseRGBufferHandle dynamic_handle;
 };
 
-struct pulse_mesh_data_t
+struct PulseMeshData
 {
 	CGPUVertexLayout vertex_layout;
 	CGPUVertexAttribute* p_vertex_attributes;
@@ -36,8 +36,8 @@ struct pulse_mesh_data_t
 	uint32_t index_stride;
 	uint32_t vertices_count;
 	uint32_t index_count;
-	pulse_buffer_data_t* vertex_buffer;
-	pulse_buffer_data_t* index_buffer;
+	PulseGraphicsBufferData* vertex_buffer;
+	PulseGraphicsBufferData* index_buffer;
 	bool prepared;
 };
 
@@ -69,7 +69,7 @@ struct pulse_shader_set_info_t
     uint64_t layout_hash;
 };
 
-struct pulse_shader_data_t
+struct PulseShaderData
 {
 	CGPURootSignatureId root_sig;
 	CGPUShaderEntryDescriptor vs;
@@ -87,7 +87,7 @@ struct pulse_shader_data_t
 	pulse_shader_set_info_t* p_set_infos;
 };
 
-struct pulse_compute_shader_data_t
+struct PulseComputeShaderData
 {
 	CGPURootSignatureId root_sig;
 	CGPUShaderEntryDescriptor cs;
@@ -97,7 +97,7 @@ struct pulse_material_bind_buffer_t
 {
 	int set;
 	int bind;
-	pulse_buffer_data_t* buffer;
+	PulseGraphicsBufferData* buffer;
 };
 
 struct pulse_material_bind_buffer_array_t
@@ -111,7 +111,7 @@ struct pulse_material_bind_texture_t
 {
 	int set;
 	int bind;
-	pulse_texture_data_t* texture;
+	PulseTextureData* texture;
 };
 
 struct pulse_material_bind_texture_array_t
@@ -142,7 +142,7 @@ struct pulse_material_ubo_column_t
 	uint8_t* cpu_data;
 	uint32_t size;
 	bool dirty;
-	pulse_buffer_data_t* gpu_buffer;
+	PulseGraphicsBufferData* gpu_buffer;
 };
 
 struct pulse_material_ubo_columns_t
@@ -156,7 +156,7 @@ struct pulse_material_owned_buffer_array_t
 {
 	int size;
 	int capacity;
-	pulse_buffer_data_t** data;
+	PulseGraphicsBufferData** data;
 };
 
 struct pulse_material_descriptor_set_t
@@ -174,10 +174,10 @@ struct pulse_material_descriptor_set_array_t
     pulse_material_descriptor_set_t* data;
 };
 
-struct pulse_material_data_t
+struct PulseMaterialData
 {
 	CGPUDeviceId device;
-	pulse_shader_data_t* shader;
+	PulseShaderData* shader;
 	pulse_material_bind_buffer_array_t buffers;
 	pulse_material_bind_texture_array_t textures;
 	pulse_material_bind_sampler_array_t samplers;
@@ -188,18 +188,18 @@ struct pulse_material_data_t
 
 struct pulse_backbuffer_data_t
 {
-	pulse_texture_data_t texture;
+	PulseTextureData texture;
 };
 
-typedef struct pulse_shader_library_data {
+typedef struct PulseShaderLibraryData {
     CGPUShaderLibraryId library;
-} pulse_shader_library_data_t;
+} PulseShaderLibraryData;
 
-typedef struct pulse_sampler_data {
+typedef struct PulseSamplerData {
     CGPUSamplerId handle;
-} pulse_sampler_data_t;
+} PulseSamplerData;
 
-static inline const pulse_shader_property_t* pulse_find_shader_property(const pulse_shader_data_t* shader, const char* name)
+static inline const pulse_shader_property_t* pulse_find_shader_property(const PulseShaderData* shader, const char* name)
 {
 	if (!shader || !shader->p_properties || !name) return nullptr;
 	for (uint32_t i = 0; i < shader->property_count; ++i) {

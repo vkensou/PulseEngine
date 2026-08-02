@@ -26,7 +26,7 @@ EPulseAssetLoaderStatus step_material_create(
 
     if (!s->initialized) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* mat = static_cast<pulse_material_data_t*>(ctx->out_asset);
+        auto* mat = static_cast<PulseMaterialData*>(ctx->out_asset);
 
         PulseShaderHandle shader_handle = { shader_asset_handle.index, shader_asset_handle.generation };
         PulseShader shader_ref{};
@@ -35,7 +35,7 @@ EPulseAssetLoaderStatus step_material_create(
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
-        HGEGraphics::init_material(mat, device, static_cast<pulse_shader_data_t*>(shader_ref.ptr));
+        HGEGraphics::init_material(mat, device, static_cast<PulseShaderData*>(shader_ref.ptr));
         internal_release_shader(ctx->asset_system, &shader_ref);
 
         s->initialized = true;

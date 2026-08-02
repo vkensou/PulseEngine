@@ -11,7 +11,7 @@ extern "C" {
 void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* encoder, PulseMaterial material, PulseMesh mesh) {
     auto* cpp_encoder = to_cpp_encoder(encoder);
     if (cpp_encoder) {
-        HGEGraphics::draw(cpp_encoder, static_cast<pulse_material_data_t*>(material.ptr), static_cast<pulse_mesh_data_t*>(mesh.ptr));
+        HGEGraphics::draw(cpp_encoder, static_cast<PulseMaterialData*>(material.ptr), static_cast<PulseMeshData*>(mesh.ptr));
     }
 }
 

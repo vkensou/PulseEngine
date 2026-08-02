@@ -115,7 +115,7 @@ EPulseAssetLoaderStatus step_mesh_load(
 
     if (s->phase == MESH_LOAD_PARSE) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
+        auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
 
         std::vector<MeshTexturedVertex> verts;
         std::vector<uint32_t> indices;
@@ -177,7 +177,7 @@ EPulseAssetLoaderStatus step_mesh_load(
     }
 
     if (s->phase == MESH_LOAD_WAIT_BUFFERS) {
-        auto* mesh = static_cast<pulse_mesh_data_t*>(ctx->out_asset);
+        auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
 
         PulseGraphicsBuffer vb_ref{};
         PulseGraphicsBuffer ib_ref{};
@@ -189,8 +189,8 @@ EPulseAssetLoaderStatus step_mesh_load(
             return PULSE_ASSET_LOADER_STATUS_PENDING;
         }
 
-        mesh->vertex_buffer = static_cast<pulse_buffer_data_t*>(vb_ref.ptr);
-        mesh->index_buffer = static_cast<pulse_buffer_data_t*>(ib_ref.ptr);
+        mesh->vertex_buffer = static_cast<PulseGraphicsBufferData*>(vb_ref.ptr);
+        mesh->index_buffer = static_cast<PulseGraphicsBufferData*>(ib_ref.ptr);
         mesh->prepared = true;
 
         internal_release_buffer(ctx->asset_system, &vb_ref);

@@ -131,8 +131,8 @@ bool ensure_frame_graph(pulse_graphics_state* state, render_frame_context& frame
             resource_estimate,
             pass_estimate,
             edge_estimate,
-            static_cast<pulse_shader_data_t*>(state->blit_shader.ptr),
-            static_cast<pulse_sampler_data_t*>(state->blit_linear_sampler.ptr)->handle,
+            static_cast<PulseShaderData*>(state->blit_shader.ptr),
+            static_cast<PulseSamplerData*>(state->blit_linear_sampler.ptr)->handle,
             frame_context.graph_memory.get()
         );
     }
@@ -290,12 +290,12 @@ void render_execute_graph_system_run(ecs_iter_t* it) {
     HGEGraphics::Executor::Execute(compiled, *frame_context.frame->exec_context);
 
     auto* graph_impl = HGEGraphics::to_impl(*frame_context.graph);
-    for (pulse_texture_data_t* imported : graph_impl->imported_textures) {
+    for (PulseTextureData* imported : graph_impl->imported_textures) {
         if (imported) {
             imported->dynamic_handle = {};
         }
     }
-    for (pulse_buffer_data_t* imported : graph_impl->imported_buffers) {
+    for (PulseGraphicsBufferData* imported : graph_impl->imported_buffers) {
         if (imported) {
             imported->dynamic_handle = {};
         }

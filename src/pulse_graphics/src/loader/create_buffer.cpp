@@ -17,7 +17,7 @@ EPulseAssetLoaderStatus step_buffer_create(
 
     if (!s->upload_requested) {
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* buf = static_cast<pulse_buffer_data_t*>(ctx->out_asset);
+        auto* buf = static_cast<PulseGraphicsBufferData*>(ctx->out_asset);
 
         auto create_desc = static_cast<const PulseGraphicsBufferCreateDesc*>(ctx->settings);
 

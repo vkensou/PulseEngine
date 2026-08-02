@@ -39,7 +39,7 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
-    CGPUShaderLibraryId cs_lib = static_cast<pulse_shader_library_data_t*>(cs_ref.ptr)->library;
+    CGPUShaderLibraryId cs_lib = static_cast<PulseShaderLibraryData*>(cs_ref.ptr)->library;
 
     CGPUShaderEntryDescriptor ppl_shaders[1];
     ppl_shaders[0].stage = CGPU_SHADER_STAGE_COMPUTE;
@@ -51,7 +51,7 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
     };
     auto root_sig = cgpu_device_create_root_signature(device, &rs_desc);
 
-    auto* data = static_cast<pulse_compute_shader_data_t*>(ctx->out_asset);
+    auto* data = static_cast<PulseComputeShaderData*>(ctx->out_asset);
     data->root_sig = root_sig;
     data->cs = ppl_shaders[0];
 

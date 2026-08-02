@@ -29,7 +29,7 @@ static EPulseAssetLoaderStatus step_shader_library_create(
         auto* lib = cgpu_device_create_shader_library(device, &lib_desc);
         if (!lib) { *out_error = "shader library create: create failed"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
-        auto* data = static_cast<pulse_shader_library_data_t*>(ctx->out_asset);
+        auto* data = static_cast<PulseShaderLibraryData*>(ctx->out_asset);
         data->library = lib;
 
         s->initialized = true;
