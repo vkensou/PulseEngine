@@ -263,8 +263,8 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
         return invalid_handle();
     }
 
-    auto unload_failed_builder = [&]() {
-        (void)release(handle, nullptr);
+    auto release_failed_builder = [&]() {
+        release(handle, nullptr);
         return invalid_handle();
     };
 
@@ -276,7 +276,7 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
     LoadJobPhase initial_phase = choose_initial_phase(request, *slot);
     if (slot->state == PULSE_ASSET_STATE_FAILED) {
         if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER) {
-            return unload_failed_builder();
+            return release_failed_builder();
         }
         return handle;
     }
@@ -290,7 +290,7 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
         slot->state = PULSE_ASSET_STATE_FAILED;
         slot->error = "failed to copy asset load settings";
         if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER) {
-            return unload_failed_builder();
+            return release_failed_builder();
         }
         return handle;
     }
@@ -300,7 +300,7 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
         initial_phase == LoadJobPhase::PendingRead) {
         LoadJobOutcome outcome = load_queue_.process_immediate_builder(*this, job_it);
         if (outcome == LoadJobOutcome::Failed || outcome == LoadJobOutcome::Cancelled) {
-            return unload_failed_builder();
+            return release_failed_builder();
         }
     }
 
