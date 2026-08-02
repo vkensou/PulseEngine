@@ -380,7 +380,7 @@ static EPulseAssetLoaderStatus step_self_cancel_asset(
     (void)out_error;
     self_cancel_step_count += 1;
     assert(ctx->dependency_hint != nullptr);
-    pulse_asset_system_unload(ctx->asset_system, ctx->handle);
+    pulse_asset_system_release(ctx->asset_system, ctx->handle, nullptr);
     self_cancel_asset* asset = (self_cancel_asset*)ctx->out_asset;
     asset->value = 101;
     return PULSE_ASSET_LOADER_STATUS_DONE;
@@ -393,7 +393,7 @@ static void dtor_unload_asset_loader(
     (void)state;
     dtor_unload_dtor_count += 1;
     assert(ctx->dependency_hint == nullptr);
-    pulse_asset_system_unload(ctx->asset_system, ctx->handle);
+    pulse_asset_system_release(ctx->asset_system, ctx->handle, nullptr);
 }
 
 static EPulseAssetLoaderStatus step_dtor_unload_asset(
@@ -700,9 +700,9 @@ int main(void) {
     assert(!pulse_asset_system_is_ready(assetSystem, invalid));
     assert(pulse_asset_system_get_error(assetSystem, invalid) == nullptr);
 
-    PulseAssetRef invalid_ref{};
-    assert(!pulse_asset_system_acquire(assetSystem, invalid, &invalid_ref));
-    assert(invalid_ref.ptr == nullptr);
+    void* invalid_ptr = nullptr;
+    assert(!pulse_asset_system_borrow(assetSystem, invalid, &invalid_ptr, nullptr));
+    assert(invalid_ptr == nullptr);
 
     PulseAssetHandle text_handle = load_asset_memory(assetSystem, text_type, "hello.txt", hello_bytes, 11, NULL);
     assert(text_handle.type_id == text_type);
@@ -746,26 +746,24 @@ int main(void) {
     assert(pulse_asset_system_get_state(assetSystem, text_handle) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_is_ready(assetSystem, text_handle));
 
-    PulseAssetRef text_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, text_handle, &text_ref));
-    assert(text_ref.ptr != nullptr);
-    test_text_asset* text_asset = (test_text_asset*)text_ref.ptr;
+    void* text_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, text_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, text_handle, &text_ptr, nullptr));
+    assert(text_ptr != nullptr);
+    test_text_asset* text_asset = (test_text_asset*)text_ptr;
     assert(text_asset->size == 11);
     assert(text_asset->text[0] == 'h');
 
     text_asset->text[0] = 'H';
     pulse_asset_system_mark_modified(assetSystem, text_handle);
 
-    PulseAssetRef second_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, text_handle, &second_ref));
-    assert(second_ref.ptr == text_ref.ptr);
-    pulse_asset_system_release(assetSystem, &second_ref);
-    assert(second_ref.ptr == nullptr);
-    assert(!pulse_asset_handle_is_valid(second_ref.handle));
+    void* second_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, text_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, text_handle, &second_ptr, nullptr));
+    assert(second_ptr == text_ptr);
+    pulse_asset_system_release(assetSystem, text_handle, nullptr);
 
-    pulse_asset_system_release(assetSystem, &text_ref);
-    assert(text_ref.ptr == nullptr);
-    assert(!pulse_asset_handle_is_valid(text_ref.handle));
+    pulse_asset_system_release(assetSystem, text_handle, nullptr);
 
     // Multi-step pending loader
     PulseAssetTypeDesc slow_type_desc = {
@@ -801,12 +799,13 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, slow_handle) == PULSE_ASSET_STATE_PROCESSING);
 
-    PulseAssetRef slow_ref{};
+    void* slow_ptr = nullptr;
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, slow_handle) == PULSE_ASSET_STATE_LOADED);
-    assert(pulse_asset_system_acquire(assetSystem, slow_handle, &slow_ref));
-    assert(((slow_asset*)slow_ref.ptr)->value == 42);
-    pulse_asset_system_release(assetSystem, &slow_ref);
+    assert(pulse_asset_system_retain(assetSystem, slow_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, slow_handle, &slow_ptr, nullptr));
+    assert(((slow_asset*)slow_ptr)->value == 42);
+    pulse_asset_system_release(assetSystem, slow_handle, nullptr);
 
     // Failure paths
     PulseAssetTypeDesc fail_type_desc = {
@@ -840,8 +839,8 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, fail_handle) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_system_get_error(assetSystem, fail_handle) != nullptr);
-    PulseAssetRef fail_ref{};
-    assert(!pulse_asset_system_acquire(assetSystem, fail_handle, &fail_ref));
+    void* fail_ptr = nullptr;
+    assert(!pulse_asset_system_borrow(assetSystem, fail_handle, &fail_ptr, nullptr));
 
     // Missing file
     PulseAssetHandle missing_handle = load_asset_file(assetSystem, text_type, "missing.txt", NULL);
@@ -887,10 +886,11 @@ int main(void) {
 
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(settings_step_count == 1);
-    PulseAssetRef settings_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, settings_handle, &settings_ref));
-    assert(((settings_asset*)settings_ref.ptr)->value == 77);
-    pulse_asset_system_release(assetSystem, &settings_ref);
+    void* settings_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, settings_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, settings_handle, &settings_ptr, nullptr));
+    assert(((settings_asset*)settings_ptr)->value == 77);
+    pulse_asset_system_release(assetSystem, settings_handle, nullptr);
 
     PulseAssetTypeDesc cleanup_type_desc = {
         sizeof(PulseAssetTypeDesc),
@@ -939,7 +939,7 @@ int main(void) {
     PulseAssetHandle cleanup_unload = load_asset_memory(assetSystem, cleanup_type, "cleanup_unload.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_unload) == PULSE_ASSET_STATE_PROCESSING);
-    pulse_asset_system_unload(assetSystem, cleanup_unload);
+    pulse_asset_system_release(assetSystem, cleanup_unload, nullptr);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_unload) == PULSE_ASSET_STATE_PENDING_DELETE);
     assert(cleanup_dtor_count == 2);
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
@@ -987,9 +987,10 @@ int main(void) {
     assert(force_ctor_count == 1);
     assert(force_dtor_count == 1);
 
-    PulseAssetRef force_loaded_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, force_loaded, &force_loaded_ref));
-    assert(((force_asset*)force_loaded_ref.ptr)->value == sizeof(force_bytes));
+    void* force_loaded_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, force_loaded, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, force_loaded, &force_loaded_ptr, nullptr));
+    assert(((force_asset*)force_loaded_ptr)->value == sizeof(force_bytes));
 
     PulseAssetHandle force_pending = load_asset_memory(assetSystem, force_type, "force_pending.txt", force_bytes, sizeof(force_bytes), NULL);
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
@@ -1003,11 +1004,9 @@ int main(void) {
     assert(pulse_asset_system_get_state(assetSystem, force_pending) == PULSE_ASSET_STATE_EMPTY);
     assert(force_destroy_count == 1);
     assert(force_dtor_count == 2);
-    PulseAssetRef missing_force_ref{};
-    assert(!pulse_asset_system_acquire(assetSystem, force_loaded, &missing_force_ref));
-    pulse_asset_system_release(assetSystem, &force_loaded_ref);
-    assert(force_loaded_ref.ptr == nullptr);
-    assert(!pulse_asset_handle_is_valid(force_loaded_ref.handle));
+    void* missing_force_ptr = nullptr;
+    assert(!pulse_asset_system_borrow(assetSystem, force_loaded, &missing_force_ptr, nullptr));
+    pulse_asset_system_release(assetSystem, force_loaded, nullptr);
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(force_step_count == force_steps_before_unload);
 
@@ -1048,11 +1047,12 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, aligned_handle) == PULSE_ASSET_STATE_LOADED);
     assert(aligned_ctor_count == 1);
-    PulseAssetRef aligned_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, aligned_handle, &aligned_ref));
-    assert((((uintptr_t)aligned_ref.ptr) % alignof(aligned_asset)) == 0);
-    assert(((aligned_asset*)aligned_ref.ptr)->value == 123);
-    pulse_asset_system_release(assetSystem, &aligned_ref);
+    void* aligned_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, aligned_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, aligned_handle, &aligned_ptr, nullptr));
+    assert((((uintptr_t)aligned_ptr) % alignof(aligned_asset)) == 0);
+    assert(((aligned_asset*)aligned_ptr)->value == 123);
+    pulse_asset_system_release(assetSystem, aligned_handle, nullptr);
 
     PulseAssetTypeDesc parent_type_desc = {
         sizeof(PulseAssetTypeDesc),
@@ -1232,10 +1232,11 @@ int main(void) {
     assert(recovered_builder_handle.generation == 2);
     assert(pulse_asset_system_get_state(assetSystem, recovered_builder_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_fail_once_step_count == 2);
-    PulseAssetRef recovered_builder_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, recovered_builder_handle, &recovered_builder_ref));
-    assert(((builder_asset*)recovered_builder_ref.ptr)->value == 77);
-    pulse_asset_system_release(assetSystem, &recovered_builder_ref);
+    void* recovered_builder_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, recovered_builder_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, recovered_builder_handle, &recovered_builder_ptr, nullptr));
+    assert(((builder_asset*)recovered_builder_ptr)->value == 77);
+    pulse_asset_system_release(assetSystem, recovered_builder_handle, nullptr);
 
     PulseAssetBuildDesc missing_builder_desc{};
     missing_builder_desc.struct_size = sizeof(PulseAssetBuildDesc);
@@ -1255,10 +1256,11 @@ int main(void) {
     assert(builder_handle.index != PULSE_ASSET_INVALID_INDEX);
     assert(pulse_asset_system_get_state(assetSystem, builder_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_step_count == 1);
-    PulseAssetRef builder_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, builder_handle, &builder_ref));
-    assert(((builder_asset*)builder_ref.ptr)->value == 42);
-    pulse_asset_system_release(assetSystem, &builder_ref);
+    void* builder_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, builder_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, builder_handle, &builder_ptr, nullptr));
+    assert(((builder_asset*)builder_ptr)->value == 42);
+    pulse_asset_system_release(assetSystem, builder_handle, nullptr);
 
     PulseAssetHandle second_builder_handle = pulse_asset_system_build(assetSystem, &builder_desc);
     assert(second_builder_handle.index != PULSE_ASSET_INVALID_INDEX);
@@ -1311,10 +1313,11 @@ int main(void) {
     assert(pulse_asset_system_get_state(assetSystem, builder_pending_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_pending_step_count == 2);
     assert(builder_pending_dtor_count == 1);
-    PulseAssetRef builder_pending_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, builder_pending_handle, &builder_pending_ref));
-    assert(((builder_asset*)builder_pending_ref.ptr)->value == 17);
-    pulse_asset_system_release(assetSystem, &builder_pending_ref);
+    void* builder_pending_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, builder_pending_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, builder_pending_handle, &builder_pending_ptr, nullptr));
+    assert(((builder_asset*)builder_pending_ptr)->value == 17);
+    pulse_asset_system_release(assetSystem, builder_pending_handle, nullptr);
 
     PulseAssetTypeDesc builder_wait_type_desc = {
         sizeof(PulseAssetTypeDesc),
@@ -1378,10 +1381,11 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_wait_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_wait_step_count == 1);
-    PulseAssetRef builder_wait_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, builder_wait_handle, &builder_wait_ref));
-    assert(((builder_asset*)builder_wait_ref.ptr)->value == 1);
-    pulse_asset_system_release(assetSystem, &builder_wait_ref);
+    void* builder_wait_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, builder_wait_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, builder_wait_handle, &builder_wait_ptr, nullptr));
+    assert(((builder_asset*)builder_wait_ptr)->value == 1);
+    pulse_asset_system_release(assetSystem, builder_wait_handle, nullptr);
 
     PulseAssetTypeDesc builder_dynamic_type_desc = {
         sizeof(PulseAssetTypeDesc),
@@ -1431,10 +1435,11 @@ int main(void) {
     assert(pulse_asset_system_get_state(assetSystem, builder_dynamic_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_dynamic_step_count == 2);
     assert(builder_dynamic_dtor_count == 1);
-    PulseAssetRef builder_dynamic_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, builder_dynamic_handle, &builder_dynamic_ref));
-    assert(((builder_asset*)builder_dynamic_ref.ptr)->value == 1);
-    pulse_asset_system_release(assetSystem, &builder_dynamic_ref);
+    void* builder_dynamic_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, builder_dynamic_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, builder_dynamic_handle, &builder_dynamic_ptr, nullptr));
+    assert(((builder_asset*)builder_dynamic_ptr)->value == 1);
+    pulse_asset_system_release(assetSystem, builder_dynamic_handle, nullptr);
 
     parent_step_count = 0;
     const char dep_bytes[] = "dependency";
@@ -1458,10 +1463,11 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, static_parent) == PULSE_ASSET_STATE_LOADED);
     assert(parent_step_count == 1);
-    PulseAssetRef static_parent_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, static_parent, &static_parent_ref));
-    assert(((parent_asset*)static_parent_ref.ptr)->value == 1);
-    pulse_asset_system_release(assetSystem, &static_parent_ref);
+    void* static_parent_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, static_parent, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, static_parent, &static_parent_ptr, nullptr));
+    assert(((parent_asset*)static_parent_ptr)->value == 1);
+    pulse_asset_system_release(assetSystem, static_parent, nullptr);
 
     PulseAssetHandle static_failed_dep = load_asset_memory(assetSystem, fail_type, "static_failed_dep.txt", hello_bytes, 11, NULL);
     PulseAssetDependency failed_static_deps[] = {{static_failed_dep, PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED}};
@@ -1477,8 +1483,8 @@ int main(void) {
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, static_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_system_get_state(assetSystem, failed_static_parent) == PULSE_ASSET_STATE_FAILED);
-    PulseAssetRef failed_static_parent_ref{};
-    assert(!pulse_asset_system_acquire(assetSystem, failed_static_parent, &failed_static_parent_ref));
+    void* failed_static_parent_ptr = nullptr;
+    assert(!pulse_asset_system_borrow(assetSystem, failed_static_parent, &failed_static_parent_ptr, nullptr));
 
     dynamic_step_count = 0;
     dynamic_ctor_count = 0;
@@ -1504,10 +1510,11 @@ int main(void) {
     assert(pulse_asset_system_get_state(assetSystem, dynamic_parent) == PULSE_ASSET_STATE_LOADED);
     assert(dynamic_step_count == 2);
     assert(dynamic_dtor_count == 1);
-    PulseAssetRef dynamic_parent_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, dynamic_parent, &dynamic_parent_ref));
-    assert(((dynamic_parent_asset*)dynamic_parent_ref.ptr)->value == 1);
-    pulse_asset_system_release(assetSystem, &dynamic_parent_ref);
+    void* dynamic_parent_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, dynamic_parent, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, dynamic_parent, &dynamic_parent_ptr, nullptr));
+    assert(((dynamic_parent_asset*)dynamic_parent_ptr)->value == 1);
+    pulse_asset_system_release(assetSystem, dynamic_parent, nullptr);
 
     PulseAssetHandle dynamic_failed_dep = load_asset_memory(assetSystem, fail_type, "dynamic_failed_dep.txt", hello_bytes, 11, NULL);
     PulseAssetHandle dynamic_failed_settings[] = {dynamic_failed_dep, no_optional};
@@ -1540,10 +1547,11 @@ int main(void) {
     assert(pulse_asset_system_get_state(assetSystem, dynamic_optional_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_optional_parent) == PULSE_ASSET_STATE_LOADED);
-    PulseAssetRef dynamic_optional_parent_ref{};
-    assert(pulse_asset_system_acquire(assetSystem, dynamic_optional_parent, &dynamic_optional_parent_ref));
-    assert(((dynamic_parent_asset*)dynamic_optional_parent_ref.ptr)->value == 2);
-    pulse_asset_system_release(assetSystem, &dynamic_optional_parent_ref);
+    void* dynamic_optional_parent_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, dynamic_optional_parent, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, dynamic_optional_parent, &dynamic_optional_parent_ptr, nullptr));
+    assert(((dynamic_parent_asset*)dynamic_optional_parent_ptr)->value == 2);
+    pulse_asset_system_release(assetSystem, dynamic_optional_parent, nullptr);
 
     self_cancel_step_count = 0;
     self_cancel_ctor_count = 0;
@@ -1567,10 +1575,10 @@ int main(void) {
     PulseAssetHandle bad_generation = text_handle;
     bad_generation.generation += 1;
     assert(pulse_asset_system_get_state(assetSystem, bad_generation) == PULSE_ASSET_STATE_EMPTY);
-    assert(!pulse_asset_system_acquire(assetSystem, bad_generation, &fail_ref));
+    assert(!pulse_asset_system_borrow(assetSystem, bad_generation, &fail_ptr, nullptr));
 
     // Unload test - pin_count starts at 1 after load
-    pulse_asset_system_unload(assetSystem, text_handle);
+    pulse_asset_system_release(assetSystem, text_handle, nullptr);
     // After unload, pin_count should be 0 and asset destroyed
     assert(destroy_count == 1);
     assert(pulse_asset_system_get_state(assetSystem, text_handle) == PULSE_ASSET_STATE_EMPTY);

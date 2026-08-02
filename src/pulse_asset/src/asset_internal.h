@@ -331,9 +331,9 @@ public:
     PulseAssetHandle build_asset(const PulseAssetBuildDesc* desc);
     EPulseAssetState get_state(PulseAssetHandle handle) const;
     const char* get_error(PulseAssetHandle handle) const;
-    bool acquire(PulseAssetHandle handle, PulseAssetRef* out_ref);
-    void release(PulseAssetRef* ref);
-    void unload(PulseAssetHandle handle);
+    bool retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_error);
+    bool release(PulseAssetHandle handle, EPulseReleaseErrorCode* out_error);
+    bool borrow(PulseAssetHandle handle, void** out_ptr, EPulseBorrowErrorCode* out_error);
     void mark_modified(PulseAssetHandle handle);
     void force_unload_assets(uint64_t type_id);
 

@@ -70,6 +70,29 @@ enum.AssetLoadSource { underscore, comment = "Load source type" }
     .Builder
     ()
 
+enum.RetainErrorCode { underscore }
+    .AssetSystemIsInvalid
+    .HandleIsInvalid
+    .AssetIsFailed
+    .AssetIsPendingDelete
+    .AssetIsReleased
+    ()
+
+enum.ReleaseErrorCode { underscore }
+    .AssetSystemIsInvalid
+    .HandleIsInvalid
+    .AssetIsOverReleased
+    ()
+
+enum.BorrowErrorCode { underscore }
+    .AssetSystemIsInvalid
+    .HandleIsInvalid
+    .AssetIsNotReady
+    .AssetIsFailed
+    .AssetIsPendingDelete
+    .AssetIsReleased
+    ()
+
 --- Function pointer: asset destroy callback (for type desc)
 funcptr.AssetDestroyFn
     "void"
@@ -100,12 +123,6 @@ struct.AssetHandle
     .typeId     "uint64_t"
     .index      "uint32_t"
     .generation "uint32_t"
-    ()
-
---- Asset acquired reference
-struct.AssetRef
-    .handle     "AssetHandle"
-    .ptr        "*anyopaque"
     ()
 
 --- Asset dependency descriptor
@@ -272,20 +289,23 @@ func.AssetSystem.GetError
     .handle "AssetHandle"
     ()
 
-func.AssetSystem.Acquire
+func.AssetSystem.Retain
     "bool"
-    .handle "AssetHandle"
-    .outRef "*AssetRef"
+    .handle     "AssetHandle"
+    .outError   "*RetainErrorCode::Enum"
     ()
 
 func.AssetSystem.Release
-    "void"
-    .ref    "*AssetRef"
+    "bool"
+    .handle     "AssetHandle"
+    .outError   "*ReleaseErrorCode::Enum"
     ()
 
-func.AssetSystem.Unload
-    "void"
-    .handle "AssetHandle"
+func.AssetSystem.Borrow
+    "bool"
+    .handle     "AssetHandle"
+    .outRef     "*?*anyopaque"
+    .outError   "*BorrowErrorCode::Enum"
     ()
 
 func.AssetSystem.MarkModified

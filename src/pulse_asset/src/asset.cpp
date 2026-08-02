@@ -96,69 +96,106 @@ const char* AssetSystem::get_error(PulseAssetHandle handle) const {
     return slot && !slot->slot.error.empty() ? slot->slot.error.c_str() : nullptr;
 }
 
-bool AssetSystem::acquire(PulseAssetHandle handle, PulseAssetRef* out_ref) {
-    if (out_ref) {
-        out_ref->handle = invalid_handle();
-        out_ref->ptr = nullptr;
+bool AssetSystem::retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_error) {
+    auto slot = storage_.get_slot(handle);
+    if (!slot || slot->slot.state == PULSE_ASSET_STATE_EMPTY) {
+        if (out_error) {
+            *out_error = PULSE_RETAIN_ERROR_CODE_ASSET_IS_RELEASED;
+        }
+        return false;
     }
 
-    auto slot = storage_.get_slot(handle);
-    if (!out_ref || !slot ||
-        slot->slot.state != PULSE_ASSET_STATE_LOADED || !slot->slot.constructed) {
+    if (slot->slot.state == PULSE_ASSET_STATE_FAILED) {
+        if (out_error) {
+            *out_error = PULSE_RETAIN_ERROR_CODE_ASSET_IS_FAILED;
+        }
+        return false;
+    }
+
+    if (slot->slot.state == PULSE_ASSET_STATE_PENDING_DELETE) {
+        if (out_error) {
+            *out_error = PULSE_RETAIN_ERROR_CODE_ASSET_IS_PENDING_DELETE;
+        }
         return false;
     }
 
     slot->slot.pin_count += 1;
     storage_.dependencies().pin_committed_dependencies(storage_, slot->slot);
-    out_ref->handle = handle;
-    out_ref->ptr = slot->slot.data.data;
     return true;
 }
 
-void AssetSystem::release(PulseAssetRef* ref) {
-    if (!ref || !ref->ptr) {
-        return;
-    }
-
-    auto slot = storage_.get_slot(ref->handle);
-    if (slot && slot->slot.pin_count > 0) {
-        slot->slot.pin_count -= 1;
-        storage_.dependencies().unpin_committed_dependencies(storage_, slot->slot);
-    }
-
-    ref->handle = invalid_handle();
-    ref->ptr = nullptr;
-}
-
-void AssetSystem::unload(PulseAssetHandle handle) {
-    if (is_invalid_handle(handle)) {
-        return;
-    }
-
+bool AssetSystem::release(PulseAssetHandle handle, EPulseReleaseErrorCode* out_error) {
     auto slot = storage_.get_slot(handle);
     if (!slot || slot->slot.pin_count == 0) {
-        return;
+        if (out_error) {
+            *out_error = PULSE_RELEASE_ERROR_CODE_ASSET_IS_OVER_RELEASED;
+        }
+        return false;
     }
 
+    slot->slot.pin_count -= 1;
+    storage_.dependencies().unpin_committed_dependencies(storage_, slot->slot);
+
     if (slot->slot.retiring_load_job) {
-        slot->slot.pin_count -= 1;
         if (slot->slot.pin_count == 0) {
             slot->slot.state = PULSE_ASSET_STATE_PENDING_DELETE;
             slot->slot.error = "asset unload pending";
         }
-        return;
+        return true;
     }
 
-    slot->slot.pin_count -= 1;
     if (is_load_in_progress_state(slot->slot.state)) {
         if (slot->slot.pin_count == 0) {
             slot->slot.state = PULSE_ASSET_STATE_PENDING_DELETE;
             slot->slot.error = "asset unload pending";
         }
-        return;
+        return true;
     }
 
-    storage_.try_unload_slot(*slot, handle);
+    if (slot->slot.pin_count == 0) {
+        storage_.try_unload_slot(*slot, handle);
+    }
+    return true;
+}
+
+bool AssetSystem::borrow(PulseAssetHandle handle, void** out_ptr, EPulseBorrowErrorCode* out_error) {
+    if (out_ptr) {
+        *out_ptr = nullptr;
+    }
+
+    auto slot = storage_.get_slot(handle);
+    if (!slot) {
+        if (out_error) {
+            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_RELEASED;
+        }
+        return false;
+    }
+
+    if (slot->slot.state == PULSE_ASSET_STATE_PENDING_DELETE) {
+        if (out_error) {
+            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_PENDING_DELETE;
+        }
+        return false;
+    }
+
+    if (slot->slot.state == PULSE_ASSET_STATE_FAILED) {
+        if (out_error) {
+            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_FAILED;
+        }
+        return false;
+    }
+
+    if (slot->slot.state != PULSE_ASSET_STATE_LOADED) {
+        if (out_error) {
+            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_NOT_READY;
+        }
+        return false;
+    }
+
+    if (out_ptr) {
+        *out_ptr = slot->slot.data.data;
+    }
+    return true;
 }
 
 void AssetSystem::mark_modified(PulseAssetHandle handle) {
@@ -227,7 +264,7 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
     }
 
     auto unload_failed_builder = [&]() {
-        unload(handle);
+        (void)release(handle, nullptr);
         return invalid_handle();
     };
 

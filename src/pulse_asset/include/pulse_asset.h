@@ -99,6 +99,41 @@ typedef enum EPulseAssetLoadSource
 
 } EPulseAssetLoadSource;
 
+typedef enum EPulseRetainErrorCode
+{
+    PULSE_RETAIN_ERROR_CODE_ASSET_SYSTEM_IS_INVALID, /** ( 0)                                */
+    PULSE_RETAIN_ERROR_CODE_HANDLE_IS_INVALID, /** ( 1)                                */
+    PULSE_RETAIN_ERROR_CODE_ASSET_IS_FAILED,  /** ( 2)                                */
+    PULSE_RETAIN_ERROR_CODE_ASSET_IS_PENDING_DELETE, /** ( 3)                                */
+    PULSE_RETAIN_ERROR_CODE_ASSET_IS_RELEASED, /** ( 4)                                */
+
+    PULSE_RETAIN_ERROR_CODE_COUNT
+
+} EPulseRetainErrorCode;
+
+typedef enum EPulseReleaseErrorCode
+{
+    PULSE_RELEASE_ERROR_CODE_ASSET_SYSTEM_IS_INVALID, /** ( 0)                                */
+    PULSE_RELEASE_ERROR_CODE_HANDLE_IS_INVALID, /** ( 1)                                */
+    PULSE_RELEASE_ERROR_CODE_ASSET_IS_OVER_RELEASED, /** ( 2)                                */
+
+    PULSE_RELEASE_ERROR_CODE_COUNT
+
+} EPulseReleaseErrorCode;
+
+typedef enum EPulseBorrowErrorCode
+{
+    PULSE_BORROW_ERROR_CODE_ASSET_SYSTEM_IS_INVALID, /** ( 0)                                */
+    PULSE_BORROW_ERROR_CODE_HANDLE_IS_INVALID, /** ( 1)                                */
+    PULSE_BORROW_ERROR_CODE_ASSET_IS_NOT_READY, /** ( 2)                                */
+    PULSE_BORROW_ERROR_CODE_ASSET_IS_FAILED,  /** ( 3)                                */
+    PULSE_BORROW_ERROR_CODE_ASSET_IS_PENDING_DELETE, /** ( 4)                                */
+    PULSE_BORROW_ERROR_CODE_ASSET_IS_RELEASED, /** ( 5)                                */
+
+    PULSE_BORROW_ERROR_CODE_COUNT
+
+} EPulseBorrowErrorCode;
+
 
 /**
  * Flags: asset load flags
@@ -164,17 +199,6 @@ typedef struct PulseAssetHandle
     uint32_t             generation;
 
 } PulseAssetHandle;
-
-/**
- * Asset acquired reference
- *
- */
-typedef struct PulseAssetRef
-{
-    PulseAssetHandle     handle;
-    void*                ptr;
-
-} PulseAssetRef;
 
 /**
  * Asset dependency descriptor
@@ -358,9 +382,9 @@ PULSE_API EPulseAssetState pulse_asset_system_get_state(PulseAssetSystemId _this
 PULSE_API bool pulse_asset_system_is_alive(PulseAssetSystemId _this, PulseAssetHandle handle);
 PULSE_API bool pulse_asset_system_is_ready(PulseAssetSystemId _this, PulseAssetHandle handle);
 PULSE_API const char* pulse_asset_system_get_error(PulseAssetSystemId _this, PulseAssetHandle handle);
-PULSE_API bool pulse_asset_system_acquire(PulseAssetSystemId _this, PulseAssetHandle handle, PulseAssetRef* out_ref);
-PULSE_API void pulse_asset_system_release(PulseAssetSystemId _this, PulseAssetRef* ref);
-PULSE_API void pulse_asset_system_unload(PulseAssetSystemId _this, PulseAssetHandle handle);
+PULSE_API bool pulse_asset_system_retain(PulseAssetSystemId _this, PulseAssetHandle handle, EPulseRetainErrorCode* out_error);
+PULSE_API bool pulse_asset_system_release(PulseAssetSystemId _this, PulseAssetHandle handle, EPulseReleaseErrorCode* out_error);
+PULSE_API bool pulse_asset_system_borrow(PulseAssetSystemId _this, PulseAssetHandle handle, void** out_ref, EPulseBorrowErrorCode* out_error);
 PULSE_API void pulse_asset_system_mark_modified(PulseAssetSystemId _this, PulseAssetHandle handle);
 PULSE_API void pulse_asset_system_force_unload_assets(PulseAssetSystemId _this, uint64_t type_id);
 PULSE_API EPulseResult pulse_asset_load_task_add_dependency(PulseAssetLoadDependencyHint* dependency_hint, PulseAssetHandle dependency, EPulseLoadDependencyRequirement requirement);

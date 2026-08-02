@@ -252,34 +252,65 @@ const char* pulse_asset_system_get_error(PulseAssetSystemId asset_system, PulseA
     return system ? system->get_error(handle) : nullptr;
 }
 
-bool pulse_asset_system_acquire(
-    PulseAssetSystemId asset_system,
-    PulseAssetHandle handle,
-    PulseAssetRef* out_ref
-) {
-    pulse::asset::AssetSystem* system = to_impl(asset_system);
-    if (!system) {
-        if (out_ref) {
-            out_ref->handle = pulse::asset::invalid_handle();
-            out_ref->ptr = nullptr;
+bool pulse_asset_system_retain(PulseAssetSystemId asset_system, PulseAssetHandle handle, EPulseRetainErrorCode* out_error) {
+    if (!pulse_asset_handle_is_valid(handle)) {
+        if (out_error) {
+            *out_error = PULSE_RETAIN_ERROR_CODE_HANDLE_IS_INVALID;
         }
         return false;
     }
-    return system->acquire(handle, out_ref);
+
+    pulse::asset::AssetSystem* system = to_impl(asset_system);
+    if (!system) {
+        if (out_error) {
+            *out_error = PULSE_RETAIN_ERROR_CODE_ASSET_SYSTEM_IS_INVALID;
+        }
+        return false;
+    }
+
+    return system->retain(handle, out_error);
 }
 
-void pulse_asset_system_release(PulseAssetSystemId asset_system, PulseAssetRef* ref) {
-    pulse::asset::AssetSystem* system = to_impl(asset_system);
-    if (system) {
-        system->release(ref);
+bool pulse_asset_system_release(PulseAssetSystemId asset_system, PulseAssetHandle handle, EPulseReleaseErrorCode* out_error) {
+    if (!pulse_asset_handle_is_valid(handle)) {
+        if (out_error) {
+            *out_error = PULSE_RELEASE_ERROR_CODE_HANDLE_IS_INVALID;
+        }
+        return false;
     }
+
+    pulse::asset::AssetSystem* system = to_impl(asset_system);
+    if (!system) {
+        if (out_error) {
+            *out_error = PULSE_RELEASE_ERROR_CODE_ASSET_SYSTEM_IS_INVALID;
+        }
+        return false;
+    }
+
+    return system->release(handle, out_error);
 }
 
-void pulse_asset_system_unload(PulseAssetSystemId asset_system, PulseAssetHandle handle) {
-    pulse::asset::AssetSystem* system = to_impl(asset_system);
-    if (system) {
-        system->unload(handle);
+bool pulse_asset_system_borrow(PulseAssetSystemId asset_system, PulseAssetHandle handle, void** out_ref, EPulseBorrowErrorCode* out_error) {
+    if (out_ref) {
+        *out_ref = nullptr;
     }
+
+    if (!pulse_asset_handle_is_valid(handle)) {
+        if (out_error) {
+            *out_error = PULSE_BORROW_ERROR_CODE_HANDLE_IS_INVALID;
+        }
+        return false;
+    }
+
+    pulse::asset::AssetSystem* system = to_impl(asset_system);
+    if (!system) {
+        if (out_error) {
+            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_SYSTEM_IS_INVALID;
+        }
+        return false;
+    }
+
+    return system->borrow(handle, out_ref, out_error);
 }
 
 void pulse_asset_system_mark_modified(PulseAssetSystemId asset_system, PulseAssetHandle handle) {
