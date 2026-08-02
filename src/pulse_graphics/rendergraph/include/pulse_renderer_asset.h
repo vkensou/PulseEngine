@@ -1,8 +1,8 @@
 #pragma once
 
 #include "cgpu/api.h"
-#include "resource_type.h"
 #include <string.h>
+#include "pulse_graphics.h"
 
 #ifdef __cplusplus
 extern "C" {

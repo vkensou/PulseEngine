@@ -3,7 +3,6 @@
 #include "pulse_renderer.h"
 #include "pulse_transform.h"
 #include "pulse_window.h"
-#include "pulse_renderer_asset.h"
 
 #include <vector>
 #include <cstdint>

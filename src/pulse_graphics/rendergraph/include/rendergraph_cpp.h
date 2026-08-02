@@ -1,6 +1,5 @@
 #pragma once
 
-#include "rendergraph.h"
 #include "renderer.h"
 #include "rendergraph_compiler.h"
 #include "rendergraph_executor.h"

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <cmath>
 #include <utility>
+#include "pulse_renderer_asset.h"
 #include "hash.h"
 
 namespace pulse_renderer_internal {
@@ -162,18 +163,6 @@ struct ViewPassData {
 static const char* get_mapped_name(const pulse_renderer_state* state, EPulseRendererPropertyType type) {
     if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT && state->property_names[(int)type])
         return state->property_names[(int)type];
-    return nullptr;
-}
-
-// Helper: find the ubo_info for a renderer-managed UBO by property name
-static const pulse_shader_ubo_info_t* find_managed_ubo(const PulseShaderData* shader, const char* prop_name) {
-    if (!shader || !prop_name) return nullptr;
-    const auto* prop = pulse_find_shader_property(shader, prop_name);
-    if (!prop) return nullptr;
-    for (uint32_t i = 0; i < shader->ubo_info_count; ++i) {
-        if (shader->p_ubo_infos[i].set == prop->set && shader->p_ubo_infos[i].binding == prop->binding)
-            return &shader->p_ubo_infos[i];
-    }
     return nullptr;
 }
 

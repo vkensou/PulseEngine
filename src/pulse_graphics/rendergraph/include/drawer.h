@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stdint.h>
-#include "resource_type.h"
 #include "cgpu/api.h"
 #include "renderer.h"
 

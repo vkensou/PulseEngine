@@ -15,8 +15,6 @@
 #include "descriptorsetpool.h"
 #include <optional>
 #include "profiler.h"
-#include "resource_type.h"
-#include "rendergraph.h"
 #include "pulse_renderer_asset.h"
 
 namespace HGEGraphics
