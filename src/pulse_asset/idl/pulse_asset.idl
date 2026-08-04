@@ -73,7 +73,6 @@ enum.AssetLoadSource { underscore, comment = "Load source type" }
 enum.RetainErrorCode { underscore }
     .AssetSystemIsInvalid
     .HandleIsInvalid
-    .AssetIsFailed
     .AssetIsPendingDelete
     .AssetIsReleased
     ()
@@ -87,8 +86,6 @@ enum.ReleaseErrorCode { underscore }
 enum.BorrowErrorCode { underscore }
     .AssetSystemIsInvalid
     .HandleIsInvalid
-    .AssetIsNotReady
-    .AssetIsFailed
     .AssetIsPendingDelete
     .AssetIsReleased
     ()
@@ -125,10 +122,22 @@ struct.AssetHandle
     .generation "uint32_t"
     ()
 
+struct.AssetRequest
+    .typeId     "uint64_t"
+    .index      "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.AssetDepRef
+    .typeId     "uint64_t"
+    .index      "uint32_t"
+    .generation "uint32_t"
+    ()
+
 --- Asset dependency descriptor
 struct.AssetDependency
-    .handle     "AssetHandle"
-    .requirement   "LoadDependencyRequirement::Enum"
+    .depRef         "AssetDepRef"
+    .requirement    "LoadDependencyRequirement::Enum"
     ()
 
 --- Opaque forward declaration: load dependency hint (implementation defined)
@@ -165,7 +174,7 @@ struct.AssetLoadTask
     .byteSize           "uint64_t"
     .dependencies       "?*const AssetDependency"
     .dependencyCount    "uint32_t"
-    .handle             "AssetHandle"
+    .request            "AssetRequest"
     .userData           "?*anyopaque"
     .outAsset           "*anyopaque"
     .settings           "?*const anyopaque"
@@ -255,38 +264,53 @@ func.AssetSystem.RegisterLoader
     ()
 
 func.AssetSystem.Load
-    "AssetHandle"
+    "AssetRequest"
     .desc  "*const AssetLoadDesc"
     ()
 
 func.AssetSystem.LoadFromMemory
-    "AssetHandle"
+    "AssetRequest"
     .desc  "*const AssetMemoryLoadDesc"
     ()
 
 func.AssetSystem.Build
+    "AssetRequest"
+    .desc  "*const AssetBuildDesc"
+    ()
+
+func.AssetSystem.BuildSync
     "AssetHandle"
     .desc  "*const AssetBuildDesc"
     ()
 
 func.AssetSystem.GetState
     "AssetState::Enum"
-    .handle "AssetHandle"
+    .request "AssetRequest"
     ()
 
 func.AssetSystem.IsAlive
     "bool"
-    .handle "AssetHandle"
+    .request "AssetRequest"
     ()
 
 func.AssetSystem.IsReady
     "bool"
-    .handle "AssetHandle"
+    .request "AssetRequest"
     ()
 
 func.AssetSystem.GetError
     "cstring"
-    .handle "AssetHandle"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.GetHandle
+    "AssetHandle"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.Cancel
+    "void"
+    .request "AssetRequest"
     ()
 
 func.AssetSystem.Retain
@@ -321,6 +345,21 @@ func.AssetSystem.ForceUnloadAssets
 func.AssetLoadTaskAddDependency
     "EPulseResult"
     .dependencyHint "*AssetLoadDependencyHint"
-    .dependency     "AssetHandle"
+    .dependency     "AssetDepRef"
     .requirement    "LoadDependencyRequirement::Enum"
+    ()
+
+func.AssetSystem.ToAssetDepRefFromHandle
+    "AssetDepRef"
+    .handle         "AssetHandle"
+    ()
+
+func.AssetSystem.ToAssetDepRefFromRequest
+    "AssetDepRef"
+    .request        "AssetRequest"
+    ()
+
+func.AssetSystem.ToAssetRequestFromDepRef
+    "AssetRequest"
+    .depRef         "AssetDepRef"
     ()

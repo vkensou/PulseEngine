@@ -105,13 +105,6 @@ bool AssetSystem::retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_err
         return false;
     }
 
-    if (slot->slot.state == PULSE_ASSET_STATE_FAILED) {
-        if (out_error) {
-            *out_error = PULSE_RETAIN_ERROR_CODE_ASSET_IS_FAILED;
-        }
-        return false;
-    }
-
     if (slot->slot.state == PULSE_ASSET_STATE_PENDING_DELETE) {
         if (out_error) {
             *out_error = PULSE_RETAIN_ERROR_CODE_ASSET_IS_PENDING_DELETE;
@@ -174,20 +167,6 @@ bool AssetSystem::borrow(PulseAssetHandle handle, void** out_ptr, EPulseBorrowEr
     if (slot->slot.state == PULSE_ASSET_STATE_PENDING_DELETE) {
         if (out_error) {
             *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_PENDING_DELETE;
-        }
-        return false;
-    }
-
-    if (slot->slot.state == PULSE_ASSET_STATE_FAILED) {
-        if (out_error) {
-            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_FAILED;
-        }
-        return false;
-    }
-
-    if (slot->slot.state != PULSE_ASSET_STATE_LOADED) {
-        if (out_error) {
-            *out_error = PULSE_BORROW_ERROR_CODE_ASSET_IS_NOT_READY;
         }
         return false;
     }
@@ -319,7 +298,8 @@ LoadJobPhase AssetSystem::choose_initial_phase(const LoadRequest& request, Asset
 
     for (uint32_t i = 0; i < request.dependency_count; ++i) {
         const PulseAssetDependency& dep = request.dependencies[i];
-        if (is_invalid_handle(dep.handle)) {
+        PulseAssetHandle dep_handle = dep_ref_to_handle(dep.dep_ref);
+        if (is_invalid_handle(dep_handle)) {
             if (!(dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL)) {
                 slot.state = PULSE_ASSET_STATE_FAILED;
                 slot.error = "required dependency has null handle";
@@ -327,7 +307,7 @@ LoadJobPhase AssetSystem::choose_initial_phase(const LoadRequest& request, Asset
             continue;
         }
 
-        auto dep_slot = storage_.get_slot(dep.handle);
+        auto dep_slot = storage_.get_slot(dep_handle);
         if (!dep_slot) {
             if (!(dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL)) {
                 slot.state = PULSE_ASSET_STATE_FAILED;

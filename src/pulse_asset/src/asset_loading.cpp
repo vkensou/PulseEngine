@@ -46,15 +46,17 @@ void LoadJob::finish(AssetSlot* slot, LoadJobOutcome next_outcome, const char* e
 }
 
 EPulseResult LoadJob::add_dependency(PulseAssetHandle dependency, EPulseLoadDependencyRequirement flags) {
+    PulseAssetDepRef dep_ref = handle_to_dep_ref(dependency);
     auto existing_it = std::find_if(dependencies.begin(), dependencies.end(), [&](const PulseAssetDependency& existing) {
-        return handles_equal(existing.handle, dependency);
+        PulseAssetHandle existing_handle = dep_ref_to_handle(existing.dep_ref);
+        return handles_equal(existing_handle, dependency);
     });
     if (existing_it != dependencies.end()) {
         if (!(flags & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL)) {
             existing_it->requirement = PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED;
         }
     } else {
-        dependencies.push_back({dependency, flags});
+        dependencies.push_back({dep_ref, flags});
     }
 
     ctx.dependencies = dependencies.data();
@@ -71,7 +73,7 @@ void LoadContext::refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
     job.ctx.byte_size = static_cast<uint64_t>(job.bytes.size());
     job.ctx.dependencies = job.dependencies.empty() ? nullptr : job.dependencies.data();
     job.ctx.dependency_count = static_cast<uint32_t>(job.dependencies.size());
-    job.ctx.handle = job.handle;
+    job.ctx.request = handle_to_request(job.handle);
     job.ctx.user_data = job.loader ? job.loader->desc.user_data : nullptr;
     job.ctx.out_asset = slot.data.data;
     job.ctx.settings = job.settings.data;

@@ -73,7 +73,8 @@ void DependencyGraph::evaluate(
     out_ready = true;
 
     for (const PulseAssetDependency& dep : dependencies) {
-        if (is_invalid_handle(dep.handle)) {
+        PulseAssetHandle dep_handle = dep_ref_to_handle(dep.dep_ref);
+        if (is_invalid_handle(dep_handle)) {
             if (dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL) {
                 continue;
             }
@@ -81,7 +82,7 @@ void DependencyGraph::evaluate(
             return;
         }
 
-        auto dep_slot = storage.get_slot(dep.handle);
+        auto dep_slot = storage.get_slot(dep_handle);
         if (!dep_slot) {
             if (dep.requirement & PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL) {
                 continue;
@@ -117,23 +118,24 @@ void DependencyGraph::commit(
     slot.dependencies.clear();
 
     for (const PulseAssetDependency& dep : dependencies) {
-        if (is_invalid_handle(dep.handle)) {
+        PulseAssetHandle dep_handle = dep_ref_to_handle(dep.dep_ref);
+        if (is_invalid_handle(dep_handle)) {
             continue;
         }
 
-        auto dep_slot = storage.get_slot(dep.handle);
+        auto dep_slot = storage.get_slot(dep_handle);
         if (!dep_slot) {
             continue;
         }
 
         bool exists = std::any_of(slot.dependencies.begin(), slot.dependencies.end(), [&](PulseAssetHandle existing) {
-            return handles_equal(existing, dep.handle);
+            return handles_equal(existing, dep_handle);
         });
         if (exists) {
             continue;
         }
 
-        slot.dependencies.push_back(dep.handle);
+        slot.dependencies.push_back(dep_handle);
         dep_slot->slot.dependents.push_back(handle);
     }
 }

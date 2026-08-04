@@ -3,6 +3,7 @@
 #include "pulse_asset.h"
 
 #include <cstdint>
+#include <cstring>
 #include <deque>
 #include <list>
 #include <memory_resource>
@@ -28,6 +29,44 @@ constexpr const char* kPluginName = "PulseAssetPlugin";
 PulseAssetHandle invalid_handle();
 bool is_invalid_handle(PulseAssetHandle handle);
 bool handles_equal(PulseAssetHandle a, PulseAssetHandle b);
+
+// Identity conversions between the API value types.
+// The three structs share the same bit layout; conversions are plain copies.
+inline PulseAssetHandle request_to_handle(PulseAssetRequest request) {
+    PulseAssetHandle handle;
+    std::memcpy(&handle, &request, sizeof(handle));
+    return handle;
+}
+
+inline PulseAssetHandle dep_ref_to_handle(PulseAssetDepRef dep_ref) {
+    PulseAssetHandle handle;
+    std::memcpy(&handle, &dep_ref, sizeof(handle));
+    return handle;
+}
+
+inline PulseAssetRequest handle_to_request(PulseAssetHandle handle) {
+    PulseAssetRequest request;
+    std::memcpy(&request, &handle, sizeof(request));
+    return request;
+}
+
+inline PulseAssetRequest dep_ref_to_request(PulseAssetDepRef dep_ref) {
+    PulseAssetRequest request;
+    std::memcpy(&request, &dep_ref, sizeof(request));
+    return request;
+}
+
+inline PulseAssetDepRef handle_to_dep_ref(PulseAssetHandle handle) {
+    PulseAssetDepRef dep_ref;
+    std::memcpy(&dep_ref, &handle, sizeof(dep_ref));
+    return dep_ref;
+}
+
+inline PulseAssetDepRef request_to_dep_ref(PulseAssetRequest request) {
+    PulseAssetDepRef dep_ref;
+    std::memcpy(&dep_ref, &request, sizeof(dep_ref));
+    return dep_ref;
+}
 
 class PooledBlock final {
 public:
