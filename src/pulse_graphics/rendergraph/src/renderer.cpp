@@ -185,8 +185,8 @@ namespace HGEGraphics
 		mesh->vertices_count = 0;
 		mesh->index_count = 0;
 		mesh->index_stride = 0;
-		mesh->vertex_buffer = nullptr;
-		mesh->index_buffer = nullptr;
+		mesh->vertex_buffer = {};
+		mesh->index_buffer = {};
 		mesh->prepared = false;
 		return std::unique_ptr<PulseMeshData>(mesh);
 	}
@@ -213,7 +213,7 @@ namespace HGEGraphics
 		vertex_buffer_desc.descriptors = update_vertex_data_from_compute_shader ? CGPU_RESOURCE_TYPE_VERTEX_BUFFER | CGPU_RESOURCE_TYPE_RW_BUFFER : CGPU_RESOURCE_TYPE_VERTEX_BUFFER;
 		vertex_buffer_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
 		vertex_buffer_desc.size = vertex_count * mesh->vertex_stride;
-		mesh->vertex_buffer = create_buffer(device, vertex_buffer_desc);
+		mesh->vertex_buffer.ptr = create_buffer(device, vertex_buffer_desc);
 
 		if (index_count > 0)
 		{
@@ -223,7 +223,7 @@ namespace HGEGraphics
 			index_buffer_desc.descriptors = update_index_data_from_compute_shader ? CGPU_RESOURCE_TYPE_INDEX_BUFFER | CGPU_RESOURCE_TYPE_RW_BUFFER : CGPU_RESOURCE_TYPE_INDEX_BUFFER;
 			index_buffer_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
 			index_buffer_desc.size = index_count * mesh->index_stride;
-			mesh->index_buffer = create_buffer(device, index_buffer_desc);
+			mesh->index_buffer.ptr = create_buffer(device, index_buffer_desc);
 		}
 		mesh->prepared = false;
 	}
@@ -250,40 +250,40 @@ namespace HGEGraphics
 			mesh->vertex_stride += vertex_layout.p_attributes[i].elem_stride;
 		}
 		mesh->index_stride = index_stride;
-		mesh->vertex_buffer = create_empty_buffer();
-		mesh->index_buffer = create_empty_buffer();
+		mesh->vertex_buffer.ptr = create_empty_buffer();
+		mesh->index_buffer.ptr = create_empty_buffer();
 		mesh->prepared = true;
 		return mesh;
 	}
 
 	PulseRGBufferHandle declare_dynamic_vertex_buffer(PulseMeshData* mesh, PulseRenderGraphId rg, uint32_t count)
 	{
-		auto dynamic_vertex_buffer = pulse_render_graph_import_dynamic_buffer(rg, mesh->vertex_buffer);
+		auto dynamic_vertex_buffer = pulse_render_graph_import_dynamic_buffer(rg, mesh->vertex_buffer.ptr);
 		pulse_render_graph_buffer_set_size(rg, dynamic_vertex_buffer, count * mesh->vertex_stride);
 		pulse_render_graph_buffer_set_type(rg, dynamic_vertex_buffer, CGPU_RESOURCE_TYPE_VERTEX_BUFFER);
 		pulse_render_graph_buffer_set_usage(rg, dynamic_vertex_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
-		mesh->vertex_buffer->dynamic_handle = dynamic_vertex_buffer;
+		mesh->vertex_buffer.ptr->dynamic_handle = dynamic_vertex_buffer;
 		mesh->vertices_count = count;
-		return mesh->vertex_buffer->dynamic_handle;
+		return mesh->vertex_buffer.ptr->dynamic_handle;
 	}
 
 	PulseRGBufferHandle declare_dynamic_index_buffer(PulseMeshData* mesh, PulseRenderGraphId rg, uint32_t count)
 	{
-		auto dynamic_index_buffer = pulse_render_graph_import_dynamic_buffer(rg, mesh->index_buffer);
+		auto dynamic_index_buffer = pulse_render_graph_import_dynamic_buffer(rg, mesh->index_buffer.ptr);
 		pulse_render_graph_buffer_set_size(rg, dynamic_index_buffer, count * mesh->index_stride);
 		pulse_render_graph_buffer_set_type(rg, dynamic_index_buffer, CGPU_RESOURCE_TYPE_INDEX_BUFFER);
 		pulse_render_graph_buffer_set_usage(rg, dynamic_index_buffer, CGPU_MEMORY_USAGE_GPU_ONLY);
-		mesh->index_buffer->dynamic_handle = dynamic_index_buffer;
+		mesh->index_buffer.ptr->dynamic_handle = dynamic_index_buffer;
 		mesh->index_count = count;
-		return mesh->index_buffer->dynamic_handle;
+		return mesh->index_buffer.ptr->dynamic_handle;
 	}
 
 	void dynamic_mesh_reset(PulseMeshData* mesh)
 	{
 		mesh->vertices_count = 0;
 		mesh->index_count = 0;
-		mesh->vertex_buffer->dynamic_handle = {};
-		mesh->index_buffer->dynamic_handle = {};
+		mesh->vertex_buffer.ptr->dynamic_handle = {};
+		mesh->index_buffer.ptr->dynamic_handle = {};
 	}
 
 	void free_mesh(PulseMeshData* mesh)
@@ -293,15 +293,15 @@ namespace HGEGraphics
 			delete[] mesh->p_vertex_attributes;
 			mesh->p_vertex_attributes = nullptr;
 		}
-		if (mesh->vertex_buffer)
+		if (mesh->vertex_buffer.ptr)
 		{
-			free_buffer(mesh->vertex_buffer);
-			mesh->vertex_buffer = nullptr;
+			free_buffer(mesh->vertex_buffer.ptr);
+			mesh->vertex_buffer = {};
 		}
-		if (mesh->index_buffer)
+		if (mesh->index_buffer.ptr)
 		{
-			free_buffer(mesh->index_buffer);
-			mesh->index_buffer = nullptr;
+			free_buffer(mesh->index_buffer.ptr);
+			mesh->index_buffer = {};
 		}
 	}
 
@@ -1016,16 +1016,16 @@ namespace HGEGraphics
 	void update_mesh(RenderPassEncoder* encoder, PulseMeshData* mesh)
 	{
 		CGPUBufferId vertex_buffer = CGPU_NULLPTR;
-		if (mesh->vertex_buffer)
+		if (mesh->vertex_buffer.ptr)
 		{
-			if (pulse_rgbuffer_handle_is_valid(mesh->vertex_buffer->dynamic_handle))
+			if (pulse_rgbuffer_handle_is_valid(mesh->vertex_buffer.ptr->dynamic_handle))
 			{
-				auto vertex_buffer_handle = mesh->vertex_buffer->dynamic_handle;
+				auto vertex_buffer_handle = mesh->vertex_buffer.ptr->dynamic_handle;
 				vertex_buffer = pulse_render_pass_encoder_resolve_buffer((PulseRenderPassEncoder*)encoder, vertex_buffer_handle);
 			}
 			else
 			{
-				vertex_buffer = mesh->vertex_buffer->handle;
+				vertex_buffer = mesh->vertex_buffer.ptr->handle;
 			}
 		}
 		const uint32_t vert_stride = mesh->vertex_stride;
@@ -1038,16 +1038,16 @@ namespace HGEGraphics
 		}
 
 		CGPUBufferId index_buffer = CGPU_NULLPTR;
-		if (mesh->index_buffer)
+		if (mesh->index_buffer.ptr)
 		{
-			if (pulse_rgbuffer_handle_is_valid(mesh->index_buffer->dynamic_handle))
+			if (pulse_rgbuffer_handle_is_valid(mesh->index_buffer.ptr->dynamic_handle))
 			{
-				auto index_buffer_handle = mesh->index_buffer->dynamic_handle;
+				auto index_buffer_handle = mesh->index_buffer.ptr->dynamic_handle;
 				index_buffer = pulse_render_pass_encoder_resolve_buffer((PulseRenderPassEncoder*)encoder, index_buffer_handle);
 			}
 			else
 			{
-				index_buffer = mesh->index_buffer->handle;
+				index_buffer = mesh->index_buffer.ptr->handle;
 			}
 		}
 		const uint32_t index_stride = mesh->index_stride;

@@ -8,7 +8,7 @@ void destroy_sampler(void* ptr, void* user_data) {
     if (data->handle) cgpu_device_free_sampler(device, data->handle);
 }
 
-void register_sampler_type(PulseAppId app, CGPUDeviceId device)
+void register_sampler_type(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetTypeDesc type_desc{};
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
@@ -18,32 +18,27 @@ void register_sampler_type(PulseAppId app, CGPUDeviceId device)
     type_desc.align = alignof(PulseSamplerData);
     type_desc.destroy = destroy_sampler;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
-    PulseAssetSystemId as = pulse_get_asset_system(app);
-    pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
+    pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
 }
 
 extern "C" {
 
-bool pulse_acquire_sampler(PulseAppId app, PulseSamplerHandle handle, PulseSampler* sampler_ref) {
-    PulseAssetRef ref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_sampler_to_handle(handle), &ref)) {
-        sampler_ref->handle = handle;
-        sampler_ref->ptr = static_cast<PulseSamplerData*>(ref.ptr);
-        return true;
-    }
-
-    sampler_ref->handle = {};
-    sampler_ref->ptr = nullptr;
-    return false;
+PulseSamplerHandle pulse_sampler_get_handle(PulseAppId app, PulseSamplerRequest request) {
+    PulseAssetHandle h = pulse_asset_system_get_handle(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_sampler_request_to_asset_request(request));
+    return !pulse_asset_handle_is_valid(h) ? PulseSamplerHandle{} : PulseSamplerHandle{h.index, h.generation};
 }
 
-void pulse_release_sampler(PulseAppId app, PulseSampler* sampler_ref) {
-    PulseAssetRef ref{ pulse_sampler_to_handle(sampler_ref->handle), nullptr };
-    pulse_asset_system_release(pulse_get_asset_system(app), &ref);
-    sampler_ref->handle = {};
-    sampler_ref->ptr = nullptr;
+bool pulse_sampler_is_ready(PulseAppId app, PulseSamplerRequest request) {
+    return pulse_asset_system_is_ready(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_sampler_request_to_asset_request(request));
+}
+
+bool pulse_sampler_is_alive(PulseAppId app, PulseSamplerRequest request) {
+    return pulse_asset_system_is_alive(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_sampler_request_to_asset_request(request));
 }
 
 } // extern "C"

@@ -138,12 +138,13 @@ namespace HGEGraphics
 	{
 		using allocator_type = std::pmr::polymorphic_allocator<std::byte>;
 
-		pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource);
+		pulse_rendergraph_impl_t(PulseAssetSystemId asset_system, size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource);
 
 		std::pmr::vector<ResourceNode> resources;
 		std::pmr::vector<RenderPassNode> passes;
 		std::pmr::vector<RenderGraphEdge> edges;
 		allocator_type allocator;
+		PulseAssetSystemId asset_system;
 		PulseShaderData* blitShader;
 		CGPUSamplerId blitSampler;
 		std::pmr::vector<PulseTextureData*> imported_textures;

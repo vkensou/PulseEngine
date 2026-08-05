@@ -51,7 +51,8 @@ EPulseAssetLoaderStatus step_texture_stb(
 
         auto* gstate = state_from_app(ctx->app);
         if (gstate) {
-            auto* staging = queue_staging_texture_full(gstate, texture, 1, (mipLevels > 1), nullptr, &s->upload_completed);
+            PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
+            auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, (mipLevels > 1), nullptr, &s->upload_completed);
             memcpy(staging, pixels, w * h * 4);
         } else {
             stbi_image_free(pixels);
@@ -174,7 +175,8 @@ EPulseAssetLoaderStatus step_texture_ktx(
 
         bool genMip = mipLevels > ktxTexture->numLevels;
         uint64_t totalSize = 0;
-        auto* staging = queue_staging_texture_full(gstate, texture,
+        PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
+        auto* staging = queue_staging_texture_full(gstate, handle, texture,
             static_cast<uint8_t>(ktxTexture->numLevels), genMip,
             &totalSize, &s->upload_completed);
 
@@ -212,7 +214,7 @@ EPulseAssetLoaderStatus step_texture_ktx(
     return PULSE_ASSET_LOADER_STATUS_PENDING;
 }
 
-void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
+void register_texture_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld1{};
     ld1.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -227,7 +229,7 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
     ld1.settings_size = sizeof(PulseTextureLoadDesc);
     ld1.settings_align = alignof(PulseTextureLoadDesc);
     ld1.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld1);
+    pulse_asset_system_register_loader(asset_system, &ld1);
 
     PulseAssetLoaderDesc ld2{};
     ld2.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -242,20 +244,21 @@ void register_texture_load_loader(PulseAppId app, CGPUDeviceId device)
     ld2.settings_size = sizeof(PulseTextureLoadDesc);
     ld2.settings_align = alignof(PulseTextureLoadDesc);
     ld2.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld2);
+    pulse_asset_system_register_loader(asset_system, &ld2);
 }
 
 }
 
 extern "C" {
 
-    PulseTextureHandle pulse_load_texture(
+    PulseTextureRequest pulse_load_texture(
         PulseAppId app,
         const PulseTextureLoadDesc* desc)
     {
-        PulseAssetHandle h = pulse_graphics_internal::asset_load_path(app, PULSE_TYPE_TEXTURE, desc->filepath, desc);
-        if (!pulse_asset_handle_is_valid(h)) return PulseTextureHandle{};
-        return PulseTextureHandle{ h.index, h.generation };
+        PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+        PulseAssetRequest request = pulse_graphics_internal::asset_load_path(as, PULSE_TYPE_TEXTURE, desc->filepath, desc);
+        if (!pulse_asset_request_is_valid(request)) return PulseTextureRequest{};
+        return PulseTextureRequest{ request.index, request.generation };
     }
 
 }

@@ -16,10 +16,9 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
     if (!device) { *out_error = "shader loader: no device"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
-    auto csHandle = ctx->dependencies[0].handle;
-    PulseShaderLibraryHandle cs = { csHandle.index, csHandle.generation };
+    auto csRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[0].dep_ref);
     if (!s->csPrepared) {
-        auto csState = pulse_asset_system_get_state(ctx->asset_system, csHandle);
+        auto csState = pulse_asset_system_get_state(ctx->asset_system, csRequest);
         if (csState == PULSE_ASSET_STATE_LOADED)
             s->csPrepared = true;
         else if (csState == PULSE_ASSET_STATE_FAILED || csState == PULSE_ASSET_STATE_PENDING_DELETE) {
@@ -33,13 +32,14 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
     if (!s->csPrepared)
         return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;
 
-    PulseShaderLibrary cs_ref{};
-    if (!internal_acquire_shader_library(ctx->asset_system, cs, &cs_ref)) {
+    PulseShaderLibraryHandle cs = pulse_shader_library_get_handle(ctx->app, { csRequest.index, csRequest.generation });
+    PulseShaderLibraryData* cs_data = internal_borrow_shader_library(ctx->asset_system, cs);
+    if (!cs_data) {
         *out_error = "shader create loader: failed to acquire compute shader library";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
-    CGPUShaderLibraryId cs_lib = static_cast<PulseShaderLibraryData*>(cs_ref.ptr)->library;
+    CGPUShaderLibraryId cs_lib = cs_data->library;
 
     CGPUShaderEntryDescriptor ppl_shaders[1];
     ppl_shaders[0].stage = CGPU_SHADER_STAGE_COMPUTE;
@@ -55,12 +55,10 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
     data->root_sig = root_sig;
     data->cs = ppl_shaders[0];
 
-    internal_release_shader_library(ctx->asset_system, &cs_ref);
-
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
-void register_compute_shader_create_loaders(PulseAppId app, CGPUDeviceId device)
+void register_compute_shader_create_loaders(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -75,7 +73,7 @@ void register_compute_shader_create_loaders(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = 0;
     ld.settings_align = 0;
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 } // namespace pulse_graphics_internal
@@ -95,20 +93,21 @@ PulseComputeShaderHandle pulse_create_compute_shader_from_binary(
         desc->cs_size
     };
 
+    PulseAssetSystemId as = asset_system_from_app(app);
     auto cs = pulse_create_shader_library(app, &cs_desc);
-    if (!pulse_shader_library_is_alive(app, cs)) return {};
+    if (!pulse_asset_handle_is_valid(pulse_shader_library_to_handle(cs))) return {};
     PulseAssetDependency deps[] = {
-        { pulse_shader_library_to_handle(cs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_asset_system_to_asset_dep_ref_from_handle(as, pulse_shader_library_to_handle(cs)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
-    PulseAssetHandle h = asset_build(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
+    PulseAssetHandle h = asset_build_sync(as, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
     if (!pulse_asset_handle_is_valid(h)) {
-        pulse_unload_shader_library(app, cs);
+        pulse_asset_system_release(as, pulse_shader_library_to_handle(cs), nullptr);
         return {};
     }
     return { h.index, h.generation };
 }
 
-PulseComputeShaderHandle pulse_create_compute_shader_from_file(
+PulseComputeShaderRequest pulse_create_compute_shader_from_file(
     PulseAppId app,
     const PulseComputeShaderCreateFromFileDesc* desc)
 {
@@ -118,17 +117,18 @@ PulseComputeShaderHandle pulse_create_compute_shader_from_file(
         desc->cs_path
     };
 
+    PulseAssetSystemId as = asset_system_from_app(app);
     auto cs = pulse_load_shader_library(app, &cs_desc);
     if (!pulse_shader_library_is_alive(app, cs)) return {};
     PulseAssetDependency deps[] = {
-        { pulse_shader_library_to_handle(cs), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_asset_system_to_asset_dep_ref_from_request(as, pulse_shader_library_request_to_asset_request(cs)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
-    PulseAssetHandle h = asset_build(app, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
-    if (!pulse_asset_handle_is_valid(h)) {
-        pulse_unload_shader_library(app, cs);
+    PulseAssetRequest request = asset_build(as, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
+    if (!pulse_asset_request_is_valid(request)) {
+        pulse_asset_system_cancel(as, pulse_shader_library_request_to_asset_request(cs));
         return {};
     }
-    return { h.index, h.generation };
+    return { request.index, request.generation };
 }
 
 } // extern "C"

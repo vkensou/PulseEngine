@@ -53,8 +53,8 @@ static void allocate_passdata(pulse_rendergraph_impl_t* self, RenderPassNode* pa
 }
 
 // pulse_rendergraph_impl_t constructor
-pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
-	: allocator(resource), resources(resource), passes(resource), edges(resource), blitShader(blitShader), blitSampler(blitSampler), imported_textures(resource), imported_buffers(resource)
+pulse_rendergraph_impl_t::pulse_rendergraph_impl_t(PulseAssetSystemId asset_system, size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
+	: allocator(resource), asset_system(asset_system), resources(resource), passes(resource), edges(resource), blitShader(blitShader), blitSampler(blitSampler), imported_textures(resource), imported_buffers(resource)
 {
 	resources.reserve(estimate_resource_count);
 	resources.push_back({});
@@ -81,9 +81,10 @@ RenderPassNode::RenderPassNode(const char* name, pass_type type, std::pmr::memor
 // C API implementations
 extern "C" {
 
-PulseRenderGraphId pulse_create_render_graph(uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler)
+PulseRenderGraphId pulse_create_render_graph(PulseAssetSystemId asset_system, uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler)
 {
 	auto* impl = new pulse_rendergraph_impl_t(
+		asset_system,
 		estimate_resource_count, estimate_pass_count, estimate_edge_count,
 		(PulseShaderData*)blit_shader, blit_sampler,
 		std::pmr::new_delete_resource());
@@ -129,7 +130,7 @@ PulseRGTextureHandle pulse_render_graph_declare_texture(PulseRenderGraphId self)
 	return make_texture_handle(impl->resources.size() - 1);
 }
 
-PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId self, PulseTextureData* imported)
+PulseRGTextureHandle pulse_render_graph_import_texture_impl(PulseRenderGraphId self, PulseTextureData* imported)
 {
 	auto* impl = to_impl(self);
 	if (is_valid_dynamic_texture_handle(impl->resources, imported->dynamic_handle))
@@ -153,6 +154,21 @@ PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId self, 
 	return handle;
 }
 
+PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId self, PulseTextureHandle imported)
+{
+	auto* impl = to_impl(self);
+	PulseTextureData* data = nullptr;
+	if (impl->asset_system)
+	{
+		void* ptr = nullptr;
+		if (pulse_asset_system_borrow(impl->asset_system, pulse_texture_to_handle(imported), &ptr, nullptr))
+			data = static_cast<PulseTextureData*>(ptr);
+	}
+	if (!data)
+		return {};
+	return pulse_render_graph_import_texture_impl(self, data);
+}
+
 PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderGraphId self, pulse_backbuffer_data_t* imported)
 {
 	auto* impl = to_impl(self);
@@ -162,7 +178,7 @@ PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderGraphId sel
 	auto texture = &imported->texture;
 	texture->p_cur_states[0] = CGPU_RESOURCE_STATE_UNDEFINED;
 	texture->states_consistent = true;
-	return pulse_render_graph_import_texture(self, texture);
+	return pulse_render_graph_import_texture_impl(self, texture);
 }
 
 PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId self)
@@ -177,7 +193,7 @@ PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId self)
 	return make_buffer_handle(impl->resources.size() - 1);
 }
 
-PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId self, PulseGraphicsBufferData* imported)
+PulseRGBufferHandle pulse_render_graph_import_buffer_impl(PulseRenderGraphId self, PulseGraphicsBufferData* imported)
 {
 	auto* impl = to_impl(self);
 	assert(impl->resources.size() <= PULSE_RENDER_GRAPH_MAX_INDEX);
@@ -192,6 +208,21 @@ PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId self, Pu
 	resourceNode.bufferType = imported->type;
 	resourceNode.memoryUsage = (ECGPUMemoryUsage)imported->handle->info->memory_usage;
 	return make_buffer_handle(impl->resources.size() - 1);
+}
+
+PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId self, PulseGraphicsBufferHandle imported)
+{
+	auto* impl = to_impl(self);
+	PulseGraphicsBufferData* data = nullptr;
+	if (impl->asset_system)
+	{
+		void* ptr = nullptr;
+		if (pulse_asset_system_borrow(impl->asset_system, pulse_graphics_buffer_to_handle(imported), &ptr, nullptr))
+			data = static_cast<PulseGraphicsBufferData*>(ptr);
+	}
+	if (!data)
+		return {};
+	return pulse_render_graph_import_buffer_impl(self, data);
 }
 
 PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId self, void* imported)

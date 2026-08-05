@@ -6,16 +6,88 @@ static HGEGraphics::RenderPassEncoder* to_cpp_encoder(PulseRenderPassEncoder* en
     return reinterpret_cast<HGEGraphics::RenderPassEncoder*>(encoder);
 }
 
-extern "C" {
-
-void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* encoder, PulseMaterial material, PulseMesh mesh) {
+static PulseAssetSystemId asset_system_from_encoder(PulseRenderPassEncoder* encoder) {
     auto* cpp_encoder = to_cpp_encoder(encoder);
-    if (cpp_encoder) {
-        HGEGraphics::draw(cpp_encoder, static_cast<PulseMaterialData*>(material.ptr), static_cast<PulseMeshData*>(mesh.ptr));
-    }
+    return (cpp_encoder && cpp_encoder->context) ? cpp_encoder->context->asset_system : nullptr;
 }
 
-void pulse_renderpass_encoder_set_global_texture_handle(PulseRenderPassEncoder* encoder, PulseRGTextureHandle handle, uint32_t set, uint32_t binding) {
+extern "C" {
+
+void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, PulseMeshHandle mesh) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, material);
+    if (!mat) return;
+    PulseMeshData* m = pulse_graphics_internal::internal_borrow_mesh(as, mesh);
+    if (!m) return;
+    HGEGraphics::draw(cpp_encoder, mat, m);
+}
+
+void pulse_render_pass_encoder_draw_submesh(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, material);
+    if (!mat) return;
+    PulseMeshData* m = pulse_graphics_internal::internal_borrow_mesh(as, mesh);
+    if (!m) return;
+    HGEGraphics::draw_submesh(cpp_encoder, mat, m, idx_count, first_idx, vtx_count, first_vtx);
+}
+
+void pulse_render_pass_encoder_draw_procedure(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, ECGPUPrimitiveTopology topology, uint32_t vertex_count) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, material);
+    if (!mat) return;
+    HGEGraphics::draw_procedure(cpp_encoder, mat, topology, vertex_count);
+}
+
+void pulse_render_pass_encoder_dispatch(PulseRenderPassEncoder* encoder, PulseComputeShaderHandle compute_shader, uint32_t x, uint32_t y, uint32_t z) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseComputeShaderData* cs = pulse_graphics_internal::internal_borrow_compute_shader(as, compute_shader);
+    if (!cs) return;
+    HGEGraphics::dispatch(cpp_encoder, cs, x, y, z);
+}
+
+void pulse_render_pass_encoder_set_global_texture(PulseRenderPassEncoder* encoder, PulseTextureHandle texture, uint32_t set, uint32_t binding) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseTextureData* tex = pulse_graphics_internal::internal_borrow_texture(as, texture);
+    if (!tex) return;
+    HGEGraphics::set_global_texture(cpp_encoder, tex, (int)set, (int)binding);
+}
+
+void pulse_render_pass_encoder_set_global_buffer(PulseRenderPassEncoder* encoder, PulseGraphicsBufferHandle buffer, uint32_t set, uint32_t binding) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseGraphicsBufferData* buf = pulse_graphics_internal::internal_borrow_buffer(as, buffer);
+    if (!buf) return;
+    HGEGraphics::set_global_buffer(cpp_encoder, buf, (int)set, (int)binding);
+}
+
+void pulse_render_pass_encoder_set_global_sampler(PulseRenderPassEncoder* encoder, PulseSamplerHandle sampler, uint32_t set, uint32_t binding) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseSamplerData* smp = pulse_graphics_internal::internal_borrow_sampler(as, sampler);
+    if (!smp) return;
+    HGEGraphics::set_global_sampler(cpp_encoder, smp->handle, (int)set, (int)binding);
+}
+
+void pulse_render_pass_encoder_set_global_texture_handle(PulseRenderPassEncoder* encoder, PulseRGTextureHandle handle, uint32_t set, uint32_t binding) {
     auto* cpp_encoder = to_cpp_encoder(encoder);
     if (cpp_encoder) {
         HGEGraphics::set_global_texture_handle(cpp_encoder, handle, (int)set, (int)binding);
@@ -50,32 +122,14 @@ void pulse_render_pass_encoder_set_scissor(PulseRenderPassEncoder* encoder, uint
     }
 }
 
-void pulse_renderpass_encoder_push_constants(PulseRenderPassEncoder* encoder, PulseShader shader, const char* name, const void* data) {
-    (void)encoder; (void)shader; (void)name; (void)data;
-}
+void pulse_render_pass_encoder_push_constants(PulseRenderPassEncoder* encoder, PulseShaderHandle shader, const char* name, const void* data) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
 
-void pulse_renderpass_encoder_draw_submesh(PulseRenderPassEncoder* encoder, PulseMaterial material, PulseMesh mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx) {
-    (void)encoder; (void)material; (void)mesh; (void)idx_count; (void)first_idx; (void)vtx_count; (void)first_vtx;
-}
-
-void pulse_renderpass_encoder_draw_procedure(PulseRenderPassEncoder* encoder, PulseMaterial material, ECGPUPrimitiveTopology topology, uint32_t vertex_count) {
-    (void)encoder; (void)material; (void)topology; (void)vertex_count;
-}
-
-void pulse_renderpass_encoder_dispatch(PulseRenderPassEncoder* encoder, PulseComputeShader compute_shader, uint32_t x, uint32_t y, uint32_t z) {
-    (void)encoder; (void)compute_shader; (void)x; (void)y; (void)z;
-}
-
-void pulse_renderpass_encoder_set_global_texture(PulseRenderPassEncoder* encoder, PulseTexture texture, uint32_t set, uint32_t binding) {
-    (void)encoder; (void)texture; (void)set; (void)binding;
-}
-
-void pulse_renderpass_encoder_set_global_buffer(PulseRenderPassEncoder* encoder, PulseGraphicsBuffer buffer, uint32_t set, uint32_t binding) {
-    (void)encoder; (void)buffer; (void)set; (void)binding;
-}
-
-void pulse_renderpass_encoder_set_global_sampler(PulseRenderPassEncoder* encoder, PulseSampler sampler, uint32_t set, uint32_t binding) {
-    (void)encoder; (void)sampler; (void)set; (void)binding;
+    PulseShaderData* shader_data = pulse_graphics_internal::internal_borrow_shader(as, shader);
+    if (!shader_data) return;
+    HGEGraphics::push_constants(cpp_encoder, shader_data, name, data);
 }
 
 } // extern "C"

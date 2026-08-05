@@ -24,14 +24,12 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
         case UPLOAD_TEXTURE:
         case UPLOAD_TEXTURE_DATA: {
             PulseTextureData* tex = entry.texture_data;
-            PulseTexture ref{};
-            if (!tex) {
-                if (pulse_acquire_texture(app, entry.texture, &ref))
-                    tex = static_cast<PulseTextureData*>(ref.ptr);
-            }
+            if (!tex)
+                tex = internal_borrow_texture(st->asset_system, entry.texture);
             if (!tex) break;
 
-            auto tex_rh = pulse_render_graph_import_texture(graph, tex);
+            auto tex_rh = pulse_render_graph_import_texture(graph, entry.texture);
+            if (!pulse_rgtexture_handle_is_valid(tex_rh)) break;
             if (entry.data && entry.data_size > 0) {
                 auto* info = tex->handle->info;
                 auto mipedSize = [](uint64_t s, uint64_t m) { return std::max<uint64_t>(s >> m, 1ull); };
@@ -60,21 +58,22 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
                     pulse_render_graph_add_generate_mipmap(graph, tex_rh, entry.source_mip_levels);
             }
 
-            if (ref.ptr) pulse_release_texture(app, &ref);
             done = true;
             break;
         }
         case UPLOAD_BUFFER:
         case UPLOAD_BUFFER_DATA: {
             PulseGraphicsBufferData* buf = entry.buffer_data;
-            PulseGraphicsBuffer ref{};
-            if (!buf) {
-                if (pulse_acquire_graphics_buffer(app, entry.buffer, &ref))
-                    buf = static_cast<PulseGraphicsBufferData*>(ref.ptr);
-            }
+            if (!buf)
+                buf = internal_borrow_buffer(st->asset_system, entry.buffer);
             if (!buf) break;
 
-            auto buf_rh = pulse_render_graph_import_buffer(graph, buf);
+            PulseRGBufferHandle buf_rh = {};
+            if (pulse_asset_handle_is_valid(pulse_graphics_buffer_to_handle(entry.buffer)))
+                buf_rh = pulse_render_graph_import_buffer(graph, entry.buffer);
+            else
+                buf_rh = pulse_render_graph_import_dynamic_buffer(graph, buf);
+            if (!pulse_rgbuffer_handle_is_valid(buf_rh)) break;
             if (entry.data && entry.data_size > 0) {
                 pulse_render_graph_add_uploadbufferpass_ex(
                     graph, "buf_up", buf_rh,
@@ -82,7 +81,6 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
                     const_cast<void*>(entry.data), nullptr, 0, nullptr);
             }
 
-            if (ref.ptr) pulse_release_graphics_buffer(app, &ref);
             done = true;
             break;
         }
@@ -103,15 +101,13 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
     for (auto& entry : st->dynamic_updates) {
         if (entry.content == UPLOAD_BUFFER || entry.content == UPLOAD_BUFFER_DATA) {
             PulseGraphicsBufferData* buf = entry.buffer_data;
-            PulseGraphicsBuffer ref{};
-            if (!buf) {
-                if (pulse_acquire_graphics_buffer(app, entry.buffer, &ref))
-                    buf = static_cast<PulseGraphicsBufferData*>(ref.ptr);
-            }
-            if (buf) {
-                (void)pulse_render_graph_import_buffer(graph, buf);
-            }
-            if (ref.ptr) pulse_release_graphics_buffer(app, &ref);
+            if (!buf)
+                buf = internal_borrow_buffer(st->asset_system, entry.buffer);
+            if (!buf) continue;
+            if (pulse_asset_handle_is_valid(pulse_graphics_buffer_to_handle(entry.buffer)))
+                (void)pulse_render_graph_import_buffer(graph, entry.buffer);
+            else
+                (void)pulse_render_graph_import_dynamic_buffer(graph, buf);
         }
     }
     st->dynamic_updates.clear();
@@ -119,6 +115,7 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
 
 uint8_t* queue_staging_texture_full(
     pulse_graphics_state* gstate,
+    PulseTextureHandle handle,
     PulseTextureData* texture,
     uint8_t source_mip_levels,
     bool generate_mipmap,
@@ -143,7 +140,7 @@ uint8_t* queue_staging_texture_full(
     auto* ptr = static_cast<uint8_t*>(gstate->staging_pool.allocate(totalSize, alignof(std::max_align_t)));
 
     gstate->pending_uploads.push_back({
-        UPLOAD_TEXTURE_DATA, {}, {},
+        UPLOAD_TEXTURE_DATA, handle, {},
         texture, {},
         ptr, totalSize,
         completed,
@@ -157,6 +154,7 @@ uint8_t* queue_staging_texture_full(
 
 uint8_t* queue_staging_buffer_full(
     pulse_graphics_state* gstate,
+    PulseGraphicsBufferHandle handle,
     PulseGraphicsBufferData* buffer,
     uint64_t size,
     bool* completed)
@@ -164,7 +162,7 @@ uint8_t* queue_staging_buffer_full(
     auto* ptr = static_cast<uint8_t*>(gstate->staging_pool.allocate(size, alignof(std::max_align_t)));
 
     gstate->pending_uploads.push_back({
-        UPLOAD_BUFFER_DATA, {}, {},
+        UPLOAD_BUFFER_DATA, {}, handle,
         nullptr, buffer,
         ptr, size,
         completed

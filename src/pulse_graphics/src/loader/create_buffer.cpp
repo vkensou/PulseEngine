@@ -33,7 +33,8 @@ EPulseAssetLoaderStatus step_buffer_create(
         if (create_desc->data && create_desc->data_size > 0) {
             auto* gstate = state_from_app(ctx->app);
             if (gstate) {
-                auto* staging = queue_staging_buffer_full(gstate, buf, create_desc->data_size, &s->upload_completed);
+                PulseGraphicsBufferHandle handle = { ctx->request.index, ctx->request.generation };
+                auto* staging = queue_staging_buffer_full(gstate, handle, buf, create_desc->data_size, &s->upload_completed);
                 memcpy(staging, create_desc->data, create_desc->data_size);
             }
             else {
@@ -54,7 +55,7 @@ EPulseAssetLoaderStatus step_buffer_create(
     return PULSE_ASSET_LOADER_STATUS_PENDING;
 }
 
-void register_buffer_create_loader(PulseAppId app, CGPUDeviceId device)
+void register_buffer_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -69,14 +70,14 @@ void register_buffer_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = sizeof(PulseGraphicsBufferCreateDesc);
     ld.settings_align = alignof(PulseGraphicsBufferCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 }
 
 extern "C" {
 
-PulseGraphicsBufferHandle pulse_create_graphics_buffer(
+PulseGraphicsBufferRequest pulse_create_graphics_buffer(
     PulseAppId app,
     const PulseGraphicsBufferCreateDesc* desc)
 {
@@ -87,12 +88,13 @@ PulseGraphicsBufferHandle pulse_create_graphics_buffer(
     if (!device)
         return {};
 
-    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_GRAPHICS_BUFFER, nullptr, nullptr, 0, desc);
-    if (!pulse_asset_handle_is_valid(asset_handle))
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+    PulseAssetRequest request = pulse_graphics_internal::asset_build(
+        as, PULSE_TYPE_GRAPHICS_BUFFER, nullptr, nullptr, 0, desc);
+    if (!pulse_asset_request_is_valid(request))
         return {};
 
-    return { asset_handle.index, asset_handle.generation };
+    return { request.index, request.generation };
 }
 
 }

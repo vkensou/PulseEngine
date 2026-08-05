@@ -1,4 +1,4 @@
-﻿#include "../graphics_internal.h"
+#include "../graphics_internal.h"
 
 namespace pulse_graphics_internal {
 
@@ -10,7 +10,7 @@ static void destroy_shader(void* ptr, void* user_data) {
     HGEGraphics::free_shader(data);
 }
 
-void register_shader_type(PulseAppId app, CGPUDeviceId device)
+void register_shader_type(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetTypeDesc type_desc{};
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
@@ -20,7 +20,7 @@ void register_shader_type(PulseAppId app, CGPUDeviceId device)
     type_desc.align = alignof(PulseShaderData);
     type_desc.destroy = destroy_shader;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
+    pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
 } // namespace pulse_graphics_internal
@@ -29,39 +29,40 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-uint32_t pulse_shader_get_shader_property_count(PulseShader self) {
-    return self.ptr->property_count;
+PulseShaderHandle pulse_shader_get_handle(PulseAppId app, PulseShaderRequest request) {
+    PulseAssetHandle h = pulse_asset_system_get_handle(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_shader_request_to_asset_request(request));
+    return !pulse_asset_handle_is_valid(h) ? PulseShaderHandle{} : PulseShaderHandle{h.index, h.generation};
 }
 
-PulseShaderProperty pulse_shader_get_shader_property(PulseShader self, uint32_t index) {
-    return self.ptr->p_properties[index];
+bool pulse_shader_is_ready(PulseAppId app, PulseShaderRequest request) {
+    return pulse_asset_system_is_ready(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_shader_request_to_asset_request(request));
 }
 
-uint32_t pulse_shader_get_ubo_info_count(PulseShader self) {
-    return self.ptr->ubo_info_count;
+bool pulse_shader_is_alive(PulseAppId app, PulseShaderRequest request) {
+    return pulse_asset_system_is_alive(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_shader_request_to_asset_request(request));
 }
 
-PulseUboInfo pulse_shader_get_ubo_info(PulseShader self, uint32_t index) {
-    return self.ptr->p_ubo_infos[index];
+uint32_t pulse_shader_get_shader_property_count(PulseAppId app, PulseShaderHandle self) {
+    PulseShaderData* shader = pulse_graphics_internal::internal_borrow_shader(pulse_graphics_internal::asset_system_from_app(app), self);
+    return shader ? shader->property_count : 0;
 }
 
-bool pulse_acquire_shader(PulseAppId app, PulseShaderHandle handle, PulseShader* ref) {
-    PulseAssetRef aref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_to_handle(handle), &aref)) {
-        ref->handle = handle;
-        ref->ptr = static_cast<PulseShaderData*>(aref.ptr);
-        return true;
-    }
-    ref->handle = {};
-    ref->ptr = nullptr;
-    return false;
+PulseShaderProperty pulse_shader_get_shader_property(PulseAppId app, PulseShaderHandle self, uint32_t index) {
+    PulseShaderData* shader = pulse_graphics_internal::internal_borrow_shader(pulse_graphics_internal::asset_system_from_app(app), self);
+    return shader ? shader->p_properties[index] : PulseShaderProperty{};
 }
 
-void pulse_release_shader(PulseAppId app, PulseShader* ref) {
-    PulseAssetRef aref{ pulse_shader_to_handle(ref->handle), nullptr };
-    pulse_asset_system_release(pulse_get_asset_system(app), &aref);
-    ref->handle = {};
-    ref->ptr = nullptr;
+uint32_t pulse_shader_get_ubo_info_count(PulseAppId app, PulseShaderHandle self) {
+    PulseShaderData* shader = pulse_graphics_internal::internal_borrow_shader(pulse_graphics_internal::asset_system_from_app(app), self);
+    return shader ? shader->ubo_info_count : 0;
+}
+
+PulseUboInfo pulse_shader_get_ubo_info(PulseAppId app, PulseShaderHandle self, uint32_t index) {
+    PulseShaderData* shader = pulse_graphics_internal::internal_borrow_shader(pulse_graphics_internal::asset_system_from_app(app), self);
+    return shader ? shader->p_ubo_infos[index] : PulseUboInfo{};
 }
 
 } // extern "C"

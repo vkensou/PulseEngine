@@ -27,7 +27,8 @@ EPulseAssetLoaderStatus step_texture_create(
 			auto* gstate = state_from_app(ctx->app);
 			if (gstate) {
                 uint64_t staging_size = 0;
-				auto* staging = queue_staging_texture_full(gstate, texture, 1, create_desc->generate_mipmaps, &staging_size, &s->upload_completed);
+				PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
+				auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, create_desc->generate_mipmaps, &staging_size, &s->upload_completed);
 				if (staging_size < create_desc->pixel_data_size) {
 					*out_error = "texture loader: pixel data size exceeds staging buffer size";
 					return PULSE_ASSET_LOADER_STATUS_FAILED;
@@ -52,7 +53,7 @@ EPulseAssetLoaderStatus step_texture_create(
     return PULSE_ASSET_LOADER_STATUS_PENDING;
 }
 
-void register_texture_create_loader(PulseAppId app, CGPUDeviceId device)
+void register_texture_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -67,14 +68,14 @@ void register_texture_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = sizeof(PulseTextureCreateDesc);
     ld.settings_align = alignof(PulseTextureCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 }
 
 extern "C" {
 
-PulseTextureHandle pulse_create_texture(
+PulseTextureRequest pulse_create_texture(
     PulseAppId app,
     const PulseTextureCreateDesc* desc)
 {
@@ -85,8 +86,11 @@ PulseTextureHandle pulse_create_texture(
     if (!device) 
         return {};
 
-    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(app, PULSE_TYPE_TEXTURE, nullptr, nullptr, 0, desc);
-	return { asset_handle.index, asset_handle.generation };
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+    PulseAssetRequest request = pulse_graphics_internal::asset_build(as, PULSE_TYPE_TEXTURE, nullptr, nullptr, 0, desc);
+    if (!pulse_asset_request_is_valid(request))
+        return {};
+	return { request.index, request.generation };
 }
 
 }

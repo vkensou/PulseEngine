@@ -97,6 +97,7 @@ namespace HGEGraphics
 	struct ExecutorContext
 	{
 		std::pmr::memory_resource* memory_resource = nullptr;
+		PulseAssetSystemId asset_system = nullptr;
 		CgpuTexturePool texturePool;
 		RenerPassPool renderPassPool;
 		FramebufferPool framebufferPool;

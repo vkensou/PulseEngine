@@ -16,10 +16,9 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
 {
     auto* s = static_cast<MeshCreateFromDataState*>(state);
 
-    auto vertexBufferHandle = ctx->dependencies[0].handle;
-    PulseGraphicsBufferHandle vertexBuffer = { vertexBufferHandle.index, vertexBufferHandle.generation };
+    auto vertexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[0].dep_ref);
     if (!s->vertexBufferPrepared) {
-        auto vbState = pulse_asset_system_get_state(ctx->asset_system, vertexBufferHandle);
+        auto vbState = pulse_asset_system_get_state(ctx->asset_system, vertexBufferRequest);
         if (vbState == PULSE_ASSET_STATE_LOADED)
             s->vertexBufferPrepared = true;
         else if (vbState == PULSE_ASSET_STATE_FAILED || vbState == PULSE_ASSET_STATE_PENDING_DELETE) {
@@ -29,14 +28,13 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
             s->vertexBufferPrepared = false;
     }
 
-    auto indexBufferHandle = ctx->dependencies[1].handle;
-    PulseGraphicsBufferHandle indexBuffer = { indexBufferHandle.index, indexBufferHandle.generation };
-    bool hasIndexBuffer = pulse_asset_handle_is_valid(indexBufferHandle);
+    bool hasIndexBuffer = pulse_asset_dep_ref_is_valid(ctx->dependencies[1].dep_ref);
     if (!s->indexBufferPrepared) {
         if (!hasIndexBuffer)
             s->indexBufferPrepared = true;
         else {
-            auto ibState = pulse_asset_system_get_state(ctx->asset_system, indexBufferHandle);
+            auto indexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[1].dep_ref);
+            auto ibState = pulse_asset_system_get_state(ctx->asset_system, indexBufferRequest);
             if (ibState == PULSE_ASSET_STATE_LOADED)
                 s->indexBufferPrepared = true;
             else if (ibState == PULSE_ASSET_STATE_FAILED || ibState == PULSE_ASSET_STATE_PENDING_DELETE) {
@@ -59,17 +57,23 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
     
-    PulseGraphicsBuffer vb_ref{};
-    if (!internal_acquire_buffer(ctx->asset_system, vertexBuffer, &vb_ref)) {
+    PulseGraphicsBufferHandle vertexBuffer = pulse_graphics_buffer_get_handle(ctx->app, { vertexBufferRequest.index, vertexBufferRequest.generation });
+    PulseGraphicsBufferData* vb_data = internal_borrow_buffer(ctx->asset_system, vertexBuffer);
+    if (!vb_data) {
         *out_error = "mesh create loader: failed to acquire vertex buffer";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
-    PulseGraphicsBuffer ib_ref{};
-    if (hasIndexBuffer && !internal_acquire_buffer(ctx->asset_system, indexBuffer, &ib_ref)) {
-        internal_release_buffer(ctx->asset_system, &vb_ref);
-        *out_error = "mesh create loader: failed to acquire index buffer";
-        return PULSE_ASSET_LOADER_STATUS_FAILED;
+    PulseGraphicsBufferData* ib_data = nullptr;
+    PulseGraphicsBufferHandle indexBuffer = {};
+    if (hasIndexBuffer) {
+        auto indexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[1].dep_ref);
+        indexBuffer = pulse_graphics_buffer_get_handle(ctx->app, { indexBufferRequest.index, indexBufferRequest.generation });
+        ib_data = internal_borrow_buffer(ctx->asset_system, indexBuffer);
+        if (!ib_data) {
+            *out_error = "mesh create loader: failed to acquire index buffer";
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
+        }
     }
     
     const CGPUVertexLayout& use_layout = desc->layout;
@@ -83,12 +87,9 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
     mesh->index_count = desc->index_count;
     mesh->index_stride = desc->index_stride;
     
-    mesh->vertex_buffer = static_cast<PulseGraphicsBufferData*>(vb_ref.ptr);
-    mesh->index_buffer = hasIndexBuffer ? static_cast<PulseGraphicsBufferData*>(ib_ref.ptr) : nullptr;
+    mesh->vertex_buffer = { vertexBuffer, vb_data };
+    mesh->index_buffer = { indexBuffer, ib_data };
     mesh->prepared = true;
-    
-    internal_release_buffer(ctx->asset_system, &vb_ref);
-    if (hasIndexBuffer) internal_release_buffer(ctx->asset_system, &ib_ref);
 
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
@@ -119,8 +120,8 @@ EPulseAssetLoaderStatus step_mesh_create_dynamic(
         for (auto i = 0; i < use_layout.attribute_count; ++i)
             mesh->vertex_stride += use_layout.p_attributes[i].elem_stride;
         mesh->index_stride = desc->index_stride;
-        mesh->vertex_buffer = nullptr;
-        mesh->index_buffer = nullptr;
+        mesh->vertex_buffer = {};
+        mesh->index_buffer = {};
         mesh->prepared = true;
 
         s->initialized = true;
@@ -129,7 +130,7 @@ EPulseAssetLoaderStatus step_mesh_create_dynamic(
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
-void register_mesh_create_loader(PulseAppId app, CGPUDeviceId device)
+void register_mesh_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld1{};
     ld1.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -144,7 +145,7 @@ void register_mesh_create_loader(PulseAppId app, CGPUDeviceId device)
     ld1.settings_size = sizeof(PulseMeshCreateFromDataDesc);
     ld1.settings_align = alignof(PulseMeshCreateFromDataDesc);
     ld1.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld1);
+    pulse_asset_system_register_loader(asset_system, &ld1);
 
     PulseAssetLoaderDesc ld2{};
     ld2.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -159,18 +160,18 @@ void register_mesh_create_loader(PulseAppId app, CGPUDeviceId device)
     ld2.settings_size = sizeof(PulseMeshCreateDynamicDesc);
     ld2.settings_align = alignof(PulseMeshCreateDynamicDesc);
     ld2.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld2);
+    pulse_asset_system_register_loader(asset_system, &ld2);
 }
 
 }
 
 extern "C" {
 
-PulseMeshHandle pulse_graphics_mesh_create_from_data(
+PulseMeshRequest pulse_create_mesh_from_data(
     PulseAppId app,
     const PulseMeshCreateFromDataDesc* desc)
 {
-    PulseMeshHandle result{};
+    PulseMeshRequest result{};
     if (!desc)
         return {};
 
@@ -191,7 +192,7 @@ PulseMeshHandle pulse_graphics_mesh_create_from_data(
     };
     auto vertex_buffer = pulse_create_graphics_buffer(app, &vertex_buffer_desc);
 
-    PulseGraphicsBufferHandle index_buffer = {};
+    PulseGraphicsBufferRequest index_buffer{};
 
     if (desc->index_count > 0) {
         PulseGraphicsBufferCreateDesc index_buffer_desc = {
@@ -205,25 +206,26 @@ PulseMeshHandle pulse_graphics_mesh_create_from_data(
             .data_size = desc->index_count * desc->index_stride,
             .data = desc->index_data,
         };
-        auto index_buffer = pulse_create_graphics_buffer(app, &index_buffer_desc);
+        index_buffer = pulse_create_graphics_buffer(app, &index_buffer_desc);
     }
 
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
     PulseAssetDependency deps[2] = {
-        { pulse_graphics_buffer_to_handle(vertex_buffer), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
-        { pulse_graphics_buffer_to_handle(index_buffer), PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL },
+        { pulse_asset_system_to_asset_dep_ref_from_request(as, pulse_graphics_buffer_request_to_asset_request(vertex_buffer)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
+        { pulse_asset_system_to_asset_dep_ref_from_request(as, pulse_graphics_buffer_request_to_asset_request(index_buffer)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_OPTIONAL },
     };
 
-    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_MESH, nullptr, deps, 2, desc);
-    if (!pulse_asset_handle_is_valid(asset_handle))
+    PulseAssetRequest request = pulse_graphics_internal::asset_build(
+        as, PULSE_TYPE_MESH, nullptr, deps, 2, desc);
+    if (!pulse_asset_request_is_valid(request))
         return result;
 
-    result.index = asset_handle.index;
-    result.generation = asset_handle.generation;
+    result.index = request.index;
+    result.generation = request.generation;
     return result;
 }
 
-PulseMeshHandle pulse_graphics_mesh_create_dynamic(
+PulseMeshHandle pulse_create_mesh_dynamic(
     PulseAppId app,
     const PulseMeshCreateDynamicDesc* desc)
 {
@@ -235,13 +237,14 @@ PulseMeshHandle pulse_graphics_mesh_create_dynamic(
     if (!device)
         return result;
 
-    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_MESH, nullptr, nullptr, 0, desc);
-    if (!pulse_asset_handle_is_valid(asset_handle))
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+    PulseAssetHandle h = pulse_graphics_internal::asset_build_sync(
+        as, PULSE_TYPE_MESH, nullptr, nullptr, 0, desc);
+    if (!pulse_asset_handle_is_valid(h))
         return result;
 
-    result.index = asset_handle.index;
-    result.generation = asset_handle.generation;
+    result.index = h.index;
+    result.generation = h.generation;
     return result;
 }
 

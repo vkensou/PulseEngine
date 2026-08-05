@@ -21,6 +21,7 @@ typedef "cstring"
 --- External types from other modules
 typedef "EPulseResult"
 typedef "PulseAppId"
+typedef "PulseAssetSystemId"
 typedef "ecs_entity_t"
 
 --- Rendergraph opaque types (forward declared in template)
@@ -152,54 +153,45 @@ struct.SamplerHandle
     .generation "uint32_t"
     ()
 
-struct.ShaderData()
-struct.ShaderLibraryData()
-struct.ComputeShaderData()
-struct.GraphicsBufferData()
-struct.TextureData()
-struct.MeshData()
-struct.MaterialData()
-struct.SamplerData()
-
---- Asset ref types (handle + data ptr)
-struct.Shader
-    .handle "ShaderHandle"
-    .ptr    "*ShaderData"
+--- Asset request types (async load/build results, value structs with index+generation)
+struct.ShaderRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.ShaderLibrary
-    .handle "ShaderLibraryHandle"
-    .ptr    "*ShaderLibraryData"
+struct.ShaderLibraryRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.ComputeShader
-    .handle "ComputeShaderHandle"
-    .ptr    "*ComputeShaderData"
+struct.ComputeShaderRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.GraphicsBuffer
-    .handle "GraphicsBufferHandle"
-    .ptr    "*GraphicsBufferData"
+struct.MeshRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.Texture
-    .handle "TextureHandle"
-    .ptr    "*TextureData"
+struct.TextureRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.Mesh
-    .handle "MeshHandle"
-    .ptr    "*MeshData"
+struct.GraphicsBufferRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.Material
-    .handle "MaterialHandle"
-    .ptr    "*MaterialData"
+struct.MaterialRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
-struct.Sampler
-    .handle "SamplerHandle"
-    .ptr    "*SamplerData"
+struct.SamplerRequest
+    .index "uint32_t"
+    .generation "uint32_t"
     ()
 
 struct.ShaderProperty
@@ -465,22 +457,27 @@ func.CreateShaderLibrary
     ()
 
 func.LoadShaderLibrary
-    "ShaderLibraryHandle"
+    "ShaderLibraryRequest"
     .app  "PulseAppId"
     .desc "*const ShaderLibraryLoadDesc"
     ()
 
-func.AcquireShaderLibrary
-    "bool"
-    .app    "PulseAppId"
-    .handle "ShaderLibraryHandle"
-    .outRef "*ShaderLibrary"
+func.ShaderLibraryGetHandle
+    "ShaderLibraryHandle"
+    .app     "PulseAppId"
+    .request "ShaderLibraryRequest"
     ()
 
-func.ReleaseShaderLibrary
-    "void"
-    .app "PulseAppId"
-    .ref  "*ShaderLibrary"
+func.ShaderLibraryIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderLibraryRequest"
+    ()
+
+func.ShaderLibraryIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderLibraryRequest"
     ()
 
 --- Shader
@@ -491,22 +488,27 @@ func.CreateShaderFromBinary
     ()
 
 func.CreateShaderFromFile
-    "ShaderHandle"
+    "ShaderRequest"
     .app  "PulseAppId"
     .desc "*const ShaderCreateFromFileDesc"
     ()
 
-func.AcquireShader
-    "bool"
-    .app    "PulseAppId"
-    .handle "ShaderHandle"
-    .outRef "*Shader"
+func.ShaderGetHandle
+    "ShaderHandle"
+    .app     "PulseAppId"
+    .request "ShaderRequest"
     ()
 
-func.ReleaseShader
-    "void"
-    .app "PulseAppId"
-    .ref  "*Shader"
+func.ShaderIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderRequest"
+    ()
+
+func.ShaderIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderRequest"
     ()
 
 --- Compute shader
@@ -517,42 +519,52 @@ func.CreateComputeShaderFromBinary
     ()
 
 func.CreateComputeShaderFromFile
-    "ComputeShaderHandle"
+    "ComputeShaderRequest"
     .app  "PulseAppId"
     .desc "*const ComputeShaderCreateFromFileDesc"
     ()
 
-func.AcquireComputeShader
-    "bool"
-    .app    "PulseAppId"
-    .handle "ComputeShaderHandle"
-    .outRef "*ComputeShader"
+func.ComputeShaderGetHandle
+    "ComputeShaderHandle"
+    .app     "PulseAppId"
+    .request "ComputeShaderRequest"
     ()
 
-func.ReleaseComputeShader
-    "void"
-    .app "PulseAppId"
-    .ref  "*ComputeShader"
+func.ComputeShaderIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "ComputeShaderRequest"
+    ()
+
+func.ComputeShaderIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "ComputeShaderRequest"
     ()
 
 --- Buffer
 func.CreateGraphicsBuffer
-    "GraphicsBufferHandle"
+    "GraphicsBufferRequest"
     .app  "PulseAppId"
     .desc "*const GraphicsBufferCreateDesc"
     ()
 
-func.AcquireGraphicsBuffer
-    "bool"
-    .app    "PulseAppId"
-    .handle "GraphicsBufferHandle"
-    .outRef "*GraphicsBuffer"
+func.GraphicsBufferGetHandle
+    "GraphicsBufferHandle"
+    .app     "PulseAppId"
+    .request "GraphicsBufferRequest"
     ()
 
-func.ReleaseGraphicsBuffer
-    "void"
-    .app "PulseAppId"
-    .ref  "*GraphicsBuffer"
+func.GraphicsBufferIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "GraphicsBufferRequest"
+    ()
+
+func.GraphicsBufferIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "GraphicsBufferRequest"
     ()
 
 --- Sampler
@@ -562,48 +574,58 @@ func.CreateSampler
     .desc "*const SamplerCreateDesc"
     ()
 
-func.AcquireSampler
-    "bool"
-    .app    "PulseAppId"
-    .handle "SamplerHandle"
-    .outRef "*Sampler"
+func.SamplerGetHandle
+    "SamplerHandle"
+    .app     "PulseAppId"
+    .request "SamplerRequest"
     ()
 
-func.ReleaseSampler
-    "void"
-    .app "PulseAppId"
-    .ref  "*Sampler"
+func.SamplerIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "SamplerRequest"
+    ()
+
+func.SamplerIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "SamplerRequest"
     ()
 
 --- Texture
 func.CreateTexture
-    "TextureHandle"
+    "TextureRequest"
     .app  "PulseAppId"
     .desc "*const TextureCreateDesc"
     ()
 
 func.LoadTexture
-    "TextureHandle"
+    "TextureRequest"
     .app  "PulseAppId"
     .desc "*const TextureLoadDesc"
     ()
 
-func.AcquireTexture
-    "bool"
-    .app    "PulseAppId"
-    .handle "TextureHandle"
-    .outRef "*Texture"
+func.TextureGetHandle
+    "TextureHandle"
+    .app     "PulseAppId"
+    .request "TextureRequest"
     ()
 
-func.ReleaseTexture
-    "void"
-    .app "PulseAppId"
-    .ref  "*Texture"
+func.TextureIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "TextureRequest"
+    ()
+
+func.TextureIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "TextureRequest"
     ()
 
 --- Mesh
 func.CreateMeshFromData
-    "MeshHandle"
+    "MeshRequest"
     .app  "PulseAppId"
     .desc "*const MeshCreateFromDataDesc"
     ()
@@ -615,7 +637,7 @@ func.CreateMeshDynamic
     ()
 
 func.LoadMesh
-    "MeshHandle"
+    "MeshRequest"
     .app      "PulseAppId"
     .filepath "cstring"
     ()
@@ -636,98 +658,118 @@ func.UpdateMeshIndices
     .count "uint32_t"
     ()
 
-func.AcquireMesh
-    "bool"
-    .app    "PulseAppId"
-    .handle "MeshHandle"
-    .outRef "*Mesh"
+func.MeshGetHandle
+    "MeshHandle"
+    .app     "PulseAppId"
+    .request "MeshRequest"
     ()
 
-func.ReleaseMesh
-    "void"
-    .app "PulseAppId"
-    .ref  "*Mesh"
+func.MeshIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "MeshRequest"
+    ()
+
+func.MeshIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "MeshRequest"
     ()
 
 --- Material
 func.CreateMaterial
-    "MaterialHandle"
+    "MaterialRequest"
     .app  "PulseAppId"
     .desc "*const MaterialCreateDesc"
     ()
 
-func.AcquireMaterial
-    "bool"
-    .app    "PulseAppId"
-    .handle "MaterialHandle"
-    .outRef "*Material"
+func.MaterialGetHandle
+    "MaterialHandle"
+    .app     "PulseAppId"
+    .request "MaterialRequest"
     ()
 
-func.ReleaseMaterial
-    "void"
-    .app "PulseAppId"
-    .ref  "*Material"
+func.MaterialIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "MaterialRequest"
+    ()
+
+func.MaterialIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "MaterialRequest"
     ()
 
 func.MaterialGetShader
-    "Shader"
-    .self   "Material"
+    "ShaderHandle"
+    .app  "PulseAppId"
+    .self "MaterialHandle"
     ()
 
 --- Material property setters (name-driven, Unity-style)
 func.MaterialSetPropertyFloat4
     "void"
-    .self   "Material"
-    .name    "cstring"
-    .value   "HMM_Vec4"
+    .app   "PulseAppId"
+    .self  "MaterialHandle"
+    .name  "cstring"
+    .value "HMM_Vec4"
     ()
 
 func.MaterialSetPropertyMat4
     "void"
-    .self   "Material"
-    .name    "cstring"
-    .value   "HMM_Mat4"
+    .app   "PulseAppId"
+    .self  "MaterialHandle"
+    .name  "cstring"
+    .value "HMM_Mat4"
     ()
 
 func.MaterialSetPropertyTexture
     "void"
-    .self   "Material"
+    .app     "PulseAppId"
+    .self    "MaterialHandle"
     .name    "cstring"
-    .texture "Texture"
+    .texture "TextureHandle"
     ()
 
 func.MaterialSetPropertySampler
     "void"
-    .self       "Material"
-    .name       "cstring"
-    .Sampler    "Sampler"
+    .app     "PulseAppId"
+    .self    "MaterialHandle"
+    .name    "cstring"
+    .sampler "SamplerHandle"
     ()
 
 func.ShaderGetShaderPropertyCount
     "uint32_t"
-    .self   "Shader"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
     ()
 
 func.ShaderGetShaderProperty
     "ShaderProperty"
-    .self   "Shader"
-    .index  "uint32_t"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
+    .index "uint32_t"
 
 func.ShaderGetUboInfoCount
     "uint32_t"
-    .self   "Shader"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
     ()
 
 func.ShaderGetUboInfo
     "UboInfo"
-    .self   "Shader"
-    .index  "uint32_t"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
+    .index "uint32_t"
 
 --- ======== Rendergraph Functions ========
 
 --- Rendergraph lifecycle
 func.CreateRenderGraph
     "RenderGraphId"
+    .assetSystem           "PulseAssetSystemId"
     .estimateResourceCount "uint32_t"
     .estimatePassCount     "uint32_t"
     .estimateEdgeCount     "uint32_t"
@@ -762,7 +804,7 @@ func.RenderGraph.DeclareTexture
 
 func.RenderGraph.ImportTexture
     "RGTextureHandle"
-    .imported "*TextureData"
+    .imported "TextureHandle"
     ()
 
 func.RenderGraph.ImportBackbuffer
@@ -776,7 +818,7 @@ func.RenderGraph.DeclareBuffer
 
 func.RenderGraph.ImportBuffer
     "RGBufferHandle"
-    .imported "*GraphicsBufferData"
+    .imported "GraphicsBufferHandle"
     ()
 
 func.RenderGraph.ImportDynamicBuffer
@@ -1023,14 +1065,14 @@ func.ComputePassBuilder.SetExecutable
 --- Encoder
 func.RenderPassEncoder.Draw
     "void"
-    .material "Material"
-    .mesh     "Mesh"
+    .material "MaterialHandle"
+    .mesh     "MeshHandle"
     ()
 
 func.RenderPassEncoder.DrawSubmesh
     "void"
-    .material "Material"
-    .mesh     "Mesh"
+    .material "MaterialHandle"
+    .mesh     "MeshHandle"
     .idxCount "uint32_t"
     .firstIdx "uint32_t"
     .vtxCount "uint32_t"
@@ -1039,14 +1081,14 @@ func.RenderPassEncoder.DrawSubmesh
 
 func.RenderPassEncoder.DrawProcedure
     "void"
-    .material  "Material"
+    .material  "MaterialHandle"
     .topology  "ECGPUPrimitiveTopology"
     .vertexCount "uint32_t"
     ()
 
 func.RenderPassEncoder.Dispatch
     "void"
-    .computeShader "ComputeShader"
+    .computeShader "ComputeShaderHandle"
     .x            "uint32_t"
     .y            "uint32_t"
     .z            "uint32_t"
@@ -1054,21 +1096,21 @@ func.RenderPassEncoder.Dispatch
 
 func.RenderPassEncoder.SetGlobalTexture
     "void"
-    .texture  "Texture"
+    .texture  "TextureHandle"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
 func.RenderPassEncoder.SetGlobalBuffer
     "void"
-    .buffer   "GraphicsBuffer"
+    .buffer   "GraphicsBufferHandle"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
 
 func.RenderPassEncoder.SetGlobalSampler
     "void"
-    .sampler  "Sampler"
+    .sampler  "SamplerHandle"
     .set      "uint32_t"
     .binding  "uint32_t"
     ()
@@ -1116,7 +1158,7 @@ func.RenderPassEncoder.SetScissor
 
 func.RenderPassEncoder.PushConstants
     "void"
-    .shader   "Shader"
+    .shader   "ShaderHandle"
     .name     "cstring"
     .data     "*const anyopaque"
     ()

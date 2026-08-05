@@ -25,7 +25,7 @@ static EPulseAssetLoaderStatus step_shader_library_load(
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
-void register_shader_library_load_loader(PulseAppId app, CGPUDeviceId device)
+void register_shader_library_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -40,7 +40,7 @@ void register_shader_library_load_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = 0;
     ld.settings_align = 0;
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 } // namespace pulse_graphics_internal
@@ -49,39 +49,19 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-PulseShaderLibraryHandle pulse_load_shader_library(
+PulseShaderLibraryRequest pulse_load_shader_library(
     PulseAppId app,
     const PulseShaderLibraryLoadDesc* desc)
 {
-    PulseShaderLibraryHandle result{};
+    PulseShaderLibraryRequest result{};
     if (!desc || !desc->path) return result;
 
-    PulseAssetHandle h = asset_load_path(app, PULSE_TYPE_SHADER_LIBRARY, desc->path);
-    if (!pulse_asset_handle_is_valid(h)) return result;
-    result.index = h.index;
-    result.generation = h.generation;
+    PulseAssetSystemId as = asset_system_from_app(app);
+    PulseAssetRequest request = asset_load_path(as, PULSE_TYPE_SHADER_LIBRARY, desc->path);
+    if (!pulse_asset_request_is_valid(request)) return result;
+    result.index = request.index;
+    result.generation = request.generation;
     return result;
-}
-
-bool pulse_acquire_shader_library(PulseAppId app, PulseShaderLibraryHandle handle, PulseShaderLibrary* sl_ref)
-{
-    PulseAssetRef aref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_shader_library_to_handle(handle), &aref)) {
-        sl_ref->handle = handle;
-        sl_ref->ptr = static_cast<PulseShaderLibraryData*>(aref.ptr);
-        return true;
-    }
-    sl_ref->handle = {};
-    sl_ref->ptr = nullptr;
-    return false;
-}
-
-void pulse_release_shader_library(PulseAppId app, PulseShaderLibrary* sl_ref)
-{
-    PulseAssetRef aref{ pulse_shader_library_to_handle(sl_ref->handle), nullptr };
-    pulse_asset_system_release(pulse_get_asset_system(app), &aref);
-    sl_ref->handle = {};
-    sl_ref->ptr = nullptr;
 }
 
 } // extern "C"

@@ -116,7 +116,8 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
     };
 
     state->blit_shader.handle = pulse_create_shader_from_binary(app, &blit_shader_desc);
-    pulse_acquire_shader(app, state->blit_shader.handle, &state->blit_shader);
+    state->blit_shader.ptr = pulse_graphics_internal::internal_borrow_shader(
+        state->asset_system, state->blit_shader.handle);
 
 	PulseSamplerCreateDesc blit_linear_sampler_desc = {
         .desc = {
@@ -131,30 +132,11 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
         }
 	};
 	state->blit_linear_sampler.handle = pulse_create_sampler(app, &blit_linear_sampler_desc);
-    pulse_acquire_sampler(app, state->blit_linear_sampler.handle, &state->blit_linear_sampler);
+    state->blit_linear_sampler.ptr = pulse_graphics_internal::internal_borrow_sampler(
+        state->asset_system, state->blit_linear_sampler.handle);
 }
 
 void create_default_resources(PulseAppId app, pulse_graphics_state* state) {
-    const uint64_t width = 4;
-    const uint64_t height = 4;
-    const uint64_t count = width * height;
-
-    CGPUTextureDescriptor default_texture_desc =
-    {
-        .name = "default_texture",
-        .width = width,
-        .height = height,
-        .depth = 1,
-        .array_size = 1,
-        .format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,
-        .mip_levels = 1,
-        .descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
-    };
-    uint32_t colors[count];
-    std::fill(colors, colors + count, 0xffff00ff);
-    //state->default_texture.handle = pulse_create_texture();
-    pulse_acquire_texture(app, state->default_texture.handle, &state->default_texture);
-
     PulseSamplerCreateDesc default_sampler_desc = {
     .desc = {
         .min_filter = CGPU_FILTER_TYPE_LINEAR,
@@ -168,13 +150,15 @@ void create_default_resources(PulseAppId app, pulse_graphics_state* state) {
     }
     };
     state->default_sampler.handle = pulse_create_sampler(app, &default_sampler_desc);
-    pulse_acquire_sampler(app, state->default_sampler.handle, &state->default_sampler);
+    state->default_sampler.ptr = pulse_graphics_internal::internal_borrow_sampler(
+        state->asset_system, state->default_sampler.handle);
 }
 
 EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
     state->app = app;
+    state->asset_system = pulse_get_asset_system(app);
 
     if (!create_renderer(state)) {
         destroy_renderer(state);
@@ -189,7 +173,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_singleton_set_ptr(world, PulseRenderer, &state->renderer);
 
     CGPUDeviceId device = get_device(app);
-    register_graphics_asset_types_and_loaders(app, device);
+    register_graphics_asset_types_and_loaders(state->asset_system, device);
 
     create_default_resources(app, state);
     create_blit_shader(app, state);
@@ -235,7 +219,7 @@ void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
 
     delete_render_components(world);
 
-    PulseAssetSystemId as = pulse_get_asset_system(app);
+    PulseAssetSystemId as = state->asset_system;
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_MATERIAL);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_MESH);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_COMPUTE_SHADER);

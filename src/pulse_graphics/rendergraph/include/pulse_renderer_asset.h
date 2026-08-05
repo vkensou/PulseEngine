@@ -27,6 +27,13 @@ struct PulseGraphicsBufferData
 	PulseRGBufferHandle dynamic_handle;
 };
 
+typedef struct PulseGraphicsBuffer
+{
+    PulseGraphicsBufferHandle handle;
+    PulseGraphicsBufferData* ptr;
+
+} PulseGraphicsBuffer;
+
 struct PulseMeshData
 {
 	CGPUVertexLayout vertex_layout;
@@ -36,8 +43,8 @@ struct PulseMeshData
 	uint32_t index_stride;
 	uint32_t vertices_count;
 	uint32_t index_count;
-	PulseGraphicsBufferData* vertex_buffer;
-	PulseGraphicsBufferData* index_buffer;
+	PulseGraphicsBuffer vertex_buffer;
+	PulseGraphicsBuffer index_buffer;
 	bool prepared;
 };
 
@@ -174,6 +181,13 @@ struct pulse_material_descriptor_set_array_t
     pulse_material_descriptor_set_t* data;
 };
 
+typedef struct PulseShader
+{
+    PulseShaderHandle    handle;
+    PulseShaderData*     ptr;
+
+} PulseShader;
+
 struct PulseMaterialData
 {
 	CGPUDeviceId device;
@@ -198,6 +212,48 @@ typedef struct PulseShaderLibraryData {
 typedef struct PulseSamplerData {
     CGPUSamplerId handle;
 } PulseSamplerData;
+
+typedef struct PulseShaderLibrary
+{
+    PulseShaderLibraryHandle handle;
+    PulseShaderLibraryData* ptr;
+
+} PulseShaderLibrary;
+
+typedef struct PulseComputeShader
+{
+    PulseComputeShaderHandle handle;
+    PulseComputeShaderData* ptr;
+
+} PulseComputeShader;
+
+typedef struct PulseTexture
+{
+    PulseTextureHandle   handle;
+    PulseTextureData*    ptr;
+
+} PulseTexture;
+
+typedef struct PulseMesh
+{
+    PulseMeshHandle      handle;
+    PulseMeshData*       ptr;
+
+} PulseMesh;
+
+typedef struct PulseMaterial
+{
+    PulseMaterialHandle  handle;
+    PulseMaterialData*   ptr;
+
+} PulseMaterial;
+
+typedef struct PulseSampler
+{
+    PulseSamplerHandle   handle;
+    PulseSamplerData*    ptr;
+
+} PulseSampler;
 
 static inline const PulseShaderProperty* pulse_find_shader_property(const PulseShaderData* shader, const char* name)
 {

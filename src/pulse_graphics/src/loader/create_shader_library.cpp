@@ -38,7 +38,7 @@ static EPulseAssetLoaderStatus step_shader_library_create(
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
-void register_shader_library_create_loader(PulseAppId app, CGPUDeviceId device)
+void register_shader_library_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -53,7 +53,7 @@ void register_shader_library_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = sizeof(PulseShaderLibraryCreateDesc);
     ld.settings_align = alignof(PulseShaderLibraryCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 } // namespace pulse_graphics_internal
@@ -72,8 +72,9 @@ PulseShaderLibraryHandle pulse_create_shader_library(
     CGPUDeviceId device = pulse_graphics_internal::get_device(app);
     if (!device) return result;
 
-    PulseAssetHandle h = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_SHADER_LIBRARY, nullptr, nullptr, 0, desc);
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+    PulseAssetHandle h = pulse_graphics_internal::asset_build_sync(
+        as, PULSE_TYPE_SHADER_LIBRARY, nullptr, nullptr, 0, desc);
     if (!pulse_asset_handle_is_valid(h)) return result;
     result.index = h.index;
     result.generation = h.generation;

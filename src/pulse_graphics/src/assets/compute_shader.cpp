@@ -8,7 +8,7 @@ static void destroy_compute_shader(void* ptr, void* user_data) {
     if (data->root_sig) cgpu_device_free_root_signature(device, data->root_sig);
 }
 
-void register_compute_shader_type(PulseAppId app, CGPUDeviceId device)
+void register_compute_shader_type(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetTypeDesc type_desc{};
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
@@ -18,7 +18,7 @@ void register_compute_shader_type(PulseAppId app, CGPUDeviceId device)
     type_desc.align = alignof(PulseComputeShaderData);
     type_desc.destroy = destroy_compute_shader;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
+    pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
 } // namespace pulse_graphics_internal
@@ -27,23 +27,20 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-bool pulse_acquire_compute_shader(PulseAppId app, PulseComputeShaderHandle handle, PulseComputeShader* ref) {
-    PulseAssetRef aref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_compute_shader_to_handle(handle), &aref)) {
-        ref->handle = handle;
-        ref->ptr = static_cast<PulseComputeShaderData*>(aref.ptr);
-        return true;
-    }
-    ref->handle = {};
-    ref->ptr = nullptr;
-    return false;
+PulseComputeShaderHandle pulse_compute_shader_get_handle(PulseAppId app, PulseComputeShaderRequest request) {
+    PulseAssetHandle h = pulse_asset_system_get_handle(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_compute_shader_request_to_asset_request(request));
+    return !pulse_asset_handle_is_valid(h) ? PulseComputeShaderHandle{} : PulseComputeShaderHandle{h.index, h.generation};
 }
 
-void pulse_release_compute_shader(PulseAppId app, PulseComputeShader* ref) {
-    PulseAssetRef aref{ pulse_compute_shader_to_handle(ref->handle), nullptr };
-    pulse_asset_system_release(pulse_get_asset_system(app), &aref);
-    ref->handle = {};
-    ref->ptr = nullptr;
+bool pulse_compute_shader_is_ready(PulseAppId app, PulseComputeShaderRequest request) {
+    return pulse_asset_system_is_ready(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_compute_shader_request_to_asset_request(request));
+}
+
+bool pulse_compute_shader_is_alive(PulseAppId app, PulseComputeShaderRequest request) {
+    return pulse_asset_system_is_alive(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_compute_shader_request_to_asset_request(request));
 }
 
 } // extern "C"

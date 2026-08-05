@@ -15,9 +15,10 @@ EPulseAssetLoaderStatus step_material_create(
 {
     auto* s = static_cast<MaterialLoaderState*>(state);
 
-    auto shader_asset_handle = ctx->dependencies[0].handle;
+    auto shader_request = pulse_asset_system_to_asset_request_from_dep_ref(
+        ctx->asset_system, ctx->dependencies[0].dep_ref);
     if (!s->shader_done) {
-        if (!pulse_asset_system_is_ready(ctx->asset_system, shader_asset_handle)) {
+        if (!pulse_asset_system_is_ready(ctx->asset_system, shader_request)) {
             return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;
         } else {
             s->shader_done = true;
@@ -28,15 +29,15 @@ EPulseAssetLoaderStatus step_material_create(
         CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
         auto* mat = static_cast<PulseMaterialData*>(ctx->out_asset);
 
-        PulseShaderHandle shader_handle = { shader_asset_handle.index, shader_asset_handle.generation };
-        PulseShader shader_ref{};
-        if (!internal_acquire_shader(ctx->asset_system, shader_handle, &shader_ref)) {
+        PulseShaderHandle shader_handle = pulse_shader_get_handle(ctx->app, { shader_request.index, shader_request.generation });
+        PulseShaderData* shader_data = internal_borrow_shader(ctx->asset_system, shader_handle);
+        if (!shader_data) {
             *out_error = "material loader: shader not available";
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
+        PulseShader shader_ref = { shader_handle, shader_data };
         HGEGraphics::init_material(mat, device, shader_ref);
-        internal_release_shader(ctx->asset_system, &shader_ref);
 
         s->initialized = true;
     }
@@ -44,7 +45,7 @@ EPulseAssetLoaderStatus step_material_create(
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
-void register_material_create_loader(PulseAppId app, CGPUDeviceId device)
+void register_material_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -59,18 +60,18 @@ void register_material_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = sizeof(PulseMaterialCreateDesc);
     ld.settings_align = alignof(PulseMaterialCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 }
 
 extern "C" {
 
-PulseMaterialHandle pulse_create_material(
+PulseMaterialRequest pulse_create_material(
     PulseAppId app,
     const PulseMaterialCreateDesc* desc)
 {
-    PulseMaterialHandle result{};
+    PulseMaterialRequest result{};
     if (!desc)
         return result;
 
@@ -78,16 +79,17 @@ PulseMaterialHandle pulse_create_material(
     if (!device)
         return result;
 
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
     PulseAssetDependency dependencies[1];
-    dependencies[0] = { pulse_shader_to_handle(desc->shader), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED };
+    dependencies[0] = { pulse_asset_system_to_asset_dep_ref_from_handle(as, pulse_shader_to_handle(desc->shader)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED };
 
-    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_MATERIAL, nullptr, dependencies, 1, desc);
-    if (!pulse_asset_handle_is_valid(asset_handle))
+    PulseAssetRequest request = pulse_graphics_internal::asset_build(
+        as, PULSE_TYPE_MATERIAL, nullptr, dependencies, 1, desc);
+    if (!pulse_asset_request_is_valid(request))
         return result;
 
-    result.index = asset_handle.index;
-    result.generation = asset_handle.generation;
+    result.index = request.index;
+    result.generation = request.generation;
     return result;
 }
 

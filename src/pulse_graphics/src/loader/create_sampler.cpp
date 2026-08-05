@@ -20,7 +20,7 @@ EPulseAssetLoaderStatus step_sampler_create(
     return PULSE_ASSET_LOADER_STATUS_DONE;;
 }
 
-void register_sampler_create_loader(PulseAppId app, CGPUDeviceId device)
+void register_sampler_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
@@ -35,7 +35,7 @@ void register_sampler_create_loader(PulseAppId app, CGPUDeviceId device)
     ld.settings_size = sizeof(PulseSamplerCreateDesc);
     ld.settings_align = alignof(PulseSamplerCreateDesc);
     ld.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_loader(pulse_get_asset_system(app), &ld);
+    pulse_asset_system_register_loader(asset_system, &ld);
 }
 
 }
@@ -49,13 +49,13 @@ PulseSamplerHandle pulse_create_sampler(
     CGPUDeviceId device = pulse_graphics_internal::get_device(app);
     if (!device || !desc) return {};
 
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+    PulseAssetHandle h = pulse_graphics_internal::asset_build_sync(
+        as, PULSE_TYPE_SAMPLER, nullptr, nullptr, 0, desc);
+    if (!pulse_asset_handle_is_valid(h))
+        return {};
 
-    PulseAssetHandle asset_handle = pulse_graphics_internal::asset_build(
-        app, PULSE_TYPE_SAMPLER, nullptr, nullptr, 0, desc);
-    if (!pulse_asset_handle_is_valid(asset_handle)) 
-    return {};
-
-    return { asset_handle.index, asset_handle.generation };
+    return { h.index, h.generation };
 }
 
 }

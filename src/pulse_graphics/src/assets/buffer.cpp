@@ -9,7 +9,7 @@ static void destroy_buffer(void* ptr, void* user_data) {
     if (data->handle) cgpu_device_free_buffer(device, data->handle);
 }
 
-void register_buffer_type(PulseAppId app, CGPUDeviceId device)
+void register_buffer_type(PulseAssetSystemId asset_system, CGPUDeviceId device)
 {
     PulseAssetTypeDesc type_desc{};
     type_desc.struct_size = sizeof(PulseAssetTypeDesc);
@@ -19,31 +19,27 @@ void register_buffer_type(PulseAppId app, CGPUDeviceId device)
     type_desc.align = alignof(PulseGraphicsBufferData);
     type_desc.destroy = destroy_buffer;
     type_desc.user_data = const_cast<struct CGPUDevice*>(device);
-    pulse_asset_system_register_type(pulse_get_asset_system(app), &type_desc);
+    pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
 }
 
 extern "C" {
 
-bool pulse_acquire_graphics_buffer(PulseAppId app, PulseGraphicsBufferHandle handle, PulseGraphicsBuffer* buffer_ref) {
-    PulseAssetRef ref{};
-    if (pulse_asset_system_acquire(pulse_get_asset_system(app), pulse_graphics_buffer_to_handle(handle), &ref)) {
-        buffer_ref->handle = handle;
-        buffer_ref->ptr = static_cast<PulseGraphicsBufferData*>(ref.ptr);
-        return true;
-    }
-
-    buffer_ref->handle = {};
-    buffer_ref->ptr = nullptr;
-    return false;
+PulseGraphicsBufferHandle pulse_graphics_buffer_get_handle(PulseAppId app, PulseGraphicsBufferRequest request) {
+    PulseAssetHandle h = pulse_asset_system_get_handle(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_graphics_buffer_request_to_asset_request(request));
+    return !pulse_asset_handle_is_valid(h) ? PulseGraphicsBufferHandle{} : PulseGraphicsBufferHandle{h.index, h.generation};
 }
 
-void pulse_release_graphics_buffer(PulseAppId app, PulseGraphicsBuffer* buffer_ref) {
-    PulseAssetRef ref{ pulse_graphics_buffer_to_handle(buffer_ref->handle), nullptr };
-    pulse_asset_system_release(pulse_get_asset_system(app), &ref);
-    buffer_ref->handle = {};
-    buffer_ref->ptr = nullptr;
+bool pulse_graphics_buffer_is_ready(PulseAppId app, PulseGraphicsBufferRequest request) {
+    return pulse_asset_system_is_ready(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_graphics_buffer_request_to_asset_request(request));
+}
+
+bool pulse_graphics_buffer_is_alive(PulseAppId app, PulseGraphicsBufferRequest request) {
+    return pulse_asset_system_is_alive(
+        pulse_graphics_internal::asset_system_from_app(app), pulse_graphics_buffer_request_to_asset_request(request));
 }
 
 } // extern "C"

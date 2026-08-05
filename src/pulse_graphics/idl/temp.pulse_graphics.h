@@ -53,17 +53,9 @@ static inline PulseAssetHandle pulse_shader_to_handle(PulseShaderHandle shader) 
     PulseAssetHandle h = { PULSE_TYPE_SHADER, shader.index, shader.generation };
     return h;
 }
-static inline bool pulse_shader_is_alive(PulseAppId app, PulseShaderHandle shader) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_shader_to_handle(shader));
-}
-static inline bool pulse_shader_is_ready(PulseAppId app, PulseShaderHandle shader) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_shader_to_handle(shader));
-}
-static inline void pulse_unload_shader(PulseAppId app, PulseShaderHandle shader) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_shader_to_handle(shader));
+static inline PulseAssetRequest pulse_shader_request_to_asset_request(PulseShaderRequest shader) {
+    PulseAssetRequest r = { PULSE_TYPE_SHADER, shader.index, shader.generation };
+    return r;
 }
 
 // ShaderLibrary
@@ -71,17 +63,9 @@ static inline PulseAssetHandle pulse_shader_library_to_handle(PulseShaderLibrary
     PulseAssetHandle h = { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation };
     return h;
 }
-static inline bool pulse_shader_library_is_alive(PulseAppId app, PulseShaderLibraryHandle lib) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_shader_library_to_handle(lib));
-}
-static inline bool pulse_shader_library_is_ready(PulseAppId app, PulseShaderLibraryHandle lib) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_shader_library_to_handle(lib));
-}
-static inline void pulse_unload_shader_library(PulseAppId app, PulseShaderLibraryHandle lib) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_shader_library_to_handle(lib));
+static inline PulseAssetRequest pulse_shader_library_request_to_asset_request(PulseShaderLibraryRequest lib) {
+    PulseAssetRequest r = { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation };
+    return r;
 }
 
 // ComputeShader
@@ -89,17 +73,9 @@ static inline PulseAssetHandle pulse_compute_shader_to_handle(PulseComputeShader
     PulseAssetHandle h = { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation };
     return h;
 }
-static inline bool pulse_compute_shader_is_alive(PulseAppId app, PulseComputeShaderHandle cs) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_compute_shader_to_handle(cs));
-}
-static inline bool pulse_compute_shader_is_ready(PulseAppId app, PulseComputeShaderHandle cs) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_compute_shader_to_handle(cs));
-}
-static inline void pulse_unload_compute_shader(PulseAppId app, PulseComputeShaderHandle cs) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_compute_shader_to_handle(cs));
+static inline PulseAssetRequest pulse_compute_shader_request_to_asset_request(PulseComputeShaderRequest cs) {
+    PulseAssetRequest r = { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation };
+    return r;
 }
 
 // Buffer
@@ -107,17 +83,9 @@ static inline PulseAssetHandle pulse_graphics_buffer_to_handle(PulseGraphicsBuff
     PulseAssetHandle h = { PULSE_TYPE_GRAPHICS_BUFFER, buffer.index, buffer.generation };
     return h;
 }
-static inline bool pulse_graphics_buffer_is_alive(PulseAppId app, PulseGraphicsBufferHandle buffer) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_graphics_buffer_to_handle(buffer));
-}
-static inline bool pulse_graphics_buffer_is_ready(PulseAppId app, PulseGraphicsBufferHandle buffer) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_graphics_buffer_to_handle(buffer));
-}
-static inline void pulse_unload_graphics_buffer(PulseAppId app, PulseGraphicsBufferHandle buffer) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_graphics_buffer_to_handle(buffer));
+static inline PulseAssetRequest pulse_graphics_buffer_request_to_asset_request(PulseGraphicsBufferRequest buffer) {
+    PulseAssetRequest r = { PULSE_TYPE_GRAPHICS_BUFFER, buffer.index, buffer.generation };
+    return r;
 }
 
 // Sampler
@@ -125,17 +93,9 @@ static inline PulseAssetHandle pulse_sampler_to_handle(PulseSamplerHandle sample
     PulseAssetHandle h = { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation };
     return h;
 }
-static inline bool pulse_sampler_is_alive(PulseAppId app, PulseSamplerHandle sampler) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_sampler_to_handle(sampler));
-}
-static inline bool pulse_sampler_is_ready(PulseAppId app, PulseSamplerHandle sampler) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_sampler_to_handle(sampler));
-}
-static inline void pulse_unload_sampler(PulseAppId app, PulseSamplerHandle sampler) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_sampler_to_handle(sampler));
+static inline PulseAssetRequest pulse_sampler_request_to_asset_request(PulseSamplerRequest sampler) {
+    PulseAssetRequest r = { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation };
+    return r;
 }
 
 // Texture
@@ -143,17 +103,9 @@ static inline PulseAssetHandle pulse_texture_to_handle(PulseTextureHandle textur
     PulseAssetHandle h = { PULSE_TYPE_TEXTURE, texture.index, texture.generation };
     return h;
 }
-static inline bool pulse_texture_is_alive(PulseAppId app, PulseTextureHandle texture) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_texture_to_handle(texture));
-}
-static inline bool pulse_texture_is_ready(PulseAppId app, PulseTextureHandle texture) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_texture_to_handle(texture));
-}
-static inline void pulse_unload_texture(PulseAppId app, PulseTextureHandle texture) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_texture_to_handle(texture));
+static inline PulseAssetRequest pulse_texture_request_to_asset_request(PulseTextureRequest texture) {
+    PulseAssetRequest r = { PULSE_TYPE_TEXTURE, texture.index, texture.generation };
+    return r;
 }
 
 // Mesh
@@ -161,17 +113,9 @@ static inline PulseAssetHandle pulse_mesh_to_handle(PulseMeshHandle mesh) {
     PulseAssetHandle h = { PULSE_TYPE_MESH, mesh.index, mesh.generation };
     return h;
 }
-static inline bool pulse_mesh_is_alive(PulseAppId app, PulseMeshHandle mesh) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_mesh_to_handle(mesh));
-}
-static inline bool pulse_mesh_is_ready(PulseAppId app, PulseMeshHandle mesh) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_mesh_to_handle(mesh));
-}
-static inline void pulse_unload_mesh(PulseAppId app, PulseMeshHandle mesh) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_mesh_to_handle(mesh));
+static inline PulseAssetRequest pulse_mesh_request_to_asset_request(PulseMeshRequest mesh) {
+    PulseAssetRequest r = { PULSE_TYPE_MESH, mesh.index, mesh.generation };
+    return r;
 }
 
 // Material
@@ -179,17 +123,9 @@ static inline PulseAssetHandle pulse_material_to_handle(PulseMaterialHandle mate
     PulseAssetHandle h = { PULSE_TYPE_MATERIAL, material.index, material.generation };
     return h;
 }
-static inline bool pulse_material_is_alive(PulseAppId app, PulseMaterialHandle material) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_material_to_handle(material));
-}
-static inline bool pulse_material_is_ready(PulseAppId app, PulseMaterialHandle material) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_material_to_handle(material));
-}
-static inline void pulse_unload_material(PulseAppId app, PulseMaterialHandle material) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_material_to_handle(material));
+static inline PulseAssetRequest pulse_material_request_to_asset_request(PulseMaterialRequest material) {
+    PulseAssetRequest r = { PULSE_TYPE_MATERIAL, material.index, material.generation };
+    return r;
 }
 
 $c99decl

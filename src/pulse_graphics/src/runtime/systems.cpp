@@ -2,7 +2,7 @@
 
 namespace pulse_graphics_internal {
 
-bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId default_texture, CGPUSamplerId default_sampler) {
+bool frame_data::init(PulseAssetSystemId asset_system, CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId default_texture, CGPUSamplerId default_sampler) {
     fence = cgpu_device_create_fence(device);
     if (!fence) {
         return false;
@@ -23,6 +23,7 @@ bool frame_data::init(CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId 
             false,
             exec_memory.get()
         );
+    exec_context->asset_system = asset_system;
     exec_context->default_texture = default_texture;
     exec_context->default_sampler = default_sampler;
     return exec_context != nullptr;
@@ -127,7 +128,9 @@ bool ensure_frame_graph(pulse_graphics_state* state, render_frame_context& frame
             window_count * 8 > kGraphEdgeEstimate
                 ? window_count * 8
                 : kGraphEdgeEstimate;
+
         frame_context.graph = std::make_unique<HGEGraphics::rendergraph_t>(
+            state->asset_system,
             resource_estimate,
             pass_estimate,
             edge_estimate,

@@ -67,7 +67,7 @@ bool create_renderer(pulse_graphics_state* state) {
 
     state->frames.resize(renderer.image_count);
     for (frame_data& frame : state->frames) {
-        if (!frame.init(renderer.device, renderer.graphics_queue, CGPU_NULLPTR, CGPU_NULLPTR)) {
+        if (!frame.init(state->asset_system, renderer.device, renderer.graphics_queue, CGPU_NULLPTR, CGPU_NULLPTR)) {
             return false;
         }
     }

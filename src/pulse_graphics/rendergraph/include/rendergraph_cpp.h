@@ -35,9 +35,9 @@ namespace HGEGraphics
 
 		rendergraph_t() : m_handle(nullptr) {}
 
-		rendergraph_t(size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
+		rendergraph_t(PulseAssetSystemId asset_system, size_t estimate_resource_count, size_t estimate_pass_count, size_t estimate_edge_count, PulseShaderData* blitShader, CGPUSamplerId blitSampler, std::pmr::memory_resource* const resource)
 		{
-			auto* impl = new pulse_rendergraph_impl_t(estimate_resource_count, estimate_pass_count, estimate_edge_count, blitShader, blitSampler, resource);
+			auto* impl = new pulse_rendergraph_impl_t(asset_system, estimate_resource_count, estimate_pass_count, estimate_edge_count, blitShader, blitSampler, resource);
 			m_handle = from_impl(impl);
 		}
 
@@ -100,7 +100,7 @@ namespace HGEGraphics
 		return { h.index };
 	}
 
-	inline texture_handle_t rendergraph_import_texture(rendergraph_t* self, PulseTextureData* imported)
+	inline texture_handle_t rendergraph_import_texture(rendergraph_t* self, PulseTextureHandle imported)
 	{
 		PulseRGTextureHandle h = pulse_render_graph_import_texture(*self, imported);
 		return { h.index };
@@ -118,7 +118,7 @@ namespace HGEGraphics
 		return { h.index };
 	}
 
-	inline buffer_handle_t rendergraph_import_buffer(rendergraph_t* self, PulseGraphicsBufferData* imported)
+	inline buffer_handle_t rendergraph_import_buffer(rendergraph_t* self, PulseGraphicsBufferHandle imported)
 	{
 		PulseRGBufferHandle h = pulse_render_graph_import_buffer(*self, imported);
 		return { h.index };

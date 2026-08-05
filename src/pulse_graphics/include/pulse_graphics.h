@@ -211,89 +211,65 @@ typedef struct PulseSamplerHandle
 
 } PulseSamplerHandle;
 
-struct PulseShaderData;
-typedef struct PulseShaderData PulseShaderData;
-
-struct PulseShaderLibraryData;
-typedef struct PulseShaderLibraryData PulseShaderLibraryData;
-
-struct PulseComputeShaderData;
-typedef struct PulseComputeShaderData PulseComputeShaderData;
-
-struct PulseGraphicsBufferData;
-typedef struct PulseGraphicsBufferData PulseGraphicsBufferData;
-
-struct PulseTextureData;
-typedef struct PulseTextureData PulseTextureData;
-
-struct PulseMeshData;
-typedef struct PulseMeshData PulseMeshData;
-
-struct PulseMaterialData;
-typedef struct PulseMaterialData PulseMaterialData;
-
-struct PulseSamplerData;
-typedef struct PulseSamplerData PulseSamplerData;
-
 /**
- * Asset ref types (handle + data ptr)
+ * Asset request types (async load/build results, value structs with index+generation)
  *
  */
-typedef struct PulseShader
+typedef struct PulseShaderRequest
 {
-    PulseShaderHandle    handle;
-    PulseShaderData*     ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseShader;
+} PulseShaderRequest;
 
-typedef struct PulseShaderLibrary
+typedef struct PulseShaderLibraryRequest
 {
-    PulseShaderLibraryHandle handle;
-    PulseShaderLibraryData* ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseShaderLibrary;
+} PulseShaderLibraryRequest;
 
-typedef struct PulseComputeShader
+typedef struct PulseComputeShaderRequest
 {
-    PulseComputeShaderHandle handle;
-    PulseComputeShaderData* ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseComputeShader;
+} PulseComputeShaderRequest;
 
-typedef struct PulseGraphicsBuffer
+typedef struct PulseMeshRequest
 {
-    PulseGraphicsBufferHandle handle;
-    PulseGraphicsBufferData* ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseGraphicsBuffer;
+} PulseMeshRequest;
 
-typedef struct PulseTexture
+typedef struct PulseTextureRequest
 {
-    PulseTextureHandle   handle;
-    PulseTextureData*    ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseTexture;
+} PulseTextureRequest;
 
-typedef struct PulseMesh
+typedef struct PulseGraphicsBufferRequest
 {
-    PulseMeshHandle      handle;
-    PulseMeshData*       ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseMesh;
+} PulseGraphicsBufferRequest;
 
-typedef struct PulseMaterial
+typedef struct PulseMaterialRequest
 {
-    PulseMaterialHandle  handle;
-    PulseMaterialData*   ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseMaterial;
+} PulseMaterialRequest;
 
-typedef struct PulseSampler
+typedef struct PulseSamplerRequest
 {
-    PulseSamplerHandle   handle;
-    PulseSamplerData*    ptr;
+    uint32_t             index;
+    uint32_t             generation;
 
-} PulseSampler;
+} PulseSamplerRequest;
 
 typedef struct PulseShaderProperty
 {
@@ -580,17 +556,9 @@ static inline PulseAssetHandle pulse_shader_to_handle(PulseShaderHandle shader) 
     PulseAssetHandle h = { PULSE_TYPE_SHADER, shader.index, shader.generation };
     return h;
 }
-static inline bool pulse_shader_is_alive(PulseAppId app, PulseShaderHandle shader) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_shader_to_handle(shader));
-}
-static inline bool pulse_shader_is_ready(PulseAppId app, PulseShaderHandle shader) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_shader_to_handle(shader));
-}
-static inline void pulse_unload_shader(PulseAppId app, PulseShaderHandle shader) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_shader_to_handle(shader));
+static inline PulseAssetRequest pulse_shader_request_to_asset_request(PulseShaderRequest shader) {
+    PulseAssetRequest r = { PULSE_TYPE_SHADER, shader.index, shader.generation };
+    return r;
 }
 
 // ShaderLibrary
@@ -598,17 +566,9 @@ static inline PulseAssetHandle pulse_shader_library_to_handle(PulseShaderLibrary
     PulseAssetHandle h = { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation };
     return h;
 }
-static inline bool pulse_shader_library_is_alive(PulseAppId app, PulseShaderLibraryHandle lib) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_shader_library_to_handle(lib));
-}
-static inline bool pulse_shader_library_is_ready(PulseAppId app, PulseShaderLibraryHandle lib) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_shader_library_to_handle(lib));
-}
-static inline void pulse_unload_shader_library(PulseAppId app, PulseShaderLibraryHandle lib) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_shader_library_to_handle(lib));
+static inline PulseAssetRequest pulse_shader_library_request_to_asset_request(PulseShaderLibraryRequest lib) {
+    PulseAssetRequest r = { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation };
+    return r;
 }
 
 // ComputeShader
@@ -616,17 +576,9 @@ static inline PulseAssetHandle pulse_compute_shader_to_handle(PulseComputeShader
     PulseAssetHandle h = { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation };
     return h;
 }
-static inline bool pulse_compute_shader_is_alive(PulseAppId app, PulseComputeShaderHandle cs) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_compute_shader_to_handle(cs));
-}
-static inline bool pulse_compute_shader_is_ready(PulseAppId app, PulseComputeShaderHandle cs) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_compute_shader_to_handle(cs));
-}
-static inline void pulse_unload_compute_shader(PulseAppId app, PulseComputeShaderHandle cs) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_compute_shader_to_handle(cs));
+static inline PulseAssetRequest pulse_compute_shader_request_to_asset_request(PulseComputeShaderRequest cs) {
+    PulseAssetRequest r = { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation };
+    return r;
 }
 
 // Buffer
@@ -634,17 +586,9 @@ static inline PulseAssetHandle pulse_graphics_buffer_to_handle(PulseGraphicsBuff
     PulseAssetHandle h = { PULSE_TYPE_GRAPHICS_BUFFER, buffer.index, buffer.generation };
     return h;
 }
-static inline bool pulse_graphics_buffer_is_alive(PulseAppId app, PulseGraphicsBufferHandle buffer) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_graphics_buffer_to_handle(buffer));
-}
-static inline bool pulse_graphics_buffer_is_ready(PulseAppId app, PulseGraphicsBufferHandle buffer) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_graphics_buffer_to_handle(buffer));
-}
-static inline void pulse_unload_graphics_buffer(PulseAppId app, PulseGraphicsBufferHandle buffer) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_graphics_buffer_to_handle(buffer));
+static inline PulseAssetRequest pulse_graphics_buffer_request_to_asset_request(PulseGraphicsBufferRequest buffer) {
+    PulseAssetRequest r = { PULSE_TYPE_GRAPHICS_BUFFER, buffer.index, buffer.generation };
+    return r;
 }
 
 // Sampler
@@ -652,17 +596,9 @@ static inline PulseAssetHandle pulse_sampler_to_handle(PulseSamplerHandle sample
     PulseAssetHandle h = { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation };
     return h;
 }
-static inline bool pulse_sampler_is_alive(PulseAppId app, PulseSamplerHandle sampler) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_sampler_to_handle(sampler));
-}
-static inline bool pulse_sampler_is_ready(PulseAppId app, PulseSamplerHandle sampler) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_sampler_to_handle(sampler));
-}
-static inline void pulse_unload_sampler(PulseAppId app, PulseSamplerHandle sampler) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_sampler_to_handle(sampler));
+static inline PulseAssetRequest pulse_sampler_request_to_asset_request(PulseSamplerRequest sampler) {
+    PulseAssetRequest r = { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation };
+    return r;
 }
 
 // Texture
@@ -670,17 +606,9 @@ static inline PulseAssetHandle pulse_texture_to_handle(PulseTextureHandle textur
     PulseAssetHandle h = { PULSE_TYPE_TEXTURE, texture.index, texture.generation };
     return h;
 }
-static inline bool pulse_texture_is_alive(PulseAppId app, PulseTextureHandle texture) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_texture_to_handle(texture));
-}
-static inline bool pulse_texture_is_ready(PulseAppId app, PulseTextureHandle texture) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_texture_to_handle(texture));
-}
-static inline void pulse_unload_texture(PulseAppId app, PulseTextureHandle texture) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_texture_to_handle(texture));
+static inline PulseAssetRequest pulse_texture_request_to_asset_request(PulseTextureRequest texture) {
+    PulseAssetRequest r = { PULSE_TYPE_TEXTURE, texture.index, texture.generation };
+    return r;
 }
 
 // Mesh
@@ -688,17 +616,9 @@ static inline PulseAssetHandle pulse_mesh_to_handle(PulseMeshHandle mesh) {
     PulseAssetHandle h = { PULSE_TYPE_MESH, mesh.index, mesh.generation };
     return h;
 }
-static inline bool pulse_mesh_is_alive(PulseAppId app, PulseMeshHandle mesh) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_mesh_to_handle(mesh));
-}
-static inline bool pulse_mesh_is_ready(PulseAppId app, PulseMeshHandle mesh) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_mesh_to_handle(mesh));
-}
-static inline void pulse_unload_mesh(PulseAppId app, PulseMeshHandle mesh) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_mesh_to_handle(mesh));
+static inline PulseAssetRequest pulse_mesh_request_to_asset_request(PulseMeshRequest mesh) {
+    PulseAssetRequest r = { PULSE_TYPE_MESH, mesh.index, mesh.generation };
+    return r;
 }
 
 // Material
@@ -706,17 +626,9 @@ static inline PulseAssetHandle pulse_material_to_handle(PulseMaterialHandle mate
     PulseAssetHandle h = { PULSE_TYPE_MATERIAL, material.index, material.generation };
     return h;
 }
-static inline bool pulse_material_is_alive(PulseAppId app, PulseMaterialHandle material) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_alive(as, pulse_material_to_handle(material));
-}
-static inline bool pulse_material_is_ready(PulseAppId app, PulseMaterialHandle material) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    return pulse_asset_system_is_ready(as, pulse_material_to_handle(material));
-}
-static inline void pulse_unload_material(PulseAppId app, PulseMaterialHandle material) {
-    PulseAssetSystemId as = pulse_get_graphics_asset_system(app);
-    pulse_asset_system_unload(as, pulse_material_to_handle(material));
+static inline PulseAssetRequest pulse_material_request_to_asset_request(PulseMaterialRequest material) {
+    PulseAssetRequest r = { PULSE_TYPE_MATERIAL, material.index, material.generation };
+    return r;
 }
 
 
@@ -757,9 +669,10 @@ PULSE_API PulseRGTextureHandle pulse_import_window_backbuffer(PulseAppId app, Pu
  *
  */
 PULSE_API PulseShaderLibraryHandle pulse_create_shader_library(PulseAppId app, const PulseShaderLibraryCreateDesc* desc);
-PULSE_API PulseShaderLibraryHandle pulse_load_shader_library(PulseAppId app, const PulseShaderLibraryLoadDesc* desc);
-PULSE_API bool pulse_acquire_shader_library(PulseAppId app, PulseShaderLibraryHandle handle, PulseShaderLibrary* out_ref);
-PULSE_API void pulse_release_shader_library(PulseAppId app, PulseShaderLibrary* ref);
+PULSE_API PulseShaderLibraryRequest pulse_load_shader_library(PulseAppId app, const PulseShaderLibraryLoadDesc* desc);
+PULSE_API PulseShaderLibraryHandle pulse_shader_library_get_handle(PulseAppId app, PulseShaderLibraryRequest request);
+PULSE_API bool pulse_shader_library_is_ready(PulseAppId app, PulseShaderLibraryRequest request);
+PULSE_API bool pulse_shader_library_is_alive(PulseAppId app, PulseShaderLibraryRequest request);
 
 /**
  * Shader
@@ -769,9 +682,10 @@ PULSE_API void pulse_release_shader_library(PulseAppId app, PulseShaderLibrary* 
  *
  */
 PULSE_API PulseShaderHandle pulse_create_shader_from_binary(PulseAppId app, const PulseShaderCreateFromBinaryDesc* desc);
-PULSE_API PulseShaderHandle pulse_create_shader_from_file(PulseAppId app, const PulseShaderCreateFromFileDesc* desc);
-PULSE_API bool pulse_acquire_shader(PulseAppId app, PulseShaderHandle handle, PulseShader* out_ref);
-PULSE_API void pulse_release_shader(PulseAppId app, PulseShader* ref);
+PULSE_API PulseShaderRequest pulse_create_shader_from_file(PulseAppId app, const PulseShaderCreateFromFileDesc* desc);
+PULSE_API PulseShaderHandle pulse_shader_get_handle(PulseAppId app, PulseShaderRequest request);
+PULSE_API bool pulse_shader_is_ready(PulseAppId app, PulseShaderRequest request);
+PULSE_API bool pulse_shader_is_alive(PulseAppId app, PulseShaderRequest request);
 
 /**
  * Compute shader
@@ -781,9 +695,10 @@ PULSE_API void pulse_release_shader(PulseAppId app, PulseShader* ref);
  *
  */
 PULSE_API PulseComputeShaderHandle pulse_create_compute_shader_from_binary(PulseAppId app, const PulseComputeShaderCreateFromBinaryDesc* desc);
-PULSE_API PulseComputeShaderHandle pulse_create_compute_shader_from_file(PulseAppId app, const PulseComputeShaderCreateFromFileDesc* desc);
-PULSE_API bool pulse_acquire_compute_shader(PulseAppId app, PulseComputeShaderHandle handle, PulseComputeShader* out_ref);
-PULSE_API void pulse_release_compute_shader(PulseAppId app, PulseComputeShader* ref);
+PULSE_API PulseComputeShaderRequest pulse_create_compute_shader_from_file(PulseAppId app, const PulseComputeShaderCreateFromFileDesc* desc);
+PULSE_API PulseComputeShaderHandle pulse_compute_shader_get_handle(PulseAppId app, PulseComputeShaderRequest request);
+PULSE_API bool pulse_compute_shader_is_ready(PulseAppId app, PulseComputeShaderRequest request);
+PULSE_API bool pulse_compute_shader_is_alive(PulseAppId app, PulseComputeShaderRequest request);
 
 /**
  * Buffer
@@ -792,9 +707,10 @@ PULSE_API void pulse_release_compute_shader(PulseAppId app, PulseComputeShader* 
  * @param[in] desc
  *
  */
-PULSE_API PulseGraphicsBufferHandle pulse_create_graphics_buffer(PulseAppId app, const PulseGraphicsBufferCreateDesc* desc);
-PULSE_API bool pulse_acquire_graphics_buffer(PulseAppId app, PulseGraphicsBufferHandle handle, PulseGraphicsBuffer* out_ref);
-PULSE_API void pulse_release_graphics_buffer(PulseAppId app, PulseGraphicsBuffer* ref);
+PULSE_API PulseGraphicsBufferRequest pulse_create_graphics_buffer(PulseAppId app, const PulseGraphicsBufferCreateDesc* desc);
+PULSE_API PulseGraphicsBufferHandle pulse_graphics_buffer_get_handle(PulseAppId app, PulseGraphicsBufferRequest request);
+PULSE_API bool pulse_graphics_buffer_is_ready(PulseAppId app, PulseGraphicsBufferRequest request);
+PULSE_API bool pulse_graphics_buffer_is_alive(PulseAppId app, PulseGraphicsBufferRequest request);
 
 /**
  * Sampler
@@ -804,8 +720,9 @@ PULSE_API void pulse_release_graphics_buffer(PulseAppId app, PulseGraphicsBuffer
  *
  */
 PULSE_API PulseSamplerHandle pulse_create_sampler(PulseAppId app, const PulseSamplerCreateDesc* desc);
-PULSE_API bool pulse_acquire_sampler(PulseAppId app, PulseSamplerHandle handle, PulseSampler* out_ref);
-PULSE_API void pulse_release_sampler(PulseAppId app, PulseSampler* ref);
+PULSE_API PulseSamplerHandle pulse_sampler_get_handle(PulseAppId app, PulseSamplerRequest request);
+PULSE_API bool pulse_sampler_is_ready(PulseAppId app, PulseSamplerRequest request);
+PULSE_API bool pulse_sampler_is_alive(PulseAppId app, PulseSamplerRequest request);
 
 /**
  * Texture
@@ -814,10 +731,11 @@ PULSE_API void pulse_release_sampler(PulseAppId app, PulseSampler* ref);
  * @param[in] desc
  *
  */
-PULSE_API PulseTextureHandle pulse_create_texture(PulseAppId app, const PulseTextureCreateDesc* desc);
-PULSE_API PulseTextureHandle pulse_load_texture(PulseAppId app, const PulseTextureLoadDesc* desc);
-PULSE_API bool pulse_acquire_texture(PulseAppId app, PulseTextureHandle handle, PulseTexture* out_ref);
-PULSE_API void pulse_release_texture(PulseAppId app, PulseTexture* ref);
+PULSE_API PulseTextureRequest pulse_create_texture(PulseAppId app, const PulseTextureCreateDesc* desc);
+PULSE_API PulseTextureRequest pulse_load_texture(PulseAppId app, const PulseTextureLoadDesc* desc);
+PULSE_API PulseTextureHandle pulse_texture_get_handle(PulseAppId app, PulseTextureRequest request);
+PULSE_API bool pulse_texture_is_ready(PulseAppId app, PulseTextureRequest request);
+PULSE_API bool pulse_texture_is_alive(PulseAppId app, PulseTextureRequest request);
 
 /**
  * Mesh
@@ -826,13 +744,14 @@ PULSE_API void pulse_release_texture(PulseAppId app, PulseTexture* ref);
  * @param[in] desc
  *
  */
-PULSE_API PulseMeshHandle pulse_create_mesh_from_data(PulseAppId app, const PulseMeshCreateFromDataDesc* desc);
+PULSE_API PulseMeshRequest pulse_create_mesh_from_data(PulseAppId app, const PulseMeshCreateFromDataDesc* desc);
 PULSE_API PulseMeshHandle pulse_create_mesh_dynamic(PulseAppId app, const PulseMeshCreateDynamicDesc* desc);
-PULSE_API PulseMeshHandle pulse_load_mesh(PulseAppId app, const char* filepath);
+PULSE_API PulseMeshRequest pulse_load_mesh(PulseAppId app, const char* filepath);
 PULSE_API void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle mesh, const void* data, uint32_t count);
 PULSE_API void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle mesh, const void* data, uint32_t count);
-PULSE_API bool pulse_acquire_mesh(PulseAppId app, PulseMeshHandle handle, PulseMesh* out_ref);
-PULSE_API void pulse_release_mesh(PulseAppId app, PulseMesh* ref);
+PULSE_API PulseMeshHandle pulse_mesh_get_handle(PulseAppId app, PulseMeshRequest request);
+PULSE_API bool pulse_mesh_is_ready(PulseAppId app, PulseMeshRequest request);
+PULSE_API bool pulse_mesh_is_alive(PulseAppId app, PulseMeshRequest request);
 
 /**
  * Material
@@ -841,32 +760,35 @@ PULSE_API void pulse_release_mesh(PulseAppId app, PulseMesh* ref);
  * @param[in] desc
  *
  */
-PULSE_API PulseMaterialHandle pulse_create_material(PulseAppId app, const PulseMaterialCreateDesc* desc);
-PULSE_API bool pulse_acquire_material(PulseAppId app, PulseMaterialHandle handle, PulseMaterial* out_ref);
-PULSE_API void pulse_release_material(PulseAppId app, PulseMaterial* ref);
-PULSE_API PulseShader pulse_material_get_shader(PulseMaterial self);
+PULSE_API PulseMaterialRequest pulse_create_material(PulseAppId app, const PulseMaterialCreateDesc* desc);
+PULSE_API PulseMaterialHandle pulse_material_get_handle(PulseAppId app, PulseMaterialRequest request);
+PULSE_API bool pulse_material_is_ready(PulseAppId app, PulseMaterialRequest request);
+PULSE_API bool pulse_material_is_alive(PulseAppId app, PulseMaterialRequest request);
+PULSE_API PulseShaderHandle pulse_material_get_shader(PulseAppId app, PulseMaterialHandle self);
 
 /**
  * Material property setters (name-driven, Unity-style)
  *
+ * @param[in] app
  * @param[in] self
  * @param[in] name
  * @param[in] value
  *
  */
-PULSE_API void pulse_material_set_property_float4(PulseMaterial self, const char* name, HMM_Vec4 value);
-PULSE_API void pulse_material_set_property_mat4(PulseMaterial self, const char* name, HMM_Mat4 value);
-PULSE_API void pulse_material_set_property_texture(PulseMaterial self, const char* name, PulseTexture texture);
-PULSE_API void pulse_material_set_property_sampler(PulseMaterial self, const char* name, PulseSampler sampler);
-PULSE_API uint32_t pulse_shader_get_shader_property_count(PulseShader self);
-PULSE_API PulseShaderProperty pulse_shader_get_shader_property(PulseShader self, uint32_t index);
-PULSE_API uint32_t pulse_shader_get_ubo_info_count(PulseShader self);
-PULSE_API PulseUboInfo pulse_shader_get_ubo_info(PulseShader self, uint32_t index);
+PULSE_API void pulse_material_set_property_float4(PulseAppId app, PulseMaterialHandle self, const char* name, HMM_Vec4 value);
+PULSE_API void pulse_material_set_property_mat4(PulseAppId app, PulseMaterialHandle self, const char* name, HMM_Mat4 value);
+PULSE_API void pulse_material_set_property_texture(PulseAppId app, PulseMaterialHandle self, const char* name, PulseTextureHandle texture);
+PULSE_API void pulse_material_set_property_sampler(PulseAppId app, PulseMaterialHandle self, const char* name, PulseSamplerHandle sampler);
+PULSE_API uint32_t pulse_shader_get_shader_property_count(PulseAppId app, PulseShaderHandle self);
+PULSE_API PulseShaderProperty pulse_shader_get_shader_property(PulseAppId app, PulseShaderHandle self, uint32_t index);
+PULSE_API uint32_t pulse_shader_get_ubo_info_count(PulseAppId app, PulseShaderHandle self);
+PULSE_API PulseUboInfo pulse_shader_get_ubo_info(PulseAppId app, PulseShaderHandle self, uint32_t index);
 
 /**
  * ======== Rendergraph Functions ========
  * Rendergraph lifecycle
  *
+ * @param[in] assetSystem
  * @param[in] estimateResourceCount
  * @param[in] estimatePassCount
  * @param[in] estimateEdgeCount
@@ -874,7 +796,7 @@ PULSE_API PulseUboInfo pulse_shader_get_ubo_info(PulseShader self, uint32_t inde
  * @param[in] blitSampler
  *
  */
-PULSE_API PulseRenderGraphId pulse_create_render_graph(uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
+PULSE_API PulseRenderGraphId pulse_create_render_graph(PulseAssetSystemId asset_system, uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
 PULSE_API void pulse_destroy_render_graph(PulseRenderGraphId render_graph);
 PULSE_API void pulse_render_graph_reset(PulseRenderGraphId _this);
 
@@ -892,10 +814,10 @@ PULSE_API bool pulse_rgbuffer_handle_is_valid(PulseRGBufferHandle handle);
  *
  */
 PULSE_API PulseRGTextureHandle pulse_render_graph_declare_texture(PulseRenderGraphId _this);
-PULSE_API PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId _this, PulseTextureData* imported);
+PULSE_API PulseRGTextureHandle pulse_render_graph_import_texture(PulseRenderGraphId _this, PulseTextureHandle imported);
 PULSE_API PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderGraphId _this, pulse_backbuffer_data_t* imported_backbuffer);
 PULSE_API PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId _this);
-PULSE_API PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId _this, PulseGraphicsBufferData* imported);
+PULSE_API PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId _this, PulseGraphicsBufferHandle imported);
 PULSE_API PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId _this, void* imported);
 PULSE_API PulseRGBufferHandle pulse_render_graph_declare_uniform_buffer_quick(PulseRenderGraphId _this, uint32_t size, void* data);
 PULSE_API PulseRGTextureHandle pulse_render_graph_declare_texture_subresource(PulseRenderGraphId _this, PulseRGTextureHandle parent, uint8_t mip_level, uint8_t array_slice);
@@ -982,19 +904,19 @@ PULSE_API void pulse_compute_pass_builder_set_executable(PulseComputePassBuilder
  * @param[in] mesh
  *
  */
-PULSE_API void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* _this, PulseMaterial material, PulseMesh mesh);
-PULSE_API void pulse_render_pass_encoder_draw_submesh(PulseRenderPassEncoder* _this, PulseMaterial material, PulseMesh mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);
-PULSE_API void pulse_render_pass_encoder_draw_procedure(PulseRenderPassEncoder* _this, PulseMaterial material, ECGPUPrimitiveTopology topology, uint32_t vertex_count);
-PULSE_API void pulse_render_pass_encoder_dispatch(PulseRenderPassEncoder* _this, PulseComputeShader compute_shader, uint32_t x, uint32_t y, uint32_t z);
-PULSE_API void pulse_render_pass_encoder_set_global_texture(PulseRenderPassEncoder* _this, PulseTexture texture, uint32_t set, uint32_t binding);
-PULSE_API void pulse_render_pass_encoder_set_global_buffer(PulseRenderPassEncoder* _this, PulseGraphicsBuffer buffer, uint32_t set, uint32_t binding);
-PULSE_API void pulse_render_pass_encoder_set_global_sampler(PulseRenderPassEncoder* _this, PulseSampler sampler, uint32_t set, uint32_t binding);
+PULSE_API void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh);
+PULSE_API void pulse_render_pass_encoder_draw_submesh(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);
+PULSE_API void pulse_render_pass_encoder_draw_procedure(PulseRenderPassEncoder* _this, PulseMaterialHandle material, ECGPUPrimitiveTopology topology, uint32_t vertex_count);
+PULSE_API void pulse_render_pass_encoder_dispatch(PulseRenderPassEncoder* _this, PulseComputeShaderHandle compute_shader, uint32_t x, uint32_t y, uint32_t z);
+PULSE_API void pulse_render_pass_encoder_set_global_texture(PulseRenderPassEncoder* _this, PulseTextureHandle texture, uint32_t set, uint32_t binding);
+PULSE_API void pulse_render_pass_encoder_set_global_buffer(PulseRenderPassEncoder* _this, PulseGraphicsBufferHandle buffer, uint32_t set, uint32_t binding);
+PULSE_API void pulse_render_pass_encoder_set_global_sampler(PulseRenderPassEncoder* _this, PulseSamplerHandle sampler, uint32_t set, uint32_t binding);
 PULSE_API void pulse_render_pass_encoder_set_global_texture_handle(PulseRenderPassEncoder* _this, PulseRGTextureHandle handle, uint32_t set, uint32_t binding);
 PULSE_API void pulse_render_pass_encoder_set_global_buffer_handle(PulseRenderPassEncoder* _this, PulseRGBufferHandle handle, uint32_t set, uint32_t binding);
 PULSE_API void pulse_render_pass_encoder_set_global_buffer_offset(PulseRenderPassEncoder* _this, PulseRGBufferHandle handle, uint32_t set, uint32_t binding, uint64_t offset, uint64_t size);
 PULSE_API void pulse_render_pass_encoder_set_viewport(PulseRenderPassEncoder* _this, float x, float y, float width, float height, float min_depth, float max_depth);
 PULSE_API void pulse_render_pass_encoder_set_scissor(PulseRenderPassEncoder* _this, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-PULSE_API void pulse_render_pass_encoder_push_constants(PulseRenderPassEncoder* _this, PulseShader shader, const char* name, const void* data);
+PULSE_API void pulse_render_pass_encoder_push_constants(PulseRenderPassEncoder* _this, PulseShaderHandle shader, const char* name, const void* data);
 PULSE_API CGPUBufferId pulse_render_pass_encoder_resolve_buffer(PulseRenderPassEncoder* _this, PulseRGBufferHandle buffer_handle);
 PULSE_API CGPUTextureViewId pulse_render_pass_encoder_resolve_texture_view(PulseRenderPassEncoder* _this, PulseRGTextureHandle texture_handle);
 
