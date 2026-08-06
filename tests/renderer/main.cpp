@@ -110,35 +110,45 @@ int main(void) {
         .property_count = 3,
         .p_properties = shader_props,
     };
-    PulseShaderHandle shader = pulse_create_shader_from_file(app, &shader_desc);
+    PulseShaderRequest shader = pulse_create_shader_from_file(app, &shader_desc);
 
     // Load mesh
-    PulseMeshHandle mesh = pulse_load_mesh(app, "Quad.obj");
+    PulseMeshRequest mesh = pulse_load_mesh(app, "Quad.obj");
+
+    // Shader is loaded asynchronously; wait until it's ready so we can
+    // resolve its handle (required to create a material referencing it).
+    for (int i = 0; i < 60 && !pulse_shader_is_ready(app, shader); ++i) {
+        pulse_app_update(app);
+    }
+    assert(pulse_shader_is_ready(app, shader));
+    PulseShaderHandle shader_handle = pulse_shader_get_handle(app, shader);
+    assert(shader_handle.index != 0);
 
     // Create material
     PulseMaterialCreateDesc mat_desc = {
-        .shader = shader,
+        .shader = shader_handle,
     };
-    PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
+    PulseMaterialRequest material = pulse_create_material(app, &mat_desc);
+    assert(material.index != 0);
 
     // ---- Add renderer plugin ----
     assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
 
-    // ---- Wait for material to be ready, then bind its data ----
-    // Run a few updates to let async assets load
-    for (int i = 0; i < 5; ++i) {
+    // ---- Wait for mesh/material to be ready, then resolve their handles ----
+    for (int i = 0; i < 60 && (!pulse_mesh_is_ready(app, mesh) || !pulse_material_is_ready(app, material)); ++i) {
         pulse_app_update(app);
     }
+    assert(pulse_mesh_is_ready(app, mesh));
+    assert(pulse_material_is_ready(app, material));
+
+    PulseMeshHandle mesh_handle = pulse_mesh_get_handle(app, mesh);
+    assert(mesh_handle.index != 0);
+    PulseMaterialHandle material_handle = pulse_material_get_handle(app, material);
+    assert(material_handle.index != 0);
 
     // Bind material color via property name (replaces manual set/binding)
-    if (pulse_material_is_ready(app, material)) {
-        PulseMaterial mat_ref = {};
-        if (pulse_acquire_material(app, material, &mat_ref)) {
-            pulse_material_set_property_float4(mat_ref, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
-            pulse_release_material(app, &mat_ref);
-        }        
-    }
+    pulse_material_set_property_float4(app, material_handle, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
 
     // ---- Create ECS entities ----
     ecs_world_t* world = pulse_app_world(app);
@@ -169,8 +179,8 @@ int main(void) {
         // Create a renderable entity
         ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0);
         PulseRenderable renderable = {};
-        renderable.mesh = mesh;
-        renderable.material = material;
+        renderable.mesh = mesh_handle;
+        renderable.material = material_handle;
         ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
     }
 
@@ -178,8 +188,8 @@ int main(void) {
         // Create a renderable entity
         ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0);
         PulseRenderable renderable = {};
-        renderable.mesh = mesh;
-        renderable.material = material;
+        renderable.mesh = mesh_handle;
+        renderable.material = material_handle;
         ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
     }
 
