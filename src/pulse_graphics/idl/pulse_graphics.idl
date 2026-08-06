@@ -678,7 +678,7 @@ func.MeshIsAlive
 
 --- Material
 func.CreateMaterial
-    "MaterialRequest"
+    "MaterialHandle"
     .app  "PulseAppId"
     .desc "*const MaterialCreateDesc"
     ()

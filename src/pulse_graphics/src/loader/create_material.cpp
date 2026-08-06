@@ -67,11 +67,11 @@ void register_material_create_loader(PulseAssetSystemId asset_system, CGPUDevice
 
 extern "C" {
 
-PulseMaterialRequest pulse_create_material(
+PulseMaterialHandle pulse_create_material(
     PulseAppId app,
     const PulseMaterialCreateDesc* desc)
 {
-    PulseMaterialRequest result{};
+    PulseMaterialHandle result{};
     if (!desc)
         return result;
 
@@ -83,13 +83,13 @@ PulseMaterialRequest pulse_create_material(
     PulseAssetDependency dependencies[1];
     dependencies[0] = { pulse_asset_system_to_asset_dep_ref_from_handle(as, pulse_shader_to_handle(desc->shader)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED };
 
-    PulseAssetRequest request = pulse_graphics_internal::asset_build(
+    PulseAssetHandle handle = pulse_graphics_internal::asset_build_sync(
         as, PULSE_TYPE_MATERIAL, nullptr, dependencies, 1, desc);
-    if (!pulse_asset_request_is_valid(request))
+    if (!pulse_asset_handle_is_valid(handle))
         return result;
 
-    result.index = request.index;
-    result.generation = request.generation;
+    result.index = handle.index;
+    result.generation = handle.generation;
     return result;
 }
 

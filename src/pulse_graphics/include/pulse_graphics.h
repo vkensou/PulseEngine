@@ -760,7 +760,7 @@ PULSE_API bool pulse_mesh_is_alive(PulseAppId app, PulseMeshRequest request);
  * @param[in] desc
  *
  */
-PULSE_API PulseMaterialRequest pulse_create_material(PulseAppId app, const PulseMaterialCreateDesc* desc);
+PULSE_API PulseMaterialHandle pulse_create_material(PulseAppId app, const PulseMaterialCreateDesc* desc);
 PULSE_API PulseMaterialHandle pulse_material_get_handle(PulseAppId app, PulseMaterialRequest request);
 PULSE_API bool pulse_material_is_ready(PulseAppId app, PulseMaterialRequest request);
 PULSE_API bool pulse_material_is_alive(PulseAppId app, PulseMaterialRequest request);

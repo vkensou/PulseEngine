@@ -73,7 +73,7 @@ struct test_graphic_resources {
     PulseSamplerRequest sampler;
     PulseTextureRequest texture;
     PulseMeshRequest mesh;
-    PulseMaterialRequest material;
+    PulseMaterialHandle material;
 };
 
 // passdata 传入 executable callback
@@ -107,7 +107,6 @@ static void on_test_render(PulseRenderPassEncoder* encoder, void* userdata) {
 
 struct test_render_state {
     ecs_query_t* window_query;
-    PulseMaterialRequest material_request;
     PulseTextureRequest texture_request;
     PulseMeshRequest mesh_request;
     PulseMaterialHandle material;
@@ -133,8 +132,7 @@ static void record_test_graphic(
         return;
     }
 
-    if (!state->material_resolved && pulse_material_is_ready(app, state->material_request) && pulse_texture_is_ready(app, state->texture_request)) {
-        state->material = pulse_material_get_handle(app, state->material_request);
+    if (!state->material_resolved && pulse_texture_is_ready(app, state->texture_request)) {
         state->texture = pulse_texture_get_handle(app, state->texture_request);
         pulse_material_set_property_float4(app, state->material, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
         state->material_resolved = true;
@@ -317,7 +315,7 @@ int main(void) {
 	PulseMaterialCreateDesc mat_desc{
 		.shader = shader_handle,
     };
-    PulseMaterialRequest material = pulse_create_material(app, &mat_desc);
+    PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
     assert(material.index != 0);
 
     // ---- Register record callback with graphic resources ----
@@ -327,7 +325,7 @@ int main(void) {
     window_query_desc.terms[0] = { .id = ecs_id(PulseWindow) };
     window_query_desc.cache_kind = EcsQueryCacheAuto;
     render_state.window_query = ecs_query_init(pulse_app_world(app), &window_query_desc);
-    render_state.material_request = material;
+    render_state.material = material;
     render_state.texture_request = texture;
     render_state.mesh_request = mesh;
 
