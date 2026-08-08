@@ -24,7 +24,7 @@ EPulseResult pulse_add_render_record_callback(
     return PULSE_RESULT_OK;
 }
 
-EPulseResult pulse_graphics_render_remove_record_callback(
+EPulseResult pulse_remove_render_record_callback(
     PulseAppId app,
     PulseProcRenderRecordCallback callback
 ) {

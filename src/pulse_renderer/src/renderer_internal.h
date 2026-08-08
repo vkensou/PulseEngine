@@ -28,7 +28,8 @@ struct RendererUboColumn {
     PulseShaderHandle shader;           // owning shader
     uint32_t set;
     uint32_t binding;
-    uint32_t stride;            // per-object byte size (0 = not per-draw)
+    uint32_t size;              // raw UBO byte size (unpadded)
+    uint32_t stride;            // per-object byte stride (0 = not per-draw)
     uint64_t layout_hash;       // from shader's ubo_info
     uint64_t data_hash;         // hash of the filled data (for lazy switching)
     std::vector<uint8_t> cpu_data;
@@ -73,8 +74,16 @@ struct pulse_renderer_state {
 
     bool record_callback_registered = false;
 
+    // ECS system entities (ctx points at this state; deleted on shutdown)
+    ecs_entity_t extract_cameras_system = 0;
+    ecs_entity_t collect_renderables_system = 0;
+    ecs_entity_t sort_and_pack_system = 0;
+
     // Property name mapping: EPulseRendererPropertyType → shader property name
     const char* property_names[PULSE_RENDERER_PROPERTY_TYPE_COUNT] = {};
+
+    // Device UBO offset alignment, queried once at plugin init (see renderer_plugin_post_build)
+    uint32_t ubo_alignment = 256;
 
     void swap_packets() {
         int w = write_index.load(std::memory_order_relaxed);

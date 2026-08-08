@@ -44,7 +44,9 @@ void extract_cameras_system(ecs_iter_t* it) {
     if (!state) return;
 
     FrameRenderPacket& packet = state->write_packet();
-    packet.views.clear();
+    // NOTE: do not clear views here — this system may run once per matched
+    // table in a frame, and sort_and_pack_system already clears the next
+    // write packet after swapping.
 
     PulseCamera* cameras = ecs_field(it, PulseCamera, 0);
     PulseWorldTransform* world_transforms = ecs_field(it, PulseWorldTransform, 1);
@@ -211,7 +213,7 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
                 uint64_t obj_offset = idx * col.stride;
                 pulse_render_pass_encoder_set_global_buffer_offset(
                     encoder, col.gpu_handle, (uint32_t)col.set, col.binding,
-                    obj_offset, col.stride);
+                    obj_offset, col.size);
             } else if (shader_changed) {
                 // Per-pass UBO: bind once when entering this shader
                 pulse_render_pass_encoder_set_global_buffer_handle(
@@ -225,6 +227,11 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
     }
 }
 
+// Align a byte size up to the given byte alignment (e.g. UBO offset alignment)
+static uint32_t align_up(uint32_t value, uint32_t alignment) {
+    return (value + alignment - 1) / alignment * alignment;
+}
+
 // Helper: build a single renderer-managed UBO column for a given shader+ubo_info
 static void build_ubo_column_for_shader(
     PulseAppId app,
@@ -232,7 +239,8 @@ static void build_ubo_column_for_shader(
     PulseRenderGraphId graph,
     RendererView& view,
     PulseShaderHandle shader,
-    const PulseUboInfo& info)
+    const PulseUboInfo& info,
+    uint32_t ubo_alignment)
 {
     RendererUboColumn col = {};
     col.shader = shader;
@@ -259,9 +267,12 @@ static void build_ubo_column_for_shader(
 
     if (has_draw) {
         col.is_per_draw = true;
-        col.stride = ubo_size;
+        col.size = ubo_size;
+        // Pad the per-object stride to the device UBO offset alignment so
+        // every idx * stride bind offset stays a valid aligned offset.
+        col.stride = align_up(ubo_size, ubo_alignment);
         size_t obj_count = view.render_objects.size();
-        col.cpu_data.resize(ubo_size * obj_count, 0);
+        col.cpu_data.resize(col.stride * obj_count, 0);
 
         for (size_t o = 0; o < obj_count; ++o) {
             for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
@@ -272,7 +283,7 @@ static void build_ubo_column_for_shader(
                 const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
                 if (model_name && prop.name && strcmp(prop.name, model_name) == 0) {
                     uint32_t copy_size = prop.size > 0 ? prop.size : sizeof(HMM_Mat4);
-                    memcpy(col.cpu_data.data() + o * ubo_size + prop.offset,
+                    memcpy(col.cpu_data.data() + o * col.stride + prop.offset,
                            &view.render_objects[o].world_matrix, copy_size);
                 }
             }
@@ -282,7 +293,7 @@ static void build_ubo_column_for_shader(
     if (has_pass) {
         if (!has_draw) {
             col.is_per_draw = false;
-            col.stride = ubo_size;
+            col.size = ubo_size;
             col.cpu_data.resize(ubo_size, 0);
         }
         HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
@@ -296,7 +307,7 @@ static void build_ubo_column_for_shader(
                 const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
                 if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) {
                     uint32_t copy_size = prop.size > 0 ? prop.size : sizeof(HMM_Mat4);
-                    memcpy(col.cpu_data.data() + o * ubo_size + prop.offset, &vp, copy_size);
+                    memcpy(col.cpu_data.data() + o * col.stride + prop.offset, &vp, copy_size);
                 }
             }
         }
@@ -323,6 +334,9 @@ static void record_renderer_callback(
     pulse_renderer_state* state =
         static_cast<pulse_renderer_state*>(user_data);
     if (!state || !graph) return;
+
+    // Use the device UBO offset alignment cached at plugin init
+    uint32_t ubo_alignment = state->ubo_alignment;
 
     FrameRenderPacket& packet = state->read_packet_mutable();
     if (packet.views.empty()) return;
@@ -361,7 +375,7 @@ static void record_renderer_callback(
             for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
                 const auto& info = pulse_shader_get_ubo_info(app, shader, u);
                 if (!info.renderer_managed) continue;
-                build_ubo_column_for_shader(app, state, graph, view, shader, info);
+                build_ubo_column_for_shader(app, state, graph, view, shader, info, ubo_alignment);
             }
         }
 
@@ -432,6 +446,7 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
             ecs_add_pair(world, entity, EcsDependsOn, propagate);
         }
         prev_system = entity;
+        state->extract_cameras_system = entity;
     }
 
     // CollectRenderables: Renderable + WorldTransform → RenderObject
@@ -456,6 +471,7 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
             ecs_add_pair(world, entity, EcsDependsOn, prev_system);
         }
         prev_system = entity;
+        state->collect_renderables_system = entity;
     }
 
     // SortAndPack: sorts + swaps double buffers
@@ -476,6 +492,7 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
         if (prev_system != 0) {
             ecs_add_pair(world, entity, EcsDependsOn, prev_system);
         }
+        state->sort_and_pack_system = entity;
     }
 }
 
@@ -514,6 +531,17 @@ EPulseResult renderer_plugin_post_build(PulseAppId app, void* ctx) {
     auto* state = static_cast<pulse_renderer_state*>(ctx);
     if (!state) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
 
+    // Query the device UBO offset alignment once and cache it.
+    // Runs after every plugin's build phase, so PulseRenderer (and its
+    // adapter) are guaranteed to exist by this point.
+    const PulseRenderer* gfx_renderer = pulse_get_renderer(app);
+    if (gfx_renderer && gfx_renderer->adapter) {
+        const CGPUAdapterDetail* detail =
+            cgpu_adapter_query_adapter_detail(gfx_renderer->adapter);
+        if (detail && detail->uniform_buffer_alignment > 0)
+            state->ubo_alignment = detail->uniform_buffer_alignment;
+    }
+
     // Register render record callback with pulse_graphics
     // This must happen in post_build because pulse_graphics systems
     // are installed during its build phase.
@@ -533,10 +561,26 @@ void renderer_plugin_shutdown(PulseAppId app, void* ctx) {
     auto* state = static_cast<pulse_renderer_state*>(ctx);
     if (!state) return;
 
-    // Note: pulse_remove_render_record_callback is declared but not yet
-    // implemented in pulse_graphics. The callback will be cleaned up
-    // automatically when pulse_graphics shuts down.
-    state->record_callback_registered = false;
+    ecs_world_t* world = pulse_app_world(app);
+
+    // Unregister the render record callback (its user_data points at state)
+    if (state->record_callback_registered) {
+        pulse_remove_render_record_callback(app, record_renderer_callback);
+        state->record_callback_registered = false;
+    }
+
+    // Delete ECS systems whose ctx points at state
+    if (world && state->extract_cameras_system && ecs_is_alive(world, state->extract_cameras_system))
+        ecs_delete(world, state->extract_cameras_system);
+    if (world && state->collect_renderables_system && ecs_is_alive(world, state->collect_renderables_system))
+        ecs_delete(world, state->collect_renderables_system);
+    if (world && state->sort_and_pack_system && ecs_is_alive(world, state->sort_and_pack_system))
+        ecs_delete(world, state->sort_and_pack_system);
+
+    // Remove the state singleton
+    if (world && ecs_id(pulse_renderer_state_resource) != 0) {
+        ecs_singleton_remove(world, pulse_renderer_state_resource);
+    }
 
     delete state;
 }
