@@ -77,28 +77,6 @@ struct PulseApp;
 typedef struct PulseApp PulseApp;
 
 /**
- * Pipeline Tags (ECS tag components for system phase assignment)
- *
- */
-typedef struct PulseUpdatePipeline
-{
-    uint32_t             holder;
-
-} PulseUpdatePipeline;
-
-typedef struct PulsePostUpdatePipeline
-{
-    uint32_t             holder;
-
-} PulsePostUpdatePipeline;
-
-typedef struct PulseRenderPipeline
-{
-    uint32_t             holder;
-
-} PulseRenderPipeline;
-
-/**
  * Per-frame timing (singleton component, updated every frame by the time system)
  *
  */
@@ -113,9 +91,6 @@ typedef struct PulseTimer
 } PulseTimer;
 
 
-extern ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
-extern ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
-extern ECS_COMPONENT_DECLARE(PulseRenderPipeline);
 extern ECS_COMPONENT_DECLARE(PulseTimer);
 
 PULSE_API PulseAppId pulse_create_app(const char* name);

@@ -65,14 +65,6 @@ struct.PluginDesc
 
 struct.App()
 
---- Pipeline Tags (ECS tag components for system phase assignment)
-struct.UpdatePipeline
-    .holder         "uint32_t"
-struct.PostUpdatePipeline
-    .holder         "uint32_t"
-struct.RenderPipeline
-    .holder         "uint32_t"
-
 --- Per-frame timing (singleton component, updated every frame by the time system)
 struct.Timer
     .deltaTime              "float"

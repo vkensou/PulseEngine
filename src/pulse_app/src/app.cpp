@@ -59,9 +59,6 @@ App::App(PulseAppId handle, const char* name)
     : handle_(handle), name_(name) {
     // Register core pipeline tag components so they're available before any plugin
     ecs_world_t* w = world_.c_ptr();
-    ECS_COMPONENT_DEFINE(w, PulseUpdatePipeline);
-    ECS_COMPONENT_DEFINE(w, PulsePostUpdatePipeline);
-    ECS_COMPONENT_DEFINE(w, PulseRenderPipeline);
     ECS_COMPONENT_DEFINE(w, PulseTimer);
 
     // Create the time singleton so it exists from the very first frame
