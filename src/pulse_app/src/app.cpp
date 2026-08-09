@@ -6,6 +6,7 @@
 ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
 ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
 ECS_COMPONENT_DECLARE(PulseRenderPipeline);
+ECS_COMPONENT_DECLARE(PulseTimer);
 
 struct PulseApp {
     pulse::App impl;
@@ -14,6 +15,43 @@ struct PulseApp {
         : impl(this, name) {
     }
 };
+
+namespace {
+
+// Per-frame timing: refresh the PulseTimer singleton from the world's
+// measured timing data. Runs in PreUpdate so every system in the frame sees
+// fresh values.
+void time_system_run(ecs_iter_t* it) {
+    const ecs_world_info_t* info = ecs_get_world_info(it->world);
+    PulseTimer* ctx = ecs_field(it, PulseTimer, 0);
+    if (!info || !ctx) {
+        return;
+    }
+
+    ctx->delta_time = info->delta_time;
+    ctx->time_since_startup = (float)info->world_time_total;
+    ctx->delta_time_double = (double)info->delta_time;
+    ctx->time_since_startup_double = info->world_time_total;
+    ctx->fps = info->delta_time > 0.0f ? (int32_t)(1.0f / info->delta_time + 0.5f) : 0;
+}
+
+void install_time_system(ecs_world_t* world) {
+    ecs_entity_desc_t entity_desc = {};
+    entity_desc.name = "PulseTimeSystem";
+    ecs_entity_t entity = ecs_entity_init(world, &entity_desc);
+
+    ecs_system_desc_t desc = {};
+    desc.entity = entity;
+    desc.phase = EcsPreUpdate;
+    // Matches the singleton entity holding PulseTimer
+    desc.query.terms[0].id = ecs_id(PulseTimer);
+    desc.query.terms[0].inout = EcsOut;
+    desc.query.cache_kind = EcsQueryCacheAuto;
+    desc.callback = time_system_run;
+    ecs_system_init(world, &desc);
+}
+
+} // namespace
 
 namespace pulse {
 
@@ -24,6 +62,15 @@ App::App(PulseAppId handle, const char* name)
     ECS_COMPONENT_DEFINE(w, PulseUpdatePipeline);
     ECS_COMPONENT_DEFINE(w, PulsePostUpdatePipeline);
     ECS_COMPONENT_DEFINE(w, PulseRenderPipeline);
+    ECS_COMPONENT_DEFINE(w, PulseTimer);
+
+    // Create the time singleton so it exists from the very first frame
+    // (ecs_singleton_get_mut does not auto-create).
+    PulseTimer time_ctx = {};
+    ecs_singleton_set_ptr(w, PulseTimer, &time_ctx);
+
+    // Install the per-frame time system (updates PulseTimer each frame)
+    install_time_system(w);
 }
 
 App::~App() {

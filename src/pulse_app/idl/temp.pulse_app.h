@@ -49,6 +49,7 @@ $cstructs
 extern ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
 extern ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
 extern ECS_COMPONENT_DECLARE(PulseRenderPipeline);
+extern ECS_COMPONENT_DECLARE(PulseTimer);
 
 $c99decl
 

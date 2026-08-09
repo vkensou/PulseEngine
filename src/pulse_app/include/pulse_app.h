@@ -98,10 +98,25 @@ typedef struct PulseRenderPipeline
 
 } PulseRenderPipeline;
 
+/**
+ * Per-frame timing (singleton component, updated every frame by the time system)
+ *
+ */
+typedef struct PulseTimer
+{
+    float                delta_time;
+    float                time_since_startup;
+    double               delta_time_double;
+    double               time_since_startup_double;
+    int32_t              fps;
+
+} PulseTimer;
+
 
 extern ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
 extern ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
 extern ECS_COMPONENT_DECLARE(PulseRenderPipeline);
+extern ECS_COMPONENT_DECLARE(PulseTimer);
 
 PULSE_API PulseAppId pulse_create_app(const char* name);
 PULSE_API void pulse_destroy_app(PulseAppId app);

@@ -73,6 +73,15 @@ struct.PostUpdatePipeline
 struct.RenderPipeline
     .holder         "uint32_t"
 
+--- Per-frame timing (singleton component, updated every frame by the time system)
+struct.Timer
+    .deltaTime              "float"
+    .timeSinceStartup       "float"
+    .deltaTimeDouble        "double"
+    .timeSinceStartupDouble "double"
+    .fps                    "int32_t"
+    ()
+
 func.CreateApp
     "?AppId"
     .name "?cstring"

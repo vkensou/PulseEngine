@@ -146,6 +146,34 @@ int main(void) {
     pulse_destroy_app(app);
     assert(shutdown_called);
 
+    // --- Timer: singleton exists and is refreshed every frame ---
+    {
+        PulseAppId time_app = pulse_create_app("time-app");
+        assert(time_app != nullptr);
+
+        ecs_world_t* world = pulse_app_world(time_app);
+        assert(world != nullptr);
+
+        // Singleton must exist from the start, with zeroed time
+        const PulseTimer* ctx = ecs_singleton_get(world, PulseTimer);
+        assert(ctx != nullptr);
+        assert(ctx->time_since_startup_double == 0.0);
+
+        // Run a few frames; time must advance
+        int frames = 10;
+        assert(pulse_app_set_runner(time_app, test_runner, &frames) == PULSE_RESULT_OK);
+        assert(pulse_app_run(time_app) == PULSE_RESULT_OK);
+
+        ctx = ecs_singleton_get(world, PulseTimer);
+        assert(ctx != nullptr);
+        assert(ctx->time_since_startup_double > 0.0);
+        assert(ctx->delta_time_double >= 0.0);
+        assert(ctx->time_since_startup > 0.0f);
+        assert(ctx->fps >= 0);
+
+        pulse_destroy_app(time_app);
+    }
+
     printf("All tests passed!\n");
     return 0;
 }
