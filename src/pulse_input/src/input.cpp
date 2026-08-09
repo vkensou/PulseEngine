@@ -27,6 +27,19 @@ EPulseResult input_plugin_build(PulseAppId app, void* ctx) {
     // Register ECS components
     register_components(world);
 
+    // Initialize input state singletons so observers and poll helpers can
+    // always access them (ecs_singleton_get_mut does not auto-create).
+    {
+        PulseKeyboardInput keyboard = {};
+        ecs_singleton_set_ptr(world, PulseKeyboardInput, &keyboard);
+        PulseMouseInput mouse = {};
+        ecs_singleton_set_ptr(world, PulseMouseInput, &mouse);
+        PulseMouseMotion motion = {};
+        ecs_singleton_set_ptr(world, PulseMouseMotion, &motion);
+        PulseMouseScroll scroll = {};
+        ecs_singleton_set_ptr(world, PulseMouseScroll, &scroll);
+    }
+
     // Store state as singleton resource
     pulse_input_state_resource resource{};
     resource.state = state;

@@ -170,7 +170,7 @@ ecs_entity_t install_input_system(
     // Register observers for events emitted by pulse_window
     {
         ecs_observer_desc_t desc{};
-        desc.query.terms[0].id = ecs_id(PulseKeyEvent);
+        desc.query.terms[0].id = ecs_id(PulseKeyboardInput);
         desc.events[0] = ecs_id(PulseKeyEvent);
         desc.callback = key_event_observer;
         desc.ctx = state;
@@ -179,7 +179,7 @@ ecs_entity_t install_input_system(
 
     {
         ecs_observer_desc_t desc{};
-        desc.query.terms[0].id = ecs_id(PulseMouseButtonEvent);
+        desc.query.terms[0].id = ecs_id(PulseMouseInput);
         desc.events[0] = ecs_id(PulseMouseButtonEvent);
         desc.callback = mouse_button_observer;
         desc.ctx = state;
@@ -188,7 +188,7 @@ ecs_entity_t install_input_system(
 
     {
         ecs_observer_desc_t desc{};
-        desc.query.terms[0].id = ecs_id(PulseMouseScrollEvent);
+        desc.query.terms[0].id = ecs_id(PulseMouseScroll);
         desc.events[0] = ecs_id(PulseMouseScrollEvent);
         desc.callback = mouse_scroll_observer;
         desc.ctx = state;

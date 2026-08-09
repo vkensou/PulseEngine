@@ -236,9 +236,12 @@ void emit_key_event(
         .pressed = (event.type == SDL_EVENT_KEY_DOWN),
         .window = window_entity,
     };
+    ecs_id_t comp_ids[] = { ecs_id(PulseKeyboardInput) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
     ecs_event_desc_t event_desc = {};
     event_desc.event = ecs_id(PulseKeyEvent);
-    event_desc.entity = window_entity;
+    event_desc.entity = ecs_id(PulseKeyboardInput);
+    event_desc.ids = &ids;
     event_desc.const_param = &key_evt;
     event_desc.observable = world;
     ecs_enqueue(world, &event_desc);
@@ -256,9 +259,12 @@ void emit_mouse_button_event(
         .y = event.button.y,
         .window = window_entity,
     };
+    ecs_id_t comp_ids[] = { ecs_id(PulseMouseInput) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
     ecs_event_desc_t event_desc = {};
     event_desc.event = ecs_id(PulseMouseButtonEvent);
-    event_desc.entity = window_entity;
+    event_desc.entity = ecs_id(PulseMouseInput);
+    event_desc.ids = &ids;
     event_desc.const_param = &btn_evt;
     event_desc.observable = world;
     ecs_enqueue(world, &event_desc);
@@ -274,9 +280,12 @@ void emit_mouse_scroll_event(
         .y = event.wheel.y,
         .window = window_entity,
     };
+    ecs_id_t comp_ids[] = { ecs_id(PulseMouseScroll) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
     ecs_event_desc_t event_desc = {};
     event_desc.event = ecs_id(PulseMouseScrollEvent);
-    event_desc.entity = window_entity;
+    event_desc.entity = ecs_id(PulseMouseScroll);
+    event_desc.ids = &ids;
     event_desc.const_param = &scroll_evt;
     event_desc.observable = world;
     ecs_enqueue(world, &event_desc);
