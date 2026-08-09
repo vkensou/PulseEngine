@@ -1,7 +1,7 @@
 --[[
   用法: lua generate_module.lua <dump|generate> [头文件名.h]
   默认头文件: snake.h
-  dump: 仅打印解析结果。 generate: 生成 <文件名>_module.{h,cpp} 文件。
+  dump: 仅打印解析结果。 generate: 生成 <文件名>_module.{h,cpp} 文件（与头文件同目录）。
   旧版用法: lua generate_module.lua foo.h 等同于 generate foo.h
 ]]
 local function collapse_ws(s)
@@ -1163,13 +1163,16 @@ local function main(...)
     local module_name = header_path:match("([^/\\]+)%.h$") or "module"
     module_name = module_name:gsub("%.h$", "")
 
+    -- 输出到头文件所在目录（头文件无目录时输出到当前目录）
+    local out_dir = header_path:match("^(.*[/\\])") or ""
+
     local module_h = generate_module_h()
-    write_file(module_name .. "_module.h", module_h)
-    print("输出: " .. module_name .. "_module.h")
+    write_file(out_dir .. module_name .. "_module.h", module_h)
+    print("输出: " .. out_dir .. module_name .. "_module.h")
 
     local module_cpp = generate_module_cpp(module_name, systems)
-    write_file(module_name .. "_module.cpp", module_cpp)
-    print("输出: " .. module_name .. "_module.cpp")
+    write_file(out_dir .. module_name .. "_module.cpp", module_cpp)
+    print("输出: " .. out_dir .. module_name .. "_module.cpp")
 
     print("完成 (generate 模式)。")
 end
