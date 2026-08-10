@@ -154,6 +154,9 @@ int main(void) {
         ecs_world_t* world = pulse_app_world(time_app);
         assert(world != nullptr);
 
+        PulseAppId rev_app = pulse_get_app_from_world(world);
+        assert(rev_app != nullptr);
+
         // Singleton must exist from the start, with zeroed time
         const PulseTimer* ctx = ecs_singleton_get(world, PulseTimer);
         assert(ctx != nullptr);

@@ -107,6 +107,7 @@ PULSE_API PulseAppId pulse_app_get_subapp(PulseAppId _this, const char* name);
 PULSE_API PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
 PULSE_API EPulseResult pulse_app_set_subapp_extract(PulseAppId _this, const char* name, PulseProcSubappExtractFn extract, void* ctx);
 PULSE_API EPulseResult pulse_app_extract_subapps(PulseAppId _this);
+PULSE_API PulseAppId pulse_get_app_from_world(ecs_world_t* world);
 
 #ifdef __cplusplus
 }

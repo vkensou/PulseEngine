@@ -89,39 +89,43 @@ func.App.Update
     "Result::Enum"
 
 func.App.SetRunner "Result::Enum"
-    .runner "RunnerFn"
-    .ctx "?*anyopaque"
+    .runner     "RunnerFn"
+    .ctx        "?*anyopaque"
 
 func.App.AddPlugin "Result::Enum"
     .desc "*const PluginDesc"
 
 func.App.HasPlugin "bool"
-    .name "cstring"
+    .name       "cstring"
 
 func.App.World
-    "* ecs_world_t"
+    "*ecs_world_t"
 
 func.App.LastError
     "cstring"
 
 func.App.InsertSubapp
     "Result::Enum"
-    .name "cstring"
-    .subapp "AppId"
+    .name       "cstring"
+    .subapp     "AppId"
 
 func.App.GetSubapp
     "AppId"
-    .name "cstring"
+    .name       "cstring"
 
 func.App.RemoveSubapp
     "AppId"
-    .name "cstring"
+    .name       "cstring"
 
 func.App.SetSubappExtract
     "Result::Enum"
-    .name "cstring"
-    .extract "SubappExtractFn"
-    .ctx "?*anyopaque"
+    .name       "cstring"
+    .extract    "SubappExtractFn"
+    .ctx        "?*anyopaque"
 
 func.App.ExtractSubapps
     "Result::Enum"
+
+func.GetAppFromWorld
+    "AppId"
+    .world      "*ecs_world_t"

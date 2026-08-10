@@ -2,11 +2,12 @@
 
 #include <utility>
 
-// Pipeline tag component variable definitions
-ECS_COMPONENT_DECLARE(PulseUpdatePipeline);
-ECS_COMPONENT_DECLARE(PulsePostUpdatePipeline);
-ECS_COMPONENT_DECLARE(PulseRenderPipeline);
+struct pulse_app_state_resource {
+    PulseAppId app;
+};
+
 ECS_COMPONENT_DECLARE(PulseTimer);
+ECS_COMPONENT_DECLARE(pulse_app_state_resource);
 
 struct PulseApp {
     pulse::App impl;
@@ -60,6 +61,7 @@ App::App(PulseAppId handle, const char* name)
     // Register core pipeline tag components so they're available before any plugin
     ecs_world_t* w = world_.c_ptr();
     ECS_COMPONENT_DEFINE(w, PulseTimer);
+    ECS_COMPONENT_DEFINE(w, pulse_app_state_resource);
 
     // Create the time singleton so it exists from the very first frame
     // (ecs_singleton_get_mut does not auto-create).
@@ -68,6 +70,11 @@ App::App(PulseAppId handle, const char* name)
 
     // Install the per-frame time system (updates PulseTimer each frame)
     install_time_system(w);
+
+    pulse_app_state_resource res{
+        .app = handle,
+    };
+    ecs_singleton_set_ptr(w, pulse_app_state_resource, &res);
 }
 
 App::~App() {
@@ -533,6 +540,12 @@ EPulseResult pulse_app_extract_subapps(PulseAppId app) {
     }
 
     return impl->extract_subapps();
+}
+
+PULSE_API PulseAppId pulse_get_app_from_world(ecs_world_t* world) {
+    if (world == nullptr) return nullptr;
+    const pulse_app_state_resource* resource = ecs_singleton_get(world, pulse_app_state_resource);
+    return resource->app;
 }
 
 } // extern "C"
