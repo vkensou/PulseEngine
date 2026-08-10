@@ -1,8 +1,11 @@
 ﻿#pragma once
 
 #include "flecs.h"
+#include <algorithm>
 #include <functional>
+#include <initializer_list>
 #include <memory>
+#include <vector>
 
 // ECS组件
 #define PULSE_ECS_COMPONENT
@@ -13,9 +16,11 @@
 // ECS事件，Event后缀
 #define PULSE_ECS_EVENT
 // ECS系统，System后缀
-#define PULSE_ECS_SYSTEM(...) 
+#define PULSE_ECS_SYSTEM(...)
 // ECS外部资源
 #define PULSE_ECS_RESOURCE
+// ECS状态机枚举，INIT=指定初始状态
+#define PULSE_ECS_STATE_MACHINE(...)
 
 namespace pulse
 {
@@ -246,9 +251,10 @@ namespace pulse
 			);
 		}
 
-		void observe(flecs::world& world)
+		// 返回 observer 实体，便于注册进状态机做 enable/disable
+		flecs::observer observe(flecs::world& world)
 		{
-			world.observer<EventTag>()
+			return world.observer<EventTag>()
 				.event<T>()
 				.ctx(this)
 				.each([](flecs::iter& it, size_t i, EventTag)
@@ -293,9 +299,10 @@ namespace pulse
 			);
 		}
 
-		void observe(flecs::world& world)
+		// 返回 observer 实体，便于注册进状态机做 enable/disable
+		flecs::observer observe(flecs::world& world)
 		{
-			world.observer<C...>()
+			return world.observer<C...>()
 				.event<T>()
 				.ctx(this)
 				.each([](flecs::iter& it, size_t i, C&...c)
@@ -335,6 +342,107 @@ namespace pulse
 
 	private:
 		std::vector<std::unique_ptr<EventRegisterBase>> eventRegisters;
+	};
+
+	// ============================================================
+	// 状态机基础设施（配合 PULSE_ECS_STATE_MACHINE 标记的状态枚举）
+	//   - 状态以 TState 组件存放在 SingleHolder 单例上
+	//   - system/observer 以"启用状态集"注册进来
+	//   - 状态变化时 apply() 经 flecs ecs_enable 批量启用/禁用
+	//     （flecs 对 observer 有专门的 disable 支持）
+	//   - 状态迁移由系统通过 singleton_query<TState> 写出；
+	//     一个每帧最先运行的状态管理系统（IMMEDIATE）调用 tick()
+	//     检测变化并 apply，使开关在当帧后续系统即生效
+	// ============================================================
+
+	// ============================================================
+	// 状态机访问器：作为系统签名参数，供系统读取/迁移游戏状态。
+	// 状态以 TState 组件存放在 SingleHolder 单例上；迁移由
+	// StateMachine 管理系统（每帧最先，IMMEDIATE）下一帧应用开关。
+	// [迁移预留：未来生成器新增 KIND.SYSTEM_STATE_MACHINE，
+	//  wrapper 生成 auto state = pulse::system_state_machine<TState>(world);]
+	// ============================================================
+
+	template<typename TState>
+	struct system_state_machine
+	{
+	public:
+		explicit system_state_machine(flecs::world& world)
+			: world(world)
+		{
+		}
+
+		// 当前状态
+		TState current() const
+		{
+			return world.singleton<SingleHolder>().get<TState>();
+		}
+
+		// 是否处于给定状态
+		bool is(TState state) const
+		{
+			return current() == state;
+		}
+
+		// 显式状态迁移
+		void to(TState next)
+		{
+			world.singleton<SingleHolder>().set<TState>(next);
+		}
+
+	private:
+		flecs::world& world;
+	};
+
+	template<typename TState>
+	struct StateMachine
+	{
+	public:
+		void reg(flecs::entity target, std::initializer_list<TState> states)
+		{
+			entries.push_back({ target, states });
+		}
+
+		// run 前调用（此时 world 可写，开关立即生效）：注册组件、写初值、首次 apply
+		void init(flecs::world& world, TState initial)
+		{
+			world.component<TState>();
+			system_state_machine<TState> state(world);
+			state.to(initial);
+			applied = initial;
+			apply(world);
+		}
+
+		// 状态管理系统每帧调用：检测状态变化并应用开关
+		void tick(flecs::world& world)
+		{
+			system_state_machine<TState> state(world);
+			const TState current = state.current();
+			if (!(current == applied))
+			{
+				applied = current;
+				apply(world);
+			}
+		}
+
+	private:
+		struct Entry
+		{
+			flecs::entity target;       // system 或 observer 实体
+			std::vector<TState> states; // 启用状态集
+		};
+
+		void apply(flecs::world& world)
+		{
+			for (auto& entry : entries)
+			{
+				bool enabled = std::find(entry.states.begin(), entry.states.end(), applied) != entry.states.end();
+				ecs_enable(world.c_ptr(), entry.target, enabled);
+			}
+		}
+
+		std::vector<Entry> entries;
+		TState applied{};
 	};
 
 	template<typename T>

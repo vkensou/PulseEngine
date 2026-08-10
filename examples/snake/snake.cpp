@@ -1,11 +1,7 @@
 ﻿#include "snake.h"
 
-#include "pulse_math.h"
-#include "pulse_input.h"
-#include <algorithm>
 #include <optional>
 #include <random>
-#include <span>
 
 HMM_Vec3 toDelta(Direction4W direction)
 {
@@ -165,7 +161,6 @@ Border createBorder(pulse::command_buffer& command_buffer, PulseMeshHandle quad,
 
 void createEntities(pulse::command_buffer& command_buffer, const Border& border, const SnakeResources& resources)
 {
-	command_buffer.set_singleton<SnakeGame>({ .playing = true });
 	command_buffer.set_singleton<Score>({ .value = 0 });
 	auto [snake, bodies] = createSnake(command_buffer, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0, 0, 0));
 	(void)snake;
@@ -189,16 +184,16 @@ void destructEntities(flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsAppl
 		});
 }
 
-std::optional<Direction4W> getInputDirection(const SnakeInput& input, PulseAppId app)
+std::optional<Direction4W> getInputDirection(const SnakeInput& input, const PulseKeyboardInput& keyboard)
 {
-	// 边沿检测：just_pressed 由 pulse_input 事件链路维护（PostFrame 清除）
-	if (pulse_input_key_just_pressed(app, input.rightKey))
+	// 边沿检测：just_pressed 由 pulse-input 事件链路维护（PostFrame 清除）
+	if (keyboard.just_pressed[input.rightKey])
 		return Direction4W::Right;
-	if (pulse_input_key_just_pressed(app, input.upKey))
+	if (keyboard.just_pressed[input.upKey])
 		return Direction4W::Up;
-	if (pulse_input_key_just_pressed(app, input.leftKey))
+	if (keyboard.just_pressed[input.leftKey])
 		return Direction4W::Left;
-	if (pulse_input_key_just_pressed(app, input.downKey))
+	if (keyboard.just_pressed[input.downKey])
 		return Direction4W::Down;
 	return {};
 }
@@ -273,42 +268,110 @@ Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const SnakeBodies& snake, const 
 	return Obstacle::None();
 }
 
-// 资源就绪后的一次性初始化：解析 handle → 创建材质 → 棋盘/蛇/苹果。
-// 未就绪时直接返回，由系统每帧重试（异步加载状态机）。
-void prepareGameSystem(pulse::res<SnakeAssets> assets, pulse::command_buffer& command_buffer)
+// ============================================================
+// 资源加载（模块内异步加载状态机，配合游戏状态 UnInitialized/Loading）
+// ============================================================
+
+// 注意：pulse_create_shader_from_file 异步持有 desc 指针（loader 在后续
+// 帧才使用），desc 及其引用的数组/状态必须长期有效（static）——
+// 栈上临时对象会在函数返回后悬垂，导致随机内存损坏。
+static CGPUBlendAttachmentState s_blend_attachments = {
+	.enable = false,
+	.src_factor = CGPU_BLEND_FACTOR_ONE,
+	.dst_factor = CGPU_BLEND_FACTOR_ZERO,
+	.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
+	.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
+	.blend_op = CGPU_BLEND_OP_ADD,
+	.blend_alpha_op = CGPU_BLEND_OP_ADD,
+	.color_mask = CGPU_COLOR_MASK_RGBA,
+};
+static PulseShaderProperty s_shader_props[] = {
+	{ .name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
+	{ .name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
+	{ .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
+};
+static PulseShaderCreateFromFileDesc s_shader_desc = {
+	.vert_path = "color.vert.spv",
+	.frag_path = "color.frag.spv",
+	.blend_desc = {
+		.attachment_count = 1,
+		.p_attachments = &s_blend_attachments,
+		.alpha_to_coverage = false,
+		.independent_blend = false,
+	},
+	.depth_desc = {
+		.depth_test = true,
+		.depth_write = true,
+		.depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
+		.stencil_test = false,
+	},
+	.rasterizer_state = {
+		.cull_mode = CGPU_CULL_MODE_BACK,
+		.front_face = CGPU_FRONT_FACE_CLOCK_WISE,
+	},
+	.property_count = 3,
+	.p_properties = s_shader_props,
+};
+
+// UnInitialized：发起异步加载请求 → Loading
+// Loading：      每帧轮询；失败 → LoadFailed；就绪 → 建材质/棋盘/蛇/苹果 → Gaming
+void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pulse::system_state_machine<SnakeGameState> state, pulse::command_buffer& command_buffer, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery)
 {
 	auto& as = assets.get();
-	if (as.ready)
+
+	if (state.is(SnakeGameState::UnInitialized))
+	{
+		// ---- shader / mesh（异步，不等待）----
+		as.shader = pulse_create_shader_from_file(app, &s_shader_desc);
+		as.mesh = pulse_load_mesh(app, "Quad.obj");
+		state.to(SnakeGameState::Loading);
+		return;
+	}
+
+	// ---- 失败检测（避免静默无限轮询）----
+	PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
+	PulseAssetRequest shaderRequest = pulse_shader_request_to_asset_request(as.shader);
+	PulseAssetRequest meshRequest = pulse_mesh_request_to_asset_request(as.mesh);
+	EPulseAssetState shaderState = pulse_asset_system_get_state(assetSystem, shaderRequest);
+	EPulseAssetState meshState = pulse_asset_system_get_state(assetSystem, meshRequest);
+	if (shaderState == PULSE_ASSET_STATE_FAILED || meshState == PULSE_ASSET_STATE_FAILED)
+	{
+		if (shaderState == PULSE_ASSET_STATE_FAILED)
+			printf("Snake shader load failed: %s\n", pulse_asset_system_get_error(assetSystem, shaderRequest));
+		if (meshState == PULSE_ASSET_STATE_FAILED)
+			printf("Snake mesh load failed: %s\n", pulse_asset_system_get_error(assetSystem, meshRequest));
+		state.to(SnakeGameState::LoadFailed);
+		return;
+	}
+
+	if (!pulse_shader_is_ready(app, as.shader) || !pulse_mesh_is_ready(app, as.mesh))
 		return;
 
-	if (!pulse_shader_is_ready(as.app, as.shader) || !pulse_mesh_is_ready(as.app, as.mesh))
-		return;
-
-	// 解析资源 handle
-	PulseShaderHandle shader = pulse_shader_get_handle(as.app, as.shader);
-	PulseMeshHandle quad = pulse_mesh_get_handle(as.app, as.mesh);
+	// ---- 就绪：解析资源 handle ----
+	PulseShaderHandle shader = pulse_shader_get_handle(app, as.shader);
+	PulseMeshHandle quad = pulse_mesh_get_handle(app, as.mesh);
 
 	// 创建 4 个材质（白边框 / 红苹果 / 黄蛇头 / 绿蛇身）
 	PulseMaterialHandle boardMat, appleMat, snakeHeadMat, snakeBodyMat;
 	{
 		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		boardMat = pulse_create_material(as.app, &mat_desc);
-		pulse_material_set_property_float4(as.app, boardMat, "albedo", HMM_V4(1, 1, 1, 1));
+		boardMat = pulse_create_material(app, &mat_desc);
+		pulse_material_set_property_float4(app, boardMat, "albedo", HMM_V4(1, 1, 1, 1));
 	}
 	{
 		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		appleMat = pulse_create_material(as.app, &mat_desc);
-		pulse_material_set_property_float4(as.app, appleMat, "albedo", HMM_V4(1, 0, 0, 0));
+		appleMat = pulse_create_material(app, &mat_desc);
+		pulse_material_set_property_float4(app, appleMat, "albedo", HMM_V4(1, 0, 0, 0));
 	}
 	{
 		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		snakeHeadMat = pulse_create_material(as.app, &mat_desc);
-		pulse_material_set_property_float4(as.app, snakeHeadMat, "albedo", HMM_V4(1, 1, 0, 1));
+		snakeHeadMat = pulse_create_material(app, &mat_desc);
+		pulse_material_set_property_float4(app, snakeHeadMat, "albedo", HMM_V4(1, 1, 0, 1));
 	}
 	{
 		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		snakeBodyMat = pulse_create_material(as.app, &mat_desc);
-		pulse_material_set_property_float4(as.app, snakeBodyMat, "albedo", HMM_V4(0, 1, 0, 1));
+		snakeBodyMat = pulse_create_material(app, &mat_desc);
+		pulse_material_set_property_float4(app, snakeBodyMat, "albedo", HMM_V4(0, 1, 0, 1));
 	}
 
 	SnakeResources snakeResources = {
@@ -332,13 +395,18 @@ void prepareGameSystem(pulse::res<SnakeAssets> assets, pulse::command_buffer& co
 	Border border = createBorder(command_buffer, quad, boardMat, up, bottom, left, right);
 	createEntities(command_buffer, border, snakeResources);
 
-	as.ready = true;
+	auto windowEntity = primaryWindowQuery.first();
+	auto camera = command_buffer.entity();
+	camera.set<PulseLocalTransform>({ .translation = HMM_V3(0.5f, 0.5f, -38.f), .rotation = HMM_Q_Identity, .scale = HMM_V3_One });
+	camera.set<PulseCamera>({ .window_entity = windowEntity, .fov = 45.f, .near_plane = 0.1f, .far_plane = 1000.f });
+
+	state.to(SnakeGameState::Gaming);
 	printf("Snake resources ready.\n");
 }
 
-void handleSnakeInputSystem(pulse::res<const SnakeAssets> assets, const SnakeInput& input, Facing4W& direction, SnakeMove& move)
+void handleSnakeInputSystem(pulse::res<const PulseKeyboardInput> keyboard, const SnakeInput& input, Facing4W& direction, SnakeMove& move)
 {
-	auto keyInput = getInputDirection(input, assets.get().app);
+	auto keyInput = getInputDirection(input, keyboard.get());
 	if (keyInput.has_value())
 	{
 		if (!isOpposite(direction.value, keyInput.value()))
@@ -435,16 +503,45 @@ void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> eventAppleEat, pulse:
 	}
 }
 
-void onGameOverSystem(pulse::event_reader<GameOverEvent> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
+void onGameOverSystem(pulse::event_reader<GameOverEvent> eventAppleEat, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
 {
-	command_buffer.set_singleton<SnakeGame>({ .playing = false });
+	state.to(SnakeGameState::GameOver);
 	destructEntities(snakeQuery, appleQuery);
 }
 
-void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources)
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources)
 {
 	command_buffer.defer_suspend();
 	createEntities(command_buffer, borderQuery.get(), resources.get());
 	command_buffer.defer_resume();
-	command_buffer.set_singleton<SnakeGame>({ .playing = true });
+	state.to(SnakeGameState::Gaming);
+}
+
+// UI：分数 → 窗口标题栏；GameOver 后按 Enter/R 广播 RestartEvent。
+// 标题经 PulseWindow 组件同步（勿裸调 SDL_SetWindowTitle，
+// 否则会被 PulseWindowPostFrameSystem 以组件 title 为准覆盖）。
+// 主窗口实体经附加查询获取（注册期建查询，运行期只读）。
+void snakeUISystem(PulseAppId app, const Score& score, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery, pulse::system_state_machine<SnakeGameState> state, pulse::res<const PulseKeyboardInput> keyboard, pulse::event_writer<RestartEvent> restartEvent)
+{
+	bool playing = state.is(SnakeGameState::Gaming);
+
+	char title[192];
+	if (playing)
+		snprintf(title, sizeof(title), "Snake - Score: %d", score.value);
+	else
+		snprintf(title, sizeof(title), "Game Over! Score: %d - Press Enter to Restart", score.value);
+	auto windowEntity = primaryWindowQuery.first();
+	if (windowEntity.is_alive())
+		pulse_window_set_title(app, windowEntity, title);
+
+	// GameOver 后按 Enter/R 重启
+	if (!playing)
+	{
+		if (keyboard.get().just_pressed[SDL_SCANCODE_RETURN] ||
+			keyboard.get().just_pressed[SDL_SCANCODE_R])
+		{
+			printf("Restart!\n");
+			restartEvent.broadcast();
+		}
+	}
 }
