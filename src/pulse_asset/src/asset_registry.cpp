@@ -95,7 +95,9 @@ EPulseResult AssetRegistry::register_loader(const PulseAssetLoaderDesc* desc) {
         desc->version != PULSE_ASSET_LOADER_DESC_VERSION || desc->type_id == 0 ||
         !desc->step ||
         (desc->loader_size > 0 && !is_power_of_two_alignment(desc->loader_align)) ||
-        (desc->settings_size > 0 && !is_power_of_two_alignment(desc->settings_align))) {
+        (desc->settings_size > 0 && !is_power_of_two_alignment(desc->settings_align)) ||
+        (desc->settings_size == 0 && (desc->settings_size_fn || desc->settings_copy_fn)) ||
+        ((desc->settings_size_fn == nullptr) != (desc->settings_copy_fn == nullptr))) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 

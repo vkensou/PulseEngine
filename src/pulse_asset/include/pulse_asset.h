@@ -184,6 +184,28 @@ typedef void (*PulseProcAssetLoaderDtorFn)(void* loader, const PulseAssetLoadTas
  *
  */
 typedef EPulseAssetLoaderStatus (*PulseProcAssetLoaderStepFn)(void* state, const PulseAssetLoadTask* ctx, const char** out_error);
+/**
+ * Function pointer: settings size query (optional, paired with settingsCopy)
+ * Returns the total byte size needed to deep-copy the settings, including all nested data.
+ *
+ * @param[in] settings
+ * @param[in] userData
+ *
+ */
+typedef uint64_t (*PulseProcAssetSettingsSizeFn)(const void* settings, void* user_data);
+/**
+ * Function pointer: settings deep copy (optional, paired with settingsSize)
+ * Fills nested data inside the block allocated by the asset system and fixes nested
+ * pointers to point into the block. The struct bytes are already memcpy'd to dst.
+ * Layout (offsets/padding) must match the one computed by settingsSize.
+ *
+ * @param[in] dst
+ * @param[in] src
+ * @param[in] byteSize
+ * @param[in] userData
+ *
+ */
+typedef bool (*PulseProcAssetSettingsCopyFn)(void* dst, const void* src, uint64_t byte_size, void* user_data);
 
 /**
  * Asset identity handle (value type struct)
@@ -303,6 +325,8 @@ typedef struct PulseAssetLoaderDesc
     uint32_t             loader_align;
     uint32_t             settings_size;
     uint32_t             settings_align;
+    PulseProcAssetSettingsSizeFn settings_size_fn;
+    PulseProcAssetSettingsCopyFn settings_copy_fn;
     void*                user_data;
 
 } PulseAssetLoaderDesc;

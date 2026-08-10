@@ -115,6 +115,24 @@ funcptr.AssetLoaderStepFn
     .ctx        "*const AssetLoadTask"
     .outError   "*cstring"
 
+--- Function pointer: settings size query (optional, paired with settingsCopy)
+--- Returns the total byte size needed to deep-copy the settings, including all nested data.
+funcptr.AssetSettingsSizeFn
+    "uint64_t"
+    .settings   "*const anyopaque"
+    .userData   "?*anyopaque"
+
+--- Function pointer: settings deep copy (optional, paired with settingsSize)
+--- Fills nested data inside the block allocated by the asset system and fixes nested
+--- pointers to point into the block. The struct bytes are already memcpy'd to dst.
+--- Layout (offsets/padding) must match the one computed by settingsSize.
+funcptr.AssetSettingsCopyFn
+    "bool"
+    .dst        "*anyopaque"
+    .src        "*const anyopaque"
+    .byteSize   "uint64_t"
+    .userData   "?*anyopaque"
+
 --- Asset identity handle (value type struct)
 struct.AssetHandle
     .typeId     "uint64_t"
@@ -195,6 +213,8 @@ struct.AssetLoaderDesc
     .loaderAlign        "uint32_t"
     .settingsSize       "uint32_t"
     .settingsAlign      "uint32_t"
+    .settingsSizeFn     "AssetSettingsSizeFn"
+    .settingsCopyFn     "AssetSettingsCopyFn"
     .userData           "?*anyopaque"
     ()
 

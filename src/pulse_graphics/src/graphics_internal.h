@@ -124,6 +124,18 @@ inline PulseAssetSystemId asset_system_from_app(PulseAppId app) {
     return st ? st->asset_system : nullptr;
 }
 
+// Shared alignment math for the settings deep-copy callbacks; align_up_pointer delegates
+// here so size/copy callbacks can never drift out of sync.
+inline uint64_t align_up_value(uint64_t value, size_t alignment) {
+    return (value + alignment - 1) & ~(uint64_t)(alignment - 1);
+}
+
+// Aligns a byte pointer up to the given alignment (used by settings deep-copy callbacks
+// to lay out nested data inside the block allocated by the asset system).
+inline uint8_t* align_up_pointer(uint8_t* ptr, size_t alignment) {
+    return reinterpret_cast<uint8_t*>(align_up_value(reinterpret_cast<uintptr_t>(ptr), alignment));
+}
+
 inline PulseAssetRequest asset_load_path(
     PulseAssetSystemId asset_system,
     uint64_t type_id,

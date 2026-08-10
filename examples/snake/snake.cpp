@@ -272,47 +272,6 @@ Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const SnakeBodies& snake, const 
 // 资源加载（模块内异步加载状态机，配合游戏状态 UnInitialized/Loading）
 // ============================================================
 
-// 注意：pulse_create_shader_from_file 异步持有 desc 指针（loader 在后续
-// 帧才使用），desc 及其引用的数组/状态必须长期有效（static）——
-// 栈上临时对象会在函数返回后悬垂，导致随机内存损坏。
-static CGPUBlendAttachmentState s_blend_attachments = {
-	.enable = false,
-	.src_factor = CGPU_BLEND_FACTOR_ONE,
-	.dst_factor = CGPU_BLEND_FACTOR_ZERO,
-	.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
-	.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
-	.blend_op = CGPU_BLEND_OP_ADD,
-	.blend_alpha_op = CGPU_BLEND_OP_ADD,
-	.color_mask = CGPU_COLOR_MASK_RGBA,
-};
-static PulseShaderProperty s_shader_props[] = {
-	{ .name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
-	{ .name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
-	{ .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
-};
-static PulseShaderCreateFromFileDesc s_shader_desc = {
-	.vert_path = "color.vert.spv",
-	.frag_path = "color.frag.spv",
-	.blend_desc = {
-		.attachment_count = 1,
-		.p_attachments = &s_blend_attachments,
-		.alpha_to_coverage = false,
-		.independent_blend = false,
-	},
-	.depth_desc = {
-		.depth_test = true,
-		.depth_write = true,
-		.depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
-		.stencil_test = false,
-	},
-	.rasterizer_state = {
-		.cull_mode = CGPU_CULL_MODE_BACK,
-		.front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-	},
-	.property_count = 3,
-	.p_properties = s_shader_props,
-};
-
 // UnInitialized：发起异步加载请求 → Loading
 // Loading：      每帧轮询；失败 → LoadFailed；就绪 → 建材质/棋盘/蛇/苹果 → Gaming
 void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pulse::system_state_machine<SnakeGameState> state, pulse::command_buffer& command_buffer, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery)
@@ -321,8 +280,48 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 
 	if (state.is(SnakeGameState::UnInitialized))
 	{
+		// pulse_create_shader_from_file 内部会深拷贝 settings（含属性数组、
+		// 名字符串与 blend attachments），栈上临时 desc 可安全丢弃
+		CGPUBlendAttachmentState blend_attachments = {
+			.enable = false,
+			.src_factor = CGPU_BLEND_FACTOR_ONE,
+			.dst_factor = CGPU_BLEND_FACTOR_ZERO,
+			.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
+			.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
+			.blend_op = CGPU_BLEND_OP_ADD,
+			.blend_alpha_op = CGPU_BLEND_OP_ADD,
+			.color_mask = CGPU_COLOR_MASK_RGBA,
+		};
+		PulseShaderProperty shader_props[] = {
+			{ .name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
+			{ .name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
+			{ .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
+		};
+		PulseShaderCreateFromFileDesc shader_desc = {
+			.vert_path = "color.vert.spv",
+			.frag_path = "color.frag.spv",
+			.blend_desc = {
+				.attachment_count = 1,
+				.p_attachments = &blend_attachments,
+				.alpha_to_coverage = false,
+				.independent_blend = false,
+			},
+			.depth_desc = {
+				.depth_test = true,
+				.depth_write = true,
+				.depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
+				.stencil_test = false,
+			},
+			.rasterizer_state = {
+				.cull_mode = CGPU_CULL_MODE_BACK,
+				.front_face = CGPU_FRONT_FACE_CLOCK_WISE,
+			},
+			.property_count = 3,
+			.p_properties = shader_props,
+		};
+
 		// ---- shader / mesh（异步，不等待）----
-		as.shader = pulse_create_shader_from_file(app, &s_shader_desc);
+		as.shader = pulse_create_shader_from_file(app, &shader_desc);
 		as.mesh = pulse_load_mesh(app, "Quad.obj");
 		state.to(SnakeGameState::Loading);
 		return;

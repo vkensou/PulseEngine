@@ -332,6 +332,29 @@ bool AssetSystem::copy_request_settings(const AssetLoader& loader, const LoadReq
     if (loader.desc.settings_size == 0 || !request.settings) {
         return true;
     }
+
+    if (loader.desc.settings_size_fn && loader.desc.settings_copy_fn) {
+        // Deep-copy settings: query the total size (struct + all nested data), then
+        // allocate one block in the asset pool. The copy callback fills the nested
+        // data inside the block and fixes nested pointers to point into it, so the
+        // whole block is released together by PooledBlock::reset().
+        uint64_t total = loader.desc.settings_size_fn(request.settings, loader.desc.user_data);
+        if (total < loader.desc.settings_size || total > UINT32_MAX) {
+            return false;
+        }
+        if (!out.allocate(resource(), static_cast<uint32_t>(total), loader.desc.settings_align, false)) {
+            return false;
+        }
+        std::memcpy(out.data, request.settings, loader.desc.settings_size);
+        if (!loader.desc.settings_copy_fn(out.data, request.settings, total, loader.desc.user_data)) {
+            out.reset();
+            return false;
+        }
+        return true;
+    }
+
+    // Default path: byte-copy of the settings struct only. Nested pointers (if any)
+    // keep pointing at caller memory, which must stay alive until the job retires.
     return out.copy(resource(), request.settings, loader.desc.settings_size, loader.desc.settings_align);
 }
 

@@ -10,6 +10,92 @@ struct MeshCreateFromDataState {
     bool indexBufferPrepared = false;
 };
 
+// Settings deep-copy: the asset system allocates one block of the returned size and
+// copies the struct bytes to its head; these callbacks lay out the nested data right
+// after the struct (attribute array, then semantic names, then vertex/index data)
+// and fix the pointers into the block. size/copy share the same layout.
+static uint64_t mesh_from_data_settings_size_fn(const void* settings, void* user_data) {
+    const auto* s = static_cast<const PulseMeshCreateFromDataDesc*>(settings);
+    uint64_t total = sizeof(PulseMeshCreateFromDataDesc);
+
+    if (s->layout.p_attributes && s->layout.attribute_count > 0) {
+        // Mirror the align_up_pointer in the copy callback so both compute the same layout.
+        total = align_up_value(total, alignof(CGPUVertexAttribute));
+        total += (uint64_t)s->layout.attribute_count * sizeof(CGPUVertexAttribute);
+        for (uint32_t i = 0; i < s->layout.attribute_count; ++i) {
+            if (s->layout.p_attributes[i].semantic_name) {
+                total += strlen(s->layout.p_attributes[i].semantic_name) + 1;
+            }
+        }
+    }
+    if (s->vertex_data && s->vertex_count > 0 && s->vertex_stride > 0) {
+        total += (uint64_t)s->vertex_count * s->vertex_stride;
+    }
+    if (s->index_data && s->index_count > 0 && s->index_stride > 0) {
+        total += (uint64_t)s->index_count * s->index_stride;
+    }
+    return total;
+}
+
+static bool mesh_from_data_settings_copy_fn(void* dst, const void* src, uint64_t byte_size, void* user_data) {
+    auto* d = static_cast<PulseMeshCreateFromDataDesc*>(dst);
+    const auto* s = static_cast<const PulseMeshCreateFromDataDesc*>(src);
+    uint8_t* end = reinterpret_cast<uint8_t*>(dst) + byte_size;
+    uint8_t* cursor = reinterpret_cast<uint8_t*>(dst) + sizeof(PulseMeshCreateFromDataDesc);
+
+    if (s->layout.p_attributes && s->layout.attribute_count > 0) {
+        cursor = align_up_pointer(cursor, alignof(CGPUVertexAttribute));
+        uint64_t n = (uint64_t)s->layout.attribute_count * sizeof(CGPUVertexAttribute);
+        if (cursor + n > end) {
+            return false;
+        }
+        auto* attrs = reinterpret_cast<CGPUVertexAttribute*>(cursor);
+        memcpy(attrs, s->layout.p_attributes, n);
+        cursor += n;
+
+        for (uint32_t i = 0; i < s->layout.attribute_count; ++i) {
+            const char* name = s->layout.p_attributes[i].semantic_name;
+            if (!name) {
+                continue;
+            }
+            size_t len = strlen(name) + 1;
+            if (cursor + len > end) {
+                return false;
+            }
+            memcpy(cursor, name, len);
+            attrs[i].semantic_name = reinterpret_cast<const char*>(cursor);
+            cursor += len;
+        }
+        d->layout.p_attributes = attrs;
+    } else {
+        d->layout.p_attributes = nullptr;
+    }
+
+    if (s->vertex_data && s->vertex_count > 0 && s->vertex_stride > 0) {
+        uint64_t n = (uint64_t)s->vertex_count * s->vertex_stride;
+        if (cursor + n > end) {
+            return false;
+        }
+        memcpy(cursor, s->vertex_data, n);
+        d->vertex_data = cursor;
+        cursor += n;
+    } else {
+        d->vertex_data = nullptr;
+    }
+    if (s->index_data && s->index_count > 0 && s->index_stride > 0) {
+        uint64_t n = (uint64_t)s->index_count * s->index_stride;
+        if (cursor + n > end) {
+            return false;
+        }
+        memcpy(cursor, s->index_data, n);
+        d->index_data = cursor;
+        cursor += n;
+    } else {
+        d->index_data = nullptr;
+    }
+    return true;
+}
+
 EPulseAssetLoaderStatus step_mesh_create_from_data(
     void* state, const PulseAssetLoadTask* ctx,
     const char** out_error)
@@ -144,6 +230,8 @@ void register_mesh_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId d
     ld1.loader_align = alignof(MeshCreateFromDataState);
     ld1.settings_size = sizeof(PulseMeshCreateFromDataDesc);
     ld1.settings_align = alignof(PulseMeshCreateFromDataDesc);
+    ld1.settings_size_fn = mesh_from_data_settings_size_fn;
+    ld1.settings_copy_fn = mesh_from_data_settings_copy_fn;
     ld1.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(asset_system, &ld1);
 

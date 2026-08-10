@@ -1,5 +1,6 @@
 #include "../graphics_internal.h"
 #include <algorithm>
+#include <cstring>
 
 namespace pulse_graphics_internal {
 
@@ -15,6 +16,79 @@ struct ShaderLoaderState {
     bool vsPrepared = false;
     bool psPrepared = false;
 };
+
+// Settings deep-copy: the asset system allocates one block of the returned size and
+// copies the struct bytes to its head; this callback lays out the nested data right
+// after the struct (blend attachments, then property array, then property name
+// strings) and fixes the pointers into the block. size/copy share the same layout.
+static uint64_t shader_settings_size_fn(const void* settings, void* user_data) {
+    const auto* s = static_cast<const ShaderCreateSettings*>(settings);
+    uint64_t total = sizeof(ShaderCreateSettings);
+
+    if (s->blend_desc.p_attachments && s->blend_desc.attachment_count > 0) {
+        total += (uint64_t)s->blend_desc.attachment_count * sizeof(CGPUBlendAttachmentState);
+    }
+
+    if (s->p_properties && s->property_count > 0) {
+        // Mirror the align_up_pointer in the copy callback so both compute the same layout.
+        total = align_up_value(total, alignof(PulseShaderProperty));
+        total += (uint64_t)s->property_count * sizeof(PulseShaderProperty);
+        for (uint32_t i = 0; i < s->property_count; ++i) {
+            if (s->p_properties[i].name) {
+                total += strlen(s->p_properties[i].name) + 1;
+            }
+        }
+    }
+    return total;
+}
+
+static bool shader_settings_copy_fn(void* dst, const void* src, uint64_t byte_size, void* user_data) {
+    auto* d = static_cast<ShaderCreateSettings*>(dst);
+    const auto* s = static_cast<const ShaderCreateSettings*>(src);
+    uint8_t* end = reinterpret_cast<uint8_t*>(dst) + byte_size;
+    uint8_t* cursor = reinterpret_cast<uint8_t*>(dst) + sizeof(ShaderCreateSettings);
+
+    if (s->blend_desc.p_attachments && s->blend_desc.attachment_count > 0) {
+        uint64_t n = (uint64_t)s->blend_desc.attachment_count * sizeof(CGPUBlendAttachmentState);
+        if (cursor + n > end) {
+            return false;
+        }
+        memcpy(cursor, s->blend_desc.p_attachments, n);
+        d->blend_desc.p_attachments = reinterpret_cast<const CGPUBlendAttachmentState*>(cursor);
+        cursor += n;
+    } else {
+        d->blend_desc.p_attachments = nullptr;
+    }
+
+    if (s->p_properties && s->property_count > 0) {
+        cursor = align_up_pointer(cursor, alignof(PulseShaderProperty));
+        uint64_t n = (uint64_t)s->property_count * sizeof(PulseShaderProperty);
+        if (cursor + n > end) {
+            return false;
+        }
+        auto* props = reinterpret_cast<PulseShaderProperty*>(cursor);
+        memcpy(props, s->p_properties, n);
+        cursor += n;
+
+        for (uint32_t i = 0; i < s->property_count; ++i) {
+            const char* name = s->p_properties[i].name;
+            if (!name) {
+                continue;
+            }
+            size_t len = strlen(name) + 1;
+            if (cursor + len > end) {
+                return false;
+            }
+            memcpy(cursor, name, len);
+            props[i].name = reinterpret_cast<const char*>(cursor);
+            cursor += len;
+        }
+        d->p_properties = props;
+    } else {
+        d->p_properties = nullptr;
+    }
+    return true;
+}
 
 static bool validate_shader_properties_declare(const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty** out_sorted_props, const char** out_validation_error)
 {
@@ -343,6 +417,8 @@ void register_shader_create_loaders(PulseAssetSystemId asset_system, CGPUDeviceI
     ld.loader_align = alignof(ShaderLoaderState);
     ld.settings_size = sizeof(ShaderCreateSettings);
     ld.settings_align = alignof(ShaderCreateSettings);
+    ld.settings_size_fn = shader_settings_size_fn;
+    ld.settings_copy_fn = shader_settings_copy_fn;
     ld.user_data = const_cast<struct CGPUDevice*>(device);
     pulse_asset_system_register_loader(asset_system, &ld);
 }
