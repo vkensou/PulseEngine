@@ -2,10 +2,32 @@
   用法: lua generate_module.lua <dump|generate> [头文件名.h]
   默认头文件: snake.h
   dump: 仅打印解析结果。 generate: 生成 <文件名>_module.{h,cpp} 文件（与头文件同目录）。
+  模块入口固定名 importModule（模块作为 DLL 扩展加载时，引擎按此名查找入口）。
   旧版用法: lua generate_module.lua foo.h 等同于 generate foo.h
 ]]
 local function collapse_ws(s)
     return (s:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+-- 生成符号的链接性约定：
+--   - 所有 wrapper（系统 wrapper / WrapperState / 状态机 wrapper）都是生成模块
+--     cpp 内部的实现细节，统一加 `static`（内部链接），跨模块/跨 DLL 天然隔离；
+--   - 模块入口固定名 `importModule`（DLL 插件协议：引擎按此名查找导出函数）。
+
+-- 统一报错入口：带消息中止（stderr + 非零退出码），不带 Lua 内部调用栈噪音
+local function gen_error(msg)
+    error("generate_module: " .. msg, 0)
+end
+
+-- 计算 content 中 pos 处的行号（用于报错定位）
+local function line_number(content, pos)
+    local line = 1
+    for i = 1, pos - 1 do
+        if content:sub(i, i) == "\n" then
+            line = line + 1
+        end
+    end
+    return line
 end
 
 -- 宏解析阶段（与 PULSE_ECS_SYSTEM / init、update、imgui 管线对应）
@@ -52,12 +74,14 @@ local function write_file(filename, content)
     f:close()
 end
 
+-- 提取 `PHASE=` 后的取值并精确比对（避免 PHASE=INIT 误匹配 PHASE=INITFOO）
 local function parse_phase_from_macro_block(block)
-    if block:find("PHASE=" .. PHASE.INIT, 1, true) then
+    local phase = block:match("PHASE=(%u+)")
+    if phase == PHASE.INIT then
         return PHASE.INIT
-    elseif block:find("PHASE=" .. PHASE.UPDATE, 1, true) then
+    elseif phase == PHASE.UPDATE then
         return PHASE.UPDATE
-    elseif block:find("PHASE=" .. PHASE.IMGUI, 1, true) then
+    elseif phase == PHASE.IMGUI then
         return PHASE.IMGUI
     end
     return nil
@@ -98,11 +122,51 @@ local function parse_state_from_macro_block(block)
     return states
 end
 
+-- 校验各系统 STATE 状态集 token：枚举名必须与状态机枚举一致，成员必须存在。
+-- 写错（复制粘贴其他模块的 STATE、成员名拼错）会在生成代码里引用不存在的
+-- 枚举成员，编译期才炸且定位困难——这里直接报错。
+local function validate_state_tokens(systems, state_machine, header_path)
+    if not state_machine then
+        return
+    end
+    local members = state_machine.members or {}
+    for _, sys in ipairs(systems) do
+        if sys.state then
+            for _, token in ipairs(sys.state) do
+                local enum_part, member_part = token:match("^([%w_]+)::([%w_]+)$")
+                if member_part == nil then
+                    -- 裸成员名无法在生成代码中直接引用（enum class 成员必须限定），直接报错
+                    gen_error(string.format("%s:%d: 系统 %s 的 STATE=%s 缺少枚举名前缀（应为 %s::成员）",
+                        header_path, sys.macro_line, sys.name, token, state_machine.enum_name))
+                end
+                if enum_part ~= state_machine.enum_name then
+                    gen_error(string.format("%s:%d: 系统 %s 的 STATE=%s 引用了枚举 %s，但状态机枚举是 %s（应为 %s::成员）",
+                        header_path, sys.macro_line, sys.name, token, enum_part, state_machine.enum_name, state_machine.enum_name))
+                end
+                if #members > 0 then
+                    local found = false
+                    for _, m in ipairs(members) do
+                        if m == member_part then
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        gen_error(string.format("%s:%d: 系统 %s 的 STATE=%s 的成员 %s 不存在（%s 可用: %s）",
+                            header_path, sys.macro_line, sys.name, token, member_part, state_machine.enum_name, table.concat(members, ", ")))
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- 解析 `PULSE_ECS_STATE_MACHINE(INIT=...)` 标记的状态枚举（v1 仅支持一个状态机）。
--- 返回 { enum_name, init_state }，无标记时返回 nil。
+-- 返回 { enum_name, init_state, members }，members 为枚举成员名列表（解析失败时为 nil）；无标记时返回 nil。
 local function parse_state_machine(content)
     local enum_name = nil
     local init_state = nil
+    local members = nil
     local count = 0
     local pos = 1
     while true do
@@ -112,25 +176,51 @@ local function parse_state_machine(content)
         end
         local macro_block = content:match("PULSE_ECS_STATE_MACHINE%(([^)]*)%)", s)
         local init = macro_block and macro_block:match("INIT=([%w_]+)")
-        local name = content:match("enum%s+class%s+([%w_]+)", s)
-        if init and name then
-            count = count + 1
-            enum_name = name
-            init_state = init
+        local es, ee, name = content:find("enum%s+class%s+([%w_]+)%s*{", s)
+        if not init or not name then
+            gen_error(string.format("PULSE_ECS_STATE_MACHINE 标记解析失败（需要 INIT=XXX 且其后紧跟 enum class 定义）: %s",
+                collapse_ws(macro_block or "")))
+        end
+        count = count + 1
+        enum_name = name
+        init_state = init
+        local brace_close = content:find("}", ee, true)
+        if brace_close then
+            members = {}
+            for piece in content:sub(ee + 1, brace_close - 1):gmatch("[^,]+") do
+                local m = piece:match("^%s*([%w_]+)")
+                if m then
+                    table.insert(members, m)
+                end
+            end
         end
         pos = s + 1
     end
     if count > 1 then
-        error("暂不支持多个 PULSE_ECS_STATE_MACHINE（当前仅支持一个状态机）")
+        gen_error("暂不支持多个 PULSE_ECS_STATE_MACHINE（当前仅支持一个状态机）")
     end
     if count == 1 then
-        return { enum_name = enum_name, init_state = init_state }
+        -- INIT 成员校验（枚举体解析成功时）
+        if members then
+            local found = false
+            for _, m in ipairs(members) do
+                if m == init_state then
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                gen_error(string.format("PULSE_ECS_STATE_MACHINE 的 INIT=%s 不是枚举 %s 的成员（可用: %s）",
+                    init_state, enum_name, table.concat(members, ", ")))
+            end
+        end
+        return { enum_name = enum_name, init_state = init_state, members = members }
     end
     return nil
 end
 
 -- 解析 `PULSE_ECS_RESOURCE` 标记的资源结构体，返回结构体名列表。
-local function parse_resources(content)
+local function parse_resources(content, header_path)
     local resources = {}
     local pos = 1
     while true do
@@ -139,9 +229,11 @@ local function parse_resources(content)
             break
         end
         local name = content:match("struct%s+([%w_]+)", s)
-        if name then
-            table.insert(resources, name)
+        if not name then
+            gen_error(string.format("%s:%d: PULSE_ECS_RESOURCE 后未找到 struct 定义",
+                header_path, line_number(content, s)))
         end
+        table.insert(resources, name)
         pos = s + 1
     end
     return resources
@@ -293,6 +385,7 @@ local WRAPPER_NAME_OVERRIDES = {
     ["onImguiSystem"] = "onImguiWrapper",
 }
 
+-- wrapper 函数名：系统名 + Wrapper（static 内部链接，跨模块不冲突）
 local function wrapper_function_name(system)
     return WRAPPER_NAME_OVERRIDES[system.name] or (system.name .. "Wrapper")
 end
@@ -511,8 +604,14 @@ local function parse_param(param_str)
     local last_space = nil
     for i = 1, #param_str do
         local c = param_str:sub(i, i)
-        if c == "<" then depth = depth + 1
-        elseif c == ">" then depth = depth - 1
+        if c == "<" then
+            depth = depth + 1
+        elseif c == ">" then
+            depth = depth - 1
+        elseif c == "=" and depth == 0 then
+            -- 默认参数值（int count = 3）不支持：wrapper 始终全参数调用，
+            -- 且默认值里的逗号/括号会破坏参数切分，返回 nil 由调用方报错。
+            return nil
         elseif c == " " and depth == 0 then
             last_space = i
         end
@@ -523,6 +622,18 @@ local function parse_param(param_str)
         return param_type, param_name
     end
     return param_str, ""
+end
+
+-- 解析单个参数并挂到 params；非法语法（如默认值）在此报错，带文件/行号定位。
+local function parse_and_append_param(params, param_str, header_path, macro_line, func_name)
+    local param_type, param_name = parse_param(param_str)
+    if param_type == nil then
+        gen_error(string.format("%s:%d: 系统 %s 的参数不支持默认值: %s",
+            header_path, macro_line, func_name, param_str))
+    end
+    if param_type ~= "" then
+        table.insert(params, { type = param_type, name = param_name })
+    end
 end
 
 -- 从 `open_idx` 位置的 '(' 开始，查找匹配的 ')'；若不匹配则返回 nil。
@@ -555,7 +666,9 @@ local function skip_ws(content, pos, len)
     return pos
 end
 
-local function parse_systems(content)
+-- 解析全部 PULSE_ECS_SYSTEM 声明。任何解析失败都直接报错中止
+-- （不再静默跳过：静默跳过会让系统悄悄缺失，生成代码编译通过但功能丢失）。
+local function parse_systems(content, header_path)
     local systems = {}
     local i = 1
     local len = #content
@@ -565,118 +678,144 @@ local function parse_systems(content)
         if not macro_start then
             break
         end
+        local macro_line = line_number(content, macro_start)
 
         local macro_open_paren = content:find("%(", macro_start)
         if not macro_open_paren then
-            i = macro_start + 1
-        else
-            local macro_close = match_closing_paren(content, macro_open_paren, len)
-            if not macro_close then
-                i = macro_start + 1
-            else
-                local macro_block = content:sub(macro_start, macro_close)
-                local phase = parse_phase_from_macro_block(macro_block)
-                if not phase then
-                    i = macro_start + 1
-                else
-                    local scan = skip_ws(content, macro_close + 1, len)
-                    local open_paren = content:find("%(", scan)
-                    if not open_paren then
-                        i = macro_close + 1
-                    else
-                        local fn_close = match_closing_paren(content, open_paren, len)
-                        if not fn_close then
-                            i = open_paren + 1
-                        else
-                        local params_str = content:sub(open_paren + 1, fn_close - 1)
+            gen_error(string.format("%s:%d: PULSE_ECS_SYSTEM 后缺少 '('", header_path, macro_line))
+        end
+        local macro_close = match_closing_paren(content, macro_open_paren, len)
+        if not macro_close then
+            gen_error(string.format("%s:%d: PULSE_ECS_SYSTEM 的括号不匹配", header_path, macro_line))
+        end
 
-                        local params = {}
-                        if params_str and params_str ~= "" then
-                            local param_idx = 1
-                            local param_start = 1
-                            local param_depth = 0
+        local macro_block = content:sub(macro_start, macro_close)
+        local phase = parse_phase_from_macro_block(macro_block)
+        if not phase then
+            gen_error(string.format("%s:%d: PULSE_ECS_SYSTEM 缺少 PHASE= 或取值非法（可选 INIT/UPDATE/IMGUI）:\n    %s",
+                header_path, macro_line, collapse_ws(macro_block)))
+        end
 
-                            while param_idx <= #params_str do
-                                local c = params_str:sub(param_idx, param_idx)
-                                if c == "<" then
-                                    param_depth = param_depth + 1
-                                elseif c == ">" then
-                                    param_depth = param_depth - 1
-                                elseif c == "," and param_depth == 0 then
-                                    local param = params_str:sub(param_start, param_idx - 1)
-                                    local param_type, param_name = parse_param(param)
-                                    if param_type and param_type ~= "" then
-                                        table.insert(params, { type = param_type, name = param_name })
-                                    end
-                                    param_start = param_idx + 1
-                                end
-                                param_idx = param_idx + 1
-                            end
+        local scan = skip_ws(content, macro_close + 1, len)
+        local open_paren = content:find("%(", scan)
+        if not open_paren then
+            gen_error(string.format("%s:%d: PULSE_ECS_SYSTEM 后未找到函数声明（宏后应紧跟系统函数定义）",
+                header_path, macro_line))
+        end
+        local fn_close = match_closing_paren(content, open_paren, len)
+        if not fn_close then
+            gen_error(string.format("%s:%d: 系统函数参数括号不匹配", header_path, macro_line))
+        end
 
-                            local last_param = params_str:sub(param_start)
-                            local param_type, param_name = parse_param(last_param)
-                            if param_type and param_type ~= "" then
-                                table.insert(params, { type = param_type, name = param_name })
-                            end
-                        end
+        local params_str = content:sub(open_paren + 1, fn_close - 1)
 
-                        local decl = content:sub(scan, open_paren - 1):gsub("%s+$", "")
-                        local func_name = decl:match("([%w_]+)%s*$")
-                        local ret_type = decl
-                        if func_name then
-                            ret_type = decl:sub(1, #decl - #func_name):gsub("%s+$", "")
-                        end
-                        if ret_type == "" then
-                            ret_type = "void"
-                        end
+        local decl = content:sub(scan, open_paren - 1):gsub("%s+$", "")
+        local func_name = decl:match("([%w_]+)%s*$")
+        if not func_name then
+            gen_error(string.format("%s:%d: 无法从函数声明中解析函数名: %s",
+                header_path, macro_line, collapse_ws(decl)))
+        end
+        local ret_type = decl:sub(1, #decl - #func_name):gsub("%s+$", "")
+        if ret_type == "" then
+            ret_type = "void"
+        end
 
-                        local sig_parts = {}
-                        for _, p in ipairs(params) do
-                            local piece = p.type
-                            if p.name ~= "" then
-                                piece = piece .. " " .. p.name
-                            end
-                            table.insert(sig_parts, piece)
-                        end
-                        local signature = string.format("%s %s(%s)", ret_type, func_name or "?", table.concat(sig_parts, ", "))
+        local params = {}
+        if params_str and params_str ~= "" then
+            local param_idx = 1
+            local param_start = 1
+            local param_depth = 0
 
-                        local event_reader_count, event_type = count_event_readers(params)
-                        local has_event_reader = event_reader_count > 0
-                        local entity_system = is_entity_system(params)
-                        local main_query_components = build_main_query_components(params)
-                        local extra_queries = {}
-                        for _, p in ipairs(params) do
-                            if classify_param_type(p.type) == KIND.FLECS_QUERY then
-                                table.insert(extra_queries, { type = p.type, name = p.name })
-                            end
-                        end
-                        local immediate = parse_immediate_from_macro_block(macro_block)
-                        local state = parse_state_from_macro_block(macro_block)
+            while param_idx <= #params_str do
+                local c = params_str:sub(param_idx, param_idx)
+                if c == "<" then
+                    param_depth = param_depth + 1
+                elseif c == ">" then
+                    param_depth = param_depth - 1
+                elseif c == "," and param_depth == 0 then
+                    local param = params_str:sub(param_start, param_idx - 1)
+                    parse_and_append_param(params, param, header_path, macro_line, func_name)
+                    param_start = param_idx + 1
+                end
+                param_idx = param_idx + 1
+            end
 
-                        table.insert(systems, {
-                            name = func_name,
-                            ret_type = ret_type,
-                            phase = phase,
-                            immediate = immediate,
-                            state = state,
-                            params = params,
-                            signature = signature,
-                            has_event_reader = has_event_reader,
-                            event_reader_count = event_reader_count,
-                            event_type = event_type,
-                            entity_system = entity_system,
-                            manager_system = not entity_system,
-                            main_query_components = main_query_components,
-                            extra_queries = extra_queries,
-                            macro_block = macro_block,
-                        })
+            local last_param = params_str:sub(param_start)
+            parse_and_append_param(params, last_param, header_path, macro_line, func_name)
+        end
 
-                        i = fn_close + 1
-                        end
-                    end
+        -- 校验：必须命名的参数（生成 wrapper 需要按名传参；未命名会生成
+        -- 空实参或重名变量，编译期才炸）
+        for _, p in ipairs(params) do
+            local k = classify_param_type(p.type)
+            if p.name == "" and (k == KIND.COMPONENT or k == KIND.FLECS_QUERY or
+               k == KIND.RES or k == KIND.SINGLETON_QUERY) then
+                gen_error(string.format("%s:%d: 系统 %s 的 %s 参数缺少参数名: %s（该类型参数必须命名）",
+                    header_path, macro_line, func_name, k, p.type))
+            end
+        end
+
+        local sig_parts = {}
+        for _, p in ipairs(params) do
+            local piece = p.type
+            if p.name ~= "" then
+                piece = piece .. " " .. p.name
+            end
+            table.insert(sig_parts, piece)
+        end
+        local signature = string.format("%s %s(%s)", ret_type, func_name, table.concat(sig_parts, ", "))
+
+        local event_reader_count, event_type = count_event_readers(params)
+        if event_reader_count > 1 then
+            gen_error(string.format("%s:%d: 系统 %s 声明了 %d 个 event_reader，事件系统只允许 1 个",
+                header_path, macro_line, func_name, event_reader_count))
+        end
+        local has_event_reader = event_reader_count > 0
+        -- 校验：事件系统参数种类限制（event wrapper 的 setup/传参逻辑不支持
+        -- res / flecs::entity，直接报错而不是生成编译不过的代码）
+        if has_event_reader then
+            for _, p in ipairs(params) do
+                local k = classify_param_type(p.type)
+                if k == KIND.RES then
+                    gen_error(string.format("%s:%d: 事件系统 %s 不支持 pulse::res 参数: %s",
+                        header_path, macro_line, func_name, p.type))
+                elseif k == KIND.FLECS_ENTITY then
+                    gen_error(string.format("%s:%d: 事件系统 %s 不支持 flecs::entity 参数: %s",
+                        header_path, macro_line, func_name, p.type))
                 end
             end
         end
+        local entity_system = is_entity_system(params)
+        local main_query_components = build_main_query_components(params)
+        local extra_queries = {}
+        for _, p in ipairs(params) do
+            if classify_param_type(p.type) == KIND.FLECS_QUERY then
+                table.insert(extra_queries, { type = p.type, name = p.name })
+            end
+        end
+        local immediate = parse_immediate_from_macro_block(macro_block)
+        local state = parse_state_from_macro_block(macro_block)
+
+        table.insert(systems, {
+            name = func_name,
+            macro_line = macro_line,
+            ret_type = ret_type,
+            phase = phase,
+            immediate = immediate,
+            state = state,
+            params = params,
+            signature = signature,
+            has_event_reader = has_event_reader,
+            event_reader_count = event_reader_count,
+            event_type = event_type,
+            entity_system = entity_system,
+            manager_system = not entity_system,
+            main_query_components = main_query_components,
+            extra_queries = extra_queries,
+            macro_block = macro_block,
+        })
+
+        i = fn_close + 1
     end
 
     return systems
@@ -685,6 +824,7 @@ end
 local function print_parsed_systems_dump(systems, state_machine, resources)
     print("========== ECS 解析结果 ==========")
     print(string.format("%d 个系统\n", #systems))
+    print("模块入口: importModule")
     if state_machine then
         print(string.format("状态机: enum %s, INIT=%s（管理系统: %s / %s）",
             state_machine.enum_name, state_machine.init_state,
@@ -754,7 +894,8 @@ local function print_parsed_systems_dump(systems, state_machine, resources)
     print(string.rep("=", 72))
 end
 
--- include_flecs_query=true：签名含附加 query，不含 `flecs::entity`；false：附加 query 走 systemState 时仅组件/entity。
+-- include_flecs_query=true：签名含附加 query 参数；false：附加 query 走 systemState。
+-- `flecs::entity` 一律不进签名（wrapper 体内用 it.entity(i) 提供，避免重名声明）。
 local function should_include_param_in_wrapper_signature(p, include_flecs_query)
     local k = classify_param_type(p.type)
     if k == KIND.EVENT_READER or k == KIND.RES or k == KIND.COMMAND_BUFFER or
@@ -762,10 +903,10 @@ local function should_include_param_in_wrapper_signature(p, include_flecs_query)
        k == KIND.SYSTEM_STATE_MACHINE or k == KIND.PULSE_APP_ID or p.name == "" then
         return false
     end
-    if not include_flecs_query and k == KIND.FLECS_QUERY then
+    if k == KIND.FLECS_ENTITY then
         return false
     end
-    if include_flecs_query and k == KIND.FLECS_ENTITY then
+    if not include_flecs_query and k == KIND.FLECS_QUERY then
         return false
     end
     return true
@@ -842,7 +983,7 @@ local function generate_wrapper(system)
         end
         local state_name = wrapper_state_struct_name(system)
         table.insert(output, "")
-        table.insert(output, "void " .. wrapper_function_name(system) .. "(")
+        table.insert(output, "static void " .. wrapper_function_name(system) .. "(")
         if not use_each_wrapper then
             table.insert(output, "\tflecs::iter& it)")
         else
@@ -897,7 +1038,7 @@ local function generate_wrapper(system)
     end
 
     table.insert(output, "")
-    table.insert(output, "void " .. wrapper_function_name(system) .. "(")
+    table.insert(output, "static void " .. wrapper_function_name(system) .. "(")
 
     local wrapper_params = collect_wrapper_params(system, true)
 
@@ -973,7 +1114,7 @@ local function generate_event_wrapper(system)
     local sig_params = get_event_wrapper_signature_params(system)
 
     table.insert(output, "")
-    table.insert(output, "void " .. wname .. "(")
+    table.insert(output, "static void " .. wname .. "(")
     table.insert(output, string.format("\tpulse::event_reader<%s> %s, flecs::world& world", system.event_type, er_name))
     for _, sp in ipairs(sig_params) do
         table.insert(output, "\t, " .. sp.type .. " " .. sp.name)
@@ -1184,7 +1325,7 @@ end
 local function generate_state_machine_wrapper(state_machine)
     local output = {}
     table.insert(output, "")
-    table.insert(output, "void " .. state_machine_wrapper_name(state_machine.enum_name) .. "(")
+    table.insert(output, "static void " .. state_machine_wrapper_name(state_machine.enum_name) .. "(")
     table.insert(output, "\tflecs::iter& it)")
     table.insert(output, "{")
     table.insert(output, "\tauto world = it.world();")
@@ -1282,7 +1423,9 @@ local function generate_module_registration(systems, state_machine, resources)
                 end
             end
             if event_entity_uses_inner_each(sys) and #sys.main_query_components == 1 then
-                local ct = sys.main_query_components[1]
+                -- 与 wrapper 签名一致（get_event_wrapper_signature_params 剥了前置 const），
+                -- 注册侧同样剥掉，否则 flecs::query<const T> 绑定不到 flecs::query<T>&
+                local ct = sys.main_query_components[1]:gsub("^const%s+", "")
                 if not seen_queries[ct] then
                     seen_queries[ct] = true
                     table.insert(query_args, "moduleContext->world.query<" .. ct .. ">()")
@@ -1297,11 +1440,15 @@ local function generate_module_registration(systems, state_machine, resources)
         end
 
         -- 状态机注册：同组监听器共享同一个 observer 实体，启用状态集取第一个，
-        -- 若各监听器状态集不一致向 stderr 告警（生成的代码仍以第一个为准）。
+        -- 若各监听器状态集不一致向 stderr 告警（生成的代码仍以第一个为准）；
+        -- 与 emit_state_reg 一致：头文件无状态机时告警并忽略 STATE（不生成 stateMachine.reg）。
         local group_state = nil
         for _, sys in ipairs(sys_list) do
             if sys.state then
-                if group_state == nil then
+                if not state_machine then
+                    io.stderr:write(string.format("[警告] 事件 %s 的监听器 %s 声明了 STATE= 但头文件没有 PULSE_ECS_STATE_MACHINE，忽略 STATE\n",
+                        event_type, sys.name))
+                elseif group_state == nil then
                     group_state = sys.state
                 elseif states_key(sys.state) ~= states_key(group_state) then
                     io.stderr:write(string.format("[警告] 事件 %s 的监听器状态集不一致（%s vs %s），注册使用第一个\n",
@@ -1391,6 +1538,7 @@ local function print_usage()
     io.stderr:write(
         "用法: lua generate_module.lua <dump|generate> [头文件名.h]\n"
             .. "  默认头文件: snake.h | dump: 仅输出到控制台 | generate: 生成 <文件名>_module.{h,cpp}\n"
+            .. "  模块入口固定名 importModule（DLL 插件协议入口名）\n"
             .. "  旧版用法: lua generate_module.lua foo.h => generate foo.h\n"
     )
 end
@@ -1419,18 +1567,19 @@ local function main(...)
 
     print("解析: " .. header_path)
     local content = read_file(header_path)
-    local systems = parse_systems(content)
+    local systems = parse_systems(content, header_path)
     local state_machine = parse_state_machine(content)
-    local resources = parse_resources(content)
+    local resources = parse_resources(content, header_path)
+    validate_state_tokens(systems, state_machine, header_path)
+
+    local module_name = header_path:match("([^/\\]+)%.h$") or "module"
+    module_name = module_name:gsub("%.h$", "")
 
     if mode == "dump" then
         print_parsed_systems_dump(systems, state_machine, resources)
         print("完成 (dump 模式)。")
         return
     end
-
-    local module_name = header_path:match("([^/\\]+)%.h$") or "module"
-    module_name = module_name:gsub("%.h$", "")
 
     -- 输出到头文件所在目录（头文件无目录时输出到当前目录）
     local out_dir = header_path:match("^(.*[/\\])") or ""

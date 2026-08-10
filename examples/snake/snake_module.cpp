@@ -1,7 +1,7 @@
 #include "snake_module.h"
 #include "snake.h"
 
-void snakeGameStateMachineWrapper(
+static void snakeGameStateMachineWrapper(
 	flecs::iter& it)
 {
 	auto world = it.world();
@@ -11,7 +11,7 @@ struct loadSnakeResourcesSystemWrapperState
 {
 	flecs::query<PulseWindow, PulsePrimaryWindow> primaryWindowQuery;
 };
-void loadSnakeResourcesSystemWrapper(
+static void loadSnakeResourcesSystemWrapper(
 	flecs::iter& it)
 {
 	auto world = it.world();
@@ -22,7 +22,7 @@ void loadSnakeResourcesSystemWrapper(
 	auto systemState = it.system().get<loadSnakeResourcesSystemWrapperState>();
 	loadSnakeResourcesSystem(app, pulse::res<SnakeAssets>(assetsQuery), state, command_buffer, systemState.primaryWindowQuery);
 }
-void handleSnakeInputSystemWrapper(
+static void handleSnakeInputSystemWrapper(
 	flecs::iter& it, size_t i
 	, const SnakeInput& input
 	, Facing4W& direction
@@ -33,7 +33,7 @@ void handleSnakeInputSystemWrapper(
 	auto& keyboardQuery = world.get<const PulseKeyboardInput>();
 	handleSnakeInputSystem(pulse::res<const PulseKeyboardInput>(keyboardQuery), input, direction, move);
 }
-void scheduleSnakeMoveSystemWrapper(
+static void scheduleSnakeMoveSystemWrapper(
 	flecs::iter& it, size_t i
 	, const Facing4W& direction
 	, SnakeMove& move
@@ -45,7 +45,7 @@ void scheduleSnakeMoveSystemWrapper(
 	auto entity = it.entity(i);
 	scheduleSnakeMoveSystem(pulse::res<const PulseTimer>(timerQuery), snakeMoveIntentEvent, entity, direction, move);
 }
-void executeSnakeMoveSystemWrapper(
+static void executeSnakeMoveSystemWrapper(
 	pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, flecs::world& world
 	, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery
 	, SnakeBodies& snake
@@ -58,7 +58,7 @@ void executeSnakeMoveSystemWrapper(
 	pulse::command_buffer command_buffer(world);
 	executeSnakeMoveSystem(snakeMoveIntentEvent, command_buffer, appleQuery, borderQuery, resourcesQuery, appleEatenEvent, gameOverEvent, snake);
 }
-void syncSnakeBodyPositionSystemWrapper(
+static void syncSnakeBodyPositionSystemWrapper(
 	flecs::iter& it, size_t i
 	, SnakeBodies& snake
 )
@@ -66,14 +66,14 @@ void syncSnakeBodyPositionSystemWrapper(
 	auto world = it.world();
 	syncSnakeBodyPositionSystem(snake);
 }
-void eatAppleSystemWrapper(
+static void eatAppleSystemWrapper(
 	pulse::event_reader<AppleEatenEvent> appleEatenEvent, flecs::world& world
 )
 {
 	pulse::command_buffer command_buffer(world);
 	eatAppleSystem(appleEatenEvent, command_buffer);
 }
-void increaseScoreSystemWrapper(
+static void increaseScoreSystemWrapper(
 	pulse::event_reader<AppleEatenEvent> appleEatenEvent, flecs::world& world
 	, flecs::query<Score>& scoreQuery
 )
@@ -83,7 +83,7 @@ void increaseScoreSystemWrapper(
 			increaseScoreSystem(appleEatenEvent, score);
 		});
 }
-void spawnAppleSystemWrapper(
+static void spawnAppleSystemWrapper(
 	pulse::event_reader<AppleEatenEvent> appleEatenEvent, flecs::world& world
 	, flecs::query<const SnakeBodies>& snakeQuery
 )
@@ -93,7 +93,7 @@ void spawnAppleSystemWrapper(
 	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
 	spawnAppleSystem(appleEatenEvent, command_buffer, snakeQuery, borderQuery, resourcesQuery);
 }
-void onGameOverSystemWrapper(
+static void onGameOverSystemWrapper(
 	pulse::event_reader<GameOverEvent> gameOverEvent, flecs::world& world
 	, flecs::query<SnakeBodies>& snakeQuery
 	, flecs::query<IsApple>& appleQuery
@@ -103,7 +103,7 @@ void onGameOverSystemWrapper(
 	auto state = pulse::system_state_machine<SnakeGameState>(world);
 	onGameOverSystem(gameOverEvent, command_buffer, state, snakeQuery, appleQuery);
 }
-void restartSystemWrapper(
+static void restartSystemWrapper(
 	pulse::event_reader<RestartEvent> restartEvent, flecs::world& world
 )
 {
@@ -117,7 +117,7 @@ struct snakeUISystemWrapperState
 {
 	flecs::query<PulseWindow, PulsePrimaryWindow> primaryWindowQuery;
 };
-void snakeUISystemWrapper(
+static void snakeUISystemWrapper(
 	flecs::iter& it, size_t i
 	, const Score& score
 )

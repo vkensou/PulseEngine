@@ -1,5 +1,9 @@
 # ECS Module 代码生成规则
 
+## 0. 需要注意的点
+
+- 不要在头文件的注释里写`PULSE_ECS_COMPONENT`/`PULSE_ECS_SINGLETON_COMPONENT`/`PULSE_ECS_EVENT`/`PULSE_ECS_SYSTEM`/`PULSE_ECS_STATE_MACHINE`/`PULSE_ECS_RESOURCE`等宏，目前生成器还无法正确处理注释
+
 ## 1. 输入
 
 - 读取 `.h` 头文件
@@ -30,7 +34,7 @@ system还可以分为实体system和管理器system。实体system是遍历所�
 - 普通system注册改为保留句柄（`auto {SystemName} = ...`），并追加`stateMachine.reg({SystemName}, { A, B, C });`
 - 事件system注册改为`stateMachine.reg({EventName}Dispatcher->observe(moduleContext->world), { A, B, C });`（observe返回observer实体；同组监听器共享一个observer，状态集取第一个，不一致时向stderr告警）
 
-STATE的枚举类型须与`PULSE_ECS_STATE_MACHINE`标记的枚举一致。
+STATE 的枚举类型须与`PULSE_ECS_STATE_MACHINE`标记的枚举一致，且成员必须写`枚举名::成员`形式（裸成员名无法在生成代码中直接引用，直接报错）。
 
 ### 3.4 PULSE_ECS_STATE_MACHINE（状态机）
 
@@ -97,7 +101,7 @@ system的参数类型有如下几种可能：
 - 如果是管理器system，则Wrapper的签名统一是：void increaseScoreSystemWrapper(pulse::event_reader<{EventName}> eventReader, flecs::world& world, [附加查询列表])
 - 如果是实体system，则Wrapper的签名统一是：void increaseScoreSystemWrapper(pulse::event_reader<{EventName}> eventReader, flecs::world& world, [附加查询列表]，[组件列表])
 
-说明，对于事件system，其签名可以携带附加查询列表；对于普通system，其签名不懈怠附加查询列表。
+说明，对于事件system，其签名可以携带附加查询列表；对于普通system，其签名不携带附加查询列表。
 
 ## 6. 注册器写法
 

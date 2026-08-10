@@ -59,12 +59,32 @@ int main(void)
 	singleHolder.add<pulse::EventTag>();
 
 	// ---- 把 C++ 类型绑定到插件注册的 C 组件 id，模块才能用 C++ API 设置 ----
-	world.component<PulseLocalTransform>("PulseLocalTransform", true, ecs_id(PulseLocalTransform));
-	world.component<PulseRenderable>("PulseRenderable", true, ecs_id(PulseRenderable));
-	world.component<PulseCamera>("PulseCamera", true, ecs_id(PulseCamera));
-	world.component<PulseWindow>("PulseWindow", true, ecs_id(PulseWindow));
-	world.component<PulsePrimaryWindow>("PulsePrimaryWindow", true, ecs_id(PulsePrimaryWindow));
+	// pulse-app
+	world.component<PulseTimer>("PulseTimer", true, ecs_id(PulseTimer));
+	// pulse-input
 	world.component<PulseKeyboardInput>("PulseKeyboardInput", true, ecs_id(PulseKeyboardInput));
+	world.component<PulseMouseInput>("PulseMouseInput", true, ecs_id(PulseMouseInput));
+	world.component<PulseMouseMotion>("PulseMouseMotion", true, ecs_id(PulseMouseMotion));
+	world.component<PulseMouseScroll>("PulseMouseScroll", true, ecs_id(PulseMouseScroll));
+	world.component<PulseKeyEvent>("PulseKeyEvent", true, ecs_id(PulseKeyEvent));
+	world.component<PulseMouseButtonEvent>("PulseMouseButtonEvent", true, ecs_id(PulseMouseButtonEvent));
+	world.component<PulseMouseScrollEvent>("PulseMouseScrollEvent", true, ecs_id(PulseMouseScrollEvent));
+	// pulse-window
+	world.component<PulseWindow>("PulseWindow", true, ecs_id(PulseWindow));
+	world.component<PulseSdlWindow>("PulseSdlWindow", true, ecs_id(PulseSdlWindow));
+	world.component<PulsePrimaryWindow>("PulsePrimaryWindow", true, ecs_id(PulsePrimaryWindow));
+	// pulse-graphics
+	world.component<PulseRenderer>("PulseRenderer", true, ecs_id(PulseRenderer));
+	world.component<PulseSurface>("PulseSurface", true, ecs_id(PulseSurface));
+	world.component<PulseSwapchain>("PulseSwapchain", true, ecs_id(PulseSwapchain));
+	// pulse-transform
+	world.component<PulseLocalTransform>("PulseLocalTransform", true, ecs_id(PulseLocalTransform));
+	world.component<PulseWorldTransform>("PulseWorldTransform", true, ecs_id(PulseWorldTransform));
+	world.component<PulseShowMatrix>("PulseShowMatrix", true, ecs_id(PulseShowMatrix));
+	// pulse-renderer
+	world.component<PulseCamera>("PulseCamera", true, ecs_id(PulseCamera));
+	world.component<PulseLight>("PulseLight", true, ecs_id(PulseLight));
+	world.component<PulseRenderable>("PulseRenderable", true, ecs_id(PulseRenderable));
 
 	// ---- 游戏模块 ----
 	pulse::EventCenter eventCenter;
