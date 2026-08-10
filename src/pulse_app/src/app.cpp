@@ -255,6 +255,8 @@ void App::shutdown() {
         return;
     }
 
+    ecs_quit(world_.c_ptr());
+
     for (auto it = subapps_.rbegin(); it != subapps_.rend(); ++it) {
         it->app->impl.shutdown();
     }
