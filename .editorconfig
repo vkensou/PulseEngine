@@ -1,0 +1,11 @@
+# 基础编码/缩进约定（C/C++ 详细风格见 .clang-format）
+# 行尾 crlf 与仓库 core.autocrlf=true 的工作区状态一致，由 git 统一入库为 LF。
+root = true
+
+[**/*.{h,c,hpp,cpp}]
+charset = utf-8
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+trim_trailing_whitespace = true
+insert_final_newline = true

@@ -1,4 +1,4 @@
-﻿// 让 MSVC Debug 下的 assert / abort 失败时不弹窗，改为输出到 stderr。
+// 让 MSVC Debug 下的 assert / abort 失败时不弹窗，改为输出到 stderr。
 #if defined(_WIN32) && defined(_DEBUG)
 
 #include <crtdbg.h>

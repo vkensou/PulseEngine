@@ -55,14 +55,14 @@ namespace HGEGraphics
 		return a.depth_test == b.depth_test && a.depth_write == b.depth_write && a.depth_op == b.depth_op && a.stencil_test == b.stencil_test
 			&& a.stencil_read_mask == b.stencil_read_mask && a.stencil_write_mask == b.stencil_write_mask && a.stencil_front_op == b.stencil_front_op
 			&& a.stencil_front_fail_op == b.stencil_front_fail_op && a.depth_front_fail_op == b.depth_front_fail_op && a.stencil_front_pass_op == b.stencil_front_pass_op
-			&& a.stencil_back_op == b.stencil_back_op && a.stencil_back_fail_op == b.stencil_back_fail_op && a.depth_back_fail_op == b.depth_back_fail_op 
+			&& a.stencil_back_op == b.stencil_back_op && a.stencil_back_fail_op == b.stencil_back_fail_op && a.depth_back_fail_op == b.depth_back_fail_op
 			&& a.stencil_back_pass_op == b.stencil_back_pass_op;
 	}
 
 	inline bool operator==(const CGPURasterizerStateDescriptor& a, const CGPURasterizerStateDescriptor& b)
 	{
 		return a.cull_mode == b.cull_mode && a.depth_bias == b.depth_bias
-			&& a.slope_scaled_depth_bias == b.slope_scaled_depth_bias && a.fill_mode == b.fill_mode 
+			&& a.slope_scaled_depth_bias == b.slope_scaled_depth_bias && a.fill_mode == b.fill_mode
 			&& a.front_face == b.front_face && a.enable_multi_sample == b.enable_multi_sample
 			&& a.enable_scissor == b.enable_scissor && a.enable_depth_clamp == b.enable_depth_clamp;
 	}
@@ -93,9 +93,9 @@ namespace std
 	template <>
 	struct equal_to<CGPUBufferDescriptor>{
 		bool operator()(const CGPUBufferDescriptor& a, const CGPUBufferDescriptor& b) const {
-			return a.size == b.size && a.count_buffer == b.count_buffer && HGEGraphics::name_equal(a.name, b.name) && a.descriptors == b.descriptors 
-				&& a.memory_usage == b.memory_usage && a.format == b.format && a.flags == b.flags && a.first_element == b.first_element 
-				&& a.element_count == b.element_count && a.element_stride == b.element_stride && a.owner_queue == b.owner_queue 
+			return a.size == b.size && a.count_buffer == b.count_buffer && HGEGraphics::name_equal(a.name, b.name) && a.descriptors == b.descriptors
+				&& a.memory_usage == b.memory_usage && a.format == b.format && a.flags == b.flags && a.first_element == b.first_element
+				&& a.element_count == b.element_count && a.element_stride == b.element_stride && a.owner_queue == b.owner_queue
 				&& a.start_state == b.start_state && a.prefer_on_device == b.prefer_on_device && a.prefer_on_host == b.prefer_on_host;
 		}
 	};
@@ -148,9 +148,9 @@ namespace std
 	template <>
 	struct equal_to<CGPUTextureViewDescriptor> {
 		bool operator()(const CGPUTextureViewDescriptor& a, const CGPUTextureViewDescriptor& b) const {
-			return HGEGraphics::name_equal(a.name, b.name) && a.texture == b.texture && a.format == b.format && a.usages == b.usages 
+			return HGEGraphics::name_equal(a.name, b.name) && a.texture == b.texture && a.format == b.format && a.usages == b.usages
 				&& a.aspects == b.aspects && a.dims == b.dims && a.base_array_layer == b.base_array_layer
-				&& a.array_layer_count == b.array_layer_count && a.base_mip_level == b.base_mip_level 
+				&& a.array_layer_count == b.array_layer_count && a.base_mip_level == b.base_mip_level
 				&& a.mip_level_count == b.mip_level_count;
 		}
 	};

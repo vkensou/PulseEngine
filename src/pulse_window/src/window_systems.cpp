@@ -30,7 +30,7 @@ void window_post_frame_system_run(ecs_iter_t* it) {
                 const char* current_title = SDL_GetWindowTitle(sdl_window->handle);
                 if (!current_title || std::strcmp(current_title, window.title) != 0) {
                     SDL_SetWindowTitle(sdl_window->handle, window.title);
-                }                
+                }
             }
         }
 

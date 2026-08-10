@@ -26,7 +26,7 @@ namespace HGEGraphics
 		DescriptorSet* getDescriptorSet(const CGPUDescriptorSetDescriptor& descriptor);
 
 	protected:
-		// Í¨¹ý ResourcePool ¼Ì³Ð
+		// Í¨é€šè¿‡ ResourcePool ç»§æ‰¿
 		virtual DescriptorSet* getResource_impl(const CGPUDescriptorSetDescriptor& descriptor) override;
 		virtual void destroyResource_impl(DescriptorSet* resource) override;
 

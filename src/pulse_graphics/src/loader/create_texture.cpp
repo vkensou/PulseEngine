@@ -131,7 +131,7 @@ PulseTextureRequest pulse_create_texture(
         return {};
 
     CGPUDeviceId device = pulse_graphics_internal::get_device(app);
-    if (!device) 
+    if (!device)
         return {};
 
     PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);

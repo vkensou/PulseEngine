@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "cgpu/api.h"
 #include <stdint.h>

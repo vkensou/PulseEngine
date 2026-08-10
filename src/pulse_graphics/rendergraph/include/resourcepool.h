@@ -47,7 +47,7 @@ namespace HGEGraphics
 
 			if constexpr (destroyOutOfDate)
 			{
-				std::erase_if(m_resources, [this](auto& kv) -> bool 
+				std::erase_if(m_resources, [this](auto& kv) -> bool
 				{
 					bool out_of_date = timestamp > kv.second.second + frame_before_out_of_data;
 					if (out_of_date)

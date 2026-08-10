@@ -26,7 +26,7 @@ namespace HGEGraphics
 		void destroyRelativeTexture(CGPUTextureId texture);
 
 	protected:
-		// Í¨¹ý ResourcePool ¼Ì³Ð
+		// Í¨é€šè¿‡ ResourcePool ç»§æ‰¿
 		virtual TextureView* getResource_impl(const CGPUTextureViewDescriptor& descriptor) override;
 
 		virtual void destroyResource_impl(TextureView* resource) override;

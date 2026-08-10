@@ -13,7 +13,7 @@ namespace HGEGraphics
 		auto resourceCount = impl.resources.size();
 		auto passCount = impl.passes.size();
 		auto edgeCount = impl.edges.size();
-		
+
 		struct Node
 		{
 			Node(index_type_t index, bool is_pass, bool is_persistent, std::pmr::memory_resource* const resource)
@@ -183,7 +183,7 @@ namespace HGEGraphics
 					compiled.resources.emplace_back(resource.name, resource.manageType, resource.width, resource.height, resource.depth, resource.format, resource.texture, resource.mipCount, resource.arraySize, resource.parent, resource.mipLevel, resource.arraySlice);
 				else if (resource.resourceType == ResourceType::Buffer)
 					compiled.resources.emplace_back(resource.name, resource.manageType, resource.size, resource.buffer, resource.bufferType, resource.memoryUsage);
-			
+
 				if (resource.manageType == ManageType::Managed)
 				{
 					index_type_t first = MAX_INDEX;

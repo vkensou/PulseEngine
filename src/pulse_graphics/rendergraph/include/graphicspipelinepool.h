@@ -50,7 +50,7 @@ namespace HGEGraphics
 	{
 		inline bool operator()(const PSOKey& a, const PSOKey& b) const
 		{
-			return a.shader == b.shader && a.vertex_layout == b.vertex_layout && a.prim_topology == b.prim_topology 
+			return a.shader == b.shader && a.vertex_layout == b.vertex_layout && a.prim_topology == b.prim_topology
 				&& a.blend_desc == b.blend_desc && a.depth_desc == b.depth_desc && a.rasterizer_state == b.rasterizer_state && a.render_pass == b.render_pass
 				&& a.subpass == b.subpass && a.render_target_count == b.render_target_count;
 		}

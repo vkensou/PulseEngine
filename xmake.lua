@@ -13,6 +13,9 @@ end
 
 add_cxxflags("/Zc:__cplusplus", "/Zc:preprocessor", {tools = "cl", force = true})
 
+add_cxflags("/utf-8", {tools = {"cl", "clang-cl"}, force = true})
+add_cxflags("-finput-charset=utf-8", "-fexec-charset=utf-8", {tools = {"gcc", "gxx", "clang", "clangxx"}, force = true})
+
 if is_host("windows") and is_plat("android") then
     set_policy("install.strip_packagelibs", false)
 end

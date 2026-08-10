@@ -26,7 +26,7 @@ namespace HGEGraphics
 		Framebuffer* getFramebuffer(const CGPUFramebufferDescriptor& descriptor);
 
 	protected:
-		// Í¨¹ý ResourcePool ¼Ì³Ð
+		// Í¨é€šè¿‡ ResourcePool ç»§æ‰¿
 		virtual Framebuffer* getResource_impl(const CGPUFramebufferDescriptor& descriptor) override;
 		virtual void destroyResource_impl(Framebuffer* resource) override;
 

@@ -137,12 +137,12 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
     auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
     auto* desc = static_cast<const PulseMeshCreateFromDataDesc*>(ctx->settings);
-    
+
     if (ctx->dependency_count < 2) {
         *out_error = "mesh create loader: missing buffer dependencies";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
-    
+
     PulseGraphicsBufferHandle vertexBuffer = pulse_graphics_buffer_get_handle(ctx->app, { vertexBufferRequest.index, vertexBufferRequest.generation });
     PulseGraphicsBufferData* vb_data = internal_borrow_buffer(ctx->asset_system, vertexBuffer);
     if (!vb_data) {
@@ -161,7 +161,7 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
     }
-    
+
     const CGPUVertexLayout& use_layout = desc->layout;
     mesh->vertex_layout = use_layout;
     mesh->p_vertex_attributes = new CGPUVertexAttribute[use_layout.attribute_count];
@@ -172,7 +172,7 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
     mesh->vertex_stride = desc->vertex_stride;
     mesh->index_count = desc->index_count;
     mesh->index_stride = desc->index_stride;
-    
+
     mesh->vertex_buffer = { vertexBuffer, vb_data };
     mesh->index_buffer = { indexBuffer, ib_data };
     mesh->prepared = true;

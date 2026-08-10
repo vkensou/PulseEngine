@@ -1,4 +1,4 @@
-﻿#include "snake.h"
+#include "snake.h"
 
 #include <optional>
 #include <random>
@@ -178,7 +178,7 @@ void destructEntities(flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsAppl
 			entity.destruct();
 		});
 
-	appleQuery.each([](flecs::entity entity, IsApple apple) 
+	appleQuery.each([](flecs::entity entity, IsApple apple)
 		{
 			entity.destruct();
 		});
@@ -417,7 +417,7 @@ void handleSnakeInputSystem(pulse::res<const PulseKeyboardInput> keyboard, const
 }
 
 void scheduleSnakeMoveSystem(pulse::res<const PulseTimer> timer, pulse::event_writer<SnakeMoveIntentEvent> snakeMoveWriter, flecs::entity entity, const Facing4W& direction, SnakeMove& move)
-{	
+{
 	move.lastTime += timer.get().delta_time;
 	if (move.lastTime < move.interval)
 		return;

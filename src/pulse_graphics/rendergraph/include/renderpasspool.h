@@ -28,7 +28,7 @@ namespace HGEGraphics
 		RenderPass* getRenderPass(const CGPURenderPassDescriptor& descriptor);
 
 	protected:
-		// Í¨¹ý ResourcePool ¼Ì³Ð
+		// Í¨é€šè¿‡ ResourcePool ç»§æ‰¿
 		virtual RenderPass* getResource_impl(const CGPURenderPassDescriptor& descriptor) override;
 		virtual void destroyResource_impl(RenderPass* resource) override;
 
