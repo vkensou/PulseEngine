@@ -101,7 +101,7 @@ system的参数类型有如下几种可能：
 - 如果是管理器system，则Wrapper的签名统一是：void increaseScoreSystemWrapper(pulse::event_reader<{EventName}> eventReader, flecs::world& world, [附加查询列表])
 - 如果是实体system，则Wrapper的签名统一是：void increaseScoreSystemWrapper(pulse::event_reader<{EventName}> eventReader, flecs::world& world, [附加查询列表]，[组件列表])
 
-说明，对于事件system，其签名可以携带附加查询列表；对于普通system，其签名不携带附加查询列表。
+说明，对于事件system的Wrapper，其签名会携带附加查询列表；对于普通system的Wrapper，其签名不携带附加查询列表。
 
 ## 6. 注册器写法
 
