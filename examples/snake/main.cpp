@@ -35,22 +35,23 @@ static PulseAppId g_app = nullptr;
 //   分数 → 窗口标题栏；GameOver 后按 Enter/R 发 RestartEvent
 // ============================================================
 
-static SDL_Window* g_ui_window = nullptr;
+static ecs_entity_t g_ui_window_entity = 0;
 
 static void uiSystem(flecs::iter& it, size_t i, const SnakeGame& snakeGame, const Score& score)
 {
 	(void)i;
 	auto world = it.world();
 
-	// 分数 → 标题栏
-	if (g_ui_window)
+	// 分数 → 标题栏（经组件同步到窗口，勿裸调 SDL_SetWindowTitle，
+	// 否则会被 PulseWindowPostFrameSystem 以组件 title 为准覆盖）
+	if (g_ui_window_entity)
 	{
 		char title[192];
 		if (snakeGame.playing)
 			snprintf(title, sizeof(title), "Snake - Score: %d", score.value);
 		else
 			snprintf(title, sizeof(title), "Game Over! Score: %d - Press Enter to Restart", score.value);
-		SDL_SetWindowTitle(g_ui_window, title);
+		pulse_window_set_title(g_app, g_ui_window_entity, title);
 	}
 
 	// GameOver 后按 Enter/R 重启
@@ -206,7 +207,7 @@ int main(void)
 	pulse::registerResource<SnakeAssets>(world, "Snake Assets", std::move(snakeAssets));
 
 	// ---- 适配系统 ----
-	g_ui_window = pulse_window_get_sdl_window(app, pulse_window_get_primary(app));
+	g_ui_window_entity = pulse_window_get_primary(app);
 	installAdapterSystems(world);
 
 	// ---- 游戏模块（wrapper + 注册器，legacy 生成规则）----

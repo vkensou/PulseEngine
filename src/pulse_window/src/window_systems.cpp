@@ -1,4 +1,5 @@
 #include "window_internal.h"
+#include <cstring>
 
 namespace pulse_window_internal {
 
@@ -13,12 +14,23 @@ void window_post_frame_system_run(ecs_iter_t* it) {
 
         const PulseSdlWindow* sdl_window =
             ecs_get(it->world, entity, PulseSdlWindow);
-        if (sdl_window && sdl_window->handle && window.width > 0 && window.height > 0) {
-            int sdl_width = 0;
-            int sdl_height = 0;
-            SDL_GetWindowSize(sdl_window->handle, &sdl_width, &sdl_height);
-            if (window.width != sdl_width || window.height != sdl_height) {
-                SDL_SetWindowSize(sdl_window->handle, window.width, window.height);
+        if (sdl_window && sdl_window->handle) {
+            if (window.width > 0 && window.height > 0) {
+                int sdl_width = 0;
+                int sdl_height = 0;
+                SDL_GetWindowSize(sdl_window->handle, &sdl_width, &sdl_height);
+                if (window.width != sdl_width || window.height != sdl_height) {
+                    SDL_SetWindowSize(sdl_window->handle, window.width, window.height);
+                }
+            }
+            // Sync component title to the OS window. SDL keeps its own copy of
+            // the title, so comparing against it avoids redundant calls when the
+            // component is written with an unchanged value.
+            if (window.title) {
+                const char* current_title = SDL_GetWindowTitle(sdl_window->handle);
+                if (!current_title || std::strcmp(current_title, window.title) != 0) {
+                    SDL_SetWindowTitle(sdl_window->handle, window.title);
+                }                
             }
         }
 

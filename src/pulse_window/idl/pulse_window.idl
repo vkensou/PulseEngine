@@ -88,10 +88,11 @@ func.WindowGetPrimary
     .app "PulseAppId"
     ()
 
-func.WindowGetSdlWindow
-    "*SDL_Window"
+func.WindowSetTitle
+    "EPulseResult"
     .app    "PulseAppId"
     .entity "ecs_entity_t"
+    .title  "cstring"
     ()
 
 func.WindowGetNativeView

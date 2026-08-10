@@ -3,6 +3,7 @@
 #include "pulse_input.h"
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 namespace pulse_window_internal {
@@ -530,14 +531,36 @@ ecs_entity_t pulse_window_get_primary(PulseAppId app) {
     return finded;
 }
 
-SDL_Window* pulse_window_get_sdl_window(PulseAppId app, ecs_entity_t entity) {
+EPulseResult pulse_window_set_title(PulseAppId app, ecs_entity_t entity, const char* title) {
     ecs_world_t* world = pulse_app_world(app);
-    if (!world || !entity || !ecs_is_alive(world, entity)) {
-        return nullptr;
+    if (!world || !entity || !ecs_is_alive(world, entity) || !title) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    const PulseSdlWindow* raw = ecs_get(world, entity, PulseSdlWindow);
-    return raw ? raw->handle : nullptr;
+    // Require the component to already exist: ecs_get_mut would otherwise
+    // add it, which via EcsWith + the on_set hook would create a window.
+    if (!ecs_has_id(world, entity, ecs_id(PulseWindow))) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    PulseWindow* window = ecs_get_mut(world, entity, PulseWindow);
+    if (!window) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Setting the same title again is a no-op (no allocation, no sync).
+    if (window->title && std::strcmp(window->title, title) == 0) {
+        return PULSE_RESULT_OK;
+    }
+
+    // The component owns the string; see the ownership contract in
+    // pulse_window.h. The new value is applied to the OS window by the
+    // post-frame sync system.
+    ecs_os_free(const_cast<char*>(window->title));
+    window->title = ecs_os_strdup(title);
+    ecs_modified(world, entity, PulseWindow);
+
+    return PULSE_RESULT_OK;
 }
 
 void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity) {

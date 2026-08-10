@@ -75,6 +75,35 @@ ECS_MOVE(PulseSdlWindow, dst, src, {
     ecs_os_zeromem(src);
     })
 
+// PulseWindow.title is owned by the component. These hooks keep the owned string valid
+// across flecs copies/moves and release it on destruction.
+const char* dup_title(const char* title) {
+    return title ? ecs_os_strdup(title) : nullptr;
+}
+
+void release_title(PulseWindow* ptr) {
+    if (ptr->title) {
+        ecs_os_free(const_cast<char*>(ptr->title));
+        ptr->title = nullptr;
+    }
+}
+
+ECS_COPY(PulseWindow, dst, src, {
+    release_title(dst);
+    *dst = *src;
+    dst->title = dup_title(src->title);
+    })
+
+ECS_MOVE(PulseWindow, dst, src, {
+    release_title(dst);
+    *dst = *src;
+    ecs_os_zeromem(src);
+    })
+
+ECS_DTOR(PulseWindow, ptr, {
+    release_title(ptr);
+    })
+
 void on_window_set(ecs_iter_t* it)
 {
     ecs_world_t* world = it->world;
@@ -157,6 +186,9 @@ void register_components(ecs_world_t* world) {
 
 	ecs_type_hooks_t pulse_window_hooks = {
         .ctor = flecs_default_ctor,
+        .dtor = ecs_dtor(PulseWindow),
+        .copy = ecs_copy(PulseWindow),
+        .move = ecs_move(PulseWindow),
         .on_set = on_window_set,
         .on_remove = on_window_remove,
     };
