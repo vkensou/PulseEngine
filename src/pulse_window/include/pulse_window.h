@@ -92,6 +92,8 @@ extern ECS_TAG_DECLARE(PulsePrimaryWindow);
 extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 extern ECS_TAG_DECLARE(PulseWindowResized);
 
+struct PulsePrimaryWindow{};
+
 PULSE_API PulseWindowDesc pulse_window_desc_default(void);
 PULSE_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
 PULSE_API EPulseResult pulse_add_window_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);

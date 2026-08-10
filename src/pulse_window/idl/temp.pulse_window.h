@@ -39,6 +39,8 @@ extern ECS_TAG_DECLARE(PulsePrimaryWindow);
 extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 extern ECS_TAG_DECLARE(PulseWindowResized);
 
+struct PulsePrimaryWindow{};
+
 $c99decl
 
 #ifdef __cplusplus
