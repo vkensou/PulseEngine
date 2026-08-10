@@ -24,6 +24,8 @@ local KIND = {
     RES = "res",
     FLECS_QUERY = "flecs_query",
     FLECS_ENTITY = "flecs_entity",
+    SYSTEM_STATE_MACHINE = "system_state_machine",
+    PULSE_APP_ID = "pulse_app_id",
     COMPONENT = "component",
 }
 
@@ -74,6 +76,80 @@ local function parse_immediate_from_macro_block(block)
         end
     end
     return false
+end
+
+-- 解析 `PULSE_ECS_SYSTEM(...)` 中的 `STATE=A|B|C`：system/observer 的启用状态集。
+-- 返回状态 token 列表（如 {"SnakeGameState::UnInitialized", "SnakeGameState::Loading"}），无 STATE 时返回 nil。
+local function parse_state_from_macro_block(block)
+    local state = block:match("STATE=([^,%)]+)")
+    if not state then
+        return nil
+    end
+    local states = {}
+    for piece in state:gmatch("[^|]+") do
+        local token = piece:match("^%s*(.-)%s*$")
+        if token ~= "" then
+            table.insert(states, token)
+        end
+    end
+    if #states == 0 then
+        return nil
+    end
+    return states
+end
+
+-- 解析 `PULSE_ECS_STATE_MACHINE(INIT=...)` 标记的状态枚举（v1 仅支持一个状态机）。
+-- 返回 { enum_name, init_state }，无标记时返回 nil。
+local function parse_state_machine(content)
+    local enum_name = nil
+    local init_state = nil
+    local count = 0
+    local pos = 1
+    while true do
+        local s = content:find("PULSE_ECS_STATE_MACHINE", pos, true)
+        if not s then
+            break
+        end
+        local macro_block = content:match("PULSE_ECS_STATE_MACHINE%(([^)]*)%)", s)
+        local init = macro_block and macro_block:match("INIT=([%w_]+)")
+        local name = content:match("enum%s+class%s+([%w_]+)", s)
+        if init and name then
+            count = count + 1
+            enum_name = name
+            init_state = init
+        end
+        pos = s + 1
+    end
+    if count > 1 then
+        error("暂不支持多个 PULSE_ECS_STATE_MACHINE（当前仅支持一个状态机）")
+    end
+    if count == 1 then
+        return { enum_name = enum_name, init_state = init_state }
+    end
+    return nil
+end
+
+-- 解析 `PULSE_ECS_RESOURCE` 标记的资源结构体，返回结构体名列表。
+local function parse_resources(content)
+    local resources = {}
+    local pos = 1
+    while true do
+        local s = content:find("PULSE_ECS_RESOURCE", pos, true)
+        if not s then
+            break
+        end
+        local name = content:match("struct%s+([%w_]+)", s)
+        if name then
+            table.insert(resources, name)
+        end
+        pos = s + 1
+    end
+    return resources
+end
+
+-- 资源注册显示名：CamelCase 转空格分隔（SnakeAssets -> "Snake Assets"）。
+local function resource_display_name(name)
+    return name:gsub("(%l)(%u)", "%1 %2")
 end
 
 -- 规范化参数类型，供 classify_param_type 使用 (移除引用和前置 const)。
@@ -127,6 +203,18 @@ local TYPE_KIND_RULES = {
             return norm == "flecs::entity"
         end,
         kind = KIND.FLECS_ENTITY,
+    },
+    {
+        test = function(t, norm)
+            return t:find("^pulse::system_state_machine%s*<") ~= nil or norm:find("^pulse::system_state_machine") ~= nil
+        end,
+        kind = KIND.SYSTEM_STATE_MACHINE,
+    },
+    {
+        test = function(_, norm)
+            return norm == "PulseAppId"
+        end,
+        kind = KIND.PULSE_APP_ID,
     },
 }
 
@@ -207,6 +295,27 @@ local WRAPPER_NAME_OVERRIDES = {
 
 local function wrapper_function_name(system)
     return WRAPPER_NAME_OVERRIDES[system.name] or (system.name .. "Wrapper")
+end
+
+-- 状态机管理系统名：枚举名去尾部 `State` 后缀 + `StateMachine`（SnakeGameState -> SnakeGameStateMachine）。
+local function state_machine_system_name(enum_name)
+    return enum_name:gsub("State$", "") .. "StateMachine"
+end
+
+-- 状态机管理系统 wrapper 名（系统名首字母小写 + Wrapper）。
+local function state_machine_wrapper_name(enum_name)
+    local sys_name = state_machine_system_name(enum_name)
+    return sys_name:sub(1, 1):lower() .. sys_name:sub(2) .. "Wrapper"
+end
+
+-- 状态集比较键（排序后拼接，避免顺序差异造成误告警）。
+local function states_key(states)
+    local sorted = {}
+    for _, s in ipairs(states) do
+        table.insert(sorted, s)
+    end
+    table.sort(sorted)
+    return table.concat(sorted, "|")
 end
 
 local function event_reader_param_name(system)
@@ -542,12 +651,14 @@ local function parse_systems(content)
                             end
                         end
                         local immediate = parse_immediate_from_macro_block(macro_block)
+                        local state = parse_state_from_macro_block(macro_block)
 
                         table.insert(systems, {
                             name = func_name,
                             ret_type = ret_type,
                             phase = phase,
                             immediate = immediate,
+                            state = state,
                             params = params,
                             signature = signature,
                             has_event_reader = has_event_reader,
@@ -571,15 +682,38 @@ local function parse_systems(content)
     return systems
 end
 
-local function print_parsed_systems_dump(systems)
+local function print_parsed_systems_dump(systems, state_machine, resources)
     print("========== ECS 解析结果 ==========")
     print(string.format("%d 个系统\n", #systems))
+    if state_machine then
+        print(string.format("状态机: enum %s, INIT=%s（管理系统: %s / %s）",
+            state_machine.enum_name, state_machine.init_state,
+            state_machine_system_name(state_machine.enum_name),
+            state_machine_wrapper_name(state_machine.enum_name)))
+    else
+        print("状态机: (无)")
+    end
+    if resources and #resources > 0 then
+        local display = {}
+        for _, r in ipairs(resources) do
+            table.insert(display, string.format("%s -> \"%s\"", r, resource_display_name(r)))
+        end
+        print("资源: " .. table.concat(display, ", "))
+    else
+        print("资源: (无)")
+    end
+    print("")
     for idx, sys in ipairs(systems) do
         print(string.rep("-", 72))
         print(string.format("[%d] %s", idx, sys.name))
         print("  宏: " .. sys.macro_block:gsub("\r?\n", " "))
         print(string.format("  阶段: %s", sys.phase))
         print(string.format("  IMMEDIATE: %s", sys.immediate and "是" or "否"))
+        if sys.state then
+            print("  STATE: " .. table.concat(sys.state, " | "))
+        else
+            print("  STATE: (无)")
+        end
         print(string.format("  返回类型: %s", sys.ret_type))
         print("  签名:")
         print("    " .. sys.signature)
@@ -624,7 +758,8 @@ end
 local function should_include_param_in_wrapper_signature(p, include_flecs_query)
     local k = classify_param_type(p.type)
     if k == KIND.EVENT_READER or k == KIND.RES or k == KIND.COMMAND_BUFFER or
-       k == KIND.SINGLETON_QUERY or k == KIND.EVENT_WRITER or p.name == "" then
+       k == KIND.SINGLETON_QUERY or k == KIND.EVENT_WRITER or
+       k == KIND.SYSTEM_STATE_MACHINE or k == KIND.PULSE_APP_ID or p.name == "" then
         return false
     end
     if not include_flecs_query and k == KIND.FLECS_QUERY then
@@ -667,6 +802,26 @@ local function emit_event_writer_setup_line(output, p)
     local event_t = extract_template_type(p.type)
     local var_name = event_writer_var_name(p)
     table.insert(output, string.format("\tauto %s = pulse::event_writer<%s>(world);", var_name, event_t))
+end
+
+-- `PulseAppId`：经 world 反查 app 句柄（pulse_get_app_from_world）。
+local function emit_pulse_app_id_setup_line(output, p)
+    if p.name == "" then
+        error("`PulseAppId` 参数必须命名")
+    end
+    table.insert(output, string.format("\tauto %s = pulse_get_app_from_world(world.c_ptr());", p.name))
+end
+
+-- `pulse::system_state_machine<T>`：构造状态机访问器（状态以 T 组件存于 SingleHolder 单例）。
+local function emit_system_state_machine_setup_line(output, p)
+    if p.name == "" then
+        error("`system_state_machine` 参数必须命名")
+    end
+    local inner = extract_template_type(p.type)
+    if not inner then
+        error("`system_state_machine` 类型缺少模板参数: " .. p.type)
+    end
+    table.insert(output, string.format("\tauto %s = pulse::system_state_machine<%s>(world);", p.name, inner))
 end
 
 local function generate_wrapper(system)
@@ -725,6 +880,12 @@ local function generate_wrapper(system)
                 local ord = query_ordinal_for_param_at(system, pi)
                 local qe = system.extra_queries[ord]
                 table.insert(call_args, "systemState." .. attached_query_field_name(qe, ord))
+            elseif k == KIND.SYSTEM_STATE_MACHINE then
+                emit_system_state_machine_setup_line(output, p)
+                table.insert(call_args, p.name)
+            elseif k == KIND.PULSE_APP_ID then
+                emit_pulse_app_id_setup_line(output, p)
+                table.insert(call_args, p.name)
             elseif p.name ~= "" then
                 table.insert(call_args, p.name)
             end
@@ -781,6 +942,12 @@ local function generate_wrapper(system)
             table.insert(call_args, "entity")
         elseif k == KIND.FLECS_QUERY then
             table.insert(call_args, p.name)
+        elseif k == KIND.SYSTEM_STATE_MACHINE then
+            emit_system_state_machine_setup_line(output, p)
+            table.insert(call_args, p.name)
+        elseif k == KIND.PULSE_APP_ID then
+            emit_pulse_app_id_setup_line(output, p)
+            table.insert(call_args, p.name)
         elseif p.name ~= "" then
             table.insert(call_args, p.name)
         end
@@ -833,6 +1000,16 @@ local function generate_event_wrapper(system)
                 emit_event_writer_setup_line(output, p)
             end
         end
+        for _, p in ipairs(system.params) do
+            if classify_param_type(p.type) == KIND.SYSTEM_STATE_MACHINE then
+                emit_system_state_machine_setup_line(output, p)
+            end
+        end
+        for _, p in ipairs(system.params) do
+            if classify_param_type(p.type) == KIND.PULSE_APP_ID then
+                emit_pulse_app_id_setup_line(output, p)
+            end
+        end
     end
 
     if system_has_command_buffer_param(system) and not has_writer then
@@ -868,6 +1045,10 @@ local function generate_event_wrapper(system)
             elseif k == KIND.SINGLETON_QUERY then
                 table.insert(call_args, singleton_query_local_name(p))
             elseif k == KIND.FLECS_QUERY then
+                table.insert(call_args, p.name)
+            elseif k == KIND.SYSTEM_STATE_MACHINE then
+                table.insert(call_args, p.name)
+            elseif k == KIND.PULSE_APP_ID then
                 table.insert(call_args, p.name)
             elseif k == KIND.COMPONENT then
                 table.insert(call_args, p.name)
@@ -919,7 +1100,19 @@ local function entity_event_register_main_components(sys_list)
     return nil
 end
 
-local function emit_attached_query_system_registration(output, sys, pipeline_field)
+-- system 的 STATE 状态集注册行；无状态机时告警并忽略。
+local function emit_state_reg(output, sys, state_machine)
+    if not sys.state then
+        return
+    end
+    if not state_machine then
+        io.stderr:write(string.format("[警告] %s 声明了 STATE= 但头文件没有 PULSE_ECS_STATE_MACHINE，忽略 STATE\n", sys.name))
+        return
+    end
+    table.insert(output, string.format("\tstateMachine.reg(%s, { %s });", sys.name, table.concat(sys.state, ", ")))
+end
+
+local function emit_attached_query_system_registration(output, sys, pipeline_field, state_machine)
     local reg_name = get_register_name(sys.name)
     local wn = wrapper_function_name(sys)
     local state_name = wrapper_state_struct_name(sys)
@@ -950,21 +1143,27 @@ local function emit_attached_query_system_registration(output, sys, pipeline_fie
         table.insert(set_fields, string.format(".%s = moduleContext->world.query<%s>()", fname, ct))
     end
     table.insert(output, string.format("\t%s.set<%s>({ %s });", sys.name, state_name, table.concat(set_fields, ", ")))
+    emit_state_reg(output, sys, state_machine)
 end
 
 -- 普通 system 按相同时机注册（init / update / imgui），仅 pipeline 字段不同。
-local function emit_simple_pipeline_registrations(output, phase_systems, pipeline_field)
+-- 带 STATE= 的系统需要保留实体句柄，注册后追加 stateMachine.reg。
+local function emit_simple_pipeline_registrations(output, phase_systems, pipeline_field, state_machine)
     for _, sys in ipairs(phase_systems) do
         if system_needs_attached_query_state(sys) then
-            emit_attached_query_system_registration(output, sys, pipeline_field)
+            emit_attached_query_system_registration(output, sys, pipeline_field, state_machine)
         else
             local reg_name = get_register_name(sys.name)
             local wn = wrapper_function_name(sys)
+            local assign_prefix = ""
+            if sys.state and state_machine then
+                assign_prefix = "auto " .. sys.name .. " = "
+            end
             local mq = sys.main_query_components
             if #mq > 0 then
-                table.insert(output, string.format('\tmoduleContext->world.system<%s>("%s")', table.concat(mq, ", "), reg_name))
+                table.insert(output, string.format('\t%smoduleContext->world.system<%s>("%s")', assign_prefix, table.concat(mq, ", "), reg_name))
             else
-                table.insert(output, string.format('\tmoduleContext->world.system("%s")', reg_name))
+                table.insert(output, string.format('\t%smoduleContext->world.system("%s")', assign_prefix, reg_name))
             end
             table.insert(output, "\t\t.kind(moduleContext->" .. pipeline_field .. ")")
             if sys.immediate then
@@ -975,13 +1174,52 @@ local function emit_simple_pipeline_registrations(output, phase_systems, pipelin
             else
                 table.insert(output, "\t\t.run(" .. wn .. ");")
             end
+            emit_state_reg(output, sys, state_machine)
         end
         table.insert(output, "")
     end
 end
 
-local function generate_module_registration(systems)
+-- 状态机管理系统 wrapper：每帧调用 StateMachine::tick 检测状态变化并应用开关。
+local function generate_state_machine_wrapper(state_machine)
     local output = {}
+    table.insert(output, "")
+    table.insert(output, "void " .. state_machine_wrapper_name(state_machine.enum_name) .. "(")
+    table.insert(output, "\tflecs::iter& it)")
+    table.insert(output, "{")
+    table.insert(output, "\tauto world = it.world();")
+    table.insert(output, string.format("\tworld.get_mut<pulse::StateMachine<%s>>().tick(world);", state_machine.enum_name))
+    table.insert(output, "}")
+    return table.concat(output, "\n")
+end
+
+local function generate_module_registration(systems, state_machine, resources)
+    local output = {}
+
+    -- 资源容器注册（加载请求由资源加载系统自行发起）
+    for _, res in ipairs(resources or {}) do
+        table.insert(output, string.format('\tpulse::registerResource<%s>(moduleContext->world, "%s", %s{});', res, resource_display_name(res), res))
+    end
+    if resources and #resources > 0 then
+        table.insert(output, "")
+    end
+
+    -- 状态机注册表：以 flecs 单例组件存放（组件实体 id 上的数据），非全局变量。
+    -- 先显式 set 创建单例（本版本 flecs 的 get_mut 要求组件已存在，否则断言）
+    if state_machine then
+        local enum_name = state_machine.enum_name
+        table.insert(output, string.format("\tmoduleContext->world.set<pulse::StateMachine<%s>>(pulse::StateMachine<%s>{});", enum_name, enum_name))
+        table.insert(output, string.format("\tauto& stateMachine = moduleContext->world.get_mut<pulse::StateMachine<%s>>();", enum_name))
+        table.insert(output, "")
+
+        -- 状态管理系统：每帧最先跑；IMMEDIATE 使其 ecs_enable 结果
+        -- 对当帧后续系统立即生效（flecs 对 observer 的 disable 同样有效）
+        table.insert(output, string.format('\tmoduleContext->world.system("%s")', state_machine_system_name(enum_name)))
+        table.insert(output, "\t\t.kind(moduleContext->updatePipeline)")
+        table.insert(output, "\t\t.immediate()")
+        table.insert(output, string.format("\t\t.run(%s);", state_machine_wrapper_name(enum_name)))
+        table.insert(output, "")
+    end
 
     local phase_buckets = {
         [PHASE.INIT] = {},
@@ -999,7 +1237,7 @@ local function generate_module_registration(systems)
     end
 
     for _, ph in ipairs(PHASE_ORDER) do
-        emit_simple_pipeline_registrations(output, phase_buckets[ph], PIPELINE_FIELD[ph])
+        emit_simple_pipeline_registrations(output, phase_buckets[ph], PIPELINE_FIELD[ph], state_machine)
     end
 
     local event_groups = {}
@@ -1058,20 +1296,49 @@ local function generate_module_registration(systems)
             end
         end
 
-        table.insert(output, string.format("\t%s->observe(moduleContext->world);", dispatcher_name))
+        -- 状态机注册：同组监听器共享同一个 observer 实体，启用状态集取第一个，
+        -- 若各监听器状态集不一致向 stderr 告警（生成的代码仍以第一个为准）。
+        local group_state = nil
+        for _, sys in ipairs(sys_list) do
+            if sys.state then
+                if group_state == nil then
+                    group_state = sys.state
+                elseif states_key(sys.state) ~= states_key(group_state) then
+                    io.stderr:write(string.format("[警告] 事件 %s 的监听器状态集不一致（%s vs %s），注册使用第一个\n",
+                        event_type, table.concat(sys.state, ", "), table.concat(group_state, ", ")))
+                end
+            end
+        end
+        if group_state then
+            table.insert(output, string.format("\tstateMachine.reg(%s->observe(moduleContext->world), { %s });", dispatcher_name, table.concat(group_state, ", ")))
+        else
+            table.insert(output, string.format("\t%s->observe(moduleContext->world);", dispatcher_name))
+        end
         table.insert(output, string.format("\tmoduleContext->eventManager->register_event(std::move(%s));", dispatcher_name))
         table.insert(output, "")
+    end
+
+    -- 状态机初始化：写初值并应用首批开关（run 前 world 可写，立即生效）
+    if state_machine then
+        table.insert(output, string.format("\tstateMachine.init(moduleContext->world, %s::%s);", state_machine.enum_name, state_machine.init_state))
     end
 
     return table.concat(output, "\n")
 end
 
-local function generate_module_cpp(module_name, systems)
+local function generate_module_cpp(module_name, systems, state_machine, resources)
     local output = {}
 
     table.insert(output, "#include \"" .. module_name .. "_module.h\"")
     table.insert(output, "#include \"" .. module_name .. ".h\"")
     table.insert(output, "")
+
+    if state_machine then
+        local wrapper = generate_state_machine_wrapper(state_machine)
+        for line in wrapper:gmatch("[^\n]+") do
+            table.insert(output, line)
+        end
+    end
 
     for _, sys in ipairs(systems) do
         if sys.has_event_reader then
@@ -1101,7 +1368,7 @@ local function generate_module_cpp(module_name, systems)
     table.insert(output, "void importModule(pulse::ModuleContext* moduleContext)")
     table.insert(output, "{")
 
-    local registrations = generate_module_registration(systems)
+    local registrations = generate_module_registration(systems, state_machine, resources)
     for line in registrations:gmatch("[^\n]+") do
         table.insert(output, line)
     end
@@ -1153,9 +1420,11 @@ local function main(...)
     print("解析: " .. header_path)
     local content = read_file(header_path)
     local systems = parse_systems(content)
+    local state_machine = parse_state_machine(content)
+    local resources = parse_resources(content)
 
     if mode == "dump" then
-        print_parsed_systems_dump(systems)
+        print_parsed_systems_dump(systems, state_machine, resources)
         print("完成 (dump 模式)。")
         return
     end
@@ -1170,7 +1439,7 @@ local function main(...)
     write_file(out_dir .. module_name .. "_module.h", module_h)
     print("输出: " .. out_dir .. module_name .. "_module.h")
 
-    local module_cpp = generate_module_cpp(module_name, systems)
+    local module_cpp = generate_module_cpp(module_name, systems, state_machine, resources)
     write_file(out_dir .. module_name .. "_module.cpp", module_cpp)
     print("输出: " .. out_dir .. module_name .. "_module.cpp")
 

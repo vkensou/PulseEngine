@@ -23,6 +23,53 @@ system还可以分为实体system和管理器system。实体system是遍历所�
 
 当PULSE_ECS_SYSTEM中出现`IMMEDIATE`时，说明此system是immediate system，在后面注册system时需要附加`.immediate()`
 
+### 3.3 STATE（状态集）
+
+当PULSE_ECS_SYSTEM中出现`STATE=A|B|C`时，表示该system/observer的"启用状态集"：只在枚举状态为A、B或C时运行。生成时：
+
+- 普通system注册改为保留句柄（`auto {SystemName} = ...`），并追加`stateMachine.reg({SystemName}, { A, B, C });`
+- 事件system注册改为`stateMachine.reg({EventName}Dispatcher->observe(moduleContext->world), { A, B, C });`（observe返回observer实体；同组监听器共享一个observer，状态集取第一个，不一致时向stderr告警）
+
+STATE的枚举类型须与`PULSE_ECS_STATE_MACHINE`标记的枚举一致。
+
+### 3.4 PULSE_ECS_STATE_MACHINE（状态机）
+
+```cpp
+PULSE_ECS_STATE_MACHINE(INIT=UnInitialized)
+enum class SnakeGameState { ... };
+```
+
+标记模块的状态枚举，`INIT=`指定初始状态。生成时自动产出：
+
+- 状态机注册表单例（flecs单例组件，先`world.set`后`get_mut`）：
+  ```cpp
+  moduleContext->world.set<pulse::StateMachine<SnakeGameState>>(pulse::StateMachine<SnakeGameState>{});
+  auto& stateMachine = moduleContext->world.get_mut<pulse::StateMachine<SnakeGameState>>();
+  ```
+- 状态管理系统（每帧最先跑、IMMEDIATE，注册在所有UPDATE系统之前）：
+  ```cpp
+  moduleContext->world.system("SnakeGameStateMachine")   // 枚举名去尾部State + StateMachine
+      .kind(moduleContext->updatePipeline)
+      .immediate()
+      .run(snakeGameStateMachineWrapper);
+  ```
+- 收尾初始化：`stateMachine.init(moduleContext->world, SnakeGameState::UnInitialized);`
+
+当前生成器只支持一个状态机（多个时报错）。
+
+### 3.5 PULSE_ECS_RESOURCE（ECS资源单例）
+
+```cpp
+PULSE_ECS_RESOURCE
+struct SnakeAssets { ... };
+```
+
+标记资源结构体。生成时在importModule开头产出：
+```cpp
+pulse::registerResource<SnakeAssets>(moduleContext->world, "Snake Assets", SnakeAssets{});
+```
+注册显示名由结构体名CamelCase转空格分隔（`SnakeAssets` -> `"Snake Assets"`）。
+
 ## 4. system参数类型
 
 system的参数类型有如下几种可能：
@@ -34,6 +81,8 @@ system的参数类型有如下几种可能：
 - `pulse::event_writer<T>`：事件写入器
 - `flecs::query<T...>`：附加查询
 - `flecs::entity`：system主查询遍历的实体
+- `PulseAppId`：app句柄。Wrapper内生成`auto app = pulse_get_app_from_world(world.c_ptr());`，不参与主查询
+- `pulse::system_state_machine<T>`：状态机访问器。Wrapper内生成`auto state = pulse::system_state_machine<T>(world);`，不参与主查询
 - 其他组件：system主查询遍历的组件列表
 
 参数获取时一律去掉`&`。system参数带任意`flecs::entity`或其他组件的都是实体system，否则是管理器system。
