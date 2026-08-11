@@ -78,6 +78,7 @@ struct pulse_renderer_state {
     ecs_entity_t extract_cameras_system = 0;
     ecs_entity_t collect_renderables_system = 0;
     ecs_entity_t sort_and_pack_system = 0;
+    ecs_entity_t packets_swap_system = 0;
 
     // Property name mapping: EPulseRendererPropertyType → shader property name
     const char* property_names[PULSE_RENDERER_PROPERTY_TYPE_COUNT] = {};

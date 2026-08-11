@@ -141,6 +141,12 @@ void sort_and_pack_system(ecs_iter_t* it) {
                 return a.sort_key < b.sort_key;
             });
     }
+}
+
+void packets_swap_system(ecs_iter_t* it) {
+    pulse_renderer_state* state =
+        static_cast<pulse_renderer_state*>(it->ctx);
+    if (!state) return;
 
     // Swap double buffers
     state->swap_packets();
@@ -494,6 +500,27 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
         }
         state->sort_and_pack_system = entity;
     }
+
+    // PacketsSwap
+    {
+        ecs_entity_desc_t entity_desc = {};
+        entity_desc.name = "PulseRendererPacketsSwap";
+        ecs_entity_t entity = ecs_entity_init(world, &entity_desc);
+
+        ecs_system_desc_t desc = {};
+        desc.entity = entity;
+        desc.phase = EcsPostUpdate;
+        desc.callback = packets_swap_system;
+        desc.ctx = state;
+        desc.immediate = true;  // run system — no query terms needed
+        ecs_system_init(world, &desc);
+
+        // Must run after CollectRenderables
+        if (prev_system != 0) {
+            ecs_add_pair(world, entity, EcsDependsOn, prev_system);
+        }
+        state->packets_swap_system = entity;
+    }
 }
 
 // ============================================================
@@ -576,6 +603,8 @@ void renderer_plugin_shutdown(PulseAppId app, void* ctx) {
         ecs_delete(world, state->collect_renderables_system);
     if (world && state->sort_and_pack_system && ecs_is_alive(world, state->sort_and_pack_system))
         ecs_delete(world, state->sort_and_pack_system);
+    if (world && state->packets_swap_system && ecs_is_alive(world, state->packets_swap_system))
+        ecs_delete(world, state->packets_swap_system);
 
     // Remove the state singleton
     if (world && ecs_id(pulse_renderer_state_resource) != 0) {
