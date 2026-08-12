@@ -78,6 +78,13 @@ void pulse_material_set_sampler(PulseMaterialData* _this, const char* name, Puls
     HGEGraphics::material_mark_dset_binding_dirty(_this, prop->set);
 }
 
+const uint8_t* pulse_material_get_ubo_column(PulseMaterialData* _this, uint32_t index)
+{
+    if (!_this) return nullptr;
+    if (index >= _this->uboColumns.size) return nullptr;
+    return _this->uboColumns.data[index].cpu_data;
+}
+
 } // namespace pulse_graphics_internal
 
 extern "C" {
@@ -136,6 +143,14 @@ void pulse_material_set_property_sampler(PulseAppId app, PulseMaterialHandle sel
     PulseSamplerData* smp = pulse_graphics_internal::internal_borrow_sampler(as, sampler);
     if (!smp) return;
     pulse_graphics_internal::pulse_material_set_sampler(mat, name, smp);
+}
+
+const uint8_t* pulse_material_get_ubo_column(PulseAppId app, PulseMaterialHandle self, uint32_t index)
+{
+    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
+    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, self);
+    if (!mat) return nullptr;
+    return pulse_graphics_internal::pulse_material_get_ubo_column(mat, index);
 }
 
 } // extern "C"

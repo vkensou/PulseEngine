@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // PulseEngine Snake（新插件体系版）—— 纯宿主
 //
 // main 对 snake 模块内部一无所知：
@@ -44,10 +44,16 @@ int main(void)
 
 	assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
-	auto graphics_desc = pulse_graphics_plugin_desc_default();
+    const char* per_draw_shader_properties[] = {
+        "wMatrix",
+    };
+
+    auto graphics_desc = pulse_graphics_plugin_desc_default();
 	graphics_desc.enable_debug_layer = true;
 	graphics_desc.enable_gpu_based_validation = true;
-	assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_RESULT_OK);
+    graphics_desc.per_draw_shader_property_count = 1;
+    graphics_desc.p_per_draw_shader_properties = per_draw_shader_properties;
+    assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_RESULT_OK);
 
 	assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
 

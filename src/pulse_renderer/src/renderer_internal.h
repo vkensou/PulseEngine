@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "pulse_renderer.h"
 #include "pulse_transform.h"
@@ -19,22 +19,35 @@ struct RenderObject {
     PulseMeshHandle mesh;
     PulseMaterialHandle material;
     HMM_Mat4 world_matrix;      // cached from transform
+    size_t ubo_start, ubo_end;
 };
 
 // ============================================================
 // Dynamic UBO column (renderer-managed, per (set,binding))
 // ============================================================
-struct RendererUboColumn {
-    PulseShaderHandle shader;           // owning shader
-    uint32_t set;
-    uint32_t binding;
-    uint32_t size;              // raw UBO byte size (unpadded)
-    uint32_t stride;            // per-object byte stride (0 = not per-draw)
-    uint64_t layout_hash;       // from shader's ubo_info
-    uint64_t data_hash;         // hash of the filled data (for lazy switching)
+
+struct GpuBlock {
+    uint32_t size;
+    uint32_t used;
     std::vector<uint8_t> cpu_data;
     PulseRGBufferHandle gpu_handle; // rendergraph handle
-    bool is_per_draw;           // true if holds per-object array
+};
+
+struct GpuBlockRef {
+    size_t index;
+    size_t offset;
+    size_t size;
+    uint8_t* ptr;
+};
+
+struct RendererUboColumn {
+    PulseMaterialHandle material;
+    PulseShaderHandle shader;
+    uint64_t layout_hash;
+    uint32_t ubo_info_index;
+    uint32_t set;
+    uint32_t binding;
+    GpuBlockRef block_ref;
 };
 
 // ============================================================
@@ -53,6 +66,7 @@ struct RendererView {
     std::vector<RenderObject> render_objects;
     // renderer-managed UBO columns for this view
     std::vector<RendererUboColumn> ubo_columns;
+    std::vector<GpuBlock> blocks;
 };
 
 // ============================================================
@@ -67,6 +81,7 @@ struct FrameRenderPacket {
 // ============================================================
 struct pulse_renderer_state {
     PulseAppId app = nullptr;
+    PulseAssetSystemId assetSystem = nullptr;
 
     FrameRenderPacket packets[2];
     std::atomic<int> write_index{0};

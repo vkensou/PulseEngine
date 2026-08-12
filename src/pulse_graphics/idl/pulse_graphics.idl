@@ -743,6 +743,13 @@ func.MaterialSetPropertySampler
     .sampler "SamplerHandle"
     ()
 
+func.MaterialGetUboColumn
+    "*const uint8_t"
+    .app     "PulseAppId"
+    .self    "MaterialHandle"
+    .index   "uint32_t"
+    ()
+
 func.ShaderGetShaderPropertyCount
     "uint32_t"
     .app  "PulseAppId"

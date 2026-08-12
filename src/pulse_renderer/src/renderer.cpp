@@ -1,10 +1,11 @@
-﻿#include "renderer_internal.h"
+#include "renderer_internal.h"
 
 #include <algorithm>
 #include <string.h>
 #include <cmath>
 #include <utility>
 #include "hash.h"
+#include <optional>
 
 namespace pulse_renderer_internal {
 
@@ -204,30 +205,13 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
         if (shader.index == 0)
             continue;
 
-        bool shader_changed =
-            (shader.index != last_shader.index || shader.generation != last_shader.generation);
-
-        // Bind renderer-managed UBO columns matching this shader
-        for (const auto& col : view.ubo_columns) {
-            if (col.shader.index != shader.index || col.shader.generation != shader.generation)
-                continue;
-            if (!pulse_rgbuffer_handle_is_valid(col.gpu_handle))
-                continue;
-
-            if (col.is_per_draw) {
-                // Per-draw UBO: bind every draw with current offset
-                uint64_t obj_offset = idx * col.stride;
-                pulse_render_pass_encoder_set_global_buffer_offset(
-                    encoder, col.gpu_handle, (uint32_t)col.set, col.binding,
-                    obj_offset, col.size);
-            } else if (shader_changed) {
-                // Per-pass UBO: bind once when entering this shader
-                pulse_render_pass_encoder_set_global_buffer_handle(
-                    encoder, col.gpu_handle, (uint32_t)col.set, col.binding);
-            }
+        for (size_t i = obj.ubo_start; i < obj.ubo_end; ++i) {
+            const auto& col = view.ubo_columns[i];
+            const auto& block = view.blocks[col.block_ref.index];
+            pulse_render_pass_encoder_set_global_buffer_offset(
+                encoder, block.gpu_handle, (uint32_t)col.set, col.binding,
+                col.block_ref.offset, col.block_ref.size);
         }
-
-        last_shader = shader;
 
         pulse_render_pass_encoder_draw(encoder, material, mesh);
     }
@@ -238,98 +222,107 @@ static uint32_t align_up(uint32_t value, uint32_t alignment) {
     return (value + alignment - 1) / alignment * alignment;
 }
 
-// Helper: build a single renderer-managed UBO column for a given shader+ubo_info
-static void build_ubo_column_for_shader(
+static GpuBlockRef alloc_gpu_block(PulseRenderGraphId graph, RendererView& view, uint32_t size, uint32_t ubo_alignment) {
+    size = align_up(size, ubo_alignment);
+    for (size_t i = 0; i < view.blocks.size(); ++i) {
+        size_t index = view.blocks.size() - i - 1;
+        auto& block = view.blocks[index];
+        if (block.size > block.used + size) {
+            auto offset = block.used;
+            auto ptr = block.cpu_data.data() + offset;
+            block.used += size;
+            return { index, offset, size, ptr };
+        }
+    }
+
+    view.blocks.emplace_back();
+    auto& block = view.blocks.back();
+    block.size = std::max(size, 8u * 1024 * 1024);
+    block.used = 0;
+    block.cpu_data.resize(block.size);
+    block.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(graph, (uint32_t)block.cpu_data.size(), (void*)block.cpu_data.data());
+    auto offset = block.used;
+    auto ptr = block.cpu_data.data() + offset;
+    block.used += size;
+    return { view.blocks.size() - 1, offset, size, ptr };
+}
+
+static std::optional<size_t> find_cached_ubo_column(
+    RendererView& view,
+    RenderObject& obj,
+    const PulseUboInfo& info
+    ) {
+    for (size_t i = 0; i < view.ubo_columns.size(); ++i) {
+        auto& col = view.ubo_columns[i];
+        if (col.layout_hash == info.layout_hash && !info.per_draw
+            && ((!info.material_managed) || (col.material.index == obj.material.index && col.material.generation == obj.material.generation))) {
+            return i;
+        }
+    }
+    return {};
+}
+
+static size_t build_ubo_column_for_shader2(
     PulseAppId app,
     const pulse_renderer_state* state,
     PulseRenderGraphId graph,
     RendererView& view,
+    HMM_Mat4& vp,
+    RenderObject& obj,
     PulseShaderHandle shader,
+    uint32_t ubo_info_index,
     const PulseUboInfo& info,
     uint32_t ubo_alignment)
 {
+    uint32_t ubo_size = info.size;
+    ubo_size = align_up(ubo_size, ubo_alignment);
+
     RendererUboColumn col = {};
+    col.material = obj.material;
     col.shader = shader;
+    col.ubo_info_index = ubo_info_index;
+    col.layout_hash = info.layout_hash;
     col.set = info.set;
     col.binding = info.binding;
-    col.layout_hash = info.layout_hash;
 
-    bool has_pass = false;
-    bool has_draw = false;
-    uint32_t ubo_size = info.size;
+    // 尝试重用
+    if (!info.per_draw)
+    {
+        auto s = find_cached_ubo_column(view, obj, info);
+        // 找到了
+        if (s.has_value()) {
+            auto& cachedCol = view.ubo_columns[s.value()];
+            col.block_ref = cachedCol.block_ref;
+            view.ubo_columns.push_back(std::move(col));
+            return view.ubo_columns.size() - 1;
+        }
+    }
 
+    // 分配
+    col.block_ref = alloc_gpu_block(graph, view, info.size, ubo_alignment);
+
+    // copy from 
+    if (info.material_managed) {
+        auto mat_ubo_data = pulse_material_get_ubo_column(app, obj.material, ubo_info_index);
+        memcpy(col.block_ref.ptr, mat_ubo_data, info.size);
+    }
+
+    // copy renderer property
     for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
         const auto& prop = pulse_shader_get_shader_property(app, shader, p);
-        if (prop.set != info.set || prop.binding != info.binding) continue;
+        if (!prop.name || prop.set != info.set || prop.binding != info.binding) continue;
         if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
 
-        const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
-        const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
-        if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) has_pass = true;
-        if (model_name && prop.name && strcmp(prop.name, model_name) == 0) has_draw = true;
-    }
-
-    if (ubo_size == 0) return;
-
-    if (has_draw) {
-        col.is_per_draw = true;
-        col.size = ubo_size;
-        // Pad the per-object stride to the device UBO offset alignment so
-        // every idx * stride bind offset stays a valid aligned offset.
-        col.stride = align_up(ubo_size, ubo_alignment);
-        size_t obj_count = view.render_objects.size();
-        col.cpu_data.resize(col.stride * obj_count, 0);
-
-        for (size_t o = 0; o < obj_count; ++o) {
-            for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
-                const auto& prop = pulse_shader_get_shader_property(app, shader, p);
-                if (prop.set != info.set || prop.binding != info.binding) continue;
-                if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
-
-                const char* model_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX);
-                if (model_name && prop.name && strcmp(prop.name, model_name) == 0) {
-                    uint32_t copy_size = prop.size > 0 ? prop.size : sizeof(HMM_Mat4);
-                    memcpy(col.cpu_data.data() + o * col.stride + prop.offset,
-                           &view.render_objects[o].world_matrix, copy_size);
-                }
-            }
+        if (prop.type == PULSE_SHADER_PROPERTY_TYPE_MAT4 && strcmp(prop.name, get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX)) == 0) {
+            memcpy(col.block_ref.ptr + prop.offset, &vp, prop.size);
+        }
+        else if (prop.type == PULSE_SHADER_PROPERTY_TYPE_MAT4 && strcmp(prop.name, get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX)) == 0) {
+            memcpy(col.block_ref.ptr + prop.offset, &obj.world_matrix, prop.size);
         }
     }
-
-    if (has_pass) {
-        if (!has_draw) {
-            col.is_per_draw = false;
-            col.size = ubo_size;
-            col.cpu_data.resize(ubo_size, 0);
-        }
-        HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
-        size_t vp_slot_count = has_draw ? view.render_objects.size() : 1;
-        for (size_t o = 0; o < vp_slot_count; ++o) {
-            for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
-                const auto& prop = pulse_shader_get_shader_property(app, shader, p);
-                if (prop.set != info.set || prop.binding != info.binding) continue;
-                if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
-
-                const char* vp_name = get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX);
-                if (vp_name && prop.name && strcmp(prop.name, vp_name) == 0) {
-                    uint32_t copy_size = prop.size > 0 ? prop.size : sizeof(HMM_Mat4);
-                    memcpy(col.cpu_data.data() + o * col.stride + prop.offset, &vp, copy_size);
-                }
-            }
-        }
-    }
-
-    // Compute data_hash from the filled byte buffer
-    col.data_hash = col.layout_hash;
-    pulse_renderer_internal::hash_combine(col.data_hash, pulse_renderer_internal::murmur3(
-        (const uint32_t*)col.cpu_data.data(),
-        (uint32_t)col.cpu_data.size() / 4, 0));
-
-    // Declare GPU handle via rendergraph
-    col.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(
-        graph, (uint32_t)col.cpu_data.size(), (void*)col.cpu_data.data());
 
     view.ubo_columns.push_back(std::move(col));
+    return view.ubo_columns.size() - 1;
 }
 
 static void record_renderer_callback(
@@ -340,9 +333,6 @@ static void record_renderer_callback(
     pulse_renderer_state* state =
         static_cast<pulse_renderer_state*>(user_data);
     if (!state || !graph) return;
-
-    // Use the device UBO offset alignment cached at plugin init
-    uint32_t ubo_alignment = state->ubo_alignment;
 
     FrameRenderPacket& packet = state->read_packet_mutable();
     if (packet.views.empty()) return;
@@ -358,30 +348,27 @@ static void record_renderer_callback(
         // Build renderer-managed UBO columns per unique shader
         view.ubo_columns.clear();
 
-        // Collect unique shaders from all renderables
-        PulseShaderHandle all_shaders[64] = {};
-        uint32_t shader_count = 0;
-        for (auto& obj : view.render_objects) {
-            PulseShaderHandle sdr = pulse_material_get_shader(app, obj.material);
-            if (sdr.index == 0) continue;
-            bool found = false;
-            for (uint32_t si = 0; si < shader_count; ++si) {
-                if (all_shaders[si].index == sdr.index && all_shaders[si].generation == sdr.generation) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found && shader_count < 64)
-                all_shaders[shader_count++] = sdr;
-        }
+        HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
 
-        // Build UBO columns for each unique shader
-        for (uint32_t si = 0; si < shader_count; ++si) {
-            auto shader = all_shaders[si];
+        for (auto& obj : view.render_objects) {
+            PulseShaderHandle shader = pulse_material_get_shader(app, obj.material);
+            if (shader.index == 0) continue;
+            bool setted = false;
+            size_t ubo_start = 0, ubo_end = 0;
             for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
                 const auto& info = pulse_shader_get_ubo_info(app, shader, u);
                 if (!info.renderer_managed) continue;
-                build_ubo_column_for_shader(app, state, graph, view, shader, info, ubo_alignment);
+                auto buffer_alloc = build_ubo_column_for_shader2(app, state, graph, view, vp, obj, shader, u, info, state->ubo_alignment);
+                if (!setted)
+                    ubo_start = buffer_alloc;
+                else
+                    ubo_end = buffer_alloc;
+                setted = true;
+            }
+            if (setted)
+            {
+                obj.ubo_start = ubo_start;
+                obj.ubo_end = ubo_end + 1;
             }
         }
 
@@ -399,9 +386,9 @@ static void record_renderer_callback(
             CGPU_STORE_ACTION_STORE);
 
         // Register UBO handles as used in this pass
-        for (const auto& col : view.ubo_columns) {
-            if (pulse_rgbuffer_handle_is_valid(col.gpu_handle))
-                pulse_render_pass_builder_use_buffer(&pass, col.gpu_handle);
+        for (const auto& block : view.blocks) {
+            if (pulse_rgbuffer_handle_is_valid(block.gpu_handle))
+                pulse_render_pass_builder_use_buffer(&pass, block.gpu_handle);
         }
 
         // Set executable callback
@@ -539,6 +526,7 @@ EPulseResult renderer_plugin_build(PulseAppId app, void* ctx) {
     }
 
     state->app = app;
+    state->assetSystem = pulse_get_asset_system(app);
 
     // Register ECS components
     register_renderer_components(world);
