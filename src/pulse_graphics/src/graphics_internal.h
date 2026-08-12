@@ -68,6 +68,7 @@ struct pulse_graphics_state {
     PulseAssetSystemId asset_system = nullptr;
 
     PulseGraphicsPluginDesc desc{};
+    std::vector<std::string> per_draw_shader_properties;
     PulseRenderer renderer{};
     std::vector<frame_data> frames;
     render_frame_context frame_context;

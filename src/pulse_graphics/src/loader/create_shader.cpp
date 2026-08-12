@@ -161,8 +161,10 @@ static bool validate_shader_properties_declare(const ShaderCreateSettings* desc,
     }
 }
 
-static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty* sorted_props)
+static void fill_property_data(PulseAppId app, PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty* sorted_props)
 {
+    pulse_graphics_state* st = state_from_app(app);
+
     if (sorted_props != nullptr) {
         data->property_count = desc->property_count;
         data->p_properties = sorted_props;
@@ -221,7 +223,15 @@ static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings
                     data->p_properties[j].binding == res.binding) {
                     const auto& p = data->p_properties[j];
                     if (p.role == PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL)
+                    {
                         entry.renderer_managed = true;
+                        for (size_t i = 0; i < st->per_draw_shader_properties.size(); ++i) {
+                            if (strcmp(p.name, st->per_draw_shader_properties[i].c_str()) == 0) {
+                                entry.per_draw = true;
+                                break;
+                            }
+                        }
+                    }
                     if (p.role == PULSE_SHADER_PROPERTY_ROLE_MATERIAL)
                         entry.material_managed = true;
 
@@ -398,7 +408,7 @@ static EPulseAssetLoaderStatus step_shader_from_deps(
     data->depth_desc = desc->depth_desc;
     data->rasterizer_state = desc->rasterizer_state;
 
-    fill_property_data(data, desc, root_sig, sorted_props);
+    fill_property_data(ctx->app, data, desc, root_sig, sorted_props);
 
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }

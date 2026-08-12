@@ -210,6 +210,7 @@ struct.UboInfo
     .size               "uint32_t"
 	.materialManaged    "bool"
 	.rendererManaged    "bool"
+    .perDraw            "bool"
 
 --- Function pointer: render record callback
 funcptr.RenderRecordCallback
@@ -226,10 +227,12 @@ struct.GraphicsPluginDesc
     .swapchainFormat        "ECGPUTextureFormat"
     .imageCount             "uint32_t"
     .enableDebugLayer       "bool"
-    .enableGpuBasedValidation "bool"
+    .enableGpuBasedValidation       "bool"
     .enableVsync            "bool"
     .recordCallback         "RenderRecordCallback"
     .recordUserData         "?*anyopaque"
+    .perDrawShaderPropertyCount     "uint32_t"
+    .pPerDrawShaderProperties       "*cstring"
     ()
 
 --- Renderer state (opaque at C API level)

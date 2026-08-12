@@ -291,6 +291,7 @@ typedef struct PulseUboInfo
     uint32_t             size;
     bool                 material_managed;
     bool                 renderer_managed;
+    bool                 per_draw;
 
 } PulseUboInfo;
 
@@ -310,6 +311,8 @@ typedef struct PulseGraphicsPluginDesc
     bool                 enable_vsync;
     PulseProcRenderRecordCallback record_callback;
     void*                record_user_data;
+    uint32_t             per_draw_shader_property_count;
+    const char**         p_per_draw_shader_properties;
 
 } PulseGraphicsPluginDesc;
 
