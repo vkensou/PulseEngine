@@ -435,6 +435,7 @@ namespace HGEGraphics
 				}
 				col.dirty = ubo_info.material_managed;
 				col.gpu_buffer = nullptr;
+				col.material_only = ubo_info.material_managed && !ubo_info.renderer_managed;
 				simple_vector_push_back<pulse_material_ubo_column_t>(
 					material->uboColumns.data,
 					material->uboColumns.size,
@@ -450,18 +451,18 @@ namespace HGEGraphics
 				dset_desc.root_signature = shader.ptr->root_sig;
 				dset_desc.set_index = set_info.set_index;
 				auto dset_handle = cgpu_device_create_descriptor_set(device, &dset_desc);
-			if (dset_handle) {
-				pulse_material_descriptor_set_t mdset = {};
-				mdset.set_index = set_info.set_index;
-				mdset.handle = dset_handle;
-				mdset.data_hash = 0;
-				mdset.binding_dirty = true;
-				simple_vector_push_back<pulse_material_descriptor_set_t>(
-					material->materialDsets.data,
-					material->materialDsets.size,
-					material->materialDsets.capacity,
-					mdset);
-			}
+				if (dset_handle) {
+					pulse_material_descriptor_set_t mdset = {};
+					mdset.set_index = set_info.set_index;
+					mdset.handle = dset_handle;
+					mdset.data_hash = 0;
+					mdset.binding_dirty = true;
+					simple_vector_push_back<pulse_material_descriptor_set_t>(
+						material->materialDsets.data,
+						material->materialDsets.size,
+						material->materialDsets.capacity,
+						mdset);
+				}
 			}
 		}
 	}
@@ -576,7 +577,7 @@ namespace HGEGraphics
 		for (int i = 0; i < material->uboColumns.size; ++i)
 		{
 			auto& col = material->uboColumns.data[i];
-			if (!col.dirty) continue;
+			if (!col.dirty || !col.material_only) continue;
 			if (!col.gpu_buffer)
 			{
 				auto desc = CGPUBufferDescriptor{
@@ -924,7 +925,7 @@ namespace HGEGraphics
 							for (int b = 0; b < material->uboColumns.size; ++b)
 							{
 								auto& col = material->uboColumns.data[b];
-								if (col.set == table.set_index && col.binding == res.binding && col.gpu_buffer)
+								if (col.material_only && col.set == table.set_index && col.binding == res.binding && col.gpu_buffer)
 								{
 									buffer = col.gpu_buffer->handle;
 									break;

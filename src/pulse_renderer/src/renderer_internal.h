@@ -19,7 +19,7 @@ struct RenderObject {
     PulseMeshHandle mesh;
     PulseMaterialHandle material;
     HMM_Mat4 world_matrix;      // cached from transform
-    size_t ubo_start, ubo_end;
+    size_t ubo_start{0}, ubo_end{0};
 };
 
 // ============================================================

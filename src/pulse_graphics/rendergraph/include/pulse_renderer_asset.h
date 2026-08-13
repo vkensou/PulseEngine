@@ -59,16 +59,6 @@ struct pulse_shader_property_t
     uint32_t size;
 };
 
-struct pulse_shader_ubo_info_t
-{
-    uint64_t layout_hash;
-    uint32_t set;
-    uint32_t binding;
-    uint32_t ubo_size;
-	bool material_managed;
-	bool renderer_managed;
-};
-
 struct pulse_shader_set_info_t
 {
     uint32_t set_index;
@@ -149,6 +139,7 @@ struct pulse_material_ubo_column_t
 	uint8_t* cpu_data;
 	uint32_t size;
 	bool dirty;
+    bool material_only;
 	PulseGraphicsBufferData* gpu_buffer;
 };
 

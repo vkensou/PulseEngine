@@ -102,12 +102,13 @@ void collect_renderables_system(ecs_iter_t* it) {
             (static_cast<uint64_t>(renderable.material.index) << 32) |
             static_cast<uint64_t>(renderable.mesh.index);
 
-        RenderObject obj;
-        obj.sort_key = sort_key;
-        obj.entity = entity;
-        obj.mesh = renderable.mesh;
-        obj.material = renderable.material;
-        obj.world_matrix = world_mat;
+        RenderObject obj = {
+            .sort_key = sort_key,
+            .entity = entity,
+            .mesh = renderable.mesh,
+            .material = renderable.material,
+            .world_matrix = world_mat,
+        };
 
         // Add to all views (v0.1: no frustum culling)
         for (auto& view : packet.views) {
