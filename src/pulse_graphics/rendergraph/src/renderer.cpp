@@ -788,8 +788,6 @@ namespace HGEGraphics
 				memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
 				memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
 				memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
-				for (uint32_t i = 0; i < std::min(shader->set_info_count, 4u); ++i)
-					encoder->last_set_layout_hashes[i] = shader->p_set_infos[i].layout_hash;
 				encoder->last_shader = shader;
 			}
 		}

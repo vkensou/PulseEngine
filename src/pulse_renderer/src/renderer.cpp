@@ -15,20 +15,9 @@ constexpr const char* kPluginName = "PulseRendererPlugin";
 // Math helpers
 // ============================================================
 
-// Build a perspective projection matrix (right-handed, standard)
-static HMM_Mat4 build_perspective(float fov_radians, float aspect,
-                                   float near_plane, float far_plane) {
-    auto proj = HMM_Perspective_LH_RO(fov_radians, aspect, near_plane, far_plane);
-    return proj;
-}
-
-// Fast inverse for a TRS matrix (affine, no scale shear)
-// For a proper camera, we invert the world matrix.
-// Using HMM_Mat4 inverse for correctness.
 static HMM_Mat4 build_view_matrix(const HMM_Mat4& world) {
     auto eye = HMM_M4GetTranslate(world);
     auto forward = HMM_M4GetForward(world);
-    (void)forward;
     auto viewMat = HMM_LookAt2_LH(eye, forward, HMM_V3_Up);
     return viewMat;
 }
@@ -79,7 +68,7 @@ void extract_cameras_system(ecs_iter_t* it) {
         view.camera_entity = entity;
         view.window_entity = cam.window_entity;
         view.view_matrix = build_view_matrix(world_mat);
-        view.proj_matrix = build_perspective(fov_rad, aspect, cam.near_plane, cam.far_plane);
+        view.proj_matrix = HMM_Perspective_LH_RO(fov_rad, aspect, cam.near_plane, cam.far_plane);
         view.fov = cam.fov;
         view.near_plane = cam.near_plane;
         view.far_plane = cam.far_plane;
@@ -183,9 +172,6 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
 
     size_t obj_count = view.render_objects.size();
     if (obj_count == 0) return;
-
-    const PulseShaderHandle kInvalidShader = {};
-    PulseShaderHandle last_shader = kInvalidShader;
 
     for (size_t idx = 0; idx < obj_count; ++idx) {
         const RenderObject& obj = view.render_objects[idx];
@@ -345,23 +331,16 @@ static void record_renderer_callback(
         for (auto& obj : view.render_objects) {
             PulseShaderHandle shader = pulse_material_get_shader(app, obj.material);
             if (shader.index == 0) continue;
-            bool setted = false;
-            size_t ubo_start = 0, ubo_end = 0;
+            size_t ubo_start = 0, ubo_count = 0;
             for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
                 const auto& info = pulse_shader_get_ubo_info(app, shader, u);
                 if (!info.renderer_managed) continue;
                 auto buffer_alloc = build_ubo_column_for_shader2(app, state, graph, view, vp, obj, shader, u, info, state->ubo_alignment);
-                if (!setted)
-                    ubo_start = buffer_alloc;
-                else
-                    ubo_end = buffer_alloc;
-                setted = true;
+                if (ubo_count == 0) ubo_start = buffer_alloc;
+                ++ubo_count;                
             }
-            if (setted)
-            {
-                obj.ubo_start = ubo_start;
-                obj.ubo_end = ubo_end + 1;
-            }
+            obj.ubo_start = ubo_start;
+            obj.ubo_end = ubo_start + ubo_count;
         }
 
         // Build render pass

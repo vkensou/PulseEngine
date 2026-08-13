@@ -157,7 +157,6 @@ namespace HGEGraphics
 		uint32_t last_index_buffer_stride;
 		PulseMaterialData* last_material;
 		PulseShaderData* last_shader;
-		uint64_t last_set_layout_hashes[4]{ 0 };
 		std::pmr::vector<ShaderTextureBinder> global_texture_table;
 		std::pmr::vector<ShaderSamplerBinder> global_sampler_table;
 		std::pmr::vector<ShaderBufferBinder> global_buffer_table;
