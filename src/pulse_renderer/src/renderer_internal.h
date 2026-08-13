@@ -14,10 +14,13 @@ namespace pulse_renderer_internal {
 // Per-object render data (sorted for minimal state switch)
 // ============================================================
 struct RenderObject {
-    uint64_t sort_key;          // packed: material_index<<32 | mesh_index
+    // packed: shader_index(16)<<48 | material_index(16)<<32 | mesh_index(32)
+    // sort priority: shader first, then material, then mesh
+    uint64_t sort_key;
     ecs_entity_t entity;
     PulseMeshHandle mesh;
     PulseMaterialHandle material;
+    PulseShaderHandle shader;   // cached from material (used for sort key & draw)
     HMM_Mat4 world_matrix;      // cached from transform
     size_t ubo_start{0}, ubo_end{0};
 };

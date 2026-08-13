@@ -97,9 +97,10 @@ void collect_renderables_system(ecs_iter_t* it) {
         PulseRenderable& renderable = renderables[i];
         HMM_Mat4& world_mat = world_transforms[i].value;
 
-        // Build sort key: material_index in high 32 bits, mesh_index in low 32 bits
+        PulseShaderHandle shader = pulse_material_get_shader(state->app, renderable.material);
         uint64_t sort_key =
-            (static_cast<uint64_t>(renderable.material.index) << 32) |
+            (static_cast<uint64_t>(shader.index & 0xFFFFu) << 48) |
+            (static_cast<uint64_t>(renderable.material.index & 0xFFFFu) << 32) |
             static_cast<uint64_t>(renderable.mesh.index);
 
         RenderObject obj = {
@@ -107,6 +108,7 @@ void collect_renderables_system(ecs_iter_t* it) {
             .entity = entity,
             .mesh = renderable.mesh,
             .material = renderable.material,
+            .shader = shader,
             .world_matrix = world_mat,
         };
 
@@ -180,7 +182,7 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
         PulseMaterialHandle material = obj.material;
         PulseMeshHandle mesh = obj.mesh;
 
-        PulseShaderHandle shader = pulse_material_get_shader(app, material);
+        PulseShaderHandle shader = obj.shader;
         if (shader.index == 0)
             continue;
 
@@ -280,7 +282,7 @@ static size_t build_ubo_column_for_shader2(
     // 分配
     col.block_ref = alloc_gpu_block(graph, view, info.size, ubo_alignment);
 
-    // copy from 
+    // copy from
     if (info.material_managed) {
         auto mat_ubo_data = pulse_material_get_ubo_column(app, obj.material, ubo_info_index);
         memcpy(col.block_ref.ptr, mat_ubo_data, info.size);
@@ -330,7 +332,7 @@ static void record_renderer_callback(
         HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
 
         for (auto& obj : view.render_objects) {
-            PulseShaderHandle shader = pulse_material_get_shader(app, obj.material);
+            PulseShaderHandle shader = obj.shader;
             if (shader.index == 0) continue;
             size_t ubo_start = 0, ubo_count = 0;
             for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
@@ -338,7 +340,7 @@ static void record_renderer_callback(
                 if (!info.renderer_managed) continue;
                 auto buffer_alloc = build_ubo_column_for_shader2(app, state, graph, view, vp, obj, shader, u, info, state->ubo_alignment);
                 if (ubo_count == 0) ubo_start = buffer_alloc;
-                ++ubo_count;                
+                ++ubo_count;
             }
             obj.ubo_start = ubo_start;
             obj.ubo_end = ubo_start + ubo_count;

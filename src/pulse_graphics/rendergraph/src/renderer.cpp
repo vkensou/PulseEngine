@@ -792,7 +792,7 @@ namespace HGEGraphics
 			memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
 			memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
 			encoder->last_shader = shader;
-		}		
+		}
 		if (encoder->context->pipelinePool.dynamicStateT1Enabled() && mesh_topology != encoder->last_prim_topology)
 		{
 			cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
@@ -1007,20 +1007,6 @@ namespace HGEGraphics
 				{
 					auto& mdset = material->materialDsets.data[m];
 					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, mdset.handle);
-					size_t i = 0;
-					auto root_sig = shader->root_sig;
-					size_t table_count = std::min(4u, root_sig->table_count);
-					for (i = 0; i < table_count; ++i)
-					{
-						if (root_sig->p_tables[i].set_index == mdset.set_index)
-						{
-							break;
-						}
-					}
-					if (i < table_count)
-					{
-						memset(encoder->last_bind_resources[i], 0, sizeof(encoder->last_bind_resources[i]));
-					}
 				}
 			}
 
