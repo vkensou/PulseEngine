@@ -181,14 +181,6 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
     const RendererView& view = *pass_data->view;
     PulseAppId app = pass_data->app;
 
-    pulse_render_pass_encoder_set_viewport(
-        encoder, 0.0f, 0.0f,
-        static_cast<float>(view.width), static_cast<float>(view.height),
-        0.0f, 1.0f);
-    pulse_render_pass_encoder_set_scissor(
-        encoder, 0, 0,
-        static_cast<uint32_t>(view.width), static_cast<uint32_t>(view.height));
-
     size_t obj_count = view.render_objects.size();
     if (obj_count == 0) return;
 
