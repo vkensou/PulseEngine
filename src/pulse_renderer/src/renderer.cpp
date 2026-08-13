@@ -539,6 +539,11 @@ EPulseResult renderer_plugin_build(PulseAppId app, void* ctx) {
     // Install ECS systems
     install_renderer_systems(world, state);
 
+    const char *per_draw_shader_properties[] = {
+        "wMatrix",
+    };
+    pulse_set_per_draw_shader_properties(app, sizeof(per_draw_shader_properties) / sizeof(const char*), per_draw_shader_properties);
+
     return PULSE_RESULT_OK;
 }
 

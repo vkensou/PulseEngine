@@ -420,6 +420,14 @@ func.GetRenderer
     .app "PulseAppId"
     ()
 
+--- Do not affect loaded shaders
+func.SetPerDrawShaderProperties
+    "void"
+    .app "PulseAppId"
+    .perDrawShaderPropertyCount     "uint32_t"
+    .pPerDrawShaderProperties       "*cstring"
+    ()
+
 func.GetSurface
     "*const Surface"
     .app "PulseAppId"

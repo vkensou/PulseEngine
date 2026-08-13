@@ -63,17 +63,15 @@ int main(void) {
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
     // graphics plugin
-    const char* per_draw_shader_properties[] = {
-        "wMatrix",
-    };
-
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    graphic_desc.per_draw_shader_property_count = 1;
-    graphic_desc.p_per_draw_shader_properties = per_draw_shader_properties;
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
+
+    // ---- Add renderer plugin ----
+    assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
 
     // ---- Load resources ----
     // Create a shader
@@ -136,10 +134,6 @@ int main(void) {
     };
     PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
     assert(material.index != 0);
-
-    // ---- Add renderer plugin ----
-    assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
 
     // ---- Wait for mesh to be ready, then resolve its handle ----
     for (int i = 0; i < 60 && !pulse_mesh_is_ready(app, mesh); ++i) {

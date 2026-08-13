@@ -650,6 +650,16 @@ PULSE_API EPulseResult pulse_add_graphics_plugin(PulseAppId app, const PulseGrap
  *
  */
 PULSE_API const PulseRenderer* pulse_get_renderer(PulseAppId app);
+
+/**
+ * Do not affect loaded shaders
+ *
+ * @param[in] app
+ * @param[in] perDrawShaderPropertyCount
+ * @param[in] pPerDrawShaderProperties
+ *
+ */
+PULSE_API void pulse_set_per_draw_shader_properties(PulseAppId app, uint32_t per_draw_shader_property_count, const char** p_per_draw_shader_properties);
 PULSE_API const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
 PULSE_API const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
 

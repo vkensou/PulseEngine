@@ -232,7 +232,7 @@ int main(void) {
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    graphic_desc.per_draw_shader_property_count = 1;
+    graphic_desc.per_draw_shader_property_count = sizeof(per_draw_shader_properties) / sizeof(const char*);
     graphic_desc.p_per_draw_shader_properties = per_draw_shader_properties;
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
