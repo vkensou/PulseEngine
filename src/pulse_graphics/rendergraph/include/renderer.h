@@ -141,6 +141,7 @@ namespace HGEGraphics
 		uint32_t render_target_count = 0;
 		ExecutorContext* context = nullptr;
 		CompiledRenderGraph* compiled_graph = nullptr;
+        CGPURootSignatureId last_root_signature = CGPU_NULLPTR;
 		CGPURenderPipelineId last_render_pipeline = 0;
 		CGPUComputePipelineId last_compute_pipeline = 0;
 		ECGPUPrimitiveTopology last_prim_topology = (ECGPUPrimitiveTopology)-1;

@@ -784,15 +784,7 @@ namespace HGEGraphics
 			}
 			encoder->last_render_pipeline = pipeline->handle;
 		}
-		if (shader != encoder->last_shader)
-		{
-			memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
-			memset(encoder->last_textureviews, 0, sizeof(encoder->last_textureviews));
-			memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
-			memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
-			memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
-			encoder->last_shader = shader;
-		}
+		encoder->last_shader = shader;
 		if (encoder->context->pipelinePool.dynamicStateT1Enabled() && mesh_topology != encoder->last_prim_topology)
 		{
 			cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
@@ -802,6 +794,7 @@ namespace HGEGraphics
 
 	void update_descriptor_set(RenderPassEncoder* encoder, CGPURootSignatureId root_sig, bool is_graphics)
 	{
+        bool root_sig_dirty = root_sig != encoder->last_root_signature;
 		PulseMaterialData* material = encoder->last_material;
 		PulseShaderData* shader = encoder->last_shader;
 		for (uint32_t i = 0; i < std::min(4u, root_sig->table_count); ++i)
@@ -975,7 +968,7 @@ namespace HGEGraphics
 				bool textureview_dirty = memcmp(encoder->textureviews, encoder->last_textureviews[i], sizeof(CGPUTextureViewId) * texture_view_count);
 				bool sampler_dirty = memcmp(encoder->samplers, encoder->last_samplers[i], sizeof(CGPUSamplerId) * sampler_count);
 				bool offset_size_dirty = memcmp(encoder->buffer_offset_sizes, encoder->last_buffer_offset_sizes[i], sizeof(uint64_t) * offset_size_count);
-				if (dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
+				if (root_sig_dirty || dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
 				{
 					auto dset = encoder->context->descriptorSetPool.getDescriptorSet(dset_desc);
 					encoder->context->allocated_dsets.push_back(dset);
@@ -992,6 +985,7 @@ namespace HGEGraphics
 				}
 			}
 		}
+        encoder->last_root_signature = root_sig;
 	}
 
 	void update_material(RenderPassEncoder* encoder, PulseMaterialData* material)
@@ -1146,11 +1140,6 @@ namespace HGEGraphics
 		{
 			cgpu_compute_pass_encoder_bind_compute_pipeline(encoder->compute_encoder, pipeline->handle);
 			encoder->last_compute_pipeline = pipeline->handle;
-			memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
-			memset(encoder->last_textureviews, 0, sizeof(encoder->last_textureviews));
-			memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
-			memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
-			memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
 		}
 	}
 
