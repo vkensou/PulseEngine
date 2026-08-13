@@ -998,13 +998,27 @@ namespace HGEGraphics
 		if (encoder->last_material != material)
 		{
 			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
-			if (material)
+			PulseShaderData* shader = material->shader.ptr;
+			if (material && shader)
 			{
-				for (int m = 0; m < material->materialDsets.size; ++m)
+				for (size_t m = 0; m < material->materialDsets.size; ++m)
 				{
 					auto& mdset = material->materialDsets.data[m];
 					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, mdset.handle);
-					memset(encoder->last_bind_resources[mdset.set_index], 0, sizeof(encoder->last_bind_resources[mdset.set_index]));
+					size_t i = 0;
+					auto root_sig = shader->root_sig;
+					size_t table_count = std::min(4u, root_sig->table_count);
+					for (i = 0; i < table_count; ++i)
+					{
+						if (root_sig->p_tables[i].set_index == mdset.set_index)
+						{
+							break;
+						}
+					}
+					if (i < table_count)
+					{
+						memset(encoder->last_bind_resources[i], 0, sizeof(encoder->last_bind_resources[i]));
+					}
 				}
 			}
 
