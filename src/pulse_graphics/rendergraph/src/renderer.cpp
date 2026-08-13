@@ -775,7 +775,6 @@ namespace HGEGraphics
 			{
 				cgpu_raster_state_encoder_set_cull_mode(encoder->raster_state_encoder, shader->rasterizer_state.cull_mode);
 				cgpu_raster_state_encoder_set_front_face(encoder->raster_state_encoder, shader->rasterizer_state.front_face);
-				cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
 				cgpu_raster_state_encoder_set_depth_test_enabled(encoder->raster_state_encoder, shader->depth_desc.depth_test);
 				cgpu_raster_state_encoder_set_depth_write_enabled(encoder->raster_state_encoder, shader->depth_desc.depth_write);
 				cgpu_raster_state_encoder_set_depth_compare_op(encoder->raster_state_encoder, shader->depth_desc.depth_op);
@@ -791,6 +790,11 @@ namespace HGEGraphics
 				memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
 				encoder->last_shader = shader;
 			}
+		}
+		if (encoder->context->pipelinePool.dynamicStateT1Enabled() && mesh_topology != encoder->last_prim_topology)
+		{
+			cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
+			encoder->last_prim_topology = mesh_topology;
 		}
 	}
 

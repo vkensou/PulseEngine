@@ -142,6 +142,7 @@ namespace HGEGraphics
 		CompiledRenderGraph* compiled_graph = nullptr;
 		CGPURenderPipelineId last_render_pipeline = 0;
 		CGPUComputePipelineId last_compute_pipeline = 0;
+		ECGPUPrimitiveTopology last_prim_topology = (ECGPUPrimitiveTopology)-1;
 		CGPUDescriptorData last_bind_resources[4][64]{};
 		CGPUTextureViewId last_textureviews[4][64]{};
 		CGPUSamplerId last_samplers[4][64]{};
