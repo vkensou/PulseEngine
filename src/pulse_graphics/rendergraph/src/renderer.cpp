@@ -798,32 +798,17 @@ namespace HGEGraphics
 	void update_descriptor_set(RenderPassEncoder* encoder, CGPURootSignatureId root_sig, bool is_graphics)
 	{
 		PulseMaterialData* material = encoder->last_material;
+		PulseShaderData* shader = encoder->last_shader;
 		for (uint32_t i = 0; i < std::min(4u, root_sig->table_count); ++i)
 		{
-			auto& table = root_sig->p_tables[i];
+			const auto& table = root_sig->p_tables[i];
 
-			// Check for pre-built descriptor set (from material)
-			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
-			if (material)
+			if (shader)
 			{
-				for (int m = 0; m < material->materialDsets.size; ++m)
-				{
-					auto& mdset = material->materialDsets.data[m];
-					if (mdset.set_index == (int)table.set_index)
-					{
-						prebuilt_dset = mdset.handle;
-						break;
-					}
-				}
-			}
-			if (prebuilt_dset)
-			{
-				if (is_graphics)
-					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, prebuilt_dset);
-				else
-					cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, prebuilt_dset);
-				memset(encoder->last_bind_resources[i], 0, sizeof(encoder->last_bind_resources[i]));
-				continue;
+				const auto& set_info = shader->p_set_infos[i];
+				assert(set_info.set_index == table.set_index);
+				if (!set_info.renderer_managed)
+					continue;
 			}
 
 			CGPUDescriptorSetDescriptor dset_desc =
@@ -1010,7 +995,21 @@ namespace HGEGraphics
 	{
 		material_ubo_sync_to_gpu(material);
 		material_sync_descriptor_sets(encoder, material);
-		encoder->last_material = material;
+		if (encoder->last_material != material)
+		{
+			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
+			if (material)
+			{
+				for (int m = 0; m < material->materialDsets.size; ++m)
+				{
+					auto& mdset = material->materialDsets.data[m];
+					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, mdset.handle);
+					memset(encoder->last_bind_resources[mdset.set_index], 0, sizeof(encoder->last_bind_resources[mdset.set_index]));
+				}
+			}
+
+			encoder->last_material = material;
+		}
 	}
 
 	void update_mesh(RenderPassEncoder* encoder, PulseMeshData* mesh)
@@ -1101,9 +1100,9 @@ namespace HGEGraphics
 	{
 		if (!mesh->prepared || !material)
 			return;
-		update_material(encoder, material);
 		auto shader = material->shader.ptr;
 		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
+		update_material(encoder, material);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		update_mesh(encoder, mesh);
 		if (encoder->last_index_buffer)
@@ -1116,9 +1115,9 @@ namespace HGEGraphics
 	{
 		if (!mesh->prepared || !material)
 			return;
-		update_material(encoder, material);
 		auto shader = material->shader.ptr;
 		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
+		update_material(encoder, material);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		update_mesh(encoder, mesh);
 		if (encoder->last_index_buffer)
@@ -1131,9 +1130,9 @@ namespace HGEGraphics
 	{
 		if (!material)
 			return;
-		update_material(encoder, material);
 		auto shader = material->shader.ptr;
 		update_render_pipeline(encoder, shader, mesh_topology, procedure_vertex_layout);
+		update_material(encoder, material);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);
 	}
