@@ -1172,34 +1172,54 @@ namespace HGEGraphics
 		cgpu_compute_pass_encoder_dispatch(encoder->compute_encoder, thread_x, thread_y, thread_z);
 	}
 
+	template<typename T>
+	concept HasSetAndBind = requires(T t) {
+		{ t.set } -> std::convertible_to<int>;
+		{ t.bind } -> std::convertible_to<int>;
+	};
+
+	template <HasSetAndBind T>
+	void upsert_vector(std::pmr::vector<T>& table, int set, int slot, const T& value)
+	{
+		for (auto& entry : table)
+		{
+			if (entry.set == set && entry.bind == slot)
+			{
+				entry = value;
+				return;
+			}
+		}
+		table.push_back(value);
+	}
+
 	void set_global_texture(RenderPassEncoder* encoder, PulseTextureData* texture, int set, int slot)
 	{
-		encoder->global_texture_table.push_back({ texture, {}, set, slot });
+		upsert_vector(encoder->global_texture_table, set, slot, { texture, {}, set, slot });
 	}
 
 	void set_global_texture_handle(RenderPassEncoder* encoder, PulseRGTextureHandle texture, int set, int slot)
 	{
-		encoder->global_texture_table.push_back({ nullptr, texture, set, slot });
+		upsert_vector(encoder->global_texture_table, set, slot, { nullptr, texture, set, slot });
 	}
 
 	void set_global_sampler(RenderPassEncoder* encoder, CGPUSamplerId sampler, int set, int slot)
 	{
-		encoder->global_sampler_table.push_back({ sampler, set, slot });
+		upsert_vector(encoder->global_sampler_table, set, slot, { sampler, set, slot });
 	}
 
 	void set_global_buffer(RenderPassEncoder* encoder, PulseGraphicsBufferData* buffer, int set, int slot)
 	{
-		encoder->global_buffer_table.push_back({ buffer, {}, set, slot, 0, 0 });
+		upsert_vector(encoder->global_buffer_table, set, slot, { buffer, {}, set, slot, 0, 0 });
 	}
 
 	void set_global_dynamic_buffer(RenderPassEncoder* encoder, PulseRGBufferHandle buffer, int set, int slot)
 	{
-		encoder->global_buffer_table.push_back({ nullptr, buffer, set, slot, 0, 0 });
+		upsert_vector(encoder->global_buffer_table, set, slot, { nullptr, buffer, set, slot, 0, 0 });
 	}
 
 	void set_global_buffer_with_offset_size(RenderPassEncoder* encoder, PulseRGBufferHandle buffer, int set, int slot, uint64_t offset, uint64_t size)
 	{
-		encoder->global_buffer_table.push_back({ nullptr, buffer, set, slot, offset, size });
+		upsert_vector(encoder->global_buffer_table, set, slot, { nullptr, buffer, set, slot, offset, size });
 	}
 
 	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data)
