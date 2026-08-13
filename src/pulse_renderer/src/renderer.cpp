@@ -216,7 +216,7 @@ static GpuBlockRef alloc_gpu_block(PulseRenderGraphId graph, RendererView& view,
 
     view.blocks.emplace_back();
     auto& block = view.blocks.back();
-    block.size = std::max(size, 8u * 1024 * 1024);
+    block.size = std::max(size, 1u * 1024 * 1024);
     block.used = 0;
     block.cpu_data.resize(block.size);
     block.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(graph, (uint32_t)block.cpu_data.size(), (void*)block.cpu_data.data());
