@@ -294,7 +294,6 @@ namespace HGEGraphics
 					.global_sampler_table = std::pmr::vector<ShaderSamplerBinder>(context.memory_resource),
 					.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
 				};
-				memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
 				pass.executable((PulseRenderPassEncoder*)&rg_encoder, pass.passdata);
 			}
 
@@ -324,7 +323,6 @@ namespace HGEGraphics
 				.global_sampler_table = std::pmr::vector<ShaderSamplerBinder>(context.memory_resource),
 				.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
 			};
-			memset(rg_encoder.last_bind_resources, 0, sizeof(rg_encoder.last_bind_resources));
 			pass.executable((PulseRenderPassEncoder*)&rg_encoder, pass.passdata);
 		}
 
