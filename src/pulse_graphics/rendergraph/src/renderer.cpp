@@ -783,17 +783,16 @@ namespace HGEGraphics
 				cgpu_raster_state_encoder_set_depth_compare_op(encoder->raster_state_encoder, shader->depth_desc.depth_op);
 			}
 			encoder->last_render_pipeline = pipeline->handle;
-
-			if (shader != encoder->last_shader)
-			{
-				memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
-				memset(encoder->last_textureviews, 0, sizeof(encoder->last_textureviews));
-				memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
-				memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
-				memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
-				encoder->last_shader = shader;
-			}
 		}
+		if (shader != encoder->last_shader)
+		{
+			memset(encoder->last_bind_resources, 0, sizeof(encoder->last_bind_resources));
+			memset(encoder->last_textureviews, 0, sizeof(encoder->last_textureviews));
+			memset(encoder->last_samplers, 0, sizeof(encoder->last_samplers));
+			memset(encoder->last_buffers, 0, sizeof(encoder->last_buffers));
+			memset(encoder->last_buffer_offset_sizes, 0, sizeof(encoder->last_buffer_offset_sizes));
+			encoder->last_shader = shader;
+		}		
 		if (encoder->context->pipelinePool.dynamicStateT1Enabled() && mesh_topology != encoder->last_prim_topology)
 		{
 			cgpu_raster_state_encoder_set_primitive_topology(encoder->raster_state_encoder, mesh_topology);
