@@ -5,6 +5,54 @@
 
 namespace pulse_graphics_internal {
 
+void create_default_resources(pulse_graphics_state* state) {
+	CGPUTextureDescriptor default_texture_desc = {
+		.name = "default texture",
+		.width = 1,
+		.height = 1,
+		.depth = 1,
+		.array_size = 1,
+		.format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,
+		.mip_levels = 1,
+		.owner_queue = state->renderer.graphics_queue,
+		.start_state = CGPU_RESOURCE_STATE_UNDEFINED,
+		.descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
+	};
+    state->default_texture = cgpu_device_create_texture(state->renderer.device, &default_texture_desc);
+
+	CGPUTextureViewDescriptor default_texture_view_desc = {
+		.texture = state->default_texture,
+		.format = state->default_texture->info->format,
+		.usages = CGPU_TEXTURE_VIEW_USAGE_SRV,
+		.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR,
+		.dims = CGPU_TEXTURE_DIMENSION_2D,
+		.base_array_layer = 0,
+		.array_layer_count = 1,
+		.base_mip_level = 0,
+		.mip_level_count = 1,
+    };
+    state->default_texture_view = cgpu_device_create_texture_view(state->renderer.device, &default_texture_view_desc);
+
+    CGPUSamplerDescriptor default_sampler_desc = {
+        .min_filter = CGPU_FILTER_TYPE_LINEAR,
+        .mag_filter = CGPU_FILTER_TYPE_LINEAR,
+        .mipmap_mode = CGPU_MIP_MAP_MODE_LINEAR,
+        .address_u = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .address_v = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .address_w = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .mip_lod_bias = 0,
+        .max_anisotropy = 1,
+    };
+    state->default_sampler = cgpu_device_create_sampler(state->renderer.device, &default_sampler_desc);
+	CGPUBufferDescriptor default_buffer_desc = {
+		.size = 256,
+		.name = "default ubo",
+		.descriptors = CGPU_RESOURCE_TYPE_UNIFORM_BUFFER,
+		.memory_usage = CGPU_MEMORY_USAGE_CPU_TO_GPU,
+	};
+	state->default_buffer = cgpu_device_create_buffer(state->renderer.device, &default_buffer_desc);
+}
+
 bool create_renderer(pulse_graphics_state* state) {
     PulseRenderer& renderer = state->renderer;
 
@@ -65,9 +113,11 @@ bool create_renderer(pulse_graphics_state* state) {
         return false;
     }
 
+    create_default_resources(state);
+
     state->frames.resize(renderer.image_count);
     for (frame_data& frame : state->frames) {
-        if (!frame.init(state->asset_system, renderer.device, renderer.graphics_queue, CGPU_NULLPTR, CGPU_NULLPTR)) {
+        if (!frame.init(state->asset_system, renderer.device, renderer.graphics_queue, state->default_texture_view, state->default_sampler, state->default_buffer)) {
             return false;
         }
     }

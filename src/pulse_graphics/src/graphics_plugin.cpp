@@ -136,24 +136,6 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
         state->asset_system, state->blit_linear_sampler.handle);
 }
 
-void create_default_resources(PulseAppId app, pulse_graphics_state* state) {
-    PulseSamplerCreateDesc default_sampler_desc = {
-    .desc = {
-        .min_filter = CGPU_FILTER_TYPE_LINEAR,
-        .mag_filter = CGPU_FILTER_TYPE_LINEAR,
-        .mipmap_mode = CGPU_MIP_MAP_MODE_LINEAR,
-        .address_u = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .address_v = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .address_w = CGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .mip_lod_bias = 0,
-        .max_anisotropy = 1,
-    }
-    };
-    state->default_sampler.handle = pulse_create_sampler(app, &default_sampler_desc);
-    state->default_sampler.ptr = pulse_graphics_internal::internal_borrow_sampler(
-        state->asset_system, state->default_sampler.handle);
-}
-
 EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
@@ -175,7 +157,6 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     CGPUDeviceId device = get_device(app);
     register_graphics_asset_types_and_loaders(state->asset_system, device);
 
-    create_default_resources(app, state);
     create_blit_shader(app, state);
 
     install_upload_callback(app);
@@ -228,6 +209,22 @@ void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_SAMPLER);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_GRAPHICS_BUFFER);
     pulse_asset_system_force_unload_assets(as, PULSE_TYPE_TEXTURE);
+
+    if (state->default_texture_view)
+        cgpu_device_free_texture_view(state->renderer.device, state->default_texture_view);
+    state->default_texture_view = CGPU_NULLPTR;
+
+    if (state->default_texture)
+        cgpu_device_free_texture(state->renderer.device, state->default_texture);
+    state->default_texture = CGPU_NULLPTR;
+
+    if (state->default_sampler)
+        cgpu_device_free_sampler(state->renderer.device, state->default_sampler);
+    state->default_sampler = CGPU_NULLPTR;
+
+    if (state->default_buffer)
+        cgpu_device_free_buffer(state->renderer.device, state->default_buffer);
+    state->default_buffer = CGPU_NULLPTR;
 
     destroy_renderer(state);
 

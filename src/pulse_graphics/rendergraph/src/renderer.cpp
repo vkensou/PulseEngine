@@ -455,7 +455,6 @@ namespace HGEGraphics
 					pulse_material_descriptor_set_t mdset = {};
 					mdset.set_index = set_info.set_index;
 					mdset.handle = dset_handle;
-					mdset.data_hash = 0;
 					mdset.binding_dirty = true;
 					simple_vector_push_back<pulse_material_descriptor_set_t>(
 						material->materialDsets.data,
@@ -664,7 +663,7 @@ namespace HGEGraphics
 							break;
 						}
 					}
-					if (!tex_view && encoder->context->default_texture)
+					if (!tex_view)
 						tex_view = encoder->context->default_texture;
 					tex_views[tex_view_count] = tex_view;
 					data.resources.textures = tex_views + tex_view_count;
@@ -682,6 +681,8 @@ namespace HGEGraphics
 							break;
 						}
 					}
+					if (!sampler)
+						sampler = encoder->context->default_sampler;
 					samplers[sampler_count] = sampler;
 					data.resources.samplers = samplers + sampler_count;
 					++sampler_count;
@@ -713,6 +714,8 @@ namespace HGEGraphics
 							}
 						}
 					}
+					if (!buffer)
+						buffer = encoder->context->default_buffer;
 					buffers[buffer_count] = buffer;
 					data.resources.buffers = buffers + buffer_count;
 					++buffer_count;
@@ -819,9 +822,6 @@ namespace HGEGraphics
 				.root_signature = root_sig,
 				.set_index = table.set_index,
 			};
-
-			auto dset = encoder->context->descriptorSetPool.getDescriptorSet(dset_desc);
-			encoder->context->allocated_dsets.push_back(dset);
 
 			const uint32_t data_size = 64;
 			CGPUDescriptorData datas[data_size] = { 0 };
@@ -959,12 +959,11 @@ namespace HGEGraphics
 							}
 						}
 					}
-					if (buffer)
-					{
-						encoder->buffers[buffer_count] = buffer;
-						data.resources.buffers = encoder->buffers + buffer_count;
-						++buffer_count;
-					}
+					if (!buffer)
+						buffer = encoder->context->default_buffer;
+					encoder->buffers[buffer_count] = buffer;
+					data.resources.buffers = encoder->buffers + buffer_count;
+					++buffer_count;
 				}
 				if (data.resources.ptrs != nullptr)
 					datas[data_count++] = data;
@@ -979,6 +978,8 @@ namespace HGEGraphics
 				bool offset_size_dirty = memcmp(encoder->buffer_offset_sizes, encoder->last_buffer_offset_sizes[i], sizeof(uint64_t) * offset_size_count);
 				if (dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
 				{
+					auto dset = encoder->context->descriptorSetPool.getDescriptorSet(dset_desc);
+					encoder->context->allocated_dsets.push_back(dset);
 					cgpu_descriptor_set_update(dset->handle, data_count, datas);
 					if (is_graphics)
 						cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset->handle);
@@ -1000,7 +1001,6 @@ namespace HGEGraphics
 		material_sync_descriptor_sets(encoder, material);
 		if (encoder->last_material != material)
 		{
-			CGPUDescriptorSetId prebuilt_dset = CGPU_NULLPTR;
 			PulseShaderData* shader = material->shader.ptr;
 			if (material && shader)
 			{
@@ -1172,6 +1172,7 @@ namespace HGEGraphics
 	void dispatch(RenderPassEncoder* encoder, PulseComputeShaderData* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z)
 	{
 		encoder->last_material = nullptr;
+		encoder->last_shader = nullptr;
 		update_compute_pipeline(encoder, shader);
 		update_descriptor_set(encoder, shader->root_sig, false);
 		cgpu_compute_pass_encoder_dispatch(encoder->compute_encoder, thread_x, thread_y, thread_z);

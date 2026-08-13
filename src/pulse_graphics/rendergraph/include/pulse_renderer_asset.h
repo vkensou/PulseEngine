@@ -161,7 +161,6 @@ struct pulse_material_descriptor_set_t
 {
     uint32_t set_index;
     CGPUDescriptorSetId handle;
-    uint64_t data_hash;
     bool binding_dirty;
 };
 

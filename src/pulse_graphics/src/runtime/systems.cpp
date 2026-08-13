@@ -2,7 +2,7 @@
 
 namespace pulse_graphics_internal {
 
-bool frame_data::init(PulseAssetSystemId asset_system, CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId default_texture, CGPUSamplerId default_sampler) {
+bool frame_data::init(PulseAssetSystemId asset_system, CGPUDeviceId device, CGPUQueueId queue, CGPUTextureViewId default_texture, CGPUSamplerId default_sampler, CGPUBufferId default_buffer) {
     fence = cgpu_device_create_fence(device);
     if (!fence) {
         return false;
@@ -26,6 +26,7 @@ bool frame_data::init(PulseAssetSystemId asset_system, CGPUDeviceId device, CGPU
     exec_context->asset_system = asset_system;
     exec_context->default_texture = default_texture;
     exec_context->default_sampler = default_sampler;
+    exec_context->default_buffer = default_buffer;
     return exec_context != nullptr;
 }
 
