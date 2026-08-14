@@ -919,10 +919,20 @@ namespace HGEGraphics
 				encoder->dset_cache[hash] = entry;
 			}
 
-			if (is_graphics)
-				cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset, offset_count, offset_count > 0 ? offsets : nullptr);
-			else
-				cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset, offset_count, offset_count > 0 ? offsets : nullptr);
+			bool bind_changed = (dset != encoder->last_bound_dset[set_idx]) ||
+				(offset_count != encoder->last_bound_offset_count[set_idx]) ||
+				(offset_count > 0 && memcmp(encoder->last_bound_offsets[set_idx], offsets, sizeof(uint32_t) * offset_count) != 0);
+			if (bind_changed)
+			{
+				if (is_graphics)
+					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset, offset_count, offset_count > 0 ? offsets : nullptr);
+				else
+					cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset, offset_count, offset_count > 0 ? offsets : nullptr);
+				encoder->last_bound_dset[set_idx] = dset;
+				encoder->last_bound_offset_count[set_idx] = offset_count;
+				if (offset_count > 0)
+					memcpy(encoder->last_bound_offsets[set_idx], offsets, sizeof(uint32_t) * offset_count);
+			}
 		}
 	}
 

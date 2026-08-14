@@ -154,6 +154,9 @@ namespace HGEGraphics
 	    ECGPUPrimitiveTopology last_prim_topology = (ECGPUPrimitiveTopology)-1;
 	    ResourceSet resource_sets[4]{};
 	    std::pmr::unordered_map<uint64_t, SetCacheEntry> dset_cache;
+	    CGPUDescriptorSetId last_bound_dset[4] = {};
+	    uint32_t last_bound_offset_count[4] = {};
+	    uint32_t last_bound_offsets[4][64] = {};
 	    CGPUBufferId last_vertex_buffer = CGPU_NULLPTR;
 	    CGPUBufferId last_index_buffer = CGPU_NULLPTR;
 	    uint32_t last_vertex_buffer_stride = 0;
