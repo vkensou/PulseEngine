@@ -8,6 +8,7 @@ namespace pulse_graphics_internal {
 void create_default_resources(pulse_graphics_state* state) {
 	CGPUTextureDescriptor default_texture_desc = {
 		.name = "default texture",
+        .flags = CGPU_TEXTURE_CREATION_USAGE_FORCE2D,
 		.width = 1,
 		.height = 1,
 		.depth = 1,
