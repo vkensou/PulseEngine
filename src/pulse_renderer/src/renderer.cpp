@@ -208,7 +208,7 @@ static GpuBlockRef alloc_gpu_block(PulseRenderGraphId graph, RendererView& view,
     for (size_t i = 0; i < view.blocks.size(); ++i) {
         size_t index = view.blocks.size() - i - 1;
         auto& block = view.blocks[index];
-        if (block.size > block.used + size) {
+        if (block.size >= block.used + size) {
             auto offset = block.used;
             auto ptr = block.cpu_data.data() + offset;
             block.used += size;
