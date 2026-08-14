@@ -809,12 +809,6 @@ namespace HGEGraphics
 					continue;
 			}
 
-			CGPUDescriptorSetDescriptor dset_desc =
-			{
-				.root_signature = root_sig,
-				.set_index = table.set_index,
-			};
-
 			const uint32_t data_size = 64;
 			CGPUDescriptorData datas[data_size] = { 0 };
 			uint32_t data_count = 0;
@@ -970,13 +964,18 @@ namespace HGEGraphics
 				bool offset_size_dirty = memcmp(encoder->buffer_offset_sizes, encoder->last_buffer_offset_sizes[i], sizeof(uint64_t) * offset_size_count);
 				if (root_sig_dirty || dset_dirty || buffer_dirty || textureview_dirty || sampler_dirty || offset_size_dirty)
 				{
+					CGPUDescriptorSetDescriptor dset_desc =
+					{
+						.root_signature = root_sig,
+						.set_index = table.set_index,
+					};
 					auto dset = encoder->context->descriptorSetPool.getDescriptorSet(dset_desc);
 					encoder->context->allocated_dsets.push_back(dset);
 					cgpu_descriptor_set_update(dset->handle, data_count, datas);
 					if (is_graphics)
-						cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset->handle);
+						cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, dset->handle, 0, nullptr);
 					else
-						cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset->handle);
+						cgpu_compute_pass_encoder_bind_descriptor_set(encoder->compute_encoder, dset->handle, 0, nullptr);
 					memcpy(encoder->last_bind_resources[i], datas, sizeof(CGPUDescriptorData) * data_count);
 					memcpy(encoder->last_buffers[i], encoder->buffers, sizeof(CGPUBufferId) * buffer_count);
 					memcpy(encoder->last_textureviews[i], encoder->textureviews, sizeof(CGPUTextureViewId) * texture_view_count);
@@ -1000,7 +999,7 @@ namespace HGEGraphics
 				for (size_t m = 0; m < material->materialDsets.size; ++m)
 				{
 					auto& mdset = material->materialDsets.data[m];
-					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, mdset.handle);
+					cgpu_render_pass_encoder_bind_descriptor_set(encoder->encoder, mdset.handle, 0, nullptr);
 				}
 			}
 
