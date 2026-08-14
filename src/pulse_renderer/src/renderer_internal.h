@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdint>
 #include <atomic>
+#include <memory_resource>
 
 namespace pulse_renderer_internal {
 
@@ -32,8 +33,11 @@ struct RenderObject {
 struct GpuBlock {
     uint32_t size;
     uint32_t used;
-    std::vector<uint8_t> cpu_data;
-    PulseRGBufferHandle gpu_handle; // rendergraph handle
+    std::pmr::vector<uint8_t> cpu_data; // backed by the owning view's packet pool
+    PulseRGBufferHandle gpu_handle; // rendergraph handle (valid only after block finalize)
+
+    explicit GpuBlock(std::pmr::memory_resource* resource)
+        : size(0), used(0), cpu_data(resource), gpu_handle{} {}
 };
 
 struct GpuBlockRef {
@@ -66,17 +70,26 @@ struct RendererView {
     float far_plane;
     int width;
     int height;
-    std::vector<RenderObject> render_objects;
-    // renderer-managed UBO columns for this view
-    std::vector<RendererUboColumn> ubo_columns;
-    std::vector<GpuBlock> blocks;
+    std::pmr::vector<RenderObject> render_objects;
+    std::pmr::vector<RendererUboColumn> ubo_columns;
+    std::pmr::vector<GpuBlock> blocks;
+
+    explicit RendererView(std::pmr::memory_resource* resource)
+        : camera_entity(0), window_entity(0),
+          view_matrix{}, proj_matrix{},
+          fov(0), near_plane(0), far_plane(0), width(0), height(0),
+          render_objects(resource), ubo_columns(resource), blocks(resource) {}
 };
 
 // ============================================================
 // Double-buffered frame packet
 // ============================================================
 struct FrameRenderPacket {
-    std::vector<RendererView> views;
+    std::pmr::unsynchronized_pool_resource pool;
+    std::pmr::vector<RendererView> views;
+
+    explicit FrameRenderPacket(std::pmr::memory_resource* upstream = std::pmr::new_delete_resource())
+        : pool(upstream), views(&pool) {}
 };
 
 // ============================================================
@@ -86,7 +99,10 @@ struct pulse_renderer_state {
     PulseAppId app = nullptr;
     PulseAssetSystemId assetSystem = nullptr;
 
-    FrameRenderPacket packets[2];
+    std::pmr::synchronized_pool_resource global_pool;
+    FrameRenderPacket packets[2] = {
+        FrameRenderPacket(&global_pool), FrameRenderPacket(&global_pool)};
+
     std::atomic<int> write_index{0};
     std::atomic<int> read_index{1};
 

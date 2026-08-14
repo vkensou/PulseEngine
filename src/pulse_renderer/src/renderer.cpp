@@ -64,7 +64,8 @@ void extract_cameras_system(ecs_iter_t* it) {
         float aspect = (height > 0) ? static_cast<float>(width) / static_cast<float>(height) : 1.0f;
         float fov_rad = cam.fov * HMM_DegToRad;
 
-        RendererView view;
+        packet.views.emplace_back(&packet.pool);
+        RendererView& view = packet.views.back();
         view.camera_entity = entity;
         view.window_entity = cam.window_entity;
         view.view_matrix = build_view_matrix(world_mat);
@@ -74,8 +75,6 @@ void extract_cameras_system(ecs_iter_t* it) {
         view.far_plane = cam.far_plane;
         view.width = width;
         view.height = height;
-
-        packet.views.push_back(view);
     }
 }
 
@@ -203,7 +202,7 @@ static uint32_t align_up(uint32_t value, uint32_t alignment) {
     return (value + alignment - 1) / alignment * alignment;
 }
 
-static GpuBlockRef alloc_gpu_block(PulseRenderGraphId graph, RendererView& view, uint32_t size, uint32_t ubo_alignment) {
+static GpuBlockRef alloc_gpu_block(RendererView& view, uint32_t size, uint32_t ubo_alignment) {
     size = align_up(size, ubo_alignment);
     for (size_t i = 0; i < view.blocks.size(); ++i) {
         size_t index = view.blocks.size() - i - 1;
@@ -216,12 +215,11 @@ static GpuBlockRef alloc_gpu_block(PulseRenderGraphId graph, RendererView& view,
         }
     }
 
-    view.blocks.emplace_back();
+    view.blocks.emplace_back(view.blocks.get_allocator().resource());
     auto& block = view.blocks.back();
     block.size = std::max(size, 1u * 1024 * 1024);
     block.used = 0;
     block.cpu_data.resize(block.size);
-    block.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(graph, (uint32_t)block.cpu_data.size(), (void*)block.cpu_data.data());
     auto offset = block.used;
     auto ptr = block.cpu_data.data() + offset;
     block.used += size;
@@ -246,7 +244,6 @@ static std::optional<size_t> find_cached_ubo_column(
 static size_t build_ubo_column_for_shader2(
     PulseAppId app,
     const pulse_renderer_state* state,
-    PulseRenderGraphId graph,
     RendererView& view,
     HMM_Mat4& vp,
     RenderObject& obj,
@@ -280,7 +277,7 @@ static size_t build_ubo_column_for_shader2(
     }
 
     // 分配
-    col.block_ref = alloc_gpu_block(graph, view, info.size, ubo_alignment);
+    col.block_ref = alloc_gpu_block(view, info.size, ubo_alignment);
 
     // copy from
     if (info.material_managed) {
@@ -338,12 +335,18 @@ static void record_renderer_callback(
             for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
                 const auto& info = pulse_shader_get_ubo_info(app, shader, u);
                 if (!info.renderer_managed) continue;
-                auto buffer_alloc = build_ubo_column_for_shader2(app, state, graph, view, vp, obj, shader, u, info, state->ubo_alignment);
+                auto buffer_alloc = build_ubo_column_for_shader2(app, state, view, vp, obj, shader, u, info, state->ubo_alignment);
                 if (ubo_count == 0) ubo_start = buffer_alloc;
                 ++ubo_count;
             }
             obj.ubo_start = ubo_start;
             obj.ubo_end = ubo_start + ubo_count;
+        }
+
+        for (auto& block : view.blocks) {
+            if (block.used == 0) continue;
+            block.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(
+                graph, block.used, block.cpu_data.data());
         }
 
         // Build render pass
