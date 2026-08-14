@@ -48,6 +48,7 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
     CGPURootSignatureDescriptor rs_desc = {
         .shader_count = 1,
         .p_shaders = ppl_shaders,
+        .dynamic_buffers = true,
     };
     auto root_sig = cgpu_device_create_root_signature(device, &rs_desc);
 

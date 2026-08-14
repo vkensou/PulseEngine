@@ -73,26 +73,34 @@ namespace HGEGraphics
 
 	struct RenderPassEncoder;
 
-	struct ShaderTextureBinder
-	{
-		PulseTextureData* texture;
-		PulseRGTextureHandle texture_handle;
-		int set, bind;
-	};
+    struct ResourceSlot
+    {
+	    enum class Kind : uint8_t
+	    {
+		    None,
+		    Texture,
+		    Sampler,
+		    Buffer,
+	    };
+	    Kind kind = Kind::None;
+	    bool from_material = false;
+	    uintptr_t value = 0;
+	    uint64_t offset = 0;
+	    uint64_t size = 0;
+    };
 
-	struct ShaderSamplerBinder
-	{
-		CGPUSamplerId sampler;
-		int set, bind;
-	};
+    struct ResourceSet
+    {
+	    uint32_t set_index = 0;
+	    ResourceSlot slots[64];
+    };
 
-	struct ShaderBufferBinder
-	{
-		PulseGraphicsBufferData* buffer;
-		PulseRGBufferHandle buffer_handle;
-		int set, bind;
-		uint64_t offset, size;
-	};
+    struct SetCacheEntry
+    {
+	    uint32_t count = 0;
+	    uintptr_t values[64] = {};
+	    CGPUDescriptorSetId handle = CGPU_NULLPTR;
+    };
 
 	struct ExecutorContext
 	{
@@ -139,31 +147,20 @@ namespace HGEGraphics
 		CGPURenderPassId render_pass = CGPU_NULLPTR;
 		uint32_t subpass = 0;
 		uint32_t render_target_count = 0;
-		ExecutorContext* context = nullptr;
-		CompiledRenderGraph* compiled_graph = nullptr;
-        CGPURootSignatureId last_root_signature = CGPU_NULLPTR;
-		CGPURenderPipelineId last_render_pipeline = 0;
-		CGPUComputePipelineId last_compute_pipeline = 0;
-		ECGPUPrimitiveTopology last_prim_topology = (ECGPUPrimitiveTopology)-1;
-		CGPUDescriptorData last_bind_resources[4][64]{};
-		CGPUTextureViewId last_textureviews[4][64]{};
-		CGPUSamplerId last_samplers[4][64]{};
-		CGPUBufferId last_buffers[4][64]{};
-		uint64_t last_buffer_offset_sizes[4][128]{};
-		CGPUTextureViewId textureviews[64]{};
-		CGPUSamplerId samplers[64]{};
-		CGPUBufferId buffers[64]{};
-		uint64_t buffer_offset_sizes[128]{};
-		CGPUBufferId last_vertex_buffer = CGPU_NULLPTR;
-		CGPUBufferId last_index_buffer = CGPU_NULLPTR;
-		uint32_t last_vertex_buffer_stride = 0;
-		uint32_t last_index_buffer_stride = 0;
-		PulseMaterialData* last_material = nullptr;
-		PulseShaderData* last_shader = nullptr;
-		std::pmr::vector<ShaderTextureBinder> global_texture_table;
-		std::pmr::vector<ShaderSamplerBinder> global_sampler_table;
-		std::pmr::vector<ShaderBufferBinder> global_buffer_table;
-	};
+	    ExecutorContext* context = nullptr;
+	    CompiledRenderGraph* compiled_graph = nullptr;
+	    CGPURenderPipelineId last_render_pipeline = 0;
+	    CGPUComputePipelineId last_compute_pipeline = 0;
+	    ECGPUPrimitiveTopology last_prim_topology = (ECGPUPrimitiveTopology)-1;
+	    ResourceSet resource_sets[4]{};
+	    std::pmr::unordered_map<uint64_t, SetCacheEntry> dset_cache;
+	    CGPUBufferId last_vertex_buffer = CGPU_NULLPTR;
+	    CGPUBufferId last_index_buffer = CGPU_NULLPTR;
+	    uint32_t last_vertex_buffer_stride = 0;
+	    uint32_t last_index_buffer_stride = 0;
+	    PulseMaterialData* last_material = nullptr;
+	    PulseShaderData* last_shader = nullptr;
+    };
 
 	struct UploadEncoder
 	{

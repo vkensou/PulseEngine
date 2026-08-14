@@ -290,9 +290,7 @@ namespace HGEGraphics
 					.context = &context,
 					.compiled_graph = &compiledRenderGraph,
 					.last_render_pipeline = 0,
-					.global_texture_table = std::pmr::vector<ShaderTextureBinder>(context.memory_resource),
-					.global_sampler_table = std::pmr::vector<ShaderSamplerBinder>(context.memory_resource),
-					.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
+					.dset_cache = std::pmr::unordered_map<uint64_t, SetCacheEntry>(context.memory_resource),
 				};
 				pass.executable((PulseRenderPassEncoder*)&rg_encoder, pass.passdata);
 			}
@@ -319,9 +317,7 @@ namespace HGEGraphics
 				.context = &context,
 				.compiled_graph = &compiledRenderGraph,
 				.last_render_pipeline = 0,
-				.global_texture_table = std::pmr::vector<ShaderTextureBinder>(context.memory_resource),
-				.global_sampler_table = std::pmr::vector<ShaderSamplerBinder>(context.memory_resource),
-				.global_buffer_table = std::pmr::vector<ShaderBufferBinder>(context.memory_resource),
+				.dset_cache = std::pmr::unordered_map<uint64_t, SetCacheEntry>(context.memory_resource),
 			};
 			pass.executable((PulseRenderPassEncoder*)&rg_encoder, pass.passdata);
 		}
