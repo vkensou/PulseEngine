@@ -64,6 +64,8 @@ typedef struct PulseMouseScroll
 typedef struct PulseKeyEvent
 {
     int32_t              scancode;
+    int32_t              keycode;
+    uint16_t             mod;
     bool                 pressed;
     bool                 repeat;
     ecs_entity_t         window;
@@ -76,6 +78,7 @@ typedef struct PulseMouseButtonEvent
     bool                 pressed;
     float                x;
     float                y;
+    bool                 is_touch;
     ecs_entity_t         window;
 
 } PulseMouseButtonEvent;
@@ -84,6 +87,7 @@ typedef struct PulseMouseScrollEvent
 {
     float                x;
     float                y;
+    bool                 is_touch;
     ecs_entity_t         window;
 
 } PulseMouseScrollEvent;

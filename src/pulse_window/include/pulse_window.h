@@ -84,6 +84,27 @@ typedef struct PulseSdlWindow
 
 } PulseSdlWindow;
 
+typedef struct PulseTextInputEvent
+{
+    char                 text[512];
+    ecs_entity_t         window;
+
+} PulseTextInputEvent;
+
+typedef struct PulseWindowFocusEvent
+{
+    bool                 focused;
+    ecs_entity_t         window;
+
+} PulseWindowFocusEvent;
+
+typedef struct PulseWindowMouseHoverEvent
+{
+    bool                 entered;
+    ecs_entity_t         window;
+
+} PulseWindowMouseHoverEvent;
+
 
 // ECS declarations
 extern ECS_COMPONENT_DECLARE(PulseWindow);
@@ -91,6 +112,9 @@ extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
 extern ECS_TAG_DECLARE(PulsePrimaryWindow);
 extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 extern ECS_TAG_DECLARE(PulseWindowResized);
+extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
+extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
+extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
 
 struct PulsePrimaryWindow{};
 

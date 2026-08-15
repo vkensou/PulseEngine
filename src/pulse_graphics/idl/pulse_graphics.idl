@@ -844,6 +844,18 @@ func.RenderGraph.ImportDynamicBuffer
     .imported "*anyopaque"
     ()
 
+func.RenderGraph.ImportDynamicMeshVertexBuffer
+    "RGBufferHandle"
+    .imported   "MeshHandle"
+    .count      "uint32_t"
+    ()
+
+func.RenderGraph.ImportDynamicMeshIndexBuffer
+    "RGBufferHandle"
+    .imported   "MeshHandle"
+    .count      "uint32_t"
+    ()
+
 func.RenderGraph.DeclareUniformBufferQuick
     "RGBufferHandle"
     .size_ "uint32_t"
@@ -1190,6 +1202,12 @@ func.RenderPassEncoder.ResolveTextureView
     "CGPUTextureViewId"
     .textureHandle "RGTextureHandle"
     ()
+
+func.UploadPassEncoder.Upload
+    "void"
+    .offset         "uint64_t"
+    .length         "uint64_t"
+    .data           "*const anyopaque"
 
 switch_table.ShaderPropertyIsUniform
     .arg            "ShaderPropertyType::Enum"

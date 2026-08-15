@@ -1271,7 +1271,7 @@ namespace HGEGraphics
 		rslot->from_material = false;
 	}
 
-	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, void* data)
+	void upload(UploadEncoder* encoder, uint64_t offset, uint64_t length, const void* data)
 	{
 		char* address = (char*)encoder->address + offset;
 		memcpy(address, data, length);

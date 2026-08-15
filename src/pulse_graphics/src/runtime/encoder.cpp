@@ -6,6 +6,10 @@ static HGEGraphics::RenderPassEncoder* to_cpp_encoder(PulseRenderPassEncoder* en
     return reinterpret_cast<HGEGraphics::RenderPassEncoder*>(encoder);
 }
 
+static HGEGraphics::UploadEncoder* to_cpp_encoder(PulseUploadPassEncoder* encoder) {
+    return reinterpret_cast<HGEGraphics::UploadEncoder*>(encoder);
+}
+
 static PulseAssetSystemId asset_system_from_encoder(PulseRenderPassEncoder* encoder) {
     auto* cpp_encoder = to_cpp_encoder(encoder);
     return (cpp_encoder && cpp_encoder->context) ? cpp_encoder->context->asset_system : nullptr;
@@ -130,6 +134,13 @@ void pulse_render_pass_encoder_push_constants(PulseRenderPassEncoder* encoder, P
     PulseShaderData* shader_data = pulse_graphics_internal::internal_borrow_shader(as, shader);
     if (!shader_data) return;
     HGEGraphics::push_constants(cpp_encoder, shader_data, name, data);
+}
+
+void pulse_upload_pass_encoder_upload(PulseUploadPassEncoder* encoder, uint64_t offset, uint64_t length, const void* data) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    if (!cpp_encoder) return;
+
+    HGEGraphics::upload(cpp_encoder, offset, length, data);
 }
 
 } // extern "C"

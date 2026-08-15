@@ -833,6 +833,8 @@ PULSE_API PulseRGTextureHandle pulse_render_graph_import_backbuffer(PulseRenderG
 PULSE_API PulseRGBufferHandle pulse_render_graph_declare_buffer(PulseRenderGraphId _this);
 PULSE_API PulseRGBufferHandle pulse_render_graph_import_buffer(PulseRenderGraphId _this, PulseGraphicsBufferHandle imported);
 PULSE_API PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId _this, void* imported);
+PULSE_API PulseRGBufferHandle pulse_render_graph_import_dynamic_mesh_vertex_buffer(PulseRenderGraphId _this, PulseMeshHandle imported, uint32_t count);
+PULSE_API PulseRGBufferHandle pulse_render_graph_import_dynamic_mesh_index_buffer(PulseRenderGraphId _this, PulseMeshHandle imported, uint32_t count);
 PULSE_API PulseRGBufferHandle pulse_render_graph_declare_uniform_buffer_quick(PulseRenderGraphId _this, uint32_t size, void* data);
 PULSE_API PulseRGTextureHandle pulse_render_graph_declare_texture_subresource(PulseRenderGraphId _this, PulseRGTextureHandle parent, uint8_t mip_level, uint8_t array_slice);
 
@@ -933,6 +935,7 @@ PULSE_API void pulse_render_pass_encoder_set_scissor(PulseRenderPassEncoder* _th
 PULSE_API void pulse_render_pass_encoder_push_constants(PulseRenderPassEncoder* _this, PulseShaderHandle shader, const char* name, const void* data);
 PULSE_API CGPUBufferId pulse_render_pass_encoder_resolve_buffer(PulseRenderPassEncoder* _this, PulseRGBufferHandle buffer_handle);
 PULSE_API CGPUTextureViewId pulse_render_pass_encoder_resolve_texture_view(PulseRenderPassEncoder* _this, PulseRGTextureHandle texture_handle);
+PULSE_API void pulse_upload_pass_encoder_upload(PulseUploadPassEncoder* _this, uint64_t offset, uint64_t length, const void* data);
 
 static PULSE_FORCEINLINE bool ShaderPropertyIsUniform(EPulseShaderPropertyType const arg) {
     switch(arg) {

@@ -5,6 +5,7 @@ typedef "float"
 typedef "int8_t"
 typedef "int32_t"
 typedef "uint8_t"
+typedef "uint16_t"
 typedef "uint32_t"
 typedef "void"
 typedef "size_t"
@@ -45,6 +46,8 @@ struct.MouseScroll
 
 struct.KeyEvent
     .scancode "int32_t"
+    .keycode  "int32_t"
+    .mod      "uint16_t"
     .pressed  "bool"
     ["repeat"] "bool"
     .window   "ecs_entity_t"
@@ -55,13 +58,15 @@ struct.MouseButtonEvent
     .pressed "bool"
     .x       "float"
     .y       "float"
+    .isTouch "bool"
     .window  "ecs_entity_t"
     ()
 
 struct.MouseScrollEvent
-    .x "float"
-    .y "float"
-    .window "ecs_entity_t"
+    .x       "float"
+    .y       "float"
+    .isTouch "bool"
+    .window  "ecs_entity_t"
     ()
 
 func.AddInputPlugin

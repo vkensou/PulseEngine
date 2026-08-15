@@ -243,6 +243,38 @@ PulseRGBufferHandle pulse_render_graph_import_dynamic_buffer(PulseRenderGraphId 
 	return handle;
 }
 
+PulseRGBufferHandle pulse_render_graph_import_dynamic_mesh_vertex_buffer(PulseRenderGraphId self, PulseMeshHandle imported, uint32_t count)
+{
+	auto* impl = to_impl(self);
+    PulseMeshData* data = nullptr;
+	if (impl->asset_system)
+    {
+		void* ptr = nullptr;
+		if (pulse_asset_system_borrow(impl->asset_system, pulse_mesh_to_handle(imported), &ptr, nullptr))
+			data = static_cast<PulseMeshData*>(ptr);
+    }
+    if (!data)
+        return {};
+
+    return declare_dynamic_vertex_buffer(data, self, count);
+}
+
+PulseRGBufferHandle pulse_render_graph_import_dynamic_mesh_index_buffer(PulseRenderGraphId self, PulseMeshHandle imported, uint32_t count)
+{
+	auto* impl = to_impl(self);
+    PulseMeshData* data = nullptr;
+	if (impl->asset_system)
+    {
+		void* ptr = nullptr;
+		if (pulse_asset_system_borrow(impl->asset_system, pulse_mesh_to_handle(imported), &ptr, nullptr))
+			data = static_cast<PulseMeshData*>(ptr);
+    }
+    if (!data)
+        return {};
+
+    return declare_dynamic_index_buffer(data, self, count);
+}
+
 PulseRGBufferHandle pulse_render_graph_declare_uniform_buffer_quick(PulseRenderGraphId self, uint32_t size, void* data)
 {
 	auto* impl = to_impl(self);

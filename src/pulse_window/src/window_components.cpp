@@ -5,6 +5,9 @@ ECS_COMPONENT_DECLARE(PulseSdlWindow);
 ECS_TAG_DECLARE(PulsePrimaryWindow);
 ECS_TAG_DECLARE(PulseWindowCloseRequested);
 ECS_TAG_DECLARE(PulseWindowResized);
+ECS_COMPONENT_DECLARE(PulseTextInputEvent);
+ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
+ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
 
 namespace pulse_window_internal {
 
@@ -175,6 +178,9 @@ void register_components(ecs_world_t* world) {
     ECS_COMPONENT_DEFINE(world, PulseWindow);
     ECS_COMPONENT_DEFINE(world, PulseSdlWindow);
     ECS_COMPONENT_DEFINE(world, pulse_window_state_resource);
+    ECS_COMPONENT_DEFINE(world, PulseTextInputEvent);
+    ECS_COMPONENT_DEFINE(world, PulseWindowFocusEvent);
+    ECS_COMPONENT_DEFINE(world, PulseWindowMouseHoverEvent);
     ecs_add_pair(world, ecs_id(PulseWindow), EcsWith, ecs_id(PulseSdlWindow));
 
     ecs_type_hooks_t pulse_sdl_window_hooks = {

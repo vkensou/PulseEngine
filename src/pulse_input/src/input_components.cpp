@@ -1,4 +1,4 @@
-﻿#include "input_internal.h"
+#include "input_internal.h"
 
 #include <algorithm>
 #include <cstring>
@@ -30,7 +30,9 @@ void key_event_observer(ecs_iter_t* it) {
     if (kb) {
         if (evt->pressed) {
             kb->pressed[evt->scancode] = true;
-            kb->just_pressed[evt->scancode] = true;
+            if (!evt->repeat) {
+                kb->just_pressed[evt->scancode] = true;
+            }
         } else {
             kb->pressed[evt->scancode] = false;
             kb->just_released[evt->scancode] = true;

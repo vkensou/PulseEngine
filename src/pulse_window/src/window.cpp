@@ -189,10 +189,16 @@ void delete_window_components(ecs_world_t* world) {
     delete_registered_tag(world, PulseWindowCloseRequested, ecs_id(PulseWindowCloseRequested));
     delete_registered_tag(world, PulseWindowResized, ecs_id(PulseWindowResized));
     delete_registered_tag(world, PulsePrimaryWindow, ecs_id(PulsePrimaryWindow));
+    delete_registered_entity(world, ecs_id(PulseTextInputEvent));
+    delete_registered_entity(world, ecs_id(PulseWindowFocusEvent));
+    delete_registered_entity(world, ecs_id(PulseWindowMouseHoverEvent));
     delete_registered_entity(world, ecs_id(pulse_window_state_resource));
 
     ecs_id(PulseSdlWindow) = 0;
     ecs_id(PulseWindow) = 0;
+    ecs_id(PulseTextInputEvent) = 0;
+    ecs_id(PulseWindowFocusEvent) = 0;
+    ecs_id(PulseWindowMouseHoverEvent) = 0;
 }
 
 void mark_window_close_requested(
@@ -234,7 +240,10 @@ void emit_key_event(
 ) {
     PulseKeyEvent key_evt = {
         .scancode = event.key.scancode,
+        .keycode = (int32_t)event.key.key,
+        .mod = (uint16_t)event.key.mod,
         .pressed = (event.type == SDL_EVENT_KEY_DOWN),
+        .repeat = event.key.repeat,
         .window = window_entity,
     };
     ecs_id_t comp_ids[] = { ecs_id(PulseKeyboardInput) };
@@ -258,6 +267,7 @@ void emit_mouse_button_event(
         .pressed = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN),
         .x = event.button.x,
         .y = event.button.y,
+        .is_touch = (event.button.which == SDL_TOUCH_MOUSEID),
         .window = window_entity,
     };
     ecs_id_t comp_ids[] = { ecs_id(PulseMouseInput) };
@@ -279,6 +289,7 @@ void emit_mouse_scroll_event(
     PulseMouseScrollEvent scroll_evt = {
         .x = event.wheel.x,
         .y = event.wheel.y,
+        .is_touch = (event.wheel.which == SDL_TOUCH_MOUSEID),
         .window = window_entity,
     };
     ecs_id_t comp_ids[] = { ecs_id(PulseMouseScroll) };
@@ -288,6 +299,70 @@ void emit_mouse_scroll_event(
     event_desc.entity = ecs_id(PulseMouseScroll);
     event_desc.ids = &ids;
     event_desc.const_param = &scroll_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
+void emit_text_input_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseTextInputEvent text_evt = {};
+    strncpy(
+        text_evt.text,
+        event.text.text,
+        sizeof(text_evt.text) - 1
+    );
+    text_evt.text[sizeof(text_evt.text) - 1] = '\0';
+    text_evt.window = window_entity;
+    ecs_id_t comp_ids[] = { ecs_id(PulseWindow) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseTextInputEvent);
+    event_desc.entity = window_entity;
+    event_desc.ids = &ids;
+    event_desc.const_param = &text_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
+void emit_window_focus_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseWindowFocusEvent focus_evt = {
+        .focused = (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED),
+        .window = window_entity,
+    };
+    ecs_id_t comp_ids[] = { ecs_id(PulseWindow) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseWindowFocusEvent);
+    event_desc.entity = window_entity;
+    event_desc.ids = &ids;
+    event_desc.const_param = &focus_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
+void emit_window_mouse_hover_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseWindowMouseHoverEvent hover_evt = {
+        .entered = (event.type == SDL_EVENT_WINDOW_MOUSE_ENTER),
+        .window = window_entity,
+    };
+    ecs_id_t comp_ids[] = { ecs_id(PulseWindow) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseWindowMouseHoverEvent);
+    event_desc.entity = window_entity;
+    event_desc.ids = &ids;
+    event_desc.const_param = &hover_evt;
     event_desc.observable = world;
     ecs_enqueue(world, &event_desc);
 }
@@ -325,6 +400,19 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
             // --- Mouse wheel: emit PulseMouseScrollEvent with window info ---
             else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
                 emit_mouse_scroll_event(world, window_entity, event);
+            }
+            // --- Text input: emit PulseTextInputEvent with window info ---
+            else if (event.type == SDL_EVENT_TEXT_INPUT) {
+                emit_text_input_event(world, window_entity, event);
+            }
+            // --- Window focus: emit PulseWindowFocusEvent with window info ---
+            else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED ||
+                     event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+                emit_window_focus_event(world, window_entity, event);
+            }
+            else if (event.type == SDL_EVENT_WINDOW_MOUSE_ENTER ||
+                     event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) {
+                emit_window_mouse_hover_event(world, window_entity, event);
             }
         }
     }

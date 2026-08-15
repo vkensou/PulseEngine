@@ -69,6 +69,21 @@ struct.SdlWindow
     .windowId   "uint32_t"
     .nativeView "*anyopaque"
 
+struct.TextInputEvent
+    .text   "[512] char"
+    .window "ecs_entity_t"
+    ()
+
+struct.WindowFocusEvent
+    .focused "bool"
+    .window  "ecs_entity_t"
+    ()
+
+struct.WindowMouseHoverEvent
+    .entered "bool"
+    .window  "ecs_entity_t"
+    ()
+
 func.WindowDescDefault
     "WindowDesc"
     ()
