@@ -191,25 +191,9 @@ EPulseAssetLoaderStatus step_mesh_create_dynamic(
     auto* s = static_cast<MeshCreateDynamicState*>(state);
 
     if (!s->initialized) {
-        CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
-        auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
         auto* desc = static_cast<const PulseMeshCreateDynamicDesc*>(ctx->settings);
-
-        const CGPUVertexLayout& use_layout = desc->layout;
-        mesh->vertex_layout = use_layout;
-        mesh->p_vertex_attributes = new CGPUVertexAttribute[use_layout.attribute_count];
-        std::copy(use_layout.p_attributes, use_layout.p_attributes + use_layout.attribute_count, mesh->p_vertex_attributes);
-        mesh->vertex_layout.p_attributes = mesh->p_vertex_attributes;
-        mesh->prim_topology = desc->topology;
-        mesh->vertices_count = 0;
-        mesh->vertex_stride = 0;
-        for (auto i = 0; i < use_layout.attribute_count; ++i)
-            mesh->vertex_stride += use_layout.p_attributes[i].elem_stride;
-        mesh->index_stride = desc->index_stride;
-        mesh->vertex_buffer = {};
-        mesh->index_buffer = {};
-        mesh->prepared = true;
-
+        auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
+        HGEGraphics::create_dynamic_mesh(mesh, desc->topology, desc->layout, desc->index_stride);
         s->initialized = true;
     }
 
@@ -240,6 +224,7 @@ void register_mesh_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId d
     ld2.version = PULSE_ASSET_LOADER_DESC_VERSION;
     ld2.type_id = PULSE_TYPE_MESH;
     ld2.extensions = "";
+    ld2.loader_identifier = "dynamic";
     ld2.ctor = nullptr;
     ld2.dtor = nullptr;
     ld2.step = step_mesh_create_dynamic;
@@ -327,7 +312,7 @@ PulseMeshHandle pulse_create_mesh_dynamic(
 
     PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
     PulseAssetHandle h = pulse_graphics_internal::asset_build_sync(
-        as, PULSE_TYPE_MESH, nullptr, nullptr, 0, desc);
+        as, PULSE_TYPE_MESH, "dynamic", nullptr, nullptr, 0, desc);
     if (!pulse_asset_handle_is_valid(h))
         return result;
 

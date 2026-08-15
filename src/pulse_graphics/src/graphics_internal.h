@@ -196,6 +196,7 @@ inline PulseAssetRequest asset_build(
 inline PulseAssetHandle asset_build_sync(
     PulseAssetSystemId asset_system,
     uint64_t type_id,
+    const char* loader_identifier,
     const char* name = nullptr,
     const PulseAssetDependency* dependencies = nullptr,
     uint32_t dependency_count = 0,
@@ -205,6 +206,7 @@ inline PulseAssetHandle asset_build_sync(
     desc.struct_size = sizeof(PulseAssetBuildDesc);
     desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
     desc.type_id = type_id;
+    desc.loader_identifier = loader_identifier;
     desc.name = name;
     desc.dependencies = dependencies;
     desc.dependency_count = dependency_count;

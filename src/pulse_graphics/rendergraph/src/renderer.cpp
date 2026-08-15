@@ -237,9 +237,8 @@ namespace HGEGraphics
 		return mesh;
 	}
 
-	std::unique_ptr<PulseMeshData> create_dynamic_mesh(ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
+	void create_dynamic_mesh(PulseMeshData* mesh, ECGPUPrimitiveTopology prim_topology, const CGPUVertexLayout& vertex_layout, uint32_t index_stride)
 	{
-		auto mesh = create_empty_mesh();
 		mesh->vertex_layout = vertex_layout;
 		mesh->p_vertex_attributes = new CGPUVertexAttribute[vertex_layout.attribute_count];
 		std::copy(vertex_layout.p_attributes, vertex_layout.p_attributes + vertex_layout.attribute_count, mesh->p_vertex_attributes);
@@ -251,11 +250,13 @@ namespace HGEGraphics
 		{
 			mesh->vertex_stride += vertex_layout.p_attributes[i].elem_stride;
 		}
+        mesh->index_count = 0;
 		mesh->index_stride = index_stride;
+        mesh->vertex_buffer.handle = {};
 		mesh->vertex_buffer.ptr = create_empty_buffer();
-		mesh->index_buffer.ptr = create_empty_buffer();
+        mesh->index_buffer.handle = {};
+        mesh->index_buffer.ptr = create_empty_buffer();
 		mesh->prepared = true;
-		return mesh;
 	}
 
 	PulseRGBufferHandle declare_dynamic_vertex_buffer(PulseMeshData* mesh, PulseRenderGraphId rg, uint32_t count)

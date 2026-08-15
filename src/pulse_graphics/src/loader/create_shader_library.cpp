@@ -74,7 +74,7 @@ PulseShaderLibraryHandle pulse_create_shader_library(
 
     PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
     PulseAssetHandle h = pulse_graphics_internal::asset_build_sync(
-        as, PULSE_TYPE_SHADER_LIBRARY, nullptr, nullptr, 0, desc);
+        as, PULSE_TYPE_SHADER_LIBRARY, nullptr, nullptr, nullptr, 0, desc);
     if (!pulse_asset_handle_is_valid(h)) return result;
     result.index = h.index;
     result.generation = h.generation;

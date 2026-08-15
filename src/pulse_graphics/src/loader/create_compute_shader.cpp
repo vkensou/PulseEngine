@@ -100,7 +100,7 @@ PulseComputeShaderHandle pulse_create_compute_shader_from_binary(
     PulseAssetDependency deps[] = {
         { pulse_asset_system_to_asset_dep_ref_from_handle(as, pulse_shader_library_to_handle(cs)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED },
     };
-    PulseAssetHandle h = asset_build_sync(as, PULSE_TYPE_COMPUTE_SHADER, nullptr, deps, 1, desc);
+    PulseAssetHandle h = asset_build_sync(as, PULSE_TYPE_COMPUTE_SHADER, nullptr, nullptr, deps, 1, desc);
     if (!pulse_asset_handle_is_valid(h)) {
         pulse_asset_system_release(as, pulse_shader_library_to_handle(cs), nullptr);
         return {};

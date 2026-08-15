@@ -84,7 +84,7 @@ PulseMaterialHandle pulse_create_material(
     dependencies[0] = { pulse_asset_system_to_asset_dep_ref_from_handle(as, pulse_shader_to_handle(desc->shader)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED };
 
     PulseAssetHandle handle = pulse_graphics_internal::asset_build_sync(
-        as, PULSE_TYPE_MATERIAL, nullptr, dependencies, 1, desc);
+        as, PULSE_TYPE_MATERIAL, nullptr, nullptr, dependencies, 1, desc);
     if (!pulse_asset_handle_is_valid(handle))
         return result;
 

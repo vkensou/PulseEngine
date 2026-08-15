@@ -43,6 +43,7 @@ PulseAssetHandle AssetSystem::load(const PulseAssetLoadDesc* desc) {
     LoadRequest request{};
     request.source = PULSE_ASSET_LOAD_SOURCE_FILE;
     request.type_id = desc->type_id;
+    request.loader_identifier = nullptr;
     request.path_or_name = desc->path;
     request.settings = desc->settings;
     request.flags = desc->flags;
@@ -60,6 +61,7 @@ PulseAssetHandle AssetSystem::load_from_memory(const PulseAssetMemoryLoadDesc* d
     LoadRequest request{};
     request.source = PULSE_ASSET_LOAD_SOURCE_MEMORY;
     request.type_id = desc->type_id;
+    request.loader_identifier = nullptr;
     request.path_or_name = desc->path;
     request.settings = desc->settings;
     request.flags = desc->flags;
@@ -79,6 +81,7 @@ PulseAssetHandle AssetSystem::build_asset(const PulseAssetBuildDesc* desc) {
     LoadRequest request{};
     request.source = PULSE_ASSET_LOAD_SOURCE_BUILDER;
     request.type_id = desc->type_id;
+    request.loader_identifier = desc->loader_identifier;
     request.path_or_name = desc->name;
     request.settings = desc->settings;
     request.dependencies = desc->dependencies;
@@ -206,7 +209,8 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
 
     AssetLoader* request_loader = nullptr;
     if (request.source == PULSE_ASSET_LOAD_SOURCE_BUILDER) {
-        request_loader = registry_.find_builder_loader(request.type_id);
+        std::pmr::string loader_identifier(request.loader_identifier ? request.loader_identifier : "", resource());
+        request_loader = registry_.find_builder_loader(request.type_id, loader_identifier);
         if (!request_loader) {
             return invalid_handle();
         }

@@ -114,6 +114,7 @@ public:
     PulseAssetTypeDesc desc{};
     std::pmr::deque<AssetLoader> loaders;
     std::pmr::unordered_map<std::pmr::string, AssetLoader*> extension_loaders;
+    std::pmr::unordered_map<std::pmr::string, AssetLoader*> builder_loaders;
 
     explicit AssetType(std::pmr::memory_resource* resource);
 
@@ -123,7 +124,7 @@ public:
     AssetType& operator=(AssetType&&) noexcept = default;
 
     bool has_loader_for_any(const std::pmr::vector<std::pmr::string>& extension_list) const;
-    AssetLoader* find_builder_loader();
+    AssetLoader* find_builder_loader(const std::pmr::string& name);
     AssetLoader* find_extension_loader(const std::pmr::string& extension);
     EPulseResult add_loader(const PulseAssetLoaderDesc& loader_desc, std::pmr::vector<std::pmr::string>&& extension_list, std::pmr::memory_resource* resource);
 };
@@ -136,7 +137,7 @@ public:
     EPulseResult register_loader(const PulseAssetLoaderDesc* desc);
     AssetType* find_type(uint64_t type_id);
     AssetLoader* find_loader(uint64_t type_id, const std::pmr::string& path);
-    AssetLoader* find_builder_loader(uint64_t type_id);
+    AssetLoader* find_builder_loader(uint64_t type_id, const std::pmr::string& loader_identifier);
 
 private:
     std::pmr::memory_resource* resource_ = nullptr;
@@ -309,6 +310,7 @@ public:
 struct LoadRequest {
     EPulseAssetLoadSource source = PULSE_ASSET_LOAD_SOURCE_FILE;
     uint64_t type_id = 0;
+    const char* loader_identifier = nullptr;
     const char* path_or_name = nullptr;
     const void* settings = nullptr;
     EPulseAssetLoadFlags flags = PULSE_ASSET_LOAD_DEFAULT;

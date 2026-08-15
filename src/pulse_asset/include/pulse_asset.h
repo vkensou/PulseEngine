@@ -294,6 +294,7 @@ typedef struct PulseAssetLoadTask
     PulseAppId           app;
     PulseAssetSystemId   asset_system;
     uint64_t             type_id;
+    const char*          loader_identifier;
     const char*          path;
     const uint8_t*       bytes;
     uint64_t             byte_size;
@@ -318,6 +319,7 @@ typedef struct PulseAssetLoaderDesc
     uint32_t             version;
     uint64_t             type_id;
     const char*          extensions;
+    const char*          loader_identifier;
     PulseProcAssetLoaderCtorFn ctor;
     PulseProcAssetLoaderDtorFn dtor;
     PulseProcAssetLoaderStepFn step;
@@ -376,6 +378,7 @@ typedef struct PulseAssetBuildDesc
     uint32_t             struct_size;
     uint32_t             version;
     uint64_t             type_id;
+    const char*          loader_identifier;
     const char*          name;
     const PulseAssetDependency* dependencies;
     uint32_t             dependency_count;

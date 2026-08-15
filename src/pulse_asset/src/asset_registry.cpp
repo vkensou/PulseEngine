@@ -28,10 +28,9 @@ bool AssetType::has_loader_for_any(const std::pmr::vector<std::pmr::string>& ext
     return false;
 }
 
-AssetLoader* AssetType::find_builder_loader() {
-    std::pmr::string builder_key;
-    auto loader_it = extension_loaders.find(builder_key);
-    return loader_it != extension_loaders.end() ? loader_it->second : nullptr;
+AssetLoader* AssetType::find_builder_loader(const std::pmr::string& name) {
+    auto loader_it = builder_loaders.find(name);
+    return loader_it != builder_loaders.end() ? loader_it->second : nullptr;
 }
 
 AssetLoader* AssetType::find_extension_loader(const std::pmr::string& extension) {
@@ -44,15 +43,17 @@ EPulseResult AssetType::add_loader(
     std::pmr::vector<std::pmr::string>&& extension_list,
     std::pmr::memory_resource* resource
 ) {
+    std::pmr::string builder_key(resource);
     if (extension_list.empty()) {
-        if (find_builder_loader()) {
+        builder_key = loader_desc.loader_identifier ? loader_desc.loader_identifier : "";
+        if (builder_loaders.find(builder_key) != builder_loaders.end()) {
             return PULSE_RESULT_ERROR_INVALID_STATE;
         }
     } else if (has_loader_for_any(extension_list)) {
         return PULSE_RESULT_ERROR_INVALID_STATE;
     }
 
-    extension_loaders.reserve(extension_loaders.size() + (extension_list.empty() ? 1u : extension_list.size()));
+    extension_loaders.reserve(extension_loaders.size() + (extension_list.empty() ? 0u : extension_list.size()));
     AssetLoader loader(resource);
     loader.desc = loader_desc;
     loader.extensions = std::move(extension_list);
@@ -60,7 +61,7 @@ EPulseResult AssetType::add_loader(
 
     AssetLoader* registered_loader = &loaders.back();
     if (registered_loader->is_builder()) {
-        extension_loaders.emplace(std::pmr::string(resource), registered_loader);
+        builder_loaders.emplace(std::move(builder_key), registered_loader);
     } else {
         for (const std::pmr::string& extension : registered_loader->extensions) {
             extension_loaders.emplace(std::pmr::string(extension, resource), registered_loader);
@@ -125,9 +126,9 @@ AssetLoader* AssetRegistry::find_loader(uint64_t type_id, const std::pmr::string
     return type ? type->find_extension_loader(extension) : nullptr;
 }
 
-AssetLoader* AssetRegistry::find_builder_loader(uint64_t type_id) {
+AssetLoader* AssetRegistry::find_builder_loader(uint64_t type_id, const std::pmr::string& loader_identifier) {
     AssetType* type = find_type(type_id);
-    return type ? type->find_builder_loader() : nullptr;
+    return type ? type->find_builder_loader(loader_identifier) : nullptr;
 }
 
 } // namespace pulse::asset

@@ -24,6 +24,7 @@ const uint64_t builder_fail_once_type = 15;
 const uint64_t force_type = 16;
 const uint64_t deep_settings_type = 17;
 const uint64_t deep_fail_copy_type = 18;
+const uint64_t builder_named_type = 19;
 
 struct test_text_asset {
     uint64_t size;
@@ -443,6 +444,37 @@ static EPulseAssetLoaderStatus step_builder_asset(
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
+// 命名 builder：同一类型可注册多个 builder（按 AssetLoaderDesc.name 区分），
+// build 请求用 name 选择 loader；ctx->path 携带请求的 name。
+static int builder_named_a_step_count = 0;
+static int builder_named_b_step_count = 0;
+
+static EPulseAssetLoaderStatus step_builder_named_a(
+    void* state,
+    const PulseAssetLoadTask* ctx,
+    const char** out_error
+) {
+    (void)state;
+    (void)out_error;
+    builder_named_a_step_count += 1;
+    assert(strcmp(ctx->loader_identifier, "named-a") == 0);
+    ((builder_asset*)ctx->out_asset)->value = 1001;
+    return PULSE_ASSET_LOADER_STATUS_DONE;
+}
+
+static EPulseAssetLoaderStatus step_builder_named_b(
+    void* state,
+    const PulseAssetLoadTask* ctx,
+    const char** out_error
+) {
+    (void)state;
+    (void)out_error;
+    builder_named_b_step_count += 1;
+    assert(strcmp(ctx->loader_identifier, "named-b") == 0);
+    ((builder_asset*)ctx->out_asset)->value = 2002;
+    return PULSE_ASSET_LOADER_STATUS_DONE;
+}
+
 // Deep-copy settings: the size callback reports the total size (struct + nested int
 // array + name string) and the copy callback lays the nested data right after the
 // struct and fixes the pointers into the block allocated by the asset system.
@@ -777,6 +809,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         text_type,
         "txt",
+        nullptr,
         0,
         0,
         step_test_text,
@@ -883,6 +916,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         slow_type,
         "txt",
+        nullptr,
         0,
         0,
         step_slow_asset,
@@ -925,6 +959,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         fail_type,
         "txt",
+        nullptr,
         0,
         0,
         step_fail_asset,
@@ -965,6 +1000,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         settings_type,
         "txt",
+        nullptr,
         nullptr,
         nullptr,
         step_settings_asset,
@@ -1010,6 +1046,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         cleanup_type,
         "txt",
+        nullptr,
         ctor_cleanup_asset,
         dtor_cleanup_asset,
         step_cleanup_asset,
@@ -1069,6 +1106,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         force_type,
         "txt",
+        nullptr,
         ctor_force_asset,
         dtor_force_asset,
         step_force_asset,
@@ -1134,6 +1172,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         aligned_type,
         "txt",
+        nullptr,
         ctor_aligned_asset,
         nullptr,
         step_aligned_asset,
@@ -1176,6 +1215,7 @@ int main(void) {
         "txt",
         nullptr,
         nullptr,
+        nullptr,
         step_parent_asset,
         0,
         0,
@@ -1201,6 +1241,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         dynamic_parent_type,
         "txt",
+        nullptr,
         ctor_dynamic_parent_asset,
         dtor_dynamic_parent_asset,
         step_dynamic_parent_asset,
@@ -1228,6 +1269,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         self_cancel_type,
         "txt",
+        nullptr,
         ctor_self_cancel_asset,
         dtor_self_cancel_asset,
         step_self_cancel_asset,
@@ -1255,6 +1297,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         dtor_unload_type,
         "txt",
+        nullptr,
         nullptr,
         dtor_unload_asset_loader,
         step_dtor_unload_asset,
@@ -1284,6 +1327,7 @@ int main(void) {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         step_builder_asset,
         0,
         0,
@@ -1293,6 +1337,84 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &builder_loader_desc) == PULSE_RESULT_OK);
     assert(pulse_asset_system_register_loader(assetSystem, &builder_loader_desc) == PULSE_RESULT_ERROR_INVALID_STATE);
+
+    // ---- 同一类型可注册多个命名 builder，build 请求按 name 选择 loader ----
+    PulseAssetTypeDesc builder_named_type_desc = {
+        sizeof(PulseAssetTypeDesc),
+        PULSE_ASSET_TYPE_DESC_VERSION,
+        builder_named_type,
+        sizeof(builder_asset),
+        alignof(builder_asset),
+        nullptr,
+        nullptr,
+    };
+    assert(pulse_asset_system_register_type(assetSystem, &builder_named_type_desc) == PULSE_RESULT_OK);
+
+    PulseAssetLoaderDesc builder_named_a_desc = {
+        sizeof(PulseAssetLoaderDesc),
+        PULSE_ASSET_LOADER_DESC_VERSION,
+        builder_named_type,
+        nullptr,
+        "named-a",
+        nullptr,
+        nullptr,
+        step_builder_named_a,
+        0,
+        0,
+        0,
+        0,
+        nullptr,
+        nullptr,
+        nullptr,
+    };
+    assert(pulse_asset_system_register_loader(assetSystem, &builder_named_a_desc) == PULSE_RESULT_OK);
+    // 同名 builder 重复注册仍拒绝
+    assert(pulse_asset_system_register_loader(assetSystem, &builder_named_a_desc) == PULSE_RESULT_ERROR_INVALID_STATE);
+
+    PulseAssetLoaderDesc builder_named_b_desc = builder_named_a_desc;
+    builder_named_b_desc.step = step_builder_named_b;
+    builder_named_b_desc.loader_identifier = "named-b";
+    assert(pulse_asset_system_register_loader(assetSystem, &builder_named_b_desc) == PULSE_RESULT_OK);
+
+    PulseAssetBuildDesc named_a_build{};
+    named_a_build.struct_size = sizeof(PulseAssetBuildDesc);
+    named_a_build.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    named_a_build.type_id = builder_named_type;
+    named_a_build.loader_identifier = "named-a";
+    PulseAssetRequest named_a_request = pulse_asset_system_build(assetSystem, &named_a_build);
+    assert(pulse_asset_request_is_valid(named_a_request));
+    assert(pulse_asset_system_get_state(assetSystem, named_a_request) == PULSE_ASSET_STATE_LOADED);
+    assert(builder_named_a_step_count == 1 && builder_named_b_step_count == 0);
+    PulseAssetHandle named_a_handle = pulse_asset_system_get_handle(assetSystem, named_a_request);
+    void* named_a_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, named_a_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, named_a_handle, &named_a_ptr, nullptr));
+    assert(((builder_asset*)named_a_ptr)->value == 1001);
+    pulse_asset_system_release(assetSystem, named_a_handle, nullptr);
+
+    PulseAssetBuildDesc named_b_build{};
+    named_b_build.struct_size = sizeof(PulseAssetBuildDesc);
+    named_b_build.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    named_b_build.type_id = builder_named_type;
+    named_b_build.loader_identifier = "named-b";
+    PulseAssetRequest named_b_request = pulse_asset_system_build(assetSystem, &named_b_build);
+    assert(pulse_asset_request_is_valid(named_b_request));
+    assert(pulse_asset_system_get_state(assetSystem, named_b_request) == PULSE_ASSET_STATE_LOADED);
+    assert(builder_named_a_step_count == 1 && builder_named_b_step_count == 1);
+    PulseAssetHandle named_b_handle = pulse_asset_system_get_handle(assetSystem, named_b_request);
+    void* named_b_ptr = nullptr;
+    assert(pulse_asset_system_retain(assetSystem, named_b_handle, nullptr));
+    assert(pulse_asset_system_borrow(assetSystem, named_b_handle, &named_b_ptr, nullptr));
+    assert(((builder_asset*)named_b_ptr)->value == 2002);
+    pulse_asset_system_release(assetSystem, named_b_handle, nullptr);
+
+    // 未注册的 name：无匹配且无默认 builder -> 加载失败
+    PulseAssetBuildDesc unknown_name_build{};
+    unknown_name_build.struct_size = sizeof(PulseAssetBuildDesc);
+    unknown_name_build.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    unknown_name_build.type_id = builder_named_type;
+    unknown_name_build.name = "no-such-builder";
+    assert(pulse_asset_system_build(assetSystem, &unknown_name_build).index == PULSE_ASSET_INVALID_INDEX);
 
     PulseAssetTypeDesc builder_fail_once_type_desc = {
         sizeof(PulseAssetTypeDesc),
@@ -1309,6 +1431,7 @@ int main(void) {
         sizeof(PulseAssetLoaderDesc),
         PULSE_ASSET_LOADER_DESC_VERSION,
         builder_fail_once_type,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -1390,6 +1513,7 @@ int main(void) {
         PULSE_ASSET_LOADER_DESC_VERSION,
         builder_pending_type,
         "",
+        nullptr,
         ctor_builder_pending_asset,
         dtor_builder_pending_asset,
         step_builder_pending_asset,
@@ -1441,6 +1565,7 @@ int main(void) {
         sizeof(PulseAssetLoaderDesc),
         PULSE_ASSET_LOADER_DESC_VERSION,
         builder_wait_type,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -1510,6 +1635,7 @@ int main(void) {
         sizeof(PulseAssetLoaderDesc),
         PULSE_ASSET_LOADER_DESC_VERSION,
         builder_dynamic_type,
+        nullptr,
         nullptr,
         ctor_builder_dynamic_asset,
         dtor_builder_dynamic_asset,
@@ -1704,6 +1830,7 @@ int main(void) {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         step_deep_settings_asset,
         0,
         0,
@@ -1776,6 +1903,7 @@ int main(void) {
         sizeof(PulseAssetLoaderDesc),
         PULSE_ASSET_LOADER_DESC_VERSION,
         deep_fail_copy_type,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,

@@ -68,6 +68,7 @@ void LoadContext::refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
     job.ctx.app = system.app();
     job.ctx.asset_system = (PulseAssetSystemId)&system;
     job.ctx.type_id = job.handle.type_id;
+    job.ctx.loader_identifier = job.loader->desc.loader_identifier;
     job.ctx.path = slot.path.c_str();
     job.ctx.bytes = job.bytes.empty() ? nullptr : job.bytes.data();
     job.ctx.byte_size = static_cast<uint64_t>(job.bytes.size());

@@ -476,7 +476,7 @@ PulseShaderHandle pulse_create_shader_from_binary(
         .p_properties = desc->p_properties,
     };
 
-    PulseAssetHandle h = asset_build_sync(as, PULSE_TYPE_SHADER, nullptr, deps, 2, &settings);
+    PulseAssetHandle h = asset_build_sync(as, PULSE_TYPE_SHADER, nullptr, nullptr, deps, 2, &settings);
     if (!pulse_asset_handle_is_valid(h)) {
         pulse_asset_system_release(as, pulse_shader_library_to_handle(vs), nullptr);
         pulse_asset_system_release(as, pulse_shader_library_to_handle(fs), nullptr);

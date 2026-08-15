@@ -10,6 +10,12 @@ static void destroy_mesh(void* ptr, void* user_data) {
         delete[] data->p_vertex_attributes;
         data->p_vertex_attributes = nullptr;
     }
+    if (data->vertex_buffer.ptr && !data->vertex_buffer.ptr->handle) {
+        HGEGraphics::free_buffer(data->vertex_buffer.ptr);
+    }
+    if (data->index_buffer.ptr && !data->index_buffer.ptr->handle) {
+        HGEGraphics::free_buffer(data->index_buffer.ptr);
+    }
     data->vertex_buffer = {};
     data->index_buffer = {};
 }
@@ -57,7 +63,7 @@ void pulse_update_mesh_vertices(PulseAppId app, PulseMeshHandle mesh, const void
             entry.buffer = m->vertex_buffer.handle;
             entry.buffer_data = m->vertex_buffer.ptr;
             entry.data = data;
-            entry.data_size = count;
+            entry.data_size = count * m->vertex_stride;
             st->dynamic_updates.push_back(entry);
         }
     }
@@ -73,7 +79,7 @@ void pulse_update_mesh_indices(PulseAppId app, PulseMeshHandle mesh, const void*
             entry.buffer = m->index_buffer.handle;
             entry.buffer_data = m->index_buffer.ptr;
             entry.data = data;
-            entry.data_size = count;
+            entry.data_size = count * m->index_stride;
             st->dynamic_updates.push_back(entry);
         }
     }
