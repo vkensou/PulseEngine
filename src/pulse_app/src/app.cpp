@@ -12,8 +12,8 @@ ECS_COMPONENT_DECLARE(pulse_app_state_resource);
 struct PulseApp {
     pulse::App impl;
 
-    PulseApp(const char* name)
-        : impl(this, name) {
+    PulseApp(PulseAppDesc* desc)
+        : impl(this, desc) {
     }
 };
 
@@ -56,8 +56,8 @@ void install_time_system(ecs_world_t* world) {
 
 namespace pulse {
 
-App::App(PulseAppId handle, const char* name)
-    : handle_(handle), name_(name) {
+App::App(PulseAppId handle, PulseAppDesc* desc)
+    : handle_(handle), name_(desc->name), enableRESTApi(desc->enable_restapi) {
     // Register core pipeline tag components so they're available before any plugin
     ecs_world_t* w = world_.c_ptr();
     ECS_COMPONENT_DEFINE(w, PulseTimer);
@@ -292,6 +292,11 @@ EPulseResult App::run() {
         return result;
     }
 
+    if (enableRESTApi) {
+        world_.import<flecs::stats>();
+        world_.set<flecs::Rest>({});
+    }
+
     state_ = AppState::Running;
     result = runner_fn_ ? runner_fn_(handle_, runner_ctx_) : default_runner();
     if (result != PULSE_RESULT_OK) {
@@ -437,8 +442,8 @@ static inline pulse::App* to_app(PulseAppId handle) {
     return handle ? &handle->impl : nullptr;
 }
 
-PulseAppId pulse_create_app(const char* name) {
-    return new PulseApp(name);
+PulseAppId pulse_create_app(PulseAppDesc* desc) {
+    return new PulseApp(desc);
 }
 
 void pulse_destroy_app(PulseAppId app) {

@@ -54,6 +54,10 @@ funcptr.PluginShutdownFn
 
 id "AppId"
 
+struct.AppDesc
+    .name           "?cstring"
+    .enableRESTApi  "bool"
+
 struct.PluginDesc
     .structSize     "uint32_t"
     .version        "uint32_t"
@@ -76,7 +80,7 @@ struct.Timer
 
 func.CreateApp
     "?AppId"
-    .name "?cstring"
+    .desc "*AppDesc"
 
 func.DestroyApp
     "void"

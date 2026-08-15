@@ -61,6 +61,13 @@ typedef EPulseResult (*PulseProcSubappExtractFn)(PulseAppId app, PulseAppId suba
 typedef EPulseResult (*PulseProcPluginBuildFn)(PulseAppId app, void* ctx);
 typedef void (*PulseProcPluginShutdownFn)(PulseAppId app, void* ctx);
 
+typedef struct PulseAppDesc
+{
+    const char*          name;
+    bool                 enable_restapi;
+
+} PulseAppDesc;
+
 typedef struct PulsePluginDesc
 {
     uint32_t             struct_size;
@@ -93,7 +100,7 @@ typedef struct PulseTimer
 
 extern ECS_COMPONENT_DECLARE(PulseTimer);
 
-PULSE_API PulseAppId pulse_create_app(const char* name);
+PULSE_API PulseAppId pulse_create_app(PulseAppDesc* desc);
 PULSE_API void pulse_destroy_app(PulseAppId app);
 PULSE_API EPulseResult pulse_app_run(PulseAppId _this);
 PULSE_API EPulseResult pulse_app_update(PulseAppId _this);

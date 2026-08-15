@@ -40,7 +40,10 @@ static ecs_entity_t create_transform_entity(
 
 int main(void) {
     // ---- Create app ----
-    PulseAppId app = pulse_create_app("test-renderer");
+    PulseAppDesc app_desc = {
+        .name = "test-renderer",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     // ---- Add plugins ----

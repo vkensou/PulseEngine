@@ -211,7 +211,10 @@ static void record_test_graphic(
 }
 
 int main(void) {
-    PulseAppId app = pulse_create_app("test-graphics");
+    PulseAppDesc app_desc = {
+        .name = "test-graphics",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);

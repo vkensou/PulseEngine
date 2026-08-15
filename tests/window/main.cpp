@@ -6,7 +6,10 @@
 #include <cstring>
 
 int main() {
-    PulseAppId app = pulse_create_app("test-window");
+    PulseAppDesc app_desc = {
+        .name = "test-window",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);

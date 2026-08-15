@@ -14,7 +14,10 @@
 
 // imgui 插件必须在 graphics 插件之后注册（build 阶段校验）。
 static void test_missing_graphics(void) {
-    PulseAppId app = pulse_create_app("test-imgui-missing-graphics");
+    PulseAppDesc app_desc = {
+        .name = "test-imgui-missing-graphics",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
@@ -30,7 +33,10 @@ static void test_missing_graphics(void) {
 int main(void) {
     test_missing_graphics();
 
-    PulseAppId app = pulse_create_app("test-imgui");
+    PulseAppDesc app_desc = {
+        .name = "test-imgui",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);

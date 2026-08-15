@@ -36,7 +36,10 @@ static bool mat4_eq(const HMM_Mat4* a, const HMM_Mat4* b, float tol) {
 // ---------------------------------------------------------------------------
 static void test_components() {
     printf("  test_components...\n");
-    PulseAppId app = pulse_create_app("t-comp");
+    PulseAppDesc app_desc = {
+        .name = "t-comp",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
@@ -56,7 +59,10 @@ static void test_components() {
 // ---------------------------------------------------------------------------
 static void test_empty_update() {
     printf("  test_empty_update...\n");
-    PulseAppId app = pulse_create_app("t-empty");
+    PulseAppDesc app_desc = {
+        .name = "t-empty",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
     assert(pulse_app_update(app) == PULSE_RESULT_OK);
@@ -67,7 +73,10 @@ static void test_empty_update() {
 // ---------------------------------------------------------------------------
 static void test_single_transform() {
     printf("  test_single_transform...\n");
-    PulseAppId app = pulse_create_app("t-single");
+    PulseAppDesc app_desc = {
+        .name = "t-single",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
@@ -103,7 +112,10 @@ static void test_single_transform() {
 // ---------------------------------------------------------------------------
 static void test_rotation_transform() {
     printf("  test_rotation_transform...\n");
-    PulseAppId app = pulse_create_app("t-rot");
+    PulseAppDesc app_desc = {
+        .name = "t-rot",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
@@ -137,7 +149,10 @@ static void test_rotation_transform() {
 // ---------------------------------------------------------------------------
 static void test_scale_transform() {
     printf("  test_scale_transform...\n");
-    PulseAppId app = pulse_create_app("t-scale");
+    PulseAppDesc app_desc = {
+        .name = "t-scale",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
@@ -169,7 +184,10 @@ static void test_scale_transform() {
 // ---------------------------------------------------------------------------
 static void test_hierarchy() {
     printf("  test_hierarchy...\n");
-    PulseAppId app = pulse_create_app("t-hier");
+    PulseAppDesc app_desc = {
+        .name = "t-hier",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 
@@ -232,7 +250,10 @@ static void test_hierarchy() {
 // ---------------------------------------------------------------------------
 static void test_auto_insertion() {
     printf("  test_auto_insertion...\n");
-    PulseAppId app = pulse_create_app("t-auto");
+    PulseAppDesc app_desc = {
+        .name = "t-auto",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
     assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
 

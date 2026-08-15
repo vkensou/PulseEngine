@@ -7,7 +7,10 @@
 #include "pulse_input.h"
 
 int main() {
-    PulseAppId app = pulse_create_app("test-input");
+    PulseAppDesc app_desc = {
+        .name = "test-input",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     // Add input plugin (no desc needed)

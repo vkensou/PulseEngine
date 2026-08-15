@@ -92,7 +92,10 @@ static EPulseResult test_runner(PulseAppId app, void* ctx) {
 }
 
 int main(void) {
-    PulseAppId app = pulse_create_app("test-app");
+    PulseAppDesc app_desc = {
+        .name = "test-app",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     PulsePluginDesc desc = {
@@ -111,7 +114,10 @@ int main(void) {
     assert(pulse_app_has_plugin(app, "NestedPlugin"));
     assert(pulse_app_add_plugin(app, &desc) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
 
-    PulseAppId sub = pulse_create_app("Sub");
+    app_desc = {
+        .name = "Sub",
+    };
+    PulseAppId sub = pulse_create_app(&app_desc);
     assert(sub != nullptr);
 
     PulsePluginDesc sub_desc = {
@@ -148,7 +154,10 @@ int main(void) {
 
     // --- Timer: singleton exists and is refreshed every frame ---
     {
-        PulseAppId time_app = pulse_create_app("time-app");
+    PulseAppDesc app_desc = {
+        .name = "time-app",
+    };
+        PulseAppId time_app = pulse_create_app(&app_desc);
         assert(time_app != nullptr);
 
         ecs_world_t* world = pulse_app_world(time_app);

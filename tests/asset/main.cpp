@@ -777,7 +777,10 @@ int main(void) {
     assert(default_desc.root_path != nullptr);
     assert(default_desc.max_requests_per_update == 8);
 
-    PulseAppId app = pulse_create_app("test-asset");
+    PulseAppDesc app_desc = {
+        .name = "test-asset",
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();

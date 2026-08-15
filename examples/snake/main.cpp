@@ -25,7 +25,10 @@
 
 int main(void)
 {
-	PulseAppId app = pulse_create_app("pulse-snake-example");
+    PulseAppDesc app_desc = {
+        .name = "pulse-snake-example",
+    };
+	PulseAppId app = pulse_create_app(&app_desc);
 	assert(app != nullptr);
 
 	// ---- 插件 ----

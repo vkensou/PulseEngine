@@ -40,7 +40,7 @@ struct RegisteredSubApp {
 
 class App {
 public:
-    explicit App(PulseAppId handle, const char* name);
+    explicit App(PulseAppId handle, PulseAppDesc* desc);
     ~App();
 
     App(const App&) = delete;
@@ -85,6 +85,7 @@ private:
     bool shutdown_done_ = false;
     std::string name_;
     std::string last_error_;
+    bool enableRESTApi;
 
     EPulseResult default_runner();
     EPulseResult drain_pending_plugins();
