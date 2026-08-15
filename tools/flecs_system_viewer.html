@@ -291,6 +291,21 @@
     background: rgba(77,163,255,0.5);
   }
 
+  th.sortable {
+    cursor: pointer;
+  }
+
+  th.sortable:hover {
+    color: var(--accent);
+  }
+
+  .sort-indicator {
+    display: inline-block;
+    min-width: 10px;
+    font-size: 10px;
+    color: var(--accent);
+  }
+
   tr:hover td { background: rgba(255,255,255,0.03); }
 
   .mono {
@@ -467,20 +482,22 @@
                 <col style="width: 64px">
                 <col style="width: 240px">
                 <col style="width: 90px">
+                <col style="width: 100px">
                 <col style="width: 190px">
                 <col style="width: 320px">
               </colgroup>
               <thead>
                 <tr>
-                  <th title="按 DependsOn 执行顺序">#</th>
+                  <th title="按 DependsOn 执行顺序" data-sort-key="exec"># <span class="sort-indicator"></span></th>
                   <th>系统</th>
                   <th>状态</th>
+                  <th data-sort-key="time">耗时 <span class="sort-indicator"></span></th>
                   <th>依赖 (DependsOn)</th>
                   <th>查询表达式</th>
                 </tr>
               </thead>
               <tbody id="tableBody">
-                <tr><td colspan="5" class="empty">点击“加载系统”开始。</td></tr>
+                <tr><td colspan="6" class="empty">点击“加载系统”开始。</td></tr>
               </tbody>
             </table>
           </div>
@@ -537,6 +554,10 @@ const hideBuiltinCheckbox = document.getElementById("hideBuiltin");
 let graphViewSize = { w: 800, h: 400 };
 let graphTransform = { k: 1, tx: 0, ty: 0 };
 let panState = null;
+let currentSystems = [];
+let currentExecIndex = new Map();
+let sortKey = "exec";
+let sortDir = "asc";
 
 const KNOWN_PHASES = new Set([
   "OnStart", "PreFrame", "OnLoad", "PostLoad", "PreUpdate", "OnUpdate",
@@ -955,12 +976,17 @@ function renderGraph(nodes, edges) {
   applyGraphTransform();
 }
 
-function renderTable(systems) {
+function formatTime(ms) {
+  if (ms == null || !isFinite(ms)) return '<span style="color:var(--muted)">—</span>';
+  return `<span class="mono" title="${escapeHtml(ms.toFixed(4))} ms">${ms.toFixed(2)} ms</span>`;
+}
+
+function renderTable(sortedSystems) {
   tableBody.innerHTML = "";
-  if (!systems.length) {
+  if (!sortedSystems.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 5;
+    td.colSpan = 6;
     td.className = "empty";
     td.textContent = "没有找到任何 System。";
     tr.appendChild(td);
@@ -968,14 +994,15 @@ function renderTable(systems) {
     return;
   }
 
-  systems.forEach((s, i) => {
+  sortedSystems.forEach((s, i) => {
     const tr = document.createElement("tr");
     const cells = [
-      String(i + 1),
+      String((s.execIndex != null ? s.execIndex : i) + 1),
       `<span class="mono" title="${escapeHtml(s.path)}">${escapeHtml(s.path)}</span>`,
       s.disabled
         ? '<span class="badge disabled">Disabled</span>'
         : '<span class="badge enabled">Enabled</span>',
+      formatTime(s.timeMs),
       s.deps.length
         ? s.deps.map(d => `<span class="badge dep" title="${escapeHtml(d)}">${escapeHtml(shortName(d))}</span>`).join(" ")
         : '<span style="color:var(--muted)">—</span>',
@@ -986,6 +1013,58 @@ function renderTable(systems) {
     tr.innerHTML = cells.map(c => `<td>${c}</td>`).join("");
     tableBody.appendChild(tr);
   });
+}
+
+function updateSortIndicators() {
+  systemTable.querySelectorAll("th[data-sort-key] .sort-indicator").forEach(el => {
+    el.textContent = "";
+  });
+  const th = systemTable.querySelector(`th[data-sort-key="${sortKey}"] .sort-indicator`);
+  if (th) th.textContent = sortDir === "asc" ? "▲" : "▼";
+}
+
+function applySortAndRender() {
+  const sorted = [...currentSystems];
+
+  if (sortKey === "exec") {
+    sorted.sort((a, b) => {
+      const ia = currentExecIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const ib = currentExecIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return sortDir === "asc" ? ia - ib : ib - ia;
+    });
+  } else if (sortKey === "time") {
+    sorted.sort((a, b) => {
+      const ta = a.timeMs;
+      const tb = b.timeMs;
+      const na = ta == null;
+      const nb = tb == null;
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      return sortDir === "asc" ? ta - tb : tb - ta;
+    });
+  }
+
+  renderTable(sorted);
+  updateSortIndicators();
+}
+
+function initTableSort() {
+  systemTable.querySelectorAll("th[data-sort-key]").forEach(th => {
+    th.classList.add("sortable");
+    th.addEventListener("click", e => {
+      if (e.target.classList.contains("resizer")) return;
+      const key = th.dataset.sortKey;
+      if (sortKey === key) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = key === "time" ? "desc" : "asc";
+      }
+      applySortAndRender();
+    });
+  });
+  updateSortIndicators();
 }
 
 function renderSummary(systems, nodes, edges) {
@@ -1026,7 +1105,62 @@ function addBuiltinPhaseEdges(nodes, edges) {
   }
 }
 
+function comparePhaseNodes(nodes, a, b) {
+  const na = nodes.get(a);
+  const nb = nodes.get(b);
+  const ia = PHASE_ORDER_INDEX.has(na.label) ? PHASE_ORDER_INDEX.get(na.label) : 1000;
+  const ib = PHASE_ORDER_INDEX.has(nb.label) ? PHASE_ORDER_INDEX.get(nb.label) : 1000;
+  if (ia !== ib) return ia - ib;
+  const ea = na.entityId != null ? na.entityId : Number.MAX_SAFE_INTEGER;
+  const eb = nb.entityId != null ? nb.entityId : Number.MAX_SAFE_INTEGER;
+  if (ea !== eb) return ea - eb;
+  return na.label.localeCompare(nb.label);
+}
+
+function computePhaseOrder(nodes, edges) {
+  const phaseIds = new Set();
+  for (const [id, node] of nodes) {
+    if (node.type === "phase") phaseIds.add(id);
+  }
+
+  const adj = new Map();
+  const indeg = new Map();
+  for (const id of phaseIds) {
+    adj.set(id, []);
+    indeg.set(id, 0);
+  }
+
+  const seen = new Set();
+  for (const e of edges) {
+    if (!phaseIds.has(e.from) || !phaseIds.has(e.to)) continue;
+    const key = e.from + ">" + e.to;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    adj.get(e.from).push(e.to);
+    indeg.set(e.to, indeg.get(e.to) + 1);
+  }
+
+  const queue = [...phaseIds].filter(id => indeg.get(id) === 0);
+  const order = [];
+  while (queue.length) {
+    queue.sort((a, b) => comparePhaseNodes(nodes, a, b));
+    const id = queue.shift();
+    order.push(id);
+    for (const next of adj.get(id)) {
+      indeg.set(next, indeg.get(next) - 1);
+      if (indeg.get(next) === 0) queue.push(next);
+    }
+  }
+
+  const remaining = [...phaseIds].filter(id => !order.includes(id));
+  remaining.sort((a, b) => comparePhaseNodes(nodes, a, b));
+  return order.concat(remaining);
+}
+
 function computeSystemExecutionOrder(systems, nodes, edges) {
+  const phaseOrder = computePhaseOrder(nodes, edges);
+  const phaseRank = new Map(phaseOrder.map((id, i) => [id, i]));
+
   const systemMap = new Map(systems.map(s => [s.id, s]));
   const systemIds = new Set(systemMap.keys());
   const rank = new Map();
@@ -1039,9 +1173,8 @@ function computeSystemExecutionOrder(systems, nodes, edges) {
     if (!node) return 999;
 
     if (node.type === "phase") {
-      const r = PHASE_ORDER_INDEX.has(node.label)
-        ? PHASE_ORDER_INDEX.get(node.label)
-        : 100;
+      const r = phaseRank.get(id) ??
+        (PHASE_ORDER_INDEX.has(node.label) ? PHASE_ORDER_INDEX.get(node.label) : 100);
       rank.set(id, r);
       return r;
     }
@@ -1139,7 +1272,7 @@ async function loadSystems() {
       entity_ids: "true"
     };
 
-    const [sysResp, phaseResp, queriesResp] = await Promise.all([
+    const [sysResp, phaseResp, queriesResp, statsResp] = await Promise.all([
       api(base, "/query", queryParams),
       api(base, "/query", phaseParams).catch(err => {
         console.warn("无法获取 Phase 列表（可选）:", err);
@@ -1147,6 +1280,10 @@ async function loadSystems() {
       }),
       api(base, "/queries").catch(err => {
         console.warn("无法获取 /queries（可选）:", err);
+        return null;
+      }),
+      api(base, "/stats/pipeline", { period: "1s" }).catch(err => {
+        console.warn("无法获取 System 耗时统计（可选）:", err);
         return null;
       })
     ]);
@@ -1185,6 +1322,32 @@ async function loadSystems() {
         const item = systemMap.get(q.name);
         if (item) item.expr = q.expr || null;
       }
+    }
+
+    // Attach per-system runtime stats from /stats/pipeline (optional).
+    const statsMap = new Map();
+    if (statsResp && Array.isArray(statsResp)) {
+      for (const st of statsResp) {
+        if (!st || !st.name || !st.time_spent) continue;
+        const avg = st.time_spent.avg;
+        if (!Array.isArray(avg) || !avg.length) continue;
+        const raw = avg[avg.length - 1];
+        const num = typeof raw === "number" ? raw : parseFloat(raw);
+        if (isFinite(num)) statsMap.set(st.name, num * 1000);
+      }
+    }
+    for (const s of systems) {
+      let v = statsMap.get(s.path);
+      if (v == null) {
+        const short = shortName(s.path);
+        for (const [name, val] of statsMap) {
+          if (shortName(name) === short) {
+            v = val;
+            break;
+          }
+        }
+      }
+      s.timeMs = v ?? null;
     }
 
     if (hideBuiltinCheckbox.checked) {
@@ -1261,7 +1424,13 @@ async function loadSystems() {
       return (a.entityId ?? 0) - (b.entityId ?? 0);
     });
 
-    renderTable(systems);
+    systems.forEach((s, i) => { s.execIndex = i; });
+    currentSystems = systems.slice();
+    currentExecIndex = new Map(systems.map((s, i) => [s.id, i]));
+    sortKey = "exec";
+    sortDir = "asc";
+
+    applySortAndRender();
     renderGraph(nodes, edges);
     renderSummary(systems, nodes, edges);
 
@@ -1280,6 +1449,7 @@ async function loadSystems() {
 
 initTabs();
 initColumnResize();
+initTableSort();
 initGraphInteractions();
 
 loadBtn.addEventListener("click", loadSystems);
