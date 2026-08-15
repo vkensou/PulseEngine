@@ -123,12 +123,11 @@ static void snakeUISystemWrapper(
 )
 {
 	auto world = it.world();
-	auto app = pulse_get_app_from_world(world.c_ptr());
 	auto state = pulse::system_state_machine<SnakeGameState>(world);
 	auto& keyboardQuery = world.get<const PulseKeyboardInput>();
 	auto restartEvent = pulse::event_writer<RestartEvent>(world);
 	auto systemState = it.system().get<snakeUISystemWrapperState>();
-	snakeUISystem(app, score, systemState.primaryWindowQuery, state, pulse::res<const PulseKeyboardInput>(keyboardQuery), restartEvent);
+	snakeUISystem(score, systemState.primaryWindowQuery, state, pulse::res<const PulseKeyboardInput>(keyboardQuery), restartEvent);
 }
 
 void importModule(pulse::ModuleContext* moduleContext)

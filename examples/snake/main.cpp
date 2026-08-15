@@ -19,6 +19,7 @@
 #include "pulse_transform.h"
 #include "pulse_graphics.h"
 #include "pulse_renderer.h"
+#include "pulse_imgui.h"
 
 #include "ecsext.hpp"     // pulse::EventCenter
 #include "snake_module.h" // importModule
@@ -52,6 +53,8 @@ int main(void)
     assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_RESULT_OK);
 
 	assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
+
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_RESULT_OK);
 
 	// ---- world ----
 	flecs::world world = flecs::world(pulse_app_world(app));
@@ -96,7 +99,7 @@ int main(void)
 		.updatePipeline = flecs::OnUpdate,
 		.postUpdatePipeline = flecs::PostUpdate,
 		.renderPipeline = flecs::OnStore,
-		.imguiPipeline = flecs::OnUpdate,
+		.imguiPipeline = pulse_imgui_get_phase(app),
 		.eventManager = &eventCenter,
 	};
 	importModule(&moduleContext);

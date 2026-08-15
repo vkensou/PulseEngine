@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <random>
+#include "imgui.h"
 
 HMM_Vec3 toDelta(Direction4W direction)
 {
@@ -508,39 +509,26 @@ void onGameOverSystem(pulse::event_reader<GameOverEvent> eventAppleEat, pulse::c
 	destructEntities(snakeQuery, appleQuery);
 }
 
+void snakeUISystem(const Score& score, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery, pulse::system_state_machine<SnakeGameState> state, pulse::res<const PulseKeyboardInput> keyboard, pulse::event_writer<RestartEvent> restartEvent)
+{
+	bool playing = state.is(SnakeGameState::Gaming);
+	if (playing)
+	{
+		ImGui::Text("%d", score.value);
+	}
+	else
+	{
+		if (ImGui::Button("Restart"))
+		{
+			restartEvent.broadcast();
+		}
+	}
+}
+
 void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources)
 {
 	command_buffer.defer_suspend();
 	createEntities(command_buffer, borderQuery.get(), resources.get());
 	command_buffer.defer_resume();
 	state.to(SnakeGameState::Gaming);
-}
-
-// UI：分数 → 窗口标题栏；GameOver 后按 Enter/R 广播 RestartEvent。
-// 标题经 PulseWindow 组件同步（勿裸调 SDL_SetWindowTitle，
-// 否则会被 PulseWindowPostFrameSystem 以组件 title 为准覆盖）。
-// 主窗口实体经附加查询获取（注册期建查询，运行期只读）。
-void snakeUISystem(PulseAppId app, const Score& score, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery, pulse::system_state_machine<SnakeGameState> state, pulse::res<const PulseKeyboardInput> keyboard, pulse::event_writer<RestartEvent> restartEvent)
-{
-	bool playing = state.is(SnakeGameState::Gaming);
-
-	char title[192];
-	if (playing)
-		snprintf(title, sizeof(title), "Snake - Score: %d", score.value);
-	else
-		snprintf(title, sizeof(title), "Game Over! Score: %d - Press Enter to Restart", score.value);
-	auto windowEntity = primaryWindowQuery.first();
-	if (windowEntity.is_alive())
-		pulse_window_set_title(app, windowEntity, title);
-
-	// GameOver 后按 Enter/R 重启
-	if (!playing)
-	{
-		if (keyboard.get().just_pressed[SDL_SCANCODE_RETURN] ||
-			keyboard.get().just_pressed[SDL_SCANCODE_R])
-		{
-			printf("Restart!\n");
-			restartEvent.broadcast();
-		}
-	}
 }
