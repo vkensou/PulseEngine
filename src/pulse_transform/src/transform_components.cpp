@@ -1,4 +1,4 @@
-﻿#include "transform_internal.h"
+#include "transform_internal.h"
 
 #include <assert.h>
 #include <string.h>

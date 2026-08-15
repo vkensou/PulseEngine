@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "flecs.h"
 #include <algorithm>
