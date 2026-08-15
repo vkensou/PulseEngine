@@ -5,3 +5,4 @@
 .\lua54.exe generate-binding.lua ..\..\src\pulse_graphics\idl\pulse_graphics.idl ..\..\src\pulse_graphics\idl\temp.pulse_graphics.h c ..\..\src\pulse_graphics\include\pulse_graphics.h Pulse "    "
 .\lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl ..\..\src\pulse_transform\idl\temp.pulse_transform.h c ..\..\src\pulse_transform\include\pulse_transform.h Pulse "    "
 .\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl ..\..\src\pulse_renderer\idl\temp.pulse_renderer.h c ..\..\src\pulse_renderer\include\pulse_renderer.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_imgui\idl\pulse_imgui.idl ..\..\src\pulse_imgui\idl\temp.pulse_imgui.h c ..\..\src\pulse_imgui\include\pulse_imgui.h Pulse "    "
