@@ -9,20 +9,29 @@ module flecs_systems private
 require daslib/ast_boost
 require daslib/templates_boost
 require daslib/macro_boost
+require daslib/strings_boost
+require flecs_state_machine
 
 [function_macro(name="system")]
 class FlecsSystemMacro : AstFunctionAnnotation {
     def override apply(var func : FunctionPtr; var group : ModuleGroup; args : AnnotationArgumentList; var errors : das_string) : bool {
         let phase_field = resolve_phase_field(args, errors)
 
-        if (is_run_mode(func)) {
-            return add_register_helper(func, string(func.name), phase_field)
+        var state_type : TypeDeclPtr
+        var state_values : array<int64>
+        resolve_state_field(args, state_type, state_values, errors)
+        if (errors != "") {
+            return false
         }
 
-        return generate_functions(func, phase_field, errors)
+        if (is_run_mode(func)) {
+            return add_register_helper(func, string(func.name), phase_field, state_type, state_values)
+        }
+
+        return generate_functions(func, phase_field, state_type, state_values, errors)
     }
 
-    def generate_functions(var func : FunctionPtr; phase_field : string; var errors : das_string)  : bool {
+    def generate_functions(var func : FunctionPtr; phase_field : string; state_type : TypeDeclPtr; state_values : array<int64>; var errors : das_string)  : bool {
         let wrapper_name = "{func.name}`system_wrapper"
 
         var wrapper_fn_batch_exprs : array<ExpressionPtr>
@@ -53,6 +62,25 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             if (is_command_buffer_type(arg._type)) {
                 wrapper_fn_body |> push <| qmacro_expr(${ var cmd = CommandBuffer(world = world); })                                                                                                                                                              
                 wrapper_fn_call_args |> push <| qmacro(cmd)
+                continue
+            }
+
+            if (is_app_id_type(arg._type)) {
+                let app_name = "app{arg_index}"
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(app_name) = pulse_get_app_from_world(world); })
+                wrapper_fn_call_args |> push <| qmacro($i(app_name))
+                continue
+            }
+
+            let (state_machine_result, state_machine_error) = is_state_machine_type(arg)
+            if (state_machine_error != "") {
+                errors := state_machine_error
+                return false
+            }
+            if (state_machine_result) {
+                let state_machine_name = "state_machine{arg_index}"
+                wrapper_fn_body |> push <| qmacro_expr(${ var $i(state_machine_name) = struct<$t(arg._type)>(world = world); })
+                wrapper_fn_call_args |> push <| qmacro($i(state_machine_name))
                 continue
             }
 
@@ -226,7 +254,14 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
         let add_ok = compiling_module() |> add_function(wrapper_fn)
 
-        register_fn_body_exprs |> push <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
+        let has_state = length(state_values) > 0
+        let system_entity_name = "__system_entity"
+        register_fn_body_exprs |> push <| make_register_expr("register_system_from_desc", wrapper_name, desc_name, system_entity_name, func.at, has_state)
+        if (has_state) {
+            for (state_value in state_values) {
+                register_fn_body_exprs |> push <| make_state_reg_expr(state_type, state_value, system_entity_name, func.at)
+            }
+        }
         var register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
             unsafe {
                 $b(register_fn_body_exprs)
@@ -234,7 +269,12 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         }
         register_fn.flags |= FunctionFlags.generated | FunctionFlags.privateFunction
 
-        event_register_fn_body_exprs |> push <| qmacro(observe_from_desc(ctx.world, $i(desc_name), @@$c(wrapper_name)))
+        event_register_fn_body_exprs |> push <| make_register_expr("observe_from_desc", wrapper_name, desc_name, system_entity_name, func.at, has_state)
+        if (has_state) {
+            for (state_value in state_values) {
+                event_register_fn_body_exprs |> push <| make_state_reg_expr(state_type, state_value, system_entity_name, func.at)
+            }
+        }
         var event_register_fn <- qmacro_function(register_fn_name) $(ctx : ModuleContext) : void {
             $b(event_register_fn_body_exprs)
         }
@@ -246,6 +286,9 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
     def resolve_phase_field(args : AnnotationArgumentList; var errors : das_string) {
         let phase = find_arg(args, "phase")
+        if (phase is nothing) {
+            return ""
+        }
         if (!(phase is tString)) {
             errors := "system phase must be one of: init, update, postUpdate, render, imgui"
             return ""
@@ -266,6 +309,89 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return length(func.arguments) == 1 && is_run_iter_signature(func.arguments[0]._type)
     }
 
+    def resolve_state_field(args : AnnotationArgumentList; var state_type : TypeDeclPtr&; var state_values : array<int64>; var errors : das_string) : bool {
+        let state_arg = find_arg(args, "state")
+        if (state_arg is nothing) {
+            return true
+        }
+        if (!(state_arg is tString)) {
+            errors := "system 'state' must be a string of '|' separated state enum member names"
+            return false
+        }
+
+        let state_names = split(state_arg as tString, "|")
+        var state_enum = state_machine_find_enum(compiling_module())
+        if (state_enum == null) {
+            errors := "system uses 'state' but the module has no enum annotated with [state_machine(init=...)]"
+            return false
+        }
+
+        var enum_type = new TypeDecl(baseType = Type.tEnumeration, enumType = state_enum)
+        for (state_name in state_names) {
+            let trimmed_name = state_name |> trim()
+            if (trimmed_name == "") {
+                continue
+            }
+            var found = false
+            var found_value = 0l
+            var next_value = 0l
+            for (entry in state_enum.list) {
+                var current_value = next_value
+                if (entry.value != null && entry.value is ExprConstInt) {
+                    current_value = int64((entry.value as ExprConstInt).value)
+                    next_value = current_value + 1l
+                } else {
+                    next_value = current_value + 1l
+                }
+                if (entry.name == trimmed_name) {
+                    found = true
+                    found_value = current_value
+                }
+            }
+            if (!found) {
+                errors := "state '{trimmed_name}' not found in state machine enum {state_enum.name}"
+                return false
+            }
+            state_values |> push(found_value)
+        }
+
+        if (length(state_values) == 0) {
+            errors := "system 'state' must list at least one state enum member, e.g. state=\"A|B\""
+            return false
+        }
+
+        state_type = clone_type(enum_type)
+        return true
+    }
+
+    def make_register_expr(call_name: string; wrapper_name: string; desc_name: string; entity_name: string; at: LineInfo; keep_entity: bool) : ExpressionPtr {
+        var call_expr = make_call(at, call_name)
+        var call = call_expr as ExprCall
+        call.arguments |> push <| qmacro(ctx.world)
+        call.arguments |> push <| qmacro($i(desc_name))
+        call.arguments |> push <| qmacro(@@$c(wrapper_name))
+
+        if (!keep_entity) {
+            return call_expr
+        }
+
+        var vlet = new ExprLet(at = at, atInit = at)
+        var vv <- qmacro_variable(entity_name, type<Entity>)
+        vv.init = call_expr
+        vlet.variables |> emplace_new() <| vv
+        return vlet
+    }
+
+    def make_state_reg_expr(state_type : TypeDeclPtr; state_value : int64; entity_name : string; at : LineInfo) : ExpressionPtr {
+        var call_expr = make_call(at, "state_machine_reg_state")
+        var call = call_expr as ExprCall
+        call.arguments |> push <| qmacro(ctx.world)
+        call.arguments |> push <| qmacro(type<$t(state_type)>)
+        call.arguments |> push <| qmacro($i(entity_name))
+        call.arguments |> push <| new ExprConstInt64(at = at, value = state_value)
+        return call_expr
+    }
+
     def is_run_iter_signature(arg_type : TypeDeclPtr) : bool {
         let type_name = string(describe(arg_type))
         return type_name == "flecs::ecs_iter_t? -const" || type_name == "ecs_iter_t? -const"
@@ -280,6 +406,44 @@ class FlecsSystemMacro : AstFunctionAnnotation {
     def is_command_buffer_type(arg_type : TypeDeclPtr) : bool {
         let type_name = string(describe(arg_type))
         return type_name == "flecs_boost::CommandBuffer const" || type_name == "flecs_boost::CommandBuffer" || type_name == "flecs_boost::CommandBuffer -const"
+    }
+
+    def is_app_id_type(arg_type : TypeDeclPtr) : bool {
+        let type_name = string(describe(arg_type))
+        return (type_name == "PulseAppId") || (type_name == "PulseAppId const") || (type_name == "PulseAppId -const") || (type_name == "pulse::PulseAppId") || (type_name == "pulse::PulseAppId const") || (type_name == "pulse::PulseAppId -const")
+    }
+
+    def is_state_machine_type(arg: VariablePtr) {
+        let arg_type = arg._type
+        if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
+            return (false, "")
+        }
+
+        let macroExpr = arg_type.dimExpr[0] as ExprConstString
+        let macroName = string(macroExpr.value)
+
+        if (macroName != "SystemStateMachine") {
+            return (false, "")
+        }
+
+        if (!arg_type.flags.constant || arg_type.flags.removeConstant) {
+            var cloned = clone_type(arg_type)
+            cloned.flags.constant = true
+            cloned.flags.removeConstant = false
+            return (false, "expecting '{arg.name}: {describe(cloned)}', got '{describe(arg)}'
+            system parameter of type SystemStateMachine<T> cannot be declared with 'var'; remove 'var' keyword")
+        }
+
+        if (length(arg_type.dimExpr) < 2) {
+            return (false, "expecting 'SystemStateMachine<T>', got 'SystemStateMachine<>'
+            SystemStateMachine<T> requires a type parameter, e.g. SystemStateMachine<SnakeGameState>")
+        }
+
+        if (!(arg_type.dimExpr[1] is ExprTypeDecl)) {
+            return (false, "SystemStateMachine<T> requires a type param, but {describe(arg_type.dimExpr[1])} is not a Type")
+        }
+
+        return (true, "")
     }
 
     def is_res_type(arg: VariablePtr) {
@@ -448,19 +612,6 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, "")
     }
 
-    def is_iter_type(arg_type : TypeDeclPtr) : bool {
-        if (is_run_iter_signature(arg_type)) {
-            return true
-        }
-        var base_type <- make_component_type(arg_type)
-        let type_name = string(describe(base_type))
-        return type_name == "flecs::ecs_iter_t?" || type_name == "ecs_iter_t?"
-    }
-
-    def is_inout_argument(arg_type : TypeDeclPtr) : bool {
-        return arg_type.isRefType && !arg_type.flags.constant
-    }
-
     def make_component_type(arg_type : TypeDeclPtr) : TypeDeclPtr {
         var component_type <- clone_type(arg_type)
         component_type.flags &= ~TypeDeclFlags.constant
@@ -475,30 +626,20 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         )
     }
 
-    def add_register_helper(func : FunctionPtr; callback_name : string; phase_field : string) : bool {
+    def add_register_helper(func : FunctionPtr; callback_name : string; phase_field : string; state_type : TypeDeclPtr; state_values : array<int64>) : bool {
         let helper_name = "{func.name}`register"
         let desc_name = "__system_desc"
         var body_exprs : array<ExpressionPtr>
         body_exprs |> push <| qmacro_expr(${ var $i(desc_name) = system_desc($v(string(func.name)), ctx.$f(phase_field)); })
 
-        if (!is_run_mode(func)) {
-            // register_system copies desc.terms until the first zeroed slot, so generated terms must stay dense.
-            var term_index = 0
-            for (arg in func.arguments) {
-                if (is_entity_type(arg._type)) {
-                    continue
-                }
-
-                if (true) {
-                    var component_type <- make_component_type(arg._type)
-                    let term_fn = is_inout_argument(arg._type) ? "system_term_inout" : "system_term_in"
-                    body_exprs |> push <| qmacro_expr(${ $i(desc_name).terms[$v(term_index)] = $c(term_fn)(ctx.world, type<$t(component_type)>); })
-                    term_index += 1
-                }
+        let has_state = length(state_values) > 0
+        let system_entity_name = "__system_entity"
+        body_exprs |> push <| make_register_expr("register_system_from_desc", callback_name, desc_name, system_entity_name, func.at, has_state)
+        if (has_state) {
+            for (state_value in state_values) {
+                body_exprs |> push <| make_state_reg_expr(state_type, state_value, system_entity_name, func.at)
             }
         }
-
-        body_exprs |> push <| qmacro(register_system_from_desc(ctx.world, $i(desc_name), @@$c(callback_name)))
 
         var helper_fn <- qmacro_function(helper_name) $(ctx : ModuleContext) : void {
             unsafe {

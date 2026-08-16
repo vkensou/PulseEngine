@@ -525,6 +525,11 @@ void snakeUISystem(const Score& score, flecs::query<PulseWindow, PulsePrimaryWin
 	}
 }
 
+void snakeFpsUISystem(pulse::res<const PulseTimer> timer)
+{
+	ImGui::Text("FPS: %d", timer.get().fps);
+}
+
 void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources)
 {
 	command_buffer.defer_suspend();

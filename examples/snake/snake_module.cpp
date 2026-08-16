@@ -103,16 +103,6 @@ static void onGameOverSystemWrapper(
 	auto state = pulse::system_state_machine<SnakeGameState>(world);
 	onGameOverSystem(gameOverEvent, command_buffer, state, snakeQuery, appleQuery);
 }
-static void restartSystemWrapper(
-	pulse::event_reader<RestartEvent> restartEvent, flecs::world& world
-)
-{
-	pulse::command_buffer command_buffer(world);
-	auto borderQuery = pulse::singleton_query<const Border>(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	auto state = pulse::system_state_machine<SnakeGameState>(world);
-	restartSystem(restartEvent, command_buffer, state, borderQuery, resourcesQuery);
-}
 struct snakeUISystemWrapperState
 {
 	flecs::query<PulseWindow, PulsePrimaryWindow> primaryWindowQuery;
@@ -128,6 +118,23 @@ static void snakeUISystemWrapper(
 	auto restartEvent = pulse::event_writer<RestartEvent>(world);
 	auto systemState = it.system().get<snakeUISystemWrapperState>();
 	snakeUISystem(score, systemState.primaryWindowQuery, state, pulse::res<const PulseKeyboardInput>(keyboardQuery), restartEvent);
+}
+static void snakeFpsUISystemWrapper(
+	flecs::iter& it)
+{
+	auto world = it.world();
+	auto& timerQuery = world.get<const PulseTimer>();
+	snakeFpsUISystem(pulse::res<const PulseTimer>(timerQuery));
+}
+static void restartSystemWrapper(
+	pulse::event_reader<RestartEvent> restartEvent, flecs::world& world
+)
+{
+	pulse::command_buffer command_buffer(world);
+	auto borderQuery = pulse::singleton_query<const Border>(world);
+	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	auto state = pulse::system_state_machine<SnakeGameState>(world);
+	restartSystem(restartEvent, command_buffer, state, borderQuery, resourcesQuery);
 }
 
 void importModule(pulse::ModuleContext* moduleContext)
@@ -161,6 +168,9 @@ void importModule(pulse::ModuleContext* moduleContext)
 		.each(snakeUISystemWrapper);
 	snakeUISystem.set<snakeUISystemWrapperState>({ .primaryWindowQuery = moduleContext->world.query<PulseWindow, PulsePrimaryWindow>() });
 	stateMachine.reg(snakeUISystem, { SnakeGameState::Gaming, SnakeGameState::GameOver });
+	moduleContext->world.system("SnakeFpsUI")
+		.kind(moduleContext->imguiPipeline)
+		.run(snakeFpsUISystemWrapper);
 	auto snakeMoveIntentDispatcher = std::make_unique<pulse::EntityEventRegister<SnakeMoveIntentEvent, SnakeBodies>>();
 	snakeMoveIntentDispatcher->reg(executeSnakeMoveSystemWrapper, moduleContext->world.query<const IsApple, const PulseLocalTransform>());
 	stateMachine.reg(snakeMoveIntentDispatcher->observe(moduleContext->world), { SnakeGameState::Gaming });

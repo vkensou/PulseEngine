@@ -28,6 +28,7 @@ int main(void)
 {
     PulseAppDesc app_desc = {
         .name = "pulse-snake-example",
+        .enable_restapi = true,
     };
 	PulseAppId app = pulse_create_app(&app_desc);
 	assert(app != nullptr);

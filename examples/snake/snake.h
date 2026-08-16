@@ -159,5 +159,8 @@ void onGameOverSystem(pulse::event_reader<GameOverEvent> gameOverEvent, pulse::c
 PULSE_ECS_SYSTEM(PHASE=IMGUI, STATE=SnakeGameState::Gaming|SnakeGameState::GameOver)
 void snakeUISystem(const Score& score, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery, pulse::system_state_machine<SnakeGameState> state, pulse::res<const PulseKeyboardInput> keyboard, pulse::event_writer<RestartEvent> restartEvent);
 
+PULSE_ECS_SYSTEM(PHASE=IMGUI)
+void snakeFpsUISystem(pulse::res<const PulseTimer> timer);
+
 PULSE_ECS_SYSTEM(PHASE=IMGUI, STATE=SnakeGameState::GameOver)
 void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);

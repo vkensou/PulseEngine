@@ -10,6 +10,8 @@ require flecs_res public
 require flecs_event_writer public
 require flecs_event_reader public
 require flecs_query public
+require flecs_state_machine public
+require flecs_resource public
 require daslib/class_boost
 
 typedef Entity = uint64
@@ -44,6 +46,14 @@ def set_singleton(self: CommandBuffer; component: auto(T)) {
 
 def set_entity_component(self: CommandBuffer; entity: Entity; component: auto(T)) {
     ecs_entity_set(self.world, entity, component)
+}
+
+def defer_suspend(self: CommandBuffer) {
+    ecs_defer_suspend(self.world)
+}
+
+def defer_resume(self: CommandBuffer) {
+    ecs_defer_resume(self.world)
 }
 
 def private ecs_entity_create(var world: World) {
