@@ -143,8 +143,12 @@ void packets_swap_system(ecs_iter_t* it) {
     // Swap double buffers
     state->swap_packets();
 
-    // Clear the new write packet for next frame
-    state->write_packet().views.clear();
+    ++state->frame_index;
+
+    auto& packet = state->write_packet();
+    packet.views.clear();
+    packet.ubo_cache.frame_end();
+    packet.ubo_cache.release_idle(state->frame_index);
 }
 
 // ============================================================
@@ -202,26 +206,25 @@ static uint32_t align_up(uint32_t value, uint32_t alignment) {
     return (value + alignment - 1) / alignment * alignment;
 }
 
-static GpuBlockRef alloc_gpu_block(RendererView& view, uint32_t size, uint32_t ubo_alignment) {
+static GpuBlockRef alloc_gpu_block(RendererView& view, UboBlockCache& ubo_cache, uint32_t frame_index, uint32_t size, uint32_t ubo_alignment) {
     size = align_up(size, ubo_alignment);
     for (size_t i = 0; i < view.blocks.size(); ++i) {
         size_t index = view.blocks.size() - i - 1;
         auto& block = view.blocks[index];
         if (block.size >= block.used + size) {
             auto offset = block.used;
-            auto ptr = block.cpu_data.data() + offset;
+            auto ptr = block.cpu_data + offset;
             block.used += size;
             return { index, offset, size, ptr };
         }
     }
 
-    view.blocks.emplace_back(view.blocks.get_allocator().resource());
+    view.blocks.emplace_back();
     auto& block = view.blocks.back();
-    block.size = std::max(size, 1u * 1024 * 1024);
+    block.cpu_data = ubo_cache.acquire(size, frame_index, block.size);
     block.used = 0;
-    block.cpu_data.resize(block.size);
     auto offset = block.used;
-    auto ptr = block.cpu_data.data() + offset;
+    auto ptr = block.cpu_data + offset;
     block.used += size;
     return { view.blocks.size() - 1, offset, size, ptr };
 }
@@ -245,6 +248,8 @@ static size_t build_ubo_column_for_shader2(
     PulseAppId app,
     const pulse_renderer_state* state,
     RendererView& view,
+    UboBlockCache& ubo_cache,
+    uint32_t frame_index,
     HMM_Mat4& vp,
     RenderObject& obj,
     PulseShaderHandle shader,
@@ -277,7 +282,7 @@ static size_t build_ubo_column_for_shader2(
     }
 
     // 分配
-    col.block_ref = alloc_gpu_block(view, info.size, ubo_alignment);
+    col.block_ref = alloc_gpu_block(view, ubo_cache, frame_index, info.size, ubo_alignment);
 
     // copy from
     if (info.material_managed) {
@@ -335,7 +340,7 @@ static void record_renderer_callback(
             for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
                 const auto& info = pulse_shader_get_ubo_info(app, shader, u);
                 if (!info.renderer_managed) continue;
-                auto buffer_alloc = build_ubo_column_for_shader2(app, state, view, vp, obj, shader, u, info, state->ubo_alignment);
+                auto buffer_alloc = build_ubo_column_for_shader2(app, state, view, packet.ubo_cache, state->frame_index, vp, obj, shader, u, info, state->ubo_alignment);
                 if (ubo_count == 0) ubo_start = buffer_alloc;
                 ++ubo_count;
             }
@@ -346,7 +351,7 @@ static void record_renderer_callback(
         for (auto& block : view.blocks) {
             if (block.used == 0) continue;
             block.gpu_handle = pulse_render_graph_declare_uniform_buffer_quick(
-                graph, block.used, block.cpu_data.data());
+                graph, block.used, block.cpu_data);
         }
 
         // Build render pass

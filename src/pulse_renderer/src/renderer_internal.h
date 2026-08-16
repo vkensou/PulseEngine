@@ -30,14 +30,44 @@ struct RenderObject {
 // Dynamic UBO column (renderer-managed, per (set,binding))
 // ============================================================
 
-struct GpuBlock {
-    uint32_t size;
-    uint32_t used;
-    std::pmr::vector<uint8_t> cpu_data; // backed by the owning view's packet pool
-    PulseRGBufferHandle gpu_handle; // rendergraph handle (valid only after block finalize)
+struct CachedUboBlock {
+    uint8_t* data{nullptr};
+    uint32_t size{0};
+    uint32_t last_used_frame{0};
+    bool in_use{false};
+};
 
-    explicit GpuBlock(std::pmr::memory_resource* resource)
-        : size(0), used(0), cpu_data(resource), gpu_handle{} {}
+class UboBlockCache {
+public:
+    static constexpr uint32_t kMinBlockSize = 1 * 1024 * 1024;
+    static constexpr uint32_t kMaxIdleFrames = 60 * 5; // ~5 seconds at 60 FPS
+
+    UboBlockCache() = default;
+    ~UboBlockCache() { reset(); }
+
+    UboBlockCache(const UboBlockCache&) = delete;
+    UboBlockCache& operator=(const UboBlockCache&) = delete;
+
+    // Acquire a free cached buffer with at least `size` bytes.
+    uint8_t* acquire(uint32_t size, uint32_t frame_index, uint32_t& out_block_size);
+
+    // Called after all per-view GpuBlocks for this frame were destroyed.
+    void frame_end();
+
+    // Free blocks that have not been used for kMaxIdleFrames.
+    void release_idle(uint32_t current_frame);
+
+    void reset();
+
+private:
+    std::vector<CachedUboBlock> blocks_;
+};
+
+struct GpuBlock {
+    uint32_t size{0};
+    uint32_t used{0};
+    uint8_t* cpu_data{nullptr};
+    PulseRGBufferHandle gpu_handle{}; // rendergraph handle (valid only after block finalize)
 };
 
 struct GpuBlockRef {
@@ -86,6 +116,7 @@ struct RendererView {
 // ============================================================
 struct FrameRenderPacket {
     std::pmr::unsynchronized_pool_resource pool;
+    UboBlockCache ubo_cache;
     std::pmr::vector<RendererView> views;
 
     explicit FrameRenderPacket(std::pmr::memory_resource* upstream = std::pmr::new_delete_resource())
@@ -105,6 +136,8 @@ struct pulse_renderer_state {
 
     std::atomic<int> write_index{0};
     std::atomic<int> read_index{1};
+
+    uint32_t frame_index{0};
 
     bool record_callback_registered = false;
 
