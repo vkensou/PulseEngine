@@ -58,11 +58,19 @@ int main(void)
     // ---- daslang 游戏模块 ----
     auto daslang_desc = pulse_daslang_plugin_desc_default();
     daslang_desc.root_path = "examples/asset";
-    daslang_desc.script_path = "examples/snake_daslang/snake_module.das";
+    // 插件只初始化 daScript 环境；脚本通过 pulse_load_module 动态加载。
     EPulseResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
     if (daslang_result != PULSE_RESULT_OK)
     {
         printf("Daslang plugin failed: %s\n", pulse_app_last_error(app));
+        pulse_destroy_app(app);
+        return -1;
+    }
+
+    // 动态加载并执行 das 游戏模块
+    if (!pulse_load_module(app, "examples/snake_daslang/snake_module.das"))
+    {
+        printf("Daslang load module failed: %s\n", pulse_app_last_error(app));
         pulse_destroy_app(app);
         return -1;
     }

@@ -30,7 +30,6 @@ struct.DaslangPluginDesc
     .structSize "uint32_t"
     .version    "uint32_t"
     .rootPath   "cstring"
-    .scriptPath "cstring"
     ()
 
 --- Functions
@@ -43,4 +42,10 @@ func.AddDaslangPlugin
     "EPulseResult"
     .app  "PulseAppId"
     .desc "*const DaslangPluginDesc"
+    ()
+
+func.LoadModule
+    "bool"
+    .app  "PulseAppId"
+    .scriptPath "cstring"
     ()
