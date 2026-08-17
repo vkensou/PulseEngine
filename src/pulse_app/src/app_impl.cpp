@@ -1,55 +1,32 @@
-#include "app.h"
+module;
 
+#include <deque>
+#include <string>
 #include <utility>
+#include <vector>
 
-struct pulse_app_state_resource {
-    PulseAppId app;
-};
+#include <flecs.h>
+#include "pulse_app.h"
+#include "app_internal.h"
 
-ECS_COMPONENT_DECLARE(PulseTimer);
-ECS_COMPONENT_DECLARE(pulse_app_state_resource);
-
-struct PulseApp {
-    pulse::App impl;
-
-    PulseApp(PulseAppDesc* desc)
-        : impl(this, desc) {
-    }
-};
+module pulse_app;
 
 namespace {
 
 // Per-frame timing: refresh the PulseTimer singleton from the world's
 // measured timing data. Runs in PreUpdate so every system in the frame sees
 // fresh values.
-void time_system_run(ecs_iter_t* it) {
-    const ecs_world_info_t* info = ecs_get_world_info(it->world);
-    PulseTimer* ctx = ecs_field(it, PulseTimer, 0);
-    if (!info || !ctx) {
-        return;
-    }
-
-    ctx->delta_time = info->delta_time;
-    ctx->time_since_startup = (float)info->world_time_total;
-    ctx->delta_time_double = (double)info->delta_time;
-    ctx->time_since_startup_double = info->world_time_total;
-    ctx->fps = info->delta_time > 0.0f ? (int32_t)(1.0f / info->delta_time + 0.5f) : 0;
+void time_system_run(flecs::iter& it, size_t i, PulseTimer& ctx) {
+    const ecs_world_info_t* info = ecs_get_world_info(it.world());
+    ctx.delta_time = info->delta_time;
+    ctx.time_since_startup = (float)info->world_time_total;
+    ctx.delta_time_double = (double)info->delta_time;
+    ctx.time_since_startup_double = info->world_time_total;
+    ctx.fps = info->delta_time > 0.0f ? (int32_t)(1.0f / info->delta_time + 0.5f) : 0;
 }
 
-void install_time_system(ecs_world_t* world) {
-    ecs_entity_desc_t entity_desc = {};
-    entity_desc.name = "PulseTimeSystem";
-    ecs_entity_t entity = ecs_entity_init(world, &entity_desc);
-
-    ecs_system_desc_t desc = {};
-    desc.entity = entity;
-    desc.phase = EcsPreUpdate;
-    // Matches the singleton entity holding PulseTimer
-    desc.query.terms[0].id = ecs_id(PulseTimer);
-    desc.query.terms[0].inout = EcsOut;
-    desc.query.cache_kind = EcsQueryCacheAuto;
-    desc.callback = time_system_run;
-    ecs_system_init(world, &desc);
+void install_time_system(flecs::world& world) {
+    world.system<PulseTimer>("PulseTimeSystem").kind(EcsPreUpdate).each(time_system_run);
 }
 
 } // namespace
@@ -63,18 +40,21 @@ App::App(PulseAppId handle, PulseAppDesc* desc)
     ECS_COMPONENT_DEFINE(w, PulseTimer);
     ECS_COMPONENT_DEFINE(w, pulse_app_state_resource);
 
+	// pulse-app
+	world_.component<PulseTimer>("PulseTimer", true, ecs_id(PulseTimer));
+
     // Create the time singleton so it exists from the very first frame
     // (ecs_singleton_get_mut does not auto-create).
     PulseTimer time_ctx = {};
-    ecs_singleton_set_ptr(w, PulseTimer, &time_ctx);
+    world_.set<PulseTimer>(time_ctx);
 
     // Install the per-frame time system (updates PulseTimer each frame)
-    install_time_system(w);
+    install_time_system(world_);
 
     pulse_app_state_resource res{
         .app = handle,
     };
-    ecs_singleton_set_ptr(w, pulse_app_state_resource, &res);
+    world_.set<pulse_app_state_resource>(res);
 }
 
 App::~App() {
@@ -435,124 +415,3 @@ EPulseResult App::extract_subapps() {
 }
 
 } // namespace pulse
-
-extern "C" {
-
-static inline pulse::App* to_app(PulseAppId handle) {
-    return handle ? &handle->impl : nullptr;
-}
-
-PulseAppId pulse_create_app(PulseAppDesc* desc) {
-    return new PulseApp(desc);
-}
-
-void pulse_destroy_app(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return;
-    }
-
-    impl->shutdown();
-    delete app;
-}
-
-EPulseResult pulse_app_run(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->run();
-}
-
-EPulseResult pulse_app_update(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->update();
-}
-
-EPulseResult pulse_app_set_runner(PulseAppId app, PulseProcRunnerFn runner, void* ctx) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->set_runner(runner, ctx);
-}
-
-EPulseResult pulse_app_add_plugin(PulseAppId app, const PulsePluginDesc* desc) {
-    pulse::App* impl = to_app(app);
-    if (!impl || !desc) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->add_plugin(*desc);
-}
-
-bool pulse_app_has_plugin(PulseAppId app, const char* name) {
-    pulse::App* impl = to_app(app);
-    return impl ? impl->has_plugin(name) : false;
-}
-
-ecs_world_t* pulse_app_world(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    return impl ? impl->world_c() : nullptr;
-}
-
-const char* pulse_app_last_error(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    return impl ? impl->last_error() : "invalid app";
-}
-
-EPulseResult pulse_app_insert_subapp(PulseAppId app, const char* name, PulseAppId subapp) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->insert_subapp(name, subapp);
-}
-
-PulseAppId pulse_app_get_subapp(PulseAppId app, const char* name) {
-    pulse::App* impl = to_app(app);
-    return impl ? impl->get_subapp(name) : nullptr;
-}
-
-PulseAppId pulse_app_remove_subapp(PulseAppId app, const char* name) {
-    pulse::App* impl = to_app(app);
-    return impl ? impl->remove_subapp(name) : nullptr;
-}
-
-EPulseResult pulse_app_set_subapp_extract(
-    PulseAppId app,
-    const char* name,
-    PulseProcSubappExtractFn extract,
-    void* ctx
-) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->set_subapp_extract(name, extract, ctx);
-}
-
-EPulseResult pulse_app_extract_subapps(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    return impl->extract_subapps();
-}
-
-PULSE_API PulseAppId pulse_get_app_from_world(ecs_world_t* world) {
-    if (world == nullptr) return nullptr;
-    const pulse_app_state_resource* resource = ecs_singleton_get(world, pulse_app_state_resource);
-    return resource->app;
-}
-
-} // extern "C"

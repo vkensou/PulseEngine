@@ -1,14 +1,13 @@
-#pragma once
+module;
 
 #include <deque>
 #include <string>
 #include <vector>
 
 #include <flecs.h>
-
-extern "C" {
 #include "pulse_app.h"
-}
+
+export module pulse_app;
 
 namespace pulse {
 
@@ -38,7 +37,7 @@ struct RegisteredSubApp {
     void* extract_ctx = nullptr;
 };
 
-class App {
+export class App {
 public:
     explicit App(PulseAppId handle, PulseAppDesc* desc);
     ~App();
@@ -95,3 +94,11 @@ private:
 };
 
 } // namespace pulse
+
+export struct PulseApp {
+    pulse::App impl;
+
+    explicit PulseApp(PulseAppDesc* desc)
+        : impl(this, desc) {
+    }
+};

@@ -65,8 +65,6 @@ int main(void)
 	singleHolder.add<pulse::EventTag>();
 
 	// ---- 把 C++ 类型绑定到插件注册的 C 组件 id，模块才能用 C++ API 设置 ----
-	// pulse-app
-	world.component<PulseTimer>("PulseTimer", true, ecs_id(PulseTimer));
 	// pulse-input
 	world.component<PulseKeyboardInput>("PulseKeyboardInput", true, ecs_id(PulseKeyboardInput));
 	world.component<PulseMouseInput>("PulseMouseInput", true, ecs_id(PulseMouseInput));
