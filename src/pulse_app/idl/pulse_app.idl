@@ -80,7 +80,7 @@ struct.Timer
 
 func.CreateApp
     "?AppId"
-    .desc "*AppDesc"
+    .desc "*const AppDesc"
 
 func.DestroyApp
     "void"

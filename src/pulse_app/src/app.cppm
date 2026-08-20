@@ -1,7 +1,10 @@
 module;
 
 #include <deque>
+#include <functional>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <flecs.h>
@@ -11,94 +14,107 @@ export module pulse_app;
 
 namespace pulse {
 
-enum class AppState {
+export enum class Result {
+    Ok = PULSE_RESULT_OK,
+    InvalidArgument = PULSE_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_RESULT_ERROR_INVALID_STATE,
+    DuplicatePlugin = PULSE_RESULT_ERROR_DUPLICATE_PLUGIN,
+    DuplicateSubapp = PULSE_RESULT_ERROR_DUPLICATE_SUBAPP,
+    NotFound = PULSE_RESULT_ERROR_NOT_FOUND,
+    Internal = PULSE_RESULT_ERROR_INTERNAL,
+};
+
+export enum class State {
     Created,
     Building,
+    BuildFailed,
     ReadyToRun,
     Running,
     Finished,
+    Shutdown,
 };
 
-struct RegisteredPlugin {
+class App;
+
+export struct AppDesc {
+    std::string name;
+    bool enable_rest_api = false;
+};
+
+export struct Plugin {
     std::string name;
     void* ctx = nullptr;
-    EPulseResult (*build)(PulseAppId app, void* ctx) = nullptr;
-    EPulseResult (*post_build)(PulseAppId app, void* ctx) = nullptr;
-    void (*shutdown)(PulseAppId app, void* ctx) = nullptr;
-    bool build_done = false;
+    std::function<Result(App&, void*)> build;
+    std::function<Result(App&, void*)> post_build;
+    std::function<void(App&, void*)> shutdown;
+};
+
+export using Runner = std::function<Result(App&, void*)>;
+export using SubappExtract = std::function<Result(App& parent, App& subapp, void* ctx)>;
+
+struct RegisteredPlugin {
+    Plugin plugin;
     bool post_build_done = false;
     bool shutdown_done = false;
 };
 
 struct RegisteredSubApp {
     std::string name;
-    PulseAppId app = nullptr;
-    PulseProcSubappExtractFn extract = nullptr;
+    std::unique_ptr<App> app;
+    SubappExtract extract;
     void* extract_ctx = nullptr;
 };
 
 export class App {
 public:
-    explicit App(PulseAppId handle, PulseAppDesc* desc);
+    explicit App(const AppDesc& desc);
     ~App();
 
     App(const App&) = delete;
     App& operator=(const App&) = delete;
+    App(App&&) = delete;
+    App& operator=(App&&) = delete;
 
-    EPulseResult add_plugin(const PulsePluginDesc& desc);
-    EPulseResult post_build();
+    bool has_plugin(std::string_view name) const;
+    Result add_plugin(Plugin plugin);
+
+    Result run();
+    Result update();
     void shutdown();
 
-    EPulseResult run();
-    EPulseResult update();
-
-    EPulseResult set_runner(PulseProcRunnerFn runner, void* ctx);
-    void set_name(const char* name);
-    const char* get_name() const;
+    Result set_runner(Runner runner, void* ctx);
 
     flecs::world& world() { return world_; }
-    ecs_world_t* world_c() { return world_.c_ptr(); }
+    std::string_view name() const { return name_; }
+    State state() const { return state_; }
+    std::string_view last_error() const { return last_error_; }
 
-    bool has_plugin(const char* name) const;
-
-    EPulseResult insert_subapp(const char* name, PulseAppId subapp);
-    PulseAppId get_subapp(const char* name) const;
-    PulseAppId remove_subapp(const char* name);
-    EPulseResult set_subapp_extract(const char* name, PulseProcSubappExtractFn extract, void* ctx);
-    EPulseResult extract_subapps();
-
-    AppState state() const { return state_; }
-    const char* last_error() const;
+    Result try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp);
+    App* get_subapp(std::string_view name) const;
+    std::unique_ptr<App> remove_subapp(std::string_view name);
+    Result set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx);
+    Result extract_subapps();
 
 private:
     flecs::world world_;
     std::vector<RegisteredPlugin> plugins_;
     std::deque<RegisteredPlugin> pending_plugins_;
     std::vector<RegisteredSubApp> subapps_;
-    PulseAppId handle_ = nullptr;
-    PulseProcRunnerFn runner_fn_ = nullptr;
+    Runner runner_fn_;
     void* runner_ctx_ = nullptr;
-    AppState state_ = AppState::Created;
+    State state_ = State::Created;
     bool draining_plugins_ = false;
     bool post_build_done_ = false;
-    bool shutdown_done_ = false;
     std::string name_;
     std::string last_error_;
-    bool enableRESTApi;
+    bool enable_rest_api_ = false;
 
-    EPulseResult default_runner();
-    EPulseResult drain_pending_plugins();
-    EPulseResult validate_plugin_desc(const PulsePluginDesc& desc);
-    bool has_pending_plugin(const char* name) const;
-    void set_error(const char* message);
+    Result post_build();
+    Result default_runner();
+    Result drain_pending_plugins();
+    Result validate_plugin(const Plugin& plugin);
+    bool has_pending_plugin(std::string_view name) const;
+    void set_error(std::string_view message);
 };
 
 } // namespace pulse
-
-export struct PulseApp {
-    pulse::App impl;
-
-    explicit PulseApp(PulseAppDesc* desc)
-        : impl(this, desc) {
-    }
-};

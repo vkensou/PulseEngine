@@ -100,7 +100,7 @@ typedef struct PulseTimer
 
 extern ECS_COMPONENT_DECLARE(PulseTimer);
 
-PULSE_API PulseAppId pulse_create_app(PulseAppDesc* desc);
+PULSE_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
 PULSE_API void pulse_destroy_app(PulseAppId app);
 PULSE_API EPulseResult pulse_app_run(PulseAppId _this);
 PULSE_API EPulseResult pulse_app_update(PulseAppId _this);

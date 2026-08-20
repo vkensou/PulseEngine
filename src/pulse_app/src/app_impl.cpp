@@ -1,9 +1,13 @@
 module;
 
 #include <deque>
+#include <functional>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
+#include <format>
 
 #include <flecs.h>
 #include "pulse_app.h"
@@ -13,16 +17,13 @@ module pulse_app;
 
 namespace {
 
-// Per-frame timing: refresh the PulseTimer singleton from the world's
-// measured timing data. Runs in PreUpdate so every system in the frame sees
-// fresh values.
 void time_system_run(flecs::iter& it, size_t i, PulseTimer& ctx) {
     const ecs_world_info_t* info = ecs_get_world_info(it.world());
     ctx.delta_time = info->delta_time;
-    ctx.time_since_startup = (float)info->world_time_total;
-    ctx.delta_time_double = (double)info->delta_time;
+    ctx.time_since_startup = static_cast<float>(info->world_time_total);
+    ctx.delta_time_double = info->delta_time;
     ctx.time_since_startup_double = info->world_time_total;
-    ctx.fps = info->delta_time > 0.0f ? (int32_t)(1.0f / info->delta_time + 0.5f) : 0;
+    ctx.fps = info->delta_time > 0.0f ? static_cast<int32_t>(1.0f / info->delta_time + 0.5f) : 0;
 }
 
 void install_time_system(flecs::world& world) {
@@ -33,385 +34,328 @@ void install_time_system(flecs::world& world) {
 
 namespace pulse {
 
-App::App(PulseAppId handle, PulseAppDesc* desc)
-    : handle_(handle), name_(desc->name), enableRESTApi(desc->enable_restapi) {
-    // Register core pipeline tag components so they're available before any plugin
+Result App::validate_plugin(const Plugin& plugin) {
+    if (plugin.name.empty()) {
+        set_error("plugin name is required");
+        return Result::InvalidArgument;
+    }
+
+    if (has_plugin(plugin.name) || has_pending_plugin(plugin.name)) {
+        set_error(std::format("duplicate plugin: {}", plugin.name));
+        return Result::DuplicatePlugin;
+    }
+
+    return Result::Ok;
+}
+
+App::App(const AppDesc& desc)
+    : name_(desc.name), enable_rest_api_(desc.enable_rest_api) {
     ecs_world_t* w = world_.c_ptr();
     ECS_COMPONENT_DEFINE(w, PulseTimer);
     ECS_COMPONENT_DEFINE(w, pulse_app_state_resource);
 
-	// pulse-app
-	world_.component<PulseTimer>("PulseTimer", true, ecs_id(PulseTimer));
+    world_.component<PulseTimer>("PulseTimer", true, ecs_id(PulseTimer));
 
-    // Create the time singleton so it exists from the very first frame
-    // (ecs_singleton_get_mut does not auto-create).
-    PulseTimer time_ctx = {};
+    PulseTimer time_ctx{};
     world_.set<PulseTimer>(time_ctx);
 
-    // Install the per-frame time system (updates PulseTimer each frame)
     install_time_system(world_);
 
-    pulse_app_state_resource res{
-        .app = handle,
-    };
+    pulse_app_state_resource res{ .app = reinterpret_cast<PulseAppId>(this) };
     world_.set<pulse_app_state_resource>(res);
 }
 
 App::~App() {
-    for (auto& subapp : subapps_) {
-        delete subapp.app;
-    }
-    subapps_.clear();
+    shutdown();
 }
 
-void App::set_error(const char* message) {
-    last_error_ = message ? message : "";
-}
-
-const char* App::last_error() const {
-    return last_error_.empty() ? nullptr : last_error_.c_str();
-}
-
-void App::set_name(const char* name) {
-    name_ = name ? name : "";
-}
-
-const char* App::get_name() const {
-    return name_.empty() ? nullptr : name_.c_str();
-}
-
-bool App::has_plugin(const char* name) const {
-    if (!name) return false;
-
-    for (const auto& plugin : plugins_) {
-        if (plugin.name == name) {
+bool App::has_plugin(std::string_view name) const {
+    for (const auto& entry : plugins_) {
+        if (entry.plugin.name == name) {
             return true;
         }
     }
-
     return false;
 }
 
-bool App::has_pending_plugin(const char* name) const {
-    if (!name) return false;
-
-    for (const auto& plugin : pending_plugins_) {
-        if (plugin.name == name) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-EPulseResult App::validate_plugin_desc(const PulsePluginDesc& desc) {
-    if (desc.struct_size != sizeof(PulsePluginDesc)) {
-        set_error("invalid plugin desc size");
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (desc.version != PULSE_PLUGIN_DESC_VERSION) {
-        set_error("invalid plugin desc version");
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (!desc.name || !desc.name[0]) {
-        set_error("plugin name is required");
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (has_plugin(desc.name) || has_pending_plugin(desc.name)) {
-        last_error_ = "duplicate plugin: ";
-        last_error_ += desc.name;
-        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-    }
-
-    return PULSE_RESULT_OK;
-}
-
-EPulseResult App::add_plugin(const PulsePluginDesc& desc) {
-    if (state_ != AppState::Created && state_ != AppState::Building) {
+Result App::add_plugin(Plugin plugin) {
+    if (state_ != State::Created && state_ != State::Building) {
         set_error("plugins can only be added before app run");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return Result::InvalidState;
     }
 
-    EPulseResult result = validate_plugin_desc(desc);
-    if (result != PULSE_RESULT_OK) {
+    Result result = validate_plugin(plugin);
+    if (result != Result::Ok) {
         return result;
     }
 
-    RegisteredPlugin plugin;
-    plugin.name = desc.name;
-    plugin.ctx = desc.ctx;
-    plugin.build = desc.build;
-    plugin.post_build = desc.post_build;
-    plugin.shutdown = desc.shutdown;
-    pending_plugins_.push_back(std::move(plugin));
+    RegisteredPlugin entry;
+    entry.plugin = plugin;
+    pending_plugins_.push_back(std::move(entry));
 
     if (draining_plugins_) {
-        return PULSE_RESULT_OK;
+        return Result::Ok;
     }
 
     return drain_pending_plugins();
 }
 
-EPulseResult App::drain_pending_plugins() {
-    if (draining_plugins_) {
-        return PULSE_RESULT_OK;
-    }
-
-    draining_plugins_ = true;
-    state_ = AppState::Building;
-
-    while (!pending_plugins_.empty()) {
-        RegisteredPlugin plugin = std::move(pending_plugins_.front());
-        pending_plugins_.pop_front();
-
-        plugins_.push_back(std::move(plugin));
-        RegisteredPlugin& entry = plugins_.back();
-        entry.build_done = true;
-
-        if (entry.build) {
-            EPulseResult result = entry.build(handle_, entry.ctx);
-            if (result != PULSE_RESULT_OK) {
-                last_error_ = "plugin build failed: ";
-                last_error_ += entry.name;
-                draining_plugins_ = false;
-                state_ = AppState::Created;
-                return result;
-            }
-        }
-    }
-
-    draining_plugins_ = false;
-    state_ = AppState::Created;
-    return PULSE_RESULT_OK;
-}
-
-EPulseResult App::post_build() {
-    if (shutdown_done_ || state_ == AppState::Running || state_ == AppState::Finished) {
-        set_error("app is not in a post-buildable state");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
-    }
-
-    if (post_build_done_) {
-        return PULSE_RESULT_OK;
-    }
-
-    EPulseResult result = drain_pending_plugins();
-    if (result != PULSE_RESULT_OK) {
-        return result;
-    }
-
-    state_ = AppState::ReadyToRun;
-
-    for (auto& plugin : plugins_) {
-        if (!plugin.post_build_done && plugin.post_build) {
-            result = plugin.post_build(handle_, plugin.ctx);
-            if (result != PULSE_RESULT_OK) {
-                last_error_ = "plugin post_build failed: ";
-                last_error_ += plugin.name;
-                return result;
-            }
-        }
-        plugin.post_build_done = true;
-    }
-
-    for (auto& subapp : subapps_) {
-        result = subapp.app->impl.post_build();
-        if (result != PULSE_RESULT_OK) {
-            last_error_ = "subapp post_build failed: ";
-            last_error_ += subapp.name;
-            return result;
-        }
-    }
-
-    post_build_done_ = true;
-    return PULSE_RESULT_OK;
-}
-
-void App::shutdown() {
-    if (shutdown_done_) {
-        return;
-    }
-
-    ecs_quit(world_.c_ptr());
-
-    for (auto it = subapps_.rbegin(); it != subapps_.rend(); ++it) {
-        it->app->impl.shutdown();
-    }
-
-    for (auto it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-        if (!it->shutdown_done && it->shutdown) {
-            it->shutdown(handle_, it->ctx);
-        }
-        it->shutdown_done = true;
-    }
-
-    shutdown_done_ = true;
-    state_ = AppState::Finished;
-}
-
-EPulseResult App::default_runner() {
-    return update();
-}
-
-EPulseResult App::run() {
-    if (state_ == AppState::Running) {
+Result App::run() {
+    if (state_ == State::Running) {
         set_error("app is already running");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return Result::InvalidState;
     }
 
-    if (state_ == AppState::Finished || shutdown_done_) {
+    if (state_ == State::Finished || state_ == State::Shutdown) {
         set_error("app cannot be run after shutdown");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return Result::InvalidState;
     }
 
-    EPulseResult result = post_build();
-    if (result != PULSE_RESULT_OK) {
+    Result result = post_build();
+    if (result != Result::Ok) {
         return result;
     }
 
-    if (enableRESTApi) {
+    if (enable_rest_api_) {
         world_.import<flecs::stats>();
         world_.set<flecs::Rest>({});
     }
 
-    state_ = AppState::Running;
-    result = runner_fn_ ? runner_fn_(handle_, runner_ctx_) : default_runner();
-    if (result != PULSE_RESULT_OK) {
-        set_error("runner failed");
-    }
+    state_ = State::Running;
+    result = runner_fn_ ? runner_fn_(*this, runner_ctx_) : default_runner();
 
+    state_ = State::Finished;
     return result;
 }
 
-EPulseResult App::update() {
-    if (shutdown_done_) {
-        set_error("app cannot be updated after shutdown");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+Result App::update() {
+    if (state_ == State::Finished || state_ == State::Shutdown) {
+        set_error("app cannot be updated after finished");
+        return Result::InvalidState;
     }
 
     world_.progress();
 
     for (auto& subapp : subapps_) {
         if (subapp.extract) {
-            EPulseResult result = subapp.extract(handle_, subapp.app, subapp.extract_ctx);
-            if (result != PULSE_RESULT_OK) {
-                last_error_ = "subapp extract failed: ";
-                last_error_ += subapp.name;
+            Result result = subapp.extract(*this, *subapp.app, subapp.extract_ctx);
+            if (result != Result::Ok) {
+                set_error(std::format("subapp extract failed: {}", subapp.name));
                 return result;
             }
         }
 
-        EPulseResult result = subapp.app->impl.update();
-        if (result != PULSE_RESULT_OK) {
-            last_error_ = "subapp update failed: ";
-            last_error_ += subapp.name;
+        Result result = subapp.app->update();
+        if (result != Result::Ok) {
+            set_error(std::format("subapp update failed: {}", subapp.name));
             return result;
         }
     }
 
-    return PULSE_RESULT_OK;
+    return Result::Ok;
 }
 
-EPulseResult App::set_runner(PulseProcRunnerFn runner, void* ctx) {
-    if (state_ != AppState::Created && state_ != AppState::ReadyToRun) {
+void App::shutdown() {
+    if (state_ == State::Shutdown) {
+        return;
+    }
+
+    ecs_quit(world_.c_ptr());
+
+    for (auto it = subapps_.rbegin(); it != subapps_.rend(); ++it) {
+        it->app->shutdown();
+    }
+
+    for (auto it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
+        if (!it->shutdown_done && it->plugin.shutdown) {
+            it->plugin.shutdown(*this, it->plugin.ctx);
+        }
+        it->shutdown_done = true;
+    }
+
+    state_ = State::Shutdown;
+}
+
+Result App::set_runner(Runner runner, void* ctx) {
+    if (state_ != State::Created && state_ != State::ReadyToRun) {
         set_error("runner can only be set before app run");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return Result::InvalidState;
     }
 
-    runner_fn_ = runner;
+    runner_fn_ = std::move(runner);
     runner_ctx_ = ctx;
-    return PULSE_RESULT_OK;
+    return Result::Ok;
 }
 
-EPulseResult App::insert_subapp(const char* name, PulseAppId subapp) {
-    if (!name || !name[0] || !subapp) {
+Result App::try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp) {
+    if (name.empty() || !subapp) {
         set_error("subapp name and handle are required");
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return Result::InvalidArgument;
     }
 
-    if (state_ == AppState::Running || state_ == AppState::Finished || shutdown_done_) {
+    if (state_ == State::Running || state_ == State::Finished || state_ == State::Shutdown) {
         set_error("subapps can only be inserted before app run");
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return Result::InvalidState;
     }
 
     for (const auto& entry : subapps_) {
         if (entry.name == name) {
-            last_error_ = "duplicate subapp: ";
-            last_error_ += name;
-            return PULSE_RESULT_ERROR_DUPLICATE_SUBAPP;
+            set_error(std::format("duplicate subapp: {}", name));
+            return Result::DuplicateSubapp;
         }
     }
 
     RegisteredSubApp entry;
     entry.name = name;
-    entry.app = subapp;
-    subapps_.push_back(entry);
-    return PULSE_RESULT_OK;
+    entry.app = std::move(subapp);
+    subapps_.push_back(std::move(entry));
+    return Result::Ok;
 }
 
-PulseAppId App::get_subapp(const char* name) const {
-    if (!name) return nullptr;
-
-    for (const auto& subapp : subapps_) {
-        if (subapp.name == name) {
-            return subapp.app;
+App* App::get_subapp(std::string_view name) const {
+    for (const auto& entry : subapps_) {
+        if (entry.name == name) {
+            return entry.app.get();
         }
     }
-
     return nullptr;
 }
 
-PulseAppId App::remove_subapp(const char* name) {
-    if (!name) return nullptr;
+std::unique_ptr<App> App::remove_subapp(std::string_view name) {
+    if (state_ == State::Running) {
+        set_error("subapps can only be removed before app run");
+        return {};
+    }
 
     for (auto it = subapps_.begin(); it != subapps_.end(); ++it) {
         if (it->name == name) {
-            PulseAppId subapp = it->app;
+            std::unique_ptr<App> subapp = std::move(it->app);
             subapps_.erase(it);
-            return subapp;
+            return std::move(subapp);
         }
     }
-
     return nullptr;
 }
 
-EPulseResult App::set_subapp_extract(const char* name, PulseProcSubappExtractFn extract, void* ctx) {
-    if (!name || !name[0]) {
+Result App::set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx) {
+    if (name.empty()) {
         set_error("subapp name is required");
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return Result::InvalidArgument;
     }
 
-    for (auto& subapp : subapps_) {
-        if (subapp.name == name) {
-            subapp.extract = extract;
-            subapp.extract_ctx = ctx;
-            return PULSE_RESULT_OK;
+    for (auto& entry : subapps_) {
+        if (entry.name == name) {
+            entry.extract = std::move(extract);
+            entry.extract_ctx = ctx;
+            return Result::Ok;
         }
     }
 
-    last_error_ = "subapp not found: ";
-    last_error_ += name;
-    return PULSE_RESULT_ERROR_NOT_FOUND;
+    set_error(std::format("subapp not found: {}", std::string(name)));
+    return Result::NotFound;
 }
 
-EPulseResult App::extract_subapps() {
-    for (auto& subapp : subapps_) {
-        if (!subapp.extract) {
+Result App::extract_subapps() {
+    for (auto& entry : subapps_) {
+        if (!entry.extract) {
             continue;
         }
 
-        EPulseResult result = subapp.extract(handle_, subapp.app, subapp.extract_ctx);
-        if (result != PULSE_RESULT_OK) {
-            last_error_ = "subapp extract failed: ";
-            last_error_ += subapp.name;
+        Result result = entry.extract(*this, *entry.app, entry.extract_ctx);
+        if (result != Result::Ok) {
+            set_error(std::format("subapp extract failed: {}", entry.name));
             return result;
         }
     }
 
-    return PULSE_RESULT_OK;
+    return Result::Ok;
+}
+
+Result App::post_build() {
+    if (state_ == State::Shutdown || state_ == State::Running || state_ == State::Finished) {
+        set_error("app is not in a post-buildable state");
+        return Result::InvalidState;
+    }
+
+    if (post_build_done_) {
+        return Result::Ok;
+    }
+
+    Result result = drain_pending_plugins();
+    if (result != Result::Ok) {
+        return result;
+    }
+
+    state_ = State::ReadyToRun;
+
+    for (auto& entry : plugins_) {
+        if (!entry.post_build_done && entry.plugin.post_build) {
+            result = entry.plugin.post_build(*this, entry.plugin.ctx);
+            if (result != Result::Ok) {
+                set_error(std::format("plugin post_build failed: {}", entry.plugin.name));
+                return result;
+            }
+        }
+        entry.post_build_done = true;
+    }
+
+    for (auto& subapp : subapps_) {
+        result = subapp.app->post_build();
+        if (result != Result::Ok) {
+            set_error(std::format("subapp post_build failed: {}", subapp.name));
+            return result;
+        }
+    }
+
+    post_build_done_ = true;
+    return Result::Ok;
+}
+
+Result App::default_runner() {
+    return update();
+}
+
+Result App::drain_pending_plugins() {
+    if (draining_plugins_) {
+        return Result::Ok;
+    }
+
+    draining_plugins_ = true;
+    state_ = State::Building;
+
+    while (!pending_plugins_.empty()) {
+        RegisteredPlugin entry = std::move(pending_plugins_.front());
+        pending_plugins_.pop_front();
+
+        if (entry.plugin.build) {
+            Result result = entry.plugin.build(*this, entry.plugin.ctx);
+            if (result != Result::Ok) {
+                set_error(std::format("plugin build failed: {}", entry.plugin.name));
+                draining_plugins_ = false;
+                state_ = State::BuildFailed;
+                return result;
+            }
+        }
+
+        plugins_.push_back(std::move(entry));
+    }
+
+    draining_plugins_ = false;
+    state_ = State::Created;
+    return Result::Ok;
+}
+
+bool App::has_pending_plugin(std::string_view name) const {
+    for (const auto& entry : pending_plugins_) {
+        if (entry.plugin.name == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void App::set_error(std::string_view message) {
+    last_error_ = message;
 }
 
 } // namespace pulse

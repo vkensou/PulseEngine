@@ -43,7 +43,7 @@ target("pulse_app")
     add_headerfiles("src/pulse_app/include/*.h")
     add_files("src/pulse_app/src/*.c")
     add_files("src/pulse_app/src/*.cpp")
-    add_files("src/pulse_app/src/*.cppm")
+    add_files("src/pulse_app/src/*.cppm", {public = true})
 
 target("pulse_math")
     set_kind("headeronly")
