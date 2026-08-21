@@ -141,13 +141,19 @@ target("pulse_daslang")
         add_cxflags("/bigobj")
     end
 
-target("test-app")
-    set_group("tests")
-    set_kind("binary")
-    set_rundir("$(projectdir)")
-    add_deps("pulse_app")
-    add_files("tests/app/*.cpp")
-    add_files("tests/helper/msvc_headless_asserts.c")
+for _, test_file in ipairs(os.files("tests/app/test_*.cpp")) do
+    local test_name = "test-app-" .. path.basename(test_file):gsub("^test_", "")
+    target(test_name)
+        set_group("tests")
+        set_kind("binary")
+        set_default(false)
+        set_rundir("$(projectdir)")
+        add_includedirs("tests/app")
+        add_deps("pulse_app")
+        add_files(test_file)
+        add_files("tests/helper/msvc_headless_asserts.c")
+        add_tests("default", {group = "app", rundir = "$(projectdir)"})
+end
 
 target("test-window")
     set_group("tests")
