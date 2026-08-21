@@ -27,10 +27,8 @@ export enum class Result {
 export enum class State {
     Created,
     Building,
-    BuildFailed,
-    ReadyToRun,
+    PostBuilding,
     Running,
-    Finished,
     Shutdown,
 };
 
@@ -54,7 +52,6 @@ export using SubappExtract = std::function<Result(App& parent, App& subapp, void
 
 struct RegisteredPlugin {
     Plugin plugin;
-    bool post_build_done = false;
     bool shutdown_done = false;
 };
 
@@ -80,7 +77,8 @@ public:
 
     Result run();
     Result update();
-    void shutdown();
+    void finish();
+    bool should_quit() const;
 
     Result set_runner(Runner runner, void* ctx);
 
@@ -103,8 +101,7 @@ private:
     Runner runner_fn_;
     void* runner_ctx_ = nullptr;
     State state_ = State::Created;
-    bool draining_plugins_ = false;
-    bool post_build_done_ = false;
+    bool request_finish_ = false;
     std::string name_;
     std::string last_error_;
     bool enable_rest_api_ = false;
@@ -112,9 +109,11 @@ private:
     Result post_build();
     Result default_runner();
     Result drain_pending_plugins();
+    Result prepare();
     Result validate_plugin(const Plugin& plugin);
     bool has_pending_plugin(std::string_view name) const;
     void set_error(std::string_view message);
+    void teardown();
 };
 
 } // namespace pulse

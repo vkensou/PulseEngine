@@ -212,7 +212,7 @@ void mark_window_close_requested(
 
     if ((state->desc.flags & PULSE_WINDOW_PLUGIN_EXIT_ON_PRIMARY_CLOSE) &&
         ecs_has_id(world, entity, PulsePrimaryWindow)) {
-        state->quit_requested = true;
+        pulse_app_finish(state->app);
     }
 }
 
@@ -376,7 +376,7 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
-            state->quit_requested = true;
+            pulse_app_finish(app);
             continue;
         }
 
@@ -426,7 +426,7 @@ EPulseResult window_runner(PulseAppId app, void* ctx) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    while (!state->quit_requested) {
+    while (!pulse_app_should_quit(app)) {
         EPulseResult result = pulse_window_poll_events(app, state);
         if (result != PULSE_RESULT_OK) {
             return result;

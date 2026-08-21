@@ -55,8 +55,6 @@ void pulse_destroy_app(PulseAppId app) {
     if (!impl) {
         return;
     }
-
-    impl->shutdown();
     delete impl;
 }
 
@@ -74,6 +72,19 @@ EPulseResult pulse_app_update(PulseAppId app) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     return to_c(impl->update());
+}
+
+void pulse_app_finish(PulseAppId app) {
+    pulse::App* impl = to_app(app);
+    if (!impl) {
+        return;
+    }
+    impl->finish();
+}
+
+bool pulse_app_should_quit(PulseAppId app) {
+    pulse::App* impl = to_app(app);
+    return impl ? impl->should_quit() : true;
 }
 
 EPulseResult pulse_app_set_runner(PulseAppId app, PulseProcRunnerFn runner, void* ctx) {

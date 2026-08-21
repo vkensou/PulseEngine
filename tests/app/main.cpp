@@ -98,6 +98,7 @@ int main(void) {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
+    // ---- eager build: build runs immediately on add ----
     PulsePluginDesc desc = {
         .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,
@@ -114,6 +115,7 @@ int main(void) {
     assert(pulse_app_has_plugin(app, "NestedPlugin"));
     assert(pulse_app_add_plugin(app, &desc) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
 
+    // ---- subapp ----
     app_desc = {
         .name = "Sub",
     };
@@ -135,6 +137,18 @@ int main(void) {
     assert(pulse_app_get_subapp(app, "Sub") == sub);
     assert(pulse_app_set_subapp_extract(app, "Sub", extract_subapp, nullptr) == PULSE_RESULT_OK);
 
+    // ---- subapp removal is only valid before run ----
+    app_desc = {
+        .name = "Sub2",
+    };
+    PulseAppId sub2 = pulse_create_app(&app_desc);
+    assert(pulse_app_insert_subapp(app, "Sub2", sub2) == PULSE_RESULT_OK);
+    PulseAppId removed = pulse_app_remove_subapp(app, "Sub2");
+    assert(removed == sub2);
+    assert(pulse_app_get_subapp(app, "Sub2") == nullptr);
+    pulse_destroy_app(removed);
+
+    // ---- run: single-shot, auto-teardown ----
     int frames = 1;
     assert(pulse_app_set_runner(app, test_runner, &frames) == PULSE_RESULT_OK);
     assert(pulse_app_run(app) == PULSE_RESULT_OK);
@@ -142,15 +156,27 @@ int main(void) {
     assert(post_build_called);
     assert(sub_post_build_called);
     assert(extract_called);
-
-    PulseAppId removed = pulse_app_remove_subapp(app, "Sub");
-    assert(removed == sub);
-    assert(pulse_app_get_subapp(app, "Sub") == nullptr);
-    pulse_destroy_app(removed);
+    // auto-teardown: everything is released when run() returns
+    assert(shutdown_called);
     assert(sub_shutdown_called);
 
+    // ---- single-shot: cannot run or update again ----
+    assert(pulse_app_run(app) == PULSE_RESULT_ERROR_INVALID_STATE);
+    assert(pulse_app_update(app) == PULSE_RESULT_ERROR_INVALID_STATE);
+
     pulse_destroy_app(app);
-    assert(shutdown_called);
+
+    // ---- finish / should_quit ----
+    {
+        PulseAppDesc quit_desc = {
+            .name = "quit-app",
+        };
+        PulseAppId quit_app = pulse_create_app(&quit_desc);
+        assert(!pulse_app_should_quit(quit_app));
+        pulse_app_finish(quit_app);
+        assert(pulse_app_should_quit(quit_app));
+        pulse_destroy_app(quit_app);
+    }
 
     // --- Timer: singleton exists and is refreshed every frame ---
     {

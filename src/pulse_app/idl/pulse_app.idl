@@ -92,6 +92,12 @@ func.App.Run
 func.App.Update
     "Result::Enum"
 
+func.App.Finish
+    "void"
+
+func.App.ShouldQuit
+    "bool"
+
 func.App.SetRunner "Result::Enum"
     .runner     "RunnerFn"
     .ctx        "?*anyopaque"

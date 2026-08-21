@@ -104,6 +104,8 @@ PULSE_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
 PULSE_API void pulse_destroy_app(PulseAppId app);
 PULSE_API EPulseResult pulse_app_run(PulseAppId _this);
 PULSE_API EPulseResult pulse_app_update(PulseAppId _this);
+PULSE_API void pulse_app_finish(PulseAppId _this);
+PULSE_API bool pulse_app_should_quit(PulseAppId _this);
 PULSE_API EPulseResult pulse_app_set_runner(PulseAppId _this, PulseProcRunnerFn runner, void* ctx);
 PULSE_API EPulseResult pulse_app_add_plugin(PulseAppId _this, const PulsePluginDesc* desc);
 PULSE_API bool pulse_app_has_plugin(PulseAppId _this, const char* name);

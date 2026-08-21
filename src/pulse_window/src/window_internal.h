@@ -10,7 +10,6 @@ struct pulse_window_plugin_state {
     PulseAppId app = nullptr;
     PulseWindowPluginDesc desc{};
     uint32_t initialized_sdl_flags = 0;
-    bool quit_requested = false;
     ecs_entity_t post_frame_system = 0;
 };
 

@@ -15,7 +15,7 @@ module;
 
 module pulse_app;
 
-namespace {
+namespace pulse {
 
 void time_system_run(flecs::iter& it, size_t i, PulseTimer& ctx) {
     const ecs_world_info_t* info = ecs_get_world_info(it.world());
@@ -30,18 +30,25 @@ void install_time_system(flecs::world& world) {
     world.system<PulseTimer>("PulseTimeSystem").kind(EcsPreUpdate).each(time_system_run);
 }
 
-} // namespace
-
-namespace pulse {
+std::string_view state_name(State state) {
+    switch (state) {
+        case State::Created: return "Created";
+        case State::Building: return "Building";
+        case State::PostBuilding: return "PostBuilding";
+        case State::Running: return "Running";
+        case State::Shutdown: return "Shutdown";
+    }
+    return "<unknown>";
+}
 
 Result App::validate_plugin(const Plugin& plugin) {
     if (plugin.name.empty()) {
-        set_error("plugin name is required");
+        set_error("add_plugin: plugin name is required");
         return Result::InvalidArgument;
     }
 
     if (has_plugin(plugin.name) || has_pending_plugin(plugin.name)) {
-        set_error(std::format("duplicate plugin: {}", plugin.name));
+        set_error(std::format("add_plugin: plugin '{}' is already registered", plugin.name));
         return Result::DuplicatePlugin;
     }
 
@@ -66,7 +73,7 @@ App::App(const AppDesc& desc)
 }
 
 App::~App() {
-    shutdown();
+    teardown();
 }
 
 bool App::has_plugin(std::string_view name) const {
@@ -80,7 +87,7 @@ bool App::has_plugin(std::string_view name) const {
 
 Result App::add_plugin(Plugin plugin) {
     if (state_ != State::Created && state_ != State::Building) {
-        set_error("plugins can only be added before app run");
+        set_error(std::format("add_plugin: plugins can only be added before post-build (current state: {})", state_name(state_)));
         return Result::InvalidState;
     }
 
@@ -93,7 +100,7 @@ Result App::add_plugin(Plugin plugin) {
     entry.plugin = plugin;
     pending_plugins_.push_back(std::move(entry));
 
-    if (draining_plugins_) {
+    if (state_ == State::Building) {
         return Result::Ok;
     }
 
@@ -101,36 +108,28 @@ Result App::add_plugin(Plugin plugin) {
 }
 
 Result App::run() {
-    if (state_ == State::Running) {
-        set_error("app is already running");
+    if (state_ != State::Created) {
+        set_error(std::format("run: app can only be run once (current state: {})", state_name(state_)));
         return Result::InvalidState;
     }
 
-    if (state_ == State::Finished || state_ == State::Shutdown) {
-        set_error("app cannot be run after shutdown");
-        return Result::InvalidState;
-    }
-
-    Result result = post_build();
+    Result result = prepare();
     if (result != Result::Ok) {
+        teardown();
         return result;
     }
-
-    if (enable_rest_api_) {
-        world_.import<flecs::stats>();
-        world_.set<flecs::Rest>({});
-    }
-
-    state_ = State::Running;
+    
     result = runner_fn_ ? runner_fn_(*this, runner_ctx_) : default_runner();
 
-    state_ = State::Finished;
+    teardown();
     return result;
 }
 
 Result App::update() {
-    if (state_ == State::Finished || state_ == State::Shutdown) {
-        set_error("app cannot be updated after finished");
+    if (state_ != State::Running) {
+        set_error(std::format(
+            "update: can only be called while running (current state: {})",
+            state_name(state_)));
         return Result::InvalidState;
     }
 
@@ -140,14 +139,14 @@ Result App::update() {
         if (subapp.extract) {
             Result result = subapp.extract(*this, *subapp.app, subapp.extract_ctx);
             if (result != Result::Ok) {
-                set_error(std::format("subapp extract failed: {}", subapp.name));
+                set_error(std::format("update: subapp '{}' extract failed", subapp.name));
                 return result;
             }
         }
 
         Result result = subapp.app->update();
         if (result != Result::Ok) {
-            set_error(std::format("subapp update failed: {}", subapp.name));
+            set_error(std::format("update: subapp '{}' update() failed", subapp.name));
             return result;
         }
     }
@@ -155,7 +154,7 @@ Result App::update() {
     return Result::Ok;
 }
 
-void App::shutdown() {
+void App::teardown() {
     if (state_ == State::Shutdown) {
         return;
     }
@@ -163,7 +162,7 @@ void App::shutdown() {
     ecs_quit(world_.c_ptr());
 
     for (auto it = subapps_.rbegin(); it != subapps_.rend(); ++it) {
-        it->app->shutdown();
+        it->app->teardown();
     }
 
     for (auto it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
@@ -176,9 +175,17 @@ void App::shutdown() {
     state_ = State::Shutdown;
 }
 
+void App::finish() {
+    request_finish_ = true;
+}
+
+bool App::should_quit() const {
+    return request_finish_;
+}
+
 Result App::set_runner(Runner runner, void* ctx) {
-    if (state_ != State::Created && state_ != State::ReadyToRun) {
-        set_error("runner can only be set before app run");
+    if (state_ == State::Running || state_ == State::Shutdown) {
+        set_error(std::format("set_runner: runner can only be set before the app starts running (current state: {})", state_name(state_)));
         return Result::InvalidState;
     }
 
@@ -189,18 +196,18 @@ Result App::set_runner(Runner runner, void* ctx) {
 
 Result App::try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp) {
     if (name.empty() || !subapp) {
-        set_error("subapp name and handle are required");
+        set_error("try_insert_subapp: subapp name and app handle are required");
         return Result::InvalidArgument;
     }
 
-    if (state_ == State::Running || state_ == State::Finished || state_ == State::Shutdown) {
-        set_error("subapps can only be inserted before app run");
+    if (state_ == State::Running || state_ == State::Shutdown) {
+        set_error(std::format("try_insert_subapp: subapps can only be inserted before the app starts running (current state: {})", state_name(state_)));
         return Result::InvalidState;
     }
 
     for (const auto& entry : subapps_) {
         if (entry.name == name) {
-            set_error(std::format("duplicate subapp: {}", name));
+            set_error(std::format("try_insert_subapp: subapp '{}' is already registered", name));
             return Result::DuplicateSubapp;
         }
     }
@@ -222,8 +229,8 @@ App* App::get_subapp(std::string_view name) const {
 }
 
 std::unique_ptr<App> App::remove_subapp(std::string_view name) {
-    if (state_ == State::Running) {
-        set_error("subapps can only be removed before app run");
+    if (state_ == State::Running || state_ == State::Shutdown) {
+        set_error(std::format("remove_subapp: subapps can only be removed before the app starts running (current state: {})", state_name(state_)));
         return {};
     }
 
@@ -239,8 +246,13 @@ std::unique_ptr<App> App::remove_subapp(std::string_view name) {
 
 Result App::set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx) {
     if (name.empty()) {
-        set_error("subapp name is required");
+        set_error("set_subapp_extract: subapp name is required");
         return Result::InvalidArgument;
+    }
+
+    if (state_ == State::Running || state_ == State::Shutdown) {
+        set_error(std::format("set_subapp_extract: extract can only be set before the app starts running (current state: {})", state_name(state_)));
+        return Result::InvalidState;
     }
 
     for (auto& entry : subapps_) {
@@ -251,7 +263,7 @@ Result App::set_subapp_extract(std::string_view name, SubappExtract extract, voi
         }
     }
 
-    set_error(std::format("subapp not found: {}", std::string(name)));
+    set_error(std::format("set_subapp_extract: subapp '{}' not found", std::string(name)));
     return Result::NotFound;
 }
 
@@ -263,7 +275,7 @@ Result App::extract_subapps() {
 
         Result result = entry.extract(*this, *entry.app, entry.extract_ctx);
         if (result != Result::Ok) {
-            set_error(std::format("subapp extract failed: {}", entry.name));
+            set_error(std::format("extract_subapps: subapp '{}' extract failed", entry.name));
             return result;
         }
     }
@@ -272,42 +284,28 @@ Result App::extract_subapps() {
 }
 
 Result App::post_build() {
-    if (state_ == State::Shutdown || state_ == State::Running || state_ == State::Finished) {
-        set_error("app is not in a post-buildable state");
-        return Result::InvalidState;
-    }
-
-    if (post_build_done_) {
-        return Result::Ok;
-    }
-
-    Result result = drain_pending_plugins();
-    if (result != Result::Ok) {
-        return result;
-    }
-
-    state_ = State::ReadyToRun;
+    state_ = State::PostBuilding;
 
     for (auto& entry : plugins_) {
-        if (!entry.post_build_done && entry.plugin.post_build) {
-            result = entry.plugin.post_build(*this, entry.plugin.ctx);
+        if (entry.plugin.post_build) {
+            Result result = entry.plugin.post_build(*this, entry.plugin.ctx);
             if (result != Result::Ok) {
-                set_error(std::format("plugin post_build failed: {}", entry.plugin.name));
+                set_error(std::format("post_build: plugin '{}' post-build failed", entry.plugin.name));
                 return result;
             }
         }
-        entry.post_build_done = true;
     }
 
     for (auto& subapp : subapps_) {
-        result = subapp.app->post_build();
+        Result result = subapp.app->post_build();
         if (result != Result::Ok) {
-            set_error(std::format("subapp post_build failed: {}", subapp.name));
+            set_error(std::format("post_build: subapp '{}' post-build failed", subapp.name));
             return result;
         }
     }
 
-    post_build_done_ = true;
+    state_ = State::Created;
+
     return Result::Ok;
 }
 
@@ -316,11 +314,10 @@ Result App::default_runner() {
 }
 
 Result App::drain_pending_plugins() {
-    if (draining_plugins_) {
+    if (state_ == State::Building) {
         return Result::Ok;
     }
 
-    draining_plugins_ = true;
     state_ = State::Building;
 
     while (!pending_plugins_.empty()) {
@@ -331,8 +328,7 @@ Result App::drain_pending_plugins() {
             Result result = entry.plugin.build(*this, entry.plugin.ctx);
             if (result != Result::Ok) {
                 set_error(std::format("plugin build failed: {}", entry.plugin.name));
-                draining_plugins_ = false;
-                state_ = State::BuildFailed;
+                state_ = State::Created;
                 return result;
             }
         }
@@ -340,7 +336,6 @@ Result App::drain_pending_plugins() {
         plugins_.push_back(std::move(entry));
     }
 
-    draining_plugins_ = false;
     state_ = State::Created;
     return Result::Ok;
 }
@@ -352,6 +347,35 @@ bool App::has_pending_plugin(std::string_view name) const {
         }
     }
     return false;
+}
+
+Result App::prepare() {
+    Result result = drain_pending_plugins();
+    if (result != Result::Ok) {
+        return result;
+    }
+
+    result = post_build();
+    if (result != Result::Ok) {
+        return result;
+    }
+    
+    if (enable_rest_api_) {
+        world_.import<flecs::stats>();
+        world_.set<flecs::Rest>({});
+    }
+
+    for (auto& subapp : subapps_) {
+        result = subapp.app->prepare();
+        if (result != Result::Ok) {
+            set_error(std::format("prepare: subapp '{}' failed", subapp.name));
+            teardown();
+            return result;
+        }
+    }
+
+    state_ = State::Running;
+    return Result::Ok;
 }
 
 void App::set_error(std::string_view message) {
