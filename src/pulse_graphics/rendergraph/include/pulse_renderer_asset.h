@@ -1,0 +1,260 @@
+#pragma once
+
+#include "cgpu/api.h"
+#include <string.h>
+#include "pulse_graphics.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct PulseTextureData
+{
+	CGPUTextureId handle;
+	CGPUTextureViewId view;
+	uint32_t cur_state_count;
+	ECGPUResourceStateFlags* p_cur_states;
+	bool states_consistent;
+	bool prepared;
+	PulseRGTextureHandle dynamic_handle;
+};
+
+struct PulseGraphicsBufferData
+{
+	CGPUBufferId handle;
+	ECGPUResourceTypeFlags type;
+	ECGPUResourceStateFlags cur_state;
+	PulseRGBufferHandle dynamic_handle;
+};
+
+typedef struct PulseGraphicsBuffer
+{
+    PulseGraphicsBufferHandle handle;
+    PulseGraphicsBufferData* ptr;
+
+} PulseGraphicsBuffer;
+
+struct PulseMeshData
+{
+	CGPUVertexLayout vertex_layout;
+	CGPUVertexAttribute* p_vertex_attributes;
+	ECGPUPrimitiveTopology prim_topology;
+	uint32_t vertex_stride;
+	uint32_t index_stride;
+	uint32_t vertices_count;
+	uint32_t index_count;
+	PulseGraphicsBuffer vertex_buffer;
+	PulseGraphicsBuffer index_buffer;
+	bool prepared;
+};
+
+struct pulse_shader_property_t
+{
+    const char* name;
+    int type;
+    int role;
+    uint32_t set;
+    uint32_t binding;
+    uint32_t offset;
+    uint32_t size;
+};
+
+struct pulse_shader_set_info_t
+{
+    uint32_t set_index;
+    bool renderer_managed;
+    uint64_t layout_hash;
+};
+
+struct PulseShaderData
+{
+	CGPURootSignatureId root_sig;
+	CGPUShaderEntryDescriptor vs;
+	CGPUShaderEntryDescriptor ps;
+	CGPUBlendStateDescriptor blend_desc;
+	uint32_t blend_attachment_states_count;
+	CGPUBlendAttachmentState* p_blend_attachment_states;
+	CGPUDepthStateDescriptor depth_desc;
+	CGPURasterizerStateDescriptor rasterizer_state;
+	uint32_t property_count;
+	PulseShaderProperty* p_properties;
+	uint32_t ubo_info_count;
+	PulseUboInfo* p_ubo_infos;
+	uint32_t set_info_count;
+	pulse_shader_set_info_t* p_set_infos;
+};
+
+struct PulseComputeShaderData
+{
+	CGPURootSignatureId root_sig;
+	CGPUShaderEntryDescriptor cs;
+};
+
+struct pulse_material_bind_buffer_t
+{
+	int set;
+	int bind;
+	PulseGraphicsBufferData* buffer;
+};
+
+struct pulse_material_bind_buffer_array_t
+{
+	int size;
+	int capacity;
+	pulse_material_bind_buffer_t* data;
+};
+
+struct pulse_material_bind_texture_t
+{
+	int set;
+	int bind;
+	PulseTextureData* texture;
+};
+
+struct pulse_material_bind_texture_array_t
+{
+	int size;
+	int capacity;
+	pulse_material_bind_texture_t* data;
+};
+
+struct pulse_material_bind_sampler_t
+{
+	int set;
+	int bind;
+	CGPUSamplerId sampler;
+};
+
+struct pulse_material_bind_sampler_array_t
+{
+	int size;
+	int capacity;
+	pulse_material_bind_sampler_t* data;
+};
+
+struct pulse_material_ubo_column_t
+{
+	uint32_t set;
+	uint32_t binding;
+	uint8_t* cpu_data;
+	uint32_t size;
+	bool dirty;
+    bool material_only;
+	PulseGraphicsBufferData* gpu_buffer;
+};
+
+struct pulse_material_ubo_columns_t
+{
+	int size;
+	int capacity;
+	pulse_material_ubo_column_t* data;
+};
+
+struct pulse_material_owned_buffer_array_t
+{
+	int size;
+	int capacity;
+	PulseGraphicsBufferData** data;
+};
+
+struct pulse_material_descriptor_set_t
+{
+    uint32_t set_index;
+    CGPUDescriptorSetId handle;
+    bool binding_dirty;
+};
+
+struct pulse_material_descriptor_set_array_t
+{
+    int size;
+    int capacity;
+    pulse_material_descriptor_set_t* data;
+};
+
+typedef struct PulseShader
+{
+    PulseShaderHandle    handle;
+    PulseShaderData*     ptr;
+
+} PulseShader;
+
+struct PulseMaterialData
+{
+	CGPUDeviceId device;
+	PulseShader shader;
+	pulse_material_bind_buffer_array_t buffers;
+	pulse_material_bind_texture_array_t textures;
+	pulse_material_bind_sampler_array_t samplers;
+	pulse_material_ubo_columns_t uboColumns;
+	pulse_material_owned_buffer_array_t ownedBuffers;
+	pulse_material_descriptor_set_array_t materialDsets;
+};
+
+struct pulse_backbuffer_data_t
+{
+	PulseTextureData texture;
+};
+
+typedef struct PulseShaderLibraryData {
+    CGPUShaderLibraryId library;
+} PulseShaderLibraryData;
+
+typedef struct PulseSamplerData {
+    CGPUSamplerId handle;
+} PulseSamplerData;
+
+typedef struct PulseShaderLibrary
+{
+    PulseShaderLibraryHandle handle;
+    PulseShaderLibraryData* ptr;
+
+} PulseShaderLibrary;
+
+typedef struct PulseComputeShader
+{
+    PulseComputeShaderHandle handle;
+    PulseComputeShaderData* ptr;
+
+} PulseComputeShader;
+
+typedef struct PulseTexture
+{
+    PulseTextureHandle   handle;
+    PulseTextureData*    ptr;
+
+} PulseTexture;
+
+typedef struct PulseMesh
+{
+    PulseMeshHandle      handle;
+    PulseMeshData*       ptr;
+
+} PulseMesh;
+
+typedef struct PulseMaterial
+{
+    PulseMaterialHandle  handle;
+    PulseMaterialData*   ptr;
+
+} PulseMaterial;
+
+typedef struct PulseSampler
+{
+    PulseSamplerHandle   handle;
+    PulseSamplerData*    ptr;
+
+} PulseSampler;
+
+static inline const PulseShaderProperty* pulse_find_shader_property(const PulseShaderData* shader, const char* name)
+{
+	if (!shader || !shader->p_properties || !name) return nullptr;
+	for (uint32_t i = 0; i < shader->property_count; ++i) {
+		if (shader->p_properties[i].name && strcmp(shader->p_properties[i].name, name) == 0)
+			return &shader->p_properties[i];
+	}
+	return nullptr;
+}
+
+#ifdef __cplusplus
+}
+#endif

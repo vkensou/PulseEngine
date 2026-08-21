@@ -1,0 +1,275 @@
+#pragma once
+
+#include "framework.h"
+#include <SDL3/SDL.h>
+#include "imgui.h"
+#include "renderdoc_helper.h"
+#include <queue>
+#include "renderer.h"
+#include <enkiTS/TaskScheduler.h>
+#include "imgui_threaded_rendering.h"
+
+struct oval_transfer_data_to_texture
+{
+	pulse_texture_data_t* texture;
+	uint8_t* data;
+	uint64_t size;
+	uint32_t mipmap;
+	uint32_t slice;
+	bool transfer_full;
+	bool generate_mipmap;
+	uint8_t generate_mipmap_from;
+};
+
+struct oval_transfer_data_to_buffer
+{
+	pulse_buffer_data_t* buffer;
+	uint8_t* data;
+	uint64_t size;
+};
+
+struct oval_graphics_transfer_queue
+{
+	oval_graphics_transfer_queue(std::pmr::memory_resource* memory_resource)
+		: textures(memory_resource), buffers(memory_resource), memory_resource(memory_resource)
+	{
+	}
+
+	std::pmr::monotonic_buffer_resource memory_resource;
+	std::pmr::vector<oval_transfer_data_to_texture> textures;
+	std::pmr::vector<oval_transfer_data_to_buffer> buffers;
+};
+
+struct FrameData
+{
+	CGPUFenceId inflightFence;
+	HGEGraphics::ExecutorContext execContext;
+
+	FrameData(CGPUDeviceId device, CGPUQueueId gfx_queue, bool profile, std::pmr::memory_resource* memory_resource)
+		: execContext(device, gfx_queue, profile, memory_resource)
+	{
+		inflightFence = cgpu_device_create_fence(device);
+	}
+
+	void newFrame()
+	{
+		execContext.newFrame();
+	}
+
+	void free()
+	{
+		execContext.destroy();
+
+		cgpu_device_free_fence(inflightFence->device, inflightFence);
+		inflightFence = CGPU_NULLPTR;
+	}
+};
+
+struct FrameInfo
+{
+	uint32_t current_frame_index{ 0 };
+	size_t currentPacketFrame{ 0 };
+
+	void reset()
+	{
+		current_frame_index = -1;
+		currentPacketFrame = -1;
+	}
+};
+
+enum class WaitLoadResourceType
+{
+	Texture,
+	Mesh,
+};
+
+struct WaitLoadResource
+{
+	WaitLoadResourceType type;
+	const char* path;
+	size_t path_size;
+	union {
+		struct {
+			pulse_texture_data_t* texture;
+			bool mipmap;
+		} textureResource;
+		struct {
+			pulse_mesh_data_t* mesh;
+		} meshResource;
+	};
+};
+
+struct Vec3
+{
+	float X, Y, Z;
+};
+
+struct Vec2
+{
+	float X, Y;
+};
+
+struct TexturedVertex
+{
+	Vec3 position;
+	Vec3 normal;
+	Vec2 texCoord;
+};
+
+struct SwapChain
+{
+	CGPUSwapChainId handle{ CGPU_NULLPTR };
+	std::vector<pulse_backbuffer_data_t> backbuffer;
+	std::vector<CGPUSemaphoreId> swapchain_prepared_semaphores;
+	std::vector<CGPUSemaphoreId> render_finished_semaphores;
+
+	static std::unique_ptr<SwapChain> create(CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor);
+	static std::unique_ptr<SwapChain> resize(std::unique_ptr<SwapChain> old_swap_chain, CGPUDeviceId device, const CGPUSwapChainDescriptor& swap_chain_descriptor);
+
+	~SwapChain();
+
+private:
+	SwapChain(const SwapChain&) = delete;
+	SwapChain& operator=(const SwapChain&) = delete;
+	SwapChain(const SwapChain&&) = delete;
+	SwapChain& operator=(const SwapChain&&) = delete;
+
+	SwapChain() {}
+};
+
+struct oval_window_impl_t : oval_window_t {
+	SDL_Window* window;
+	SDL_WindowID windowId;
+	CGPUSurfaceId surface;
+	std::unique_ptr<SwapChain> swapchain;
+	uint32_t current_swapchain_index;
+	pulse_backbuffer_data_t* current_back_buffer;
+	CGPUSemaphoreId current_prepared_semaphore;
+	CGPUSemaphoreId current_finish_semaphore;
+	bool needResize;
+	bool needClose;
+	ImGuiContext* imgui_context;
+	bool imgui_owned_context;
+	ImGuiViewport* imgui_viewport;
+	ImDrawDataSnapshot snapshot;
+	ImDrawData* imgui_draw_data = nullptr;
+	pulse_mesh_data_t* imgui_mesh = nullptr;
+	ecs_entity_t entity;
+
+	void RequestResize()
+	{
+		needResize = true;
+	}
+
+	void RequestClose()
+	{
+		needClose = true;
+	}
+
+	bool AcquireNextImage(uint32_t frame_index)
+	{
+		current_back_buffer = nullptr;
+		current_prepared_semaphore = CGPU_NULLPTR;
+		current_finish_semaphore = CGPU_NULLPTR;
+
+		if (!swapchain)
+			return false;
+
+		current_prepared_semaphore = swapchain->swapchain_prepared_semaphores[frame_index];
+
+		CGPUAcquireNextDescriptor acquire_desc = {
+			.signal_semaphore = current_prepared_semaphore,
+		};
+
+		auto res = cgpu_swap_chain_acquire_next_image(swapchain->handle, &acquire_desc, &current_swapchain_index);
+		if (current_swapchain_index < swapchain->handle->back_buffer_count)
+		{
+			current_finish_semaphore = swapchain->render_finished_semaphores[current_swapchain_index];
+			current_back_buffer = &swapchain->backbuffer[current_swapchain_index];
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	void Present(CGPUQueueId present_queue)
+	{
+		CGPUQueuePresentDescriptor present_desc = {
+			.swapchain = swapchain->handle,
+			.wait_semaphore_count = 1,
+			.p_wait_semaphores = &current_finish_semaphore,
+			.index = (uint8_t)current_swapchain_index,
+		};
+		cgpu_queue_present(present_queue, &present_desc);
+	}
+
+	void FetchImguiDrawData()
+	{
+		ImGui::SetCurrentContext(imgui_context);
+		ImDrawData* drawData = imgui_viewport ? imgui_viewport->DrawData : nullptr;
+		if (drawData)
+			snapshot.SnapUsingSwap(drawData, ImGui::GetTime());
+	}
+};
+
+typedef struct oval_cgpu_device_t {
+	oval_cgpu_device_t(const oval_device_t& super, std::pmr::memory_resource* memory_resource)
+		: super(super), windows(memory_resource), memory_resource(memory_resource), transfer_queue(memory_resource), allocator(memory_resource), wait_load_resources(memory_resource)
+	{
+	}
+
+	oval_device_t super;
+	std::pmr::vector<oval_window_t*> windows;
+	std::pmr::vector<oval_window_t*> closed_windows;
+	std::pmr::memory_resource* memory_resource;
+	std::pmr::polymorphic_allocator<std::byte> allocator;
+	CGPUInstanceId instance;
+	CGPUDeviceId device;
+	CGPUQueueId gfx_queue;
+	CGPUQueueId present_queue;
+
+	std::vector<FrameData> frameDatas;
+	FrameInfo info;
+
+	pulse_shader_data_t* blit_shader = nullptr;
+	CGPUSamplerId blit_linear_sampler = CGPU_NULLPTR;
+
+	ImFontAtlas* imgui_font = nullptr;;
+	pulse_texture_data_t* imgui_font_texture = nullptr;
+	pulse_shader_data_t* imgui_shader = nullptr;
+	CGPUSamplerId imgui_font_sampler = CGPU_NULLPTR;
+
+	bool rdc_capture = false;
+	RENDERDOC_API_1_0_0* rdc = nullptr;
+
+	std::pmr::vector<oval_graphics_transfer_queue*> transfer_queue;
+	std::queue<WaitLoadResource, std::pmr::deque<WaitLoadResource>> wait_load_resources;
+	oval_graphics_transfer_queue* cur_transfer_queue = nullptr;
+
+	pulse_texture_data_t* default_texture;
+
+	enki::TaskScheduler taskScheduler;
+
+	std::pmr::vector<std::unique_ptr<pulse_mesh_data_t>> meshes;
+	std::pmr::vector<std::unique_ptr<pulse_shader_data_t>> shaders;
+	std::pmr::vector<std::unique_ptr<pulse_compute_shader_data_t>> computeShaders;
+	std::pmr::vector<CGPUSamplerId> samplers;
+	std::pmr::vector<std::unique_ptr<pulse_texture_data_t>> textures;
+	std::pmr::vector<std::unique_ptr<pulse_material_data_t>> materials;
+	
+	flecs::world world;
+	flecs::system system_sync_window_component_and_raw_handle;
+} oval_cgpu_device_t;
+
+void oval_process_load_queue(oval_cgpu_device_t* device);
+void oval_graphics_transfer_queue_execute_all(oval_cgpu_device_t* device, HGEGraphics::rendergraph_t& rg);
+void oval_graphics_transfer_queue_release_all(oval_cgpu_device_t* device);
+uint64_t load_mesh(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_mesh_data_t* mesh, const char* filepath);
+uint64_t load_texture(oval_cgpu_device_t* device, oval_graphics_transfer_queue_t queue, pulse_texture_data_t* texture, const char* filepath, bool mipmap);
+std::vector<uint8_t> readfile(const char* filename);
+oval_window_t* oval_create_window(oval_device_t* device, const oval_window_descriptor* window_descriptor);
+void oval_free_window(oval_device_t* device, oval_window_t* window);
+void sync_window_component_and_raw_handle(const WindowComponent& window, const RawWindowHandleComponent& rawwindow);
+void oval_sync_window_component_and_raw_handle(struct oval_device_t* device);

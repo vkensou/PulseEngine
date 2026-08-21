@@ -1,0 +1,57 @@
+#pragma once
+
+#ifndef PULSE_APP_API_HEADER_GUARD
+#define PULSE_APP_API_HEADER_GUARD
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdbool.h> // bool
+#include <stddef.h>  // size_t
+#include <stdint.h>  // uint32_t
+
+#define FLECS_NO_CPP
+#include <flecs.h>
+
+#ifndef PULSE_API
+#define PULSE_API
+#endif
+
+#ifndef PULSE_FORCEINLINE
+#if defined(_MSC_VER) && !defined(__clang__)
+#define PULSE_FORCEINLINE __forceinline
+#else
+#define PULSE_FORCEINLINE inline __attribute__((always_inline))
+#endif
+#endif
+
+$cconsts
+
+#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id;
+
+typedef uint32_t EPulseFlags;
+typedef uint64_t EPulseFlags64;
+typedef struct ecs_world_t ecs_world_t;
+
+$cenums
+
+$cflags
+
+$cids
+
+typedef struct PulsePluginDesc PulsePluginDesc;
+
+$cfuncptrs
+
+$cstructs
+
+extern ECS_COMPONENT_DECLARE(PulseTimer);
+
+$c99decl
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // PULSE_APP_API_HEADER_GUARD

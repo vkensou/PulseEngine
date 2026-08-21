@@ -1,0 +1,61 @@
+version(1)
+
+typedef "bool"
+typedef "float"
+typedef "int32_t"
+typedef "uint32_t"
+typedef "void"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "PulseAppId"
+
+--- From flecs.h
+typedef "ecs_entity_t"
+
+--- From pulse_math.h
+typedef "HMM_Vec4" { cname = "HMM_Vec4" }
+
+--- From pulse_graphics.h
+typedef "PulseMeshHandle" { cname = "PulseMeshHandle" }
+typedef "PulseMaterialHandle" { cname = "PulseMaterialHandle" }
+
+--- Constants
+const_value.RendererPluginDescVersion { value = "1u" }
+
+--- Renderer property type
+enum.RendererPropertyType { underscore }
+    .VpMatrix
+    .ModelMatrix
+    ()
+
+--- ECS Components
+struct.Camera
+    .windowEntity "ecs_entity_t"
+    .fov          "float"
+    .nearPlane    "float"
+    .farPlane     "float"
+    ()
+
+struct.Light
+    .color "HMM_Vec4"
+    ()
+
+struct.Renderable
+    .mesh     "PulseMeshHandle"
+    .material "PulseMaterialHandle"
+    ()
+
+--- Functions
+func.AddRendererPlugin
+    "EPulseResult"
+    .app  "PulseAppId"
+    ()
+
+func.SetShaderPropertyNameMapper
+    "void"
+    .app  "PulseAppId"
+    .type "RendererPropertyType::Enum"
+    .name "cstring"
+    ()

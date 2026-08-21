@@ -1,23 +1,28 @@
 #include "snake_module.h"
 #include "snake.h"
 
-void loadSnakeResourcesSystemWrapper(
+static void snakeGameStateMachineWrapper(
 	flecs::iter& it)
 {
 	auto world = it.world();
-	auto& resourceManagerQuery = world.get_mut<ResourceManager>();
-	pulse::command_buffer command_buffer(world);
-	loadSnakeResourcesSystem(pulse::res<ResourceManager>(resourceManagerQuery), command_buffer);
+	world.get_mut<pulse::StateMachine<SnakeGameState>>().tick(world);
 }
-void initSnakeGameSystemWrapper(
+struct loadSnakeResourcesSystemWrapperState
+{
+	flecs::query<PulseWindow, PulsePrimaryWindow> primaryWindowQuery;
+};
+static void loadSnakeResourcesSystemWrapper(
 	flecs::iter& it)
 {
 	auto world = it.world();
+	auto app = pulse_get_app_from_world(world.c_ptr());
+	auto& assetsQuery = world.get_mut<SnakeAssets>();
+	auto state = pulse::system_state_machine<SnakeGameState>(world);
 	pulse::command_buffer command_buffer(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	initSnakeGameSystem(command_buffer, resourcesQuery);
+	auto systemState = it.system().get<loadSnakeResourcesSystemWrapperState>();
+	loadSnakeResourcesSystem(app, pulse::res<SnakeAssets>(assetsQuery), state, command_buffer, systemState.primaryWindowQuery);
 }
-void handleSnakeInputSystemWrapper(
+static void handleSnakeInputSystemWrapper(
 	flecs::iter& it, size_t i
 	, const SnakeInput& input
 	, Facing4W& direction
@@ -25,24 +30,24 @@ void handleSnakeInputSystemWrapper(
 )
 {
 	auto world = it.world();
-	auto& keyboardStateQuery = world.get<const KeyboardState>();
-	handleSnakeInputSystem(pulse::res<const KeyboardState>(keyboardStateQuery), input, direction, move);
+	auto& keyboardQuery = world.get<const PulseKeyboardInput>();
+	handleSnakeInputSystem(pulse::res<const PulseKeyboardInput>(keyboardQuery), input, direction, move);
 }
-void scheduleSnakeMoveSystemWrapper(
+static void scheduleSnakeMoveSystemWrapper(
 	flecs::iter& it, size_t i
 	, const Facing4W& direction
 	, SnakeMove& move
 )
 {
 	auto world = it.world();
-	auto& contextQuery = world.get<const UpdateContext>();
+	auto& timerQuery = world.get<const PulseTimer>();
 	auto snakeMoveIntentEvent = pulse::event_writer<SnakeMoveIntentEvent>(world);
 	auto entity = it.entity(i);
-	scheduleSnakeMoveSystem(pulse::res<const UpdateContext>(contextQuery), snakeMoveIntentEvent, entity, direction, move);
+	scheduleSnakeMoveSystem(pulse::res<const PulseTimer>(timerQuery), snakeMoveIntentEvent, entity, direction, move);
 }
-void executeSnakeMoveSystemWrapper(
+static void executeSnakeMoveSystemWrapper(
 	pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, flecs::world& world
-	, flecs::query<const IsApple, const Position>& appleQuery
+	, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery
 	, SnakeBodies& snake
 )
 {
@@ -53,7 +58,7 @@ void executeSnakeMoveSystemWrapper(
 	pulse::command_buffer command_buffer(world);
 	executeSnakeMoveSystem(snakeMoveIntentEvent, command_buffer, appleQuery, borderQuery, resourcesQuery, appleEatenEvent, gameOverEvent, snake);
 }
-void syncSnakeBodyPositionSystemWrapper(
+static void syncSnakeBodyPositionSystemWrapper(
 	flecs::iter& it, size_t i
 	, SnakeBodies& snake
 )
@@ -61,14 +66,14 @@ void syncSnakeBodyPositionSystemWrapper(
 	auto world = it.world();
 	syncSnakeBodyPositionSystem(snake);
 }
-void eatAppleSystemWrapper(
+static void eatAppleSystemWrapper(
 	pulse::event_reader<AppleEatenEvent> appleEatenEvent, flecs::world& world
 )
 {
 	pulse::command_buffer command_buffer(world);
 	eatAppleSystem(appleEatenEvent, command_buffer);
 }
-void increaseScoreSystemWrapper(
+static void increaseScoreSystemWrapper(
 	pulse::event_reader<AppleEatenEvent> appleEatenEvent, flecs::world& world
 	, flecs::query<Score>& scoreQuery
 )
@@ -78,7 +83,7 @@ void increaseScoreSystemWrapper(
 			increaseScoreSystem(appleEatenEvent, score);
 		});
 }
-void spawnAppleSystemWrapper(
+static void spawnAppleSystemWrapper(
 	pulse::event_reader<AppleEatenEvent> appleEatenEvent, flecs::world& world
 	, flecs::query<const SnakeBodies>& snakeQuery
 )
@@ -88,74 +93,101 @@ void spawnAppleSystemWrapper(
 	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
 	spawnAppleSystem(appleEatenEvent, command_buffer, snakeQuery, borderQuery, resourcesQuery);
 }
-void onGameOverSystemWrapper(
+static void onGameOverSystemWrapper(
 	pulse::event_reader<GameOverEvent> gameOverEvent, flecs::world& world
 	, flecs::query<SnakeBodies>& snakeQuery
 	, flecs::query<IsApple>& appleQuery
 )
 {
 	pulse::command_buffer command_buffer(world);
-	onGameOverSystem(gameOverEvent, command_buffer, snakeQuery, appleQuery);
+	auto state = pulse::system_state_machine<SnakeGameState>(world);
+	onGameOverSystem(gameOverEvent, command_buffer, state, snakeQuery, appleQuery);
 }
-void onImguiWrapper(
+struct snakeUISystemWrapperState
+{
+	flecs::query<PulseWindow, PulsePrimaryWindow> primaryWindowQuery;
+};
+static void snakeUISystemWrapper(
 	flecs::iter& it, size_t i
-	, const SnakeGame& snakeGame
 	, const Score& score
 )
 {
 	auto world = it.world();
+	auto state = pulse::system_state_machine<SnakeGameState>(world);
+	auto& keyboardQuery = world.get<const PulseKeyboardInput>();
 	auto restartEvent = pulse::event_writer<RestartEvent>(world);
-	onImguiSystem(snakeGame, score, restartEvent);
+	auto systemState = it.system().get<snakeUISystemWrapperState>();
+	snakeUISystem(score, systemState.primaryWindowQuery, state, pulse::res<const PulseKeyboardInput>(keyboardQuery), restartEvent);
 }
-void restartSystemWrapper(
+static void snakeFpsUISystemWrapper(
+	flecs::iter& it)
+{
+	auto world = it.world();
+	auto& timerQuery = world.get<const PulseTimer>();
+	snakeFpsUISystem(pulse::res<const PulseTimer>(timerQuery));
+}
+static void restartSystemWrapper(
 	pulse::event_reader<RestartEvent> restartEvent, flecs::world& world
 )
 {
 	pulse::command_buffer command_buffer(world);
 	auto borderQuery = pulse::singleton_query<const Border>(world);
 	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	restartSystem(restartEvent, command_buffer, borderQuery, resourcesQuery);
+	auto state = pulse::system_state_machine<SnakeGameState>(world);
+	restartSystem(restartEvent, command_buffer, state, borderQuery, resourcesQuery);
 }
 
 void importModule(pulse::ModuleContext* moduleContext)
 {
-	moduleContext->world.system("LoadSnakeResources")
-		.kind(moduleContext->initPipeline)
+	pulse::registerResource<SnakeAssets>(moduleContext->world, "Snake Assets", SnakeAssets{});
+	moduleContext->world.set<pulse::StateMachine<SnakeGameState>>(pulse::StateMachine<SnakeGameState>{});
+	auto& stateMachine = moduleContext->world.get_mut<pulse::StateMachine<SnakeGameState>>();
+	moduleContext->world.system("SnakeGameStateMachine")
+		.kind(moduleContext->updatePipeline)
 		.immediate()
+		.run(snakeGameStateMachineWrapper);
+	auto loadSnakeResourcesSystem = moduleContext->world.system("LoadSnakeResources")
+		.kind(moduleContext->updatePipeline)
 		.run(loadSnakeResourcesSystemWrapper);
-	moduleContext->world.system("InitSnakeGame")
-		.kind(moduleContext->initPipeline)
-		.immediate()
-		.run(initSnakeGameSystemWrapper);
-	moduleContext->world.system<const SnakeInput, Facing4W, SnakeMove>("HandleSnakeInput")
+	loadSnakeResourcesSystem.set<loadSnakeResourcesSystemWrapperState>({ .primaryWindowQuery = moduleContext->world.query<PulseWindow, PulsePrimaryWindow>() });
+	stateMachine.reg(loadSnakeResourcesSystem, { SnakeGameState::UnInitialized, SnakeGameState::Loading });
+	auto handleSnakeInputSystem = moduleContext->world.system<const SnakeInput, Facing4W, SnakeMove>("HandleSnakeInput")
 		.kind(moduleContext->updatePipeline)
 		.each(handleSnakeInputSystemWrapper);
-	moduleContext->world.system<const Facing4W, SnakeMove>("ScheduleSnakeMove")
+	stateMachine.reg(handleSnakeInputSystem, { SnakeGameState::Gaming });
+	auto scheduleSnakeMoveSystem = moduleContext->world.system<const Facing4W, SnakeMove>("ScheduleSnakeMove")
 		.kind(moduleContext->updatePipeline)
 		.each(scheduleSnakeMoveSystemWrapper);
-	moduleContext->world.system<SnakeBodies>("SyncSnakeBodyPosition")
+	stateMachine.reg(scheduleSnakeMoveSystem, { SnakeGameState::Gaming });
+	auto syncSnakeBodyPositionSystem = moduleContext->world.system<SnakeBodies>("SyncSnakeBodyPosition")
 		.kind(moduleContext->updatePipeline)
 		.each(syncSnakeBodyPositionSystemWrapper);
-	moduleContext->world.system<const SnakeGame, const Score>("OnImgui")
+	stateMachine.reg(syncSnakeBodyPositionSystem, { SnakeGameState::Gaming });
+	auto snakeUISystem = moduleContext->world.system<const Score>("SnakeUI")
 		.kind(moduleContext->imguiPipeline)
-		.immediate()
-		.each(onImguiWrapper);
+		.each(snakeUISystemWrapper);
+	snakeUISystem.set<snakeUISystemWrapperState>({ .primaryWindowQuery = moduleContext->world.query<PulseWindow, PulsePrimaryWindow>() });
+	stateMachine.reg(snakeUISystem, { SnakeGameState::Gaming, SnakeGameState::GameOver });
+	moduleContext->world.system("SnakeFpsUI")
+		.kind(moduleContext->imguiPipeline)
+		.run(snakeFpsUISystemWrapper);
 	auto snakeMoveIntentDispatcher = std::make_unique<pulse::EntityEventRegister<SnakeMoveIntentEvent, SnakeBodies>>();
-	snakeMoveIntentDispatcher->reg(executeSnakeMoveSystemWrapper, moduleContext->world.query<const IsApple, const Position>());
-	snakeMoveIntentDispatcher->observe(moduleContext->world);
+	snakeMoveIntentDispatcher->reg(executeSnakeMoveSystemWrapper, moduleContext->world.query<const IsApple, const PulseLocalTransform>());
+	stateMachine.reg(snakeMoveIntentDispatcher->observe(moduleContext->world), { SnakeGameState::Gaming });
 	moduleContext->eventManager->register_event(std::move(snakeMoveIntentDispatcher));
 	auto appleEatenDispatcher = std::make_unique<pulse::EventRegister<AppleEatenEvent>>();
 	appleEatenDispatcher->reg(eatAppleSystemWrapper);
 	appleEatenDispatcher->reg(increaseScoreSystemWrapper, moduleContext->world.query<Score>());
 	appleEatenDispatcher->reg(spawnAppleSystemWrapper, moduleContext->world.query<const SnakeBodies>());
-	appleEatenDispatcher->observe(moduleContext->world);
+	stateMachine.reg(appleEatenDispatcher->observe(moduleContext->world), { SnakeGameState::Gaming });
 	moduleContext->eventManager->register_event(std::move(appleEatenDispatcher));
 	auto gameOverDispatcher = std::make_unique<pulse::EventRegister<GameOverEvent>>();
 	gameOverDispatcher->reg(onGameOverSystemWrapper, moduleContext->world.query<SnakeBodies>(), moduleContext->world.query<IsApple>());
-	gameOverDispatcher->observe(moduleContext->world);
+	stateMachine.reg(gameOverDispatcher->observe(moduleContext->world), { SnakeGameState::Gaming });
 	moduleContext->eventManager->register_event(std::move(gameOverDispatcher));
 	auto restartDispatcher = std::make_unique<pulse::EventRegister<RestartEvent>>();
 	restartDispatcher->reg(restartSystemWrapper);
-	restartDispatcher->observe(moduleContext->world);
+	stateMachine.reg(restartDispatcher->observe(moduleContext->world), { SnakeGameState::GameOver });
 	moduleContext->eventManager->register_event(std::move(restartDispatcher));
+	stateMachine.init(moduleContext->world, SnakeGameState::UnInitialized);
 }

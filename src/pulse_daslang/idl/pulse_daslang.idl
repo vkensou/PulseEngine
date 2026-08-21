@@ -1,0 +1,51 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "PulseAppId"
+
+--- Constants
+const_value.DaslangPluginDescVersion { value = "1u" }
+
+--- Plugin descriptor
+struct.DaslangPluginDesc
+    .structSize "uint32_t"
+    .version    "uint32_t"
+    .rootPath   "cstring"
+    ()
+
+--- Functions
+
+func.DaslangPluginDescDefault
+    "DaslangPluginDesc"
+    ()
+
+func.AddDaslangPlugin
+    "EPulseResult"
+    .app  "PulseAppId"
+    .desc "*const DaslangPluginDesc"
+    ()
+
+func.LoadModule
+    "bool"
+    .app  "PulseAppId"
+    .scriptPath "cstring"
+    ()

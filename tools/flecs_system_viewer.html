@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flecs System Dependency Viewer</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel-2: #212b37;
+    --border: #2e3b49;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --accent: #4da3ff;
+    --phase: #2f81f7;
+    --system: #238636;
+    --other: #bf8700;
+    --disabled: #6b7280;
+    --error: #f85149;
+    --ok: #3fb950;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  header {
+    flex: 0 0 auto;
+    padding: 16px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  h1 {
+    margin: 0 0 10px;
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .controls label {
+    color: var(--muted);
+  }
+
+  .check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .check-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  input[type="text"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    min-width: 280px;
+    font-size: 14px;
+  }
+
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  button {
+    background: var(--accent);
+    color: #04121f;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button.secondary {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .status.error { color: var(--error); }
+  .status.ok { color: var(--ok); }
+
+  main {
+    flex: 1;
+    min-height: 0;
+    padding: 16px 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+  }
+
+  #summary {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .summary-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    min-width: 140px;
+  }
+
+  .summary-card .num {
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .summary-card .label {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .tabs {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tab-bar {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+
+  .tab-button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-radius: 8px 8px 0 0;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tab-button:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .tab-button.active {
+    background: var(--panel);
+    color: var(--accent);
+    border-color: var(--border);
+    border-bottom-color: var(--panel);
+  }
+
+  .tab-content {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tab-pane {
+    flex: 1;
+    min-height: 0;
+    display: none;
+  }
+
+  .tab-pane.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 1100px) {
+    .tab-content { width: 100%; }
+  }
+
+  .panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel h2 {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 14px 18px;
+    font-size: 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+
+  .table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+    z-index: 1;
+    user-select: none;
+  }
+
+  .resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 3;
+  }
+
+  .resizer:hover,
+  .resizer.active {
+    background: rgba(77,163,255,0.5);
+  }
+
+  th.sortable {
+    cursor: pointer;
+  }
+
+  th.sortable:hover {
+    color: var(--accent);
+  }
+
+  .sort-indicator {
+    display: inline-block;
+    min-width: 10px;
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.03); }
+
+  .mono {
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: 12px;
+    word-break: break-all;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .badge.disabled { background: rgba(107,114,128,0.25); color: #d1d5db; }
+  .badge.enabled { background: rgba(63,185,80,0.18); color: var(--ok); }
+  .badge.dep { background: rgba(77,163,255,0.15); color: var(--accent); }
+
+  .graph-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0) 0 0 / 24px 24px,
+      var(--bg);
+  }
+
+  .graph-wrap svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .graph-wrap svg.panning {
+    cursor: grabbing;
+  }
+
+  .panel-header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+
+  .panel-header h2 {
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    border-bottom: none;
+    background: none;
+  }
+
+  .graph-toolbar {
+    display: flex;
+    gap: 6px;
+  }
+
+  .graph-toolbar button {
+    padding: 5px 12px;
+    font-size: 12px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .graph-toolbar button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  svg text {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+
+  .node-system rect { fill: rgba(35,134,54,0.16); stroke: #2ea043; }
+  .node-phase rect { fill: rgba(47,129,247,0.16); stroke: var(--phase); }
+  .node-other rect { fill: rgba(191,135,0,0.14); stroke: var(--other); }
+  .node-disabled rect { fill: rgba(107,114,128,0.12); stroke: var(--disabled); stroke-dasharray: 5 3; }
+  .node-system text { fill: #7ee787; }
+  .node-phase text { fill: #79c0ff; }
+  .node-other text { fill: #e3b341; }
+  .node-disabled text { fill: #9ca3af; }
+
+  .edge {
+    fill: none;
+    stroke: #8b98a5;
+    stroke-width: 1.5;
+    opacity: 0.7;
+  }
+
+  .legend {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 12px 18px;
+    font-size: 13px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .legend-swatch.system { background: rgba(35,134,54,0.4); border-color: #2ea043; }
+  .legend-swatch.phase { background: rgba(47,129,247,0.4); border-color: var(--phase); }
+  .legend-swatch.other { background: rgba(191,135,0,0.4); border-color: var(--other); }
+  .legend-swatch.disabled { background: rgba(107,114,128,0.4); border-color: var(--disabled); border-style: dashed; }
+
+  .empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 Flecs System Dependency Viewer</h1>
+  <div class="controls">
+    <label for="server">Flecs REST 地址</label>
+    <input type="text" id="server" value="http://localhost:27750" spellcheck="false" placeholder="http://localhost:27750">
+    <button id="loadBtn">加载系统</button>
+    <button id="refreshBtn" class="secondary">刷新</button>
+    <label class="check-label">
+      <input type="checkbox" id="hideBuiltin">
+      隐藏 flecs 内置 System
+    </label>
+  </div>
+  <div id="status" class="status">尚未连接。请确认 Flecs 应用已启用 REST（默认端口 27750）。</div>
+</header>
+
+<main>
+  <section id="summary" class="hidden"></section>
+
+  <div class="tabs">
+    <div class="tab-bar">
+      <button class="tab-button active" data-tab="list" type="button">系统列表</button>
+      <button class="tab-button" data-tab="graph" type="button">依赖图</button>
+    </div>
+
+    <div class="tab-content">
+      <div class="tab-pane active" id="tab-list">
+        <section class="panel">
+          <h2>系统列表</h2>
+          <div class="table-wrap">
+            <table id="systemTable">
+              <colgroup id="colgroup">
+                <col style="width: 64px">
+                <col style="width: 240px">
+                <col style="width: 90px">
+                <col style="width: 100px">
+                <col style="width: 190px">
+                <col style="width: 320px">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th title="按 DependsOn 执行顺序" data-sort-key="exec"># <span class="sort-indicator"></span></th>
+                  <th>系统</th>
+                  <th>状态</th>
+                  <th data-sort-key="time">耗时 <span class="sort-indicator"></span></th>
+                  <th>依赖 (DependsOn)</th>
+                  <th>查询表达式</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr><td colspan="6" class="empty">点击“加载系统”开始。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="tab-pane" id="tab-graph">
+        <section class="panel">
+          <div class="panel-header">
+            <h2>依赖图</h2>
+            <div class="graph-toolbar">
+              <button id="zoomInBtn" type="button">放大</button>
+              <button id="zoomOutBtn" type="button">缩小</button>
+              <button id="zoomResetBtn" type="button">重置</button>
+            </div>
+          </div>
+          <div class="graph-wrap">
+            <svg id="graphSvg" width="100%" height="400" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
+              <text x="20" y="40" fill="#8b98a5" font-size="14">点击“加载系统”后在这里显示依赖图。</text>
+            </svg>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-swatch system"></span> System</div>
+            <div class="legend-item"><span class="legend-swatch phase"></span> Phase</div>
+            <div class="legend-item"><span class="legend-swatch other"></span> 其他依赖</div>
+            <div class="legend-item"><span class="legend-swatch disabled"></span> Disabled</div>
+            <div class="legend-item">滚轮缩放 / 拖拽平移 / 双击重置</div>
+            <div class="legend-item">箭头 = DependsOn（被指向者依赖指向者）</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const serverInput = document.getElementById("server");
+const loadBtn = document.getElementById("loadBtn");
+const refreshBtn = document.getElementById("refreshBtn");
+const statusEl = document.getElementById("status");
+const summaryEl = document.getElementById("summary");
+const tableBody = document.getElementById("tableBody");
+const graphSvg = document.getElementById("graphSvg");
+const tabButtons = document.querySelectorAll(".tab-button");
+const systemTable = document.getElementById("systemTable");
+const colgroup = document.getElementById("colgroup");
+const zoomInBtn = document.getElementById("zoomInBtn");
+const zoomOutBtn = document.getElementById("zoomOutBtn");
+const zoomResetBtn = document.getElementById("zoomResetBtn");
+const hideBuiltinCheckbox = document.getElementById("hideBuiltin");
+
+let graphViewSize = { w: 800, h: 400 };
+let graphTransform = { k: 1, tx: 0, ty: 0 };
+let panState = null;
+let currentSystems = [];
+let currentExecIndex = new Map();
+let sortKey = "exec";
+let sortDir = "asc";
+
+const KNOWN_PHASES = new Set([
+  "OnStart", "PreFrame", "OnLoad", "PostLoad", "PreUpdate", "OnUpdate",
+  "OnValidate", "PostUpdate", "PreStore", "OnStore", "PostFrame"
+]);
+
+const BUILTIN_PHASE_ORDER = [
+  "OnStart", "PreFrame", "OnLoad", "PostLoad", "PreUpdate", "OnUpdate",
+  "OnValidate", "PostUpdate", "PreStore", "OnStore", "PostFrame"
+];
+const PHASE_ORDER_INDEX = new Map(BUILTIN_PHASE_ORDER.map((name, i) => [name, i]));
+
+function setStatus(msg, cls) {
+  statusEl.textContent = msg;
+  statusEl.className = "status" + (cls ? " " + cls : "");
+}
+
+function shortName(path) {
+  if (!path) return "";
+  const parts = String(path).split(".");
+  return parts[parts.length - 1] || path;
+}
+
+function entityPath(r) {
+  if (!r) return "";
+  if (r.parent && r.name) return r.parent + "." + r.name;
+  if (r.name) return r.name;
+  if (r.id !== undefined && r.id !== null) return "#" + r.id;
+  return "";
+}
+
+function isDependsOn(rel) {
+  const short = String(rel).includes(".") ? String(rel).split(".").pop() : String(rel);
+  return short === "DependsOn";
+}
+
+function extractDeps(pairs) {
+  const deps = [];
+  if (!pairs || typeof pairs !== "object") return deps;
+  for (const [rel, targets] of Object.entries(pairs)) {
+    if (!isDependsOn(rel)) continue;
+    const arr = Array.isArray(targets) ? targets : [targets];
+    for (const t of arr) {
+      if (t && typeof t === "string" && !deps.includes(t)) deps.push(t);
+    }
+  }
+  return deps;
+}
+
+function isDisabled(tags) {
+  return (tags || []).some(t => {
+    const s = String(t).includes(".") ? String(t).split(".").pop() : String(t);
+    return s === "Disabled";
+  });
+}
+
+function normalizeBaseUrl(value) {
+  let url = value.trim();
+  if (!url) url = "http://localhost:27750";
+  if (!/^https?:\/\//i.test(url)) url = "http://" + url;
+  return url.replace(/\/+$/, "");
+}
+
+async function api(base, path, params) {
+  const url = new URL(base + path);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      url.searchParams.set(k, String(v));
+    }
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { "Accept": "application/json" },
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      let text = "";
+      try { text = await res.text(); } catch (_) {}
+      throw new Error("HTTP " + res.status + (text ? " - " + text.slice(0, 300) : ""));
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function sortNodes(nodes) {
+  return [...nodes.values()].sort((a, b) => {
+    if (a.type === "phase" && b.type !== "phase") return -1;
+    if (a.type !== "phase" && b.type === "phase") return 1;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+function layoutGraph(nodes, edges) {
+  const nodeIds = [...nodes.keys()];
+  const incoming = new Map();
+  for (const id of nodeIds) incoming.set(id, []);
+
+  for (const e of edges) {
+    if (!incoming.has(e.to)) incoming.set(e.to, []);
+    incoming.get(e.to).push(e.from);
+  }
+
+  // Longest-path layering: depth = 0 for roots, otherwise max(dependency depth)+1.
+  const depth = new Map();
+  for (const id of nodeIds) depth.set(id, 0);
+  for (let i = 0; i < nodeIds.length; i++) {
+    let changed = false;
+    for (const e of edges) {
+      const nd = depth.get(e.from) + 1;
+      if (nd > depth.get(e.to)) {
+        depth.set(e.to, nd);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  // Group by depth.
+  const groups = new Map();
+  for (const id of nodeIds) {
+    const d = depth.get(id) || 0;
+    if (!groups.has(d)) groups.set(d, []);
+    groups.get(d).push(id);
+  }
+
+  const nodePos = new Map();
+  const colWidth = 260;
+  const rowHeight = 72;
+  const nodeW = 220;
+  const nodeH = 44;
+  const marginX = 30;
+  const marginY = 30;
+
+  for (const [d, ids] of groups) {
+    ids.sort((a, b) => {
+      const na = nodes.get(a);
+      const nb = nodes.get(b);
+      return na.label.localeCompare(nb.label);
+    });
+    const x = marginX + d * colWidth;
+    ids.forEach((id, i) => {
+      nodePos.set(id, {
+        x,
+        y: marginY + i * rowHeight,
+        w: nodeW,
+        h: nodeH
+      });
+    });
+  }
+
+  let maxDepth = 0;
+  for (const d of groups.keys()) if (d > maxDepth) maxDepth = d;
+  let maxCount = 0;
+  for (const ids of groups.values()) if (ids.length > maxCount) maxCount = ids.length;
+
+  const width = marginX * 2 + (maxDepth + 1) * colWidth - (colWidth - nodeW);
+  const height = marginY * 2 + maxCount * rowHeight;
+
+  return { nodePos, width, height };
+}
+
+function applyGraphTransform() {
+  const vp = document.getElementById("viewport");
+  if (vp) {
+    vp.setAttribute("transform",
+      `translate(${graphTransform.tx} ${graphTransform.ty}) scale(${graphTransform.k})`);
+  }
+}
+
+function resetGraphTransform() {
+  graphTransform = { k: 1, tx: 0, ty: 0 };
+  applyGraphTransform();
+}
+
+function getGraphViewport() {
+  const rect = graphSvg.getBoundingClientRect();
+  const scale = Math.min(
+    rect.width / graphViewSize.w,
+    rect.height / graphViewSize.h
+  );
+  const offsetX = (rect.width - graphViewSize.w * scale) / 2;
+  const offsetY = (rect.height - graphViewSize.h * scale) / 2;
+  return { rect, scale, offsetX, offsetY };
+}
+
+function graphPointFromEvent(e) {
+  const { rect, scale, offsetX, offsetY } = getGraphViewport();
+  return {
+    x: (e.clientX - rect.left - offsetX) / scale,
+    y: (e.clientY - rect.top - offsetY) / scale
+  };
+}
+
+function zoomGraphAt(factor, px, py) {
+  const oldK = graphTransform.k;
+  const newK = Math.min(5, Math.max(0.2, oldK * factor));
+  const ratio = newK / oldK;
+  graphTransform.tx = px - (px - graphTransform.tx) * ratio;
+  graphTransform.ty = py - (py - graphTransform.ty) * ratio;
+  graphTransform.k = newK;
+  applyGraphTransform();
+}
+
+function zoomGraphBy(factor) {
+  const rect = graphSvg.getBoundingClientRect();
+  const p = graphPointFromEvent({
+    clientX: rect.left + rect.width / 2,
+    clientY: rect.top + rect.height / 2
+  });
+  zoomGraphAt(factor, p.x, p.y);
+}
+
+function initTabs() {
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      tabButtons.forEach(b => b.classList.toggle("active", b === btn));
+      document.querySelectorAll(".tab-pane").forEach(pane => {
+        pane.classList.toggle("active", pane.id === "tab-" + btn.dataset.tab);
+      });
+    });
+  });
+}
+
+function initColumnResize() {
+  const headers = systemTable.querySelectorAll("thead th");
+  headers.forEach((th, i) => {
+    const resizer = document.createElement("div");
+    resizer.className = "resizer";
+    th.appendChild(resizer);
+
+    resizer.addEventListener("mousedown", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const col = colgroup.children[i];
+      const startX = e.clientX;
+      const startWidth = th.getBoundingClientRect().width;
+
+      const onMove = ev => {
+        const w = Math.max(40, startWidth + ev.clientX - startX);
+        col.style.width = w + "px";
+      };
+
+      const onUp = () => {
+        resizer.classList.remove("active");
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+
+      resizer.classList.add("active");
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
+  });
+}
+
+function initGraphInteractions() {
+  graphSvg.addEventListener("wheel", e => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    const p = graphPointFromEvent(e);
+    zoomGraphAt(factor, p.x, p.y);
+  }, { passive: false });
+
+  graphSvg.addEventListener("mousedown", e => {
+    if (e.button !== 0) return;
+    const p = graphPointFromEvent(e);
+    panState = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startTx: graphTransform.tx,
+      startTy: graphTransform.ty
+    };
+    graphSvg.classList.add("panning");
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!panState) return;
+    const { scale } = getGraphViewport();
+    const dx = (e.clientX - panState.startX) / scale;
+    const dy = (e.clientY - panState.startY) / scale;
+    graphTransform.tx = panState.startTx + dx;
+    graphTransform.ty = panState.startTy + dy;
+    applyGraphTransform();
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (panState) {
+      panState = null;
+      graphSvg.classList.remove("panning");
+    }
+  });
+
+  graphSvg.addEventListener("dblclick", resetGraphTransform);
+  zoomInBtn.addEventListener("click", () => zoomGraphBy(1.2));
+  zoomOutBtn.addEventListener("click", () => zoomGraphBy(1 / 1.2));
+  zoomResetBtn.addEventListener("click", resetGraphTransform);
+}
+
+function renderGraph(nodes, edges) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = graphSvg;
+  if (!nodes.size) {
+    graphViewSize = { w: 800, h: 300 };
+    graphTransform = { k: 1, tx: 0, ty: 0 };
+    svg.setAttribute("viewBox", "0 0 800 300");
+    svg.setAttribute("width", "100%");
+    svg.removeAttribute("height");
+    svg.style.width = "100%";
+    svg.style.height = "100%";
+    svg.innerHTML = "";
+    const text = document.createElementNS(NS, "text");
+    text.setAttribute("x", "20");
+    text.setAttribute("y", "40");
+    text.setAttribute("fill", "#8b98a5");
+    text.setAttribute("font-size", "14");
+    text.textContent = "没有找到任何 System。";
+    svg.appendChild(text);
+    return;
+  }
+
+  const { nodePos, width, height } = layoutGraph(nodes, edges);
+  const viewW = Math.max(width, 600);
+  const viewH = Math.max(height, 300);
+  graphViewSize = { w: viewW, h: viewH };
+  graphTransform = { k: 1, tx: 0, ty: 0 };
+
+  svg.setAttribute("viewBox", "0 0 " + viewW + " " + viewH);
+  svg.setAttribute("width", "100%");
+  svg.removeAttribute("height");
+  svg.style.width = "100%";
+  svg.style.height = "100%";
+  svg.innerHTML = "";
+
+  // Arrow marker.
+  const defs = document.createElementNS(NS, "defs");
+  const marker = document.createElementNS(NS, "marker");
+  marker.setAttribute("id", "arrow");
+  marker.setAttribute("viewBox", "0 0 10 10");
+  marker.setAttribute("refX", "9");
+  marker.setAttribute("refY", "5");
+  marker.setAttribute("markerWidth", "7");
+  marker.setAttribute("markerHeight", "7");
+  marker.setAttribute("orient", "auto-start-reverse");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+  path.setAttribute("fill", "#8b98a5");
+  marker.appendChild(path);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  const viewport = document.createElementNS(NS, "g");
+  viewport.setAttribute("id", "viewport");
+  svg.appendChild(viewport);
+
+  // Edges first.
+  for (const e of edges) {
+    const from = nodePos.get(e.from);
+    const to = nodePos.get(e.to);
+    if (!from || !to) continue;
+
+    const x1 = from.x + from.w;
+    const y1 = from.y + from.h / 2;
+    const x2 = to.x;
+    const y2 = to.y + to.h / 2;
+    const mx = (x1 + x2) / 2;
+
+    const edge = document.createElementNS(NS, "path");
+    edge.setAttribute("class", "edge");
+    edge.setAttribute("d", `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+    edge.setAttribute("marker-end", "url(#arrow)");
+    viewport.appendChild(edge);
+  }
+
+  // Nodes.
+  for (const [id, node] of nodes) {
+    const pos = nodePos.get(id);
+    if (!pos) continue;
+
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "node-" + node.type + (node.disabled ? " node-disabled" : ""));
+
+    const rect = document.createElementNS(NS, "rect");
+    rect.setAttribute("x", pos.x);
+    rect.setAttribute("y", pos.y);
+    rect.setAttribute("width", pos.w);
+    rect.setAttribute("height", pos.h);
+    rect.setAttribute("rx", "8");
+    rect.setAttribute("ry", "8");
+    g.appendChild(rect);
+
+    const text = document.createElementNS(NS, "text");
+    text.setAttribute("x", pos.x + pos.w / 2);
+    text.setAttribute("y", pos.y + pos.h / 2);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("font-size", node.type === "phase" ? "14" : "13");
+    text.setAttribute("font-weight", "600");
+    text.textContent = node.label.length > 24 ? node.label.slice(0, 22) + "…" : node.label;
+    g.appendChild(text);
+
+    const title = document.createElementNS(NS, "title");
+    let tip = node.id;
+    if (node.type === "system" && node.expr) tip += "\nQuery: " + node.expr;
+    if (node.disabled) tip += "\n[Disabled]";
+    title.textContent = tip;
+    g.appendChild(title);
+
+    viewport.appendChild(g);
+  }
+
+  applyGraphTransform();
+}
+
+function formatTime(ms) {
+  if (ms == null || !isFinite(ms)) return '<span style="color:var(--muted)">—</span>';
+  return `<span class="mono" title="${escapeHtml(ms.toFixed(4))} ms">${ms.toFixed(2)} ms</span>`;
+}
+
+function renderTable(sortedSystems) {
+  tableBody.innerHTML = "";
+  if (!sortedSystems.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "empty";
+    td.textContent = "没有找到任何 System。";
+    tr.appendChild(td);
+    tableBody.appendChild(tr);
+    return;
+  }
+
+  sortedSystems.forEach((s, i) => {
+    const tr = document.createElement("tr");
+    const cells = [
+      String((s.execIndex != null ? s.execIndex : i) + 1),
+      `<span class="mono" title="${escapeHtml(s.path)}">${escapeHtml(s.path)}</span>`,
+      s.disabled
+        ? '<span class="badge disabled">Disabled</span>'
+        : '<span class="badge enabled">Enabled</span>',
+      formatTime(s.timeMs),
+      s.deps.length
+        ? s.deps.map(d => `<span class="badge dep" title="${escapeHtml(d)}">${escapeHtml(shortName(d))}</span>`).join(" ")
+        : '<span style="color:var(--muted)">—</span>',
+      s.expr
+        ? `<span class="mono" title="${escapeHtml(s.expr)}">${escapeHtml(s.expr)}</span>`
+        : '<span style="color:var(--muted)">—</span>'
+    ];
+    tr.innerHTML = cells.map(c => `<td>${c}</td>`).join("");
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateSortIndicators() {
+  systemTable.querySelectorAll("th[data-sort-key] .sort-indicator").forEach(el => {
+    el.textContent = "";
+  });
+  const th = systemTable.querySelector(`th[data-sort-key="${sortKey}"] .sort-indicator`);
+  if (th) th.textContent = sortDir === "asc" ? "▲" : "▼";
+}
+
+function applySortAndRender() {
+  const sorted = [...currentSystems];
+
+  if (sortKey === "exec") {
+    sorted.sort((a, b) => {
+      const ia = currentExecIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const ib = currentExecIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return sortDir === "asc" ? ia - ib : ib - ia;
+    });
+  } else if (sortKey === "time") {
+    sorted.sort((a, b) => {
+      const ta = a.timeMs;
+      const tb = b.timeMs;
+      const na = ta == null;
+      const nb = tb == null;
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      return sortDir === "asc" ? ta - tb : tb - ta;
+    });
+  }
+
+  renderTable(sorted);
+  updateSortIndicators();
+}
+
+function initTableSort() {
+  systemTable.querySelectorAll("th[data-sort-key]").forEach(th => {
+    th.classList.add("sortable");
+    th.addEventListener("click", e => {
+      if (e.target.classList.contains("resizer")) return;
+      const key = th.dataset.sortKey;
+      if (sortKey === key) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = key === "time" ? "desc" : "asc";
+      }
+      applySortAndRender();
+    });
+  });
+  updateSortIndicators();
+}
+
+function renderSummary(systems, nodes, edges) {
+  summaryEl.classList.remove("hidden");
+  const disabled = systems.filter(s => s.disabled).length;
+  const phases = [...nodes.values()].filter(n => n.type === "phase").length;
+  summaryEl.innerHTML = `
+    <div class="summary-card"><div class="num">${systems.length}</div><div class="label">系统总数</div></div>
+    <div class="summary-card"><div class="num">${disabled}</div><div class="label">已禁用</div></div>
+    <div class="summary-card"><div class="num">${phases}</div><div class="label">Phase 节点</div></div>
+    <div class="summary-card"><div class="num">${edges.length}</div><div class="label">DependsOn 边</div></div>
+  `;
+}
+
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function addBuiltinPhaseEdges(nodes, edges) {
+  const phaseNodes = new Map();
+  for (const [id, node] of nodes) {
+    if (node.type === "phase" && PHASE_ORDER_INDEX.has(node.label)) {
+      if (!phaseNodes.has(node.label)) phaseNodes.set(node.label, id);
+    }
+  }
+
+  const edgeSet = new Set(edges.map(e => e.from + ">" + e.to));
+  for (let i = 0; i < BUILTIN_PHASE_ORDER.length - 1; i++) {
+    const fromId = phaseNodes.get(BUILTIN_PHASE_ORDER[i]);
+    const toId = phaseNodes.get(BUILTIN_PHASE_ORDER[i + 1]);
+    if (!fromId || !toId || fromId === toId) continue;
+    const key = fromId + ">" + toId;
+    if (edgeSet.has(key)) continue;
+    edgeSet.add(key);
+    edges.push({ from: fromId, to: toId });
+  }
+}
+
+function comparePhaseNodes(nodes, a, b) {
+  const na = nodes.get(a);
+  const nb = nodes.get(b);
+  const ia = PHASE_ORDER_INDEX.has(na.label) ? PHASE_ORDER_INDEX.get(na.label) : 1000;
+  const ib = PHASE_ORDER_INDEX.has(nb.label) ? PHASE_ORDER_INDEX.get(nb.label) : 1000;
+  if (ia !== ib) return ia - ib;
+  const ea = na.entityId != null ? na.entityId : Number.MAX_SAFE_INTEGER;
+  const eb = nb.entityId != null ? nb.entityId : Number.MAX_SAFE_INTEGER;
+  if (ea !== eb) return ea - eb;
+  return na.label.localeCompare(nb.label);
+}
+
+function computePhaseOrder(nodes, edges) {
+  const phaseIds = new Set();
+  for (const [id, node] of nodes) {
+    if (node.type === "phase") phaseIds.add(id);
+  }
+
+  const adj = new Map();
+  const indeg = new Map();
+  for (const id of phaseIds) {
+    adj.set(id, []);
+    indeg.set(id, 0);
+  }
+
+  const seen = new Set();
+  for (const e of edges) {
+    if (!phaseIds.has(e.from) || !phaseIds.has(e.to)) continue;
+    const key = e.from + ">" + e.to;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    adj.get(e.from).push(e.to);
+    indeg.set(e.to, indeg.get(e.to) + 1);
+  }
+
+  const queue = [...phaseIds].filter(id => indeg.get(id) === 0);
+  const order = [];
+  while (queue.length) {
+    queue.sort((a, b) => comparePhaseNodes(nodes, a, b));
+    const id = queue.shift();
+    order.push(id);
+    for (const next of adj.get(id)) {
+      indeg.set(next, indeg.get(next) - 1);
+      if (indeg.get(next) === 0) queue.push(next);
+    }
+  }
+
+  const remaining = [...phaseIds].filter(id => !order.includes(id));
+  remaining.sort((a, b) => comparePhaseNodes(nodes, a, b));
+  return order.concat(remaining);
+}
+
+function computeSystemExecutionOrder(systems, nodes, edges) {
+  const phaseOrder = computePhaseOrder(nodes, edges);
+  const phaseRank = new Map(phaseOrder.map((id, i) => [id, i]));
+
+  const systemMap = new Map(systems.map(s => [s.id, s]));
+  const systemIds = new Set(systemMap.keys());
+  const rank = new Map();
+
+  function getRank(id, stack) {
+    if (rank.has(id)) return rank.get(id);
+    if (stack.has(id)) return 999;
+
+    const node = nodes.get(id);
+    if (!node) return 999;
+
+    if (node.type === "phase") {
+      const r = phaseRank.get(id) ??
+        (PHASE_ORDER_INDEX.has(node.label) ? PHASE_ORDER_INDEX.get(node.label) : 100);
+      rank.set(id, r);
+      return r;
+    }
+
+    const sys = systemMap.get(id);
+    stack.add(id);
+    let maxR = -1;
+    if (sys && sys.deps.length) {
+      for (const dep of sys.deps) {
+        if (!nodes.has(dep)) continue;
+        const dr = getRank(dep, stack);
+        if (dr > maxR) maxR = dr;
+      }
+    }
+    stack.delete(id);
+
+    const r = maxR >= 0 ? maxR : 999;
+    rank.set(id, r);
+    return r;
+  }
+
+  for (const id of systemIds) {
+    getRank(id, new Set());
+  }
+
+  // Build system-to-system dependency graph.
+  const adj = new Map();
+  const indeg = new Map();
+  for (const id of systemIds) {
+    adj.set(id, []);
+    indeg.set(id, 0);
+  }
+
+  const seen = new Set();
+  for (const e of edges) {
+    if (!systemIds.has(e.from) || !systemIds.has(e.to)) continue;
+    const key = e.from + ">" + e.to;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    adj.get(e.from).push(e.to);
+    indeg.set(e.to, indeg.get(e.to) + 1);
+  }
+
+  const queue = [];
+  for (const id of systemIds) {
+    if (indeg.get(id) === 0) queue.push(id);
+  }
+
+  const compareSys = (a, b) => {
+    const ra = rank.get(a) ?? 999;
+    const rb = rank.get(b) ?? 999;
+    if (ra !== rb) return ra - rb;
+    const ea = systemMap.get(a).entityId ?? Number.MAX_SAFE_INTEGER;
+    const eb = systemMap.get(b).entityId ?? Number.MAX_SAFE_INTEGER;
+    if (ea !== eb) return ea - eb;
+    return a.localeCompare(b);
+  };
+
+  const order = [];
+  while (queue.length) {
+    queue.sort(compareSys);
+    const id = queue.shift();
+    order.push(id);
+    for (const next of adj.get(id)) {
+      indeg.set(next, indeg.get(next) - 1);
+      if (indeg.get(next) === 0) queue.push(next);
+    }
+  }
+
+  const remaining = [...systemIds].filter(id => !order.includes(id));
+  remaining.sort(compareSys);
+  return order.concat(remaining);
+}
+
+async function loadSystems() {
+  const base = normalizeBaseUrl(serverInput.value);
+  loadBtn.disabled = true;
+  refreshBtn.disabled = true;
+  setStatus("正在连接 " + base + " ...");
+
+  try {
+    const queryParams = {
+      expr: "flecs.system.System,?Disabled",
+      table: "true",
+      full_paths: "true",
+      builtin: "true",
+      entity_ids: "true"
+    };
+
+    const phaseParams = {
+      expr: "flecs.pipeline.Phase,?Disabled",
+      table: "true",
+      full_paths: "true",
+      builtin: "true",
+      entity_ids: "true"
+    };
+
+    const [sysResp, phaseResp, queriesResp, statsResp] = await Promise.all([
+      api(base, "/query", queryParams),
+      api(base, "/query", phaseParams).catch(err => {
+        console.warn("无法获取 Phase 列表（可选）:", err);
+        return null;
+      }),
+      api(base, "/queries").catch(err => {
+        console.warn("无法获取 /queries（可选）:", err);
+        return null;
+      }),
+      api(base, "/stats/pipeline", { period: "1s" }).catch(err => {
+        console.warn("无法获取 System 耗时统计（可选）:", err);
+        return null;
+      })
+    ]);
+
+    if (!sysResp || !Array.isArray(sysResp.results)) {
+      throw new Error("响应中没有 results 数组，请确认 Flecs REST 服务版本支持 /query?table=true");
+    }
+
+    let systems = [];
+    const systemMap = new Map();
+
+    for (const r of sysResp.results) {
+      const path = entityPath(r);
+      if (!path) continue;
+      const deps = extractDeps(r.pairs);
+      const item = {
+        id: path,
+        path,
+        name: r.name || shortName(path),
+        parent: r.parent || "",
+        entityId: r.id,
+        disabled: isDisabled(r.tags),
+        tags: r.tags || [],
+        pairs: r.pairs || {},
+        deps,
+        expr: null
+      };
+      systems.push(item);
+      systemMap.set(path, item);
+    }
+
+    // Attach query expressions from /queries.
+    if (queriesResp && Array.isArray(queriesResp)) {
+      for (const q of queriesResp) {
+        if (!q || q.kind !== "System" || !q.name) continue;
+        const item = systemMap.get(q.name);
+        if (item) item.expr = q.expr || null;
+      }
+    }
+
+    // Attach per-system runtime stats from /stats/pipeline (optional).
+    const statsMap = new Map();
+    if (statsResp && Array.isArray(statsResp)) {
+      for (const st of statsResp) {
+        if (!st || !st.name || !st.time_spent) continue;
+        const avg = st.time_spent.avg;
+        if (!Array.isArray(avg) || !avg.length) continue;
+        const raw = avg[avg.length - 1];
+        const num = typeof raw === "number" ? raw : parseFloat(raw);
+        if (isFinite(num)) statsMap.set(st.name, num * 1000);
+      }
+    }
+    for (const s of systems) {
+      let v = statsMap.get(s.path);
+      if (v == null) {
+        const short = shortName(s.path);
+        for (const [name, val] of statsMap) {
+          if (shortName(name) === short) {
+            v = val;
+            break;
+          }
+        }
+      }
+      s.timeMs = v ?? null;
+    }
+
+    if (hideBuiltinCheckbox.checked) {
+      systems = systems.filter(s => !s.path.startsWith("flecs."));
+    }
+
+    // Build graph nodes.
+    const nodes = new Map();
+    const addNode = (id, type, extra = {}) => {
+      if (!id) return;
+      if (!nodes.has(id)) {
+        nodes.set(id, { id, label: shortName(id), type, disabled: false, expr: null, ...extra });
+      }
+    };
+
+    for (const s of systems) {
+      addNode(s.id, "system", { disabled: s.disabled, expr: s.expr, entityId: s.entityId });
+    }
+
+    // Add phase entities from the optional phase query.
+    const phaseItems = [];
+    if (phaseResp && Array.isArray(phaseResp.results)) {
+      for (const r of phaseResp.results) {
+        if (!r.name) continue; // Skip anonymous internal phases unless referenced as a dependency.
+        const path = entityPath(r);
+        if (!path) continue;
+        addNode(path, "phase", { disabled: isDisabled(r.tags), entityId: r.id });
+        phaseItems.push({ id: path, deps: extractDeps(r.pairs) });
+      }
+    }
+
+    // Ensure every dependency has a node; classify unknown ones as phase/other by heuristics.
+    for (const s of systems) {
+      for (const dep of s.deps) {
+        if (!nodes.has(dep)) {
+          const short = shortName(dep);
+          const type = KNOWN_PHASES.has(short) || /^(flecs\.)?(core|pipeline)\.(On|Post|Pre)/.test(dep)
+            ? "phase"
+            : "other";
+          addNode(dep, type);
+        }
+      }
+    }
+
+    // Edges point from dependency to dependent system: dep -> system.
+    const edges = [];
+    for (const s of systems) {
+      for (const dep of s.deps) {
+        if (nodes.has(dep) && nodes.has(s.id)) {
+          edges.push({ from: dep, to: s.id });
+        }
+      }
+    }
+
+    // Also show phase-to-phase dependencies (custom phase ordering).
+    for (const p of phaseItems) {
+      for (const dep of p.deps) {
+        if (nodes.has(dep) && nodes.has(p.id)) {
+          edges.push({ from: dep, to: p.id });
+        }
+      }
+    }
+
+    // Add builtin phase chain so execution order follows Flecs pipeline phases.
+    addBuiltinPhaseEdges(nodes, edges);
+
+    // Sort systems by topological execution order (DependsOn graph).
+    const execOrder = computeSystemExecutionOrder(systems, nodes, edges);
+    const execIndex = new Map(execOrder.map((id, i) => [id, i]));
+    systems.sort((a, b) => {
+      const ia = execIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const ib = execIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      if (ia !== ib) return ia - ib;
+      return (a.entityId ?? 0) - (b.entityId ?? 0);
+    });
+
+    systems.forEach((s, i) => { s.execIndex = i; });
+    currentSystems = systems.slice();
+    currentExecIndex = new Map(systems.map((s, i) => [s.id, i]));
+    sortKey = "exec";
+    sortDir = "asc";
+
+    applySortAndRender();
+    renderGraph(nodes, edges);
+    renderSummary(systems, nodes, edges);
+
+    setStatus(
+      `✅ 已从 ${base} 加载：${systems.length} 个系统，${edges.length} 条 DependsOn 依赖。`,
+      "ok"
+    );
+  } catch (err) {
+    console.error(err);
+    setStatus("❌ " + err.message, "error");
+  } finally {
+    loadBtn.disabled = false;
+    refreshBtn.disabled = false;
+  }
+}
+
+initTabs();
+initColumnResize();
+initTableSort();
+initGraphInteractions();
+
+loadBtn.addEventListener("click", loadSystems);
+refreshBtn.addEventListener("click", loadSystems);
+hideBuiltinCheckbox.addEventListener("change", loadSystems);
+serverInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") loadSystems();
+});
+</script>
+</body>
+</html>

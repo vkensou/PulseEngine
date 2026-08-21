@@ -1,0 +1,144 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+typedef "ecs_world_t"
+
+const_value.PluginDescVersion { value = "1u" }
+
+enum.Result { underscore, comment = "Pulse Result:" }
+    .OK
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicatePlugin
+    .ErrorDuplicateSubapp
+    .ErrorNotFound
+    .ErrorInternal
+    ()
+
+funcptr.RunnerFn
+    "Result::Enum"
+    .app            "AppId"
+    .ctx            "?*anyopaque"
+
+funcptr.SubappExtractFn
+    "Result::Enum"
+    .app            "AppId"
+    .subapp         "AppId"
+    .ctx            "?*anyopaque"
+
+funcptr.PluginBuildFn
+    "Result::Enum"
+    .app            "AppId"
+    .ctx            "?*anyopaque"
+
+funcptr.PluginShutdownFn
+    "void"
+    .app            "AppId"
+    .ctx            "?*anyopaque"
+
+id "AppId"
+
+struct.AppDesc
+    .name           "?cstring"
+    .enableRESTApi  "bool"
+
+struct.PluginDesc
+    .structSize     "uint32_t"
+    .version        "uint32_t"
+    .name           "cstring"
+    .ctx            "?*anyopaque"
+    .build          "PluginBuildFn"
+    .postBuild      "PluginBuildFn"
+    .shutdown       "PluginShutdownFn"
+
+struct.App()
+
+--- Per-frame timing (singleton component, updated every frame by the time system)
+struct.Timer
+    .deltaTime              "float"
+    .timeSinceStartup       "float"
+    .deltaTimeDouble        "double"
+    .timeSinceStartupDouble "double"
+    .fps                    "int32_t"
+    ()
+
+func.CreateApp
+    "?AppId"
+    .desc "*const AppDesc"
+
+func.DestroyApp
+    "void"
+    .app "AppId"
+
+func.App.Run
+    "Result::Enum"
+
+func.App.Prepare
+    "Result::Enum"
+
+func.App.Update
+    "Result::Enum"
+
+func.App.Teardown
+    "void"
+
+func.App.Finish
+    "void"
+
+func.App.ShouldQuit
+    "bool"
+
+func.App.SetRunner "Result::Enum"
+    .runner     "RunnerFn"
+    .ctx        "?*anyopaque"
+
+func.App.AddPlugin "Result::Enum"
+    .desc "*const PluginDesc"
+
+func.App.HasPlugin "bool"
+    .name       "cstring"
+
+func.App.World
+    "*ecs_world_t"
+
+func.App.LastError
+    "cstring"
+
+func.App.InsertSubapp
+    "Result::Enum"
+    .name       "cstring"
+    .subapp     "AppId"
+
+func.App.GetSubapp
+    "AppId"
+    .name       "cstring"
+
+func.App.RemoveSubapp
+    "AppId"
+    .name       "cstring"
+
+func.App.SetSubappExtract
+    "Result::Enum"
+    .name       "cstring"
+    .extract    "SubappExtractFn"
+    .ctx        "?*anyopaque"
+
+func.GetAppFromWorld
+    "AppId"
+    .world      "*ecs_world_t"
