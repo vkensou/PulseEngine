@@ -13,7 +13,6 @@
 #include <unordered_map>
 #include <vector>
 
-#define flecs_STATIC
 #include <flecs.h>
 
 namespace pulse::asset {

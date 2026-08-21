@@ -38,6 +38,150 @@ static ecs_entity_t create_transform_entity(
     return entity;
 }
 
+enum class test_renderer_load_phase {
+    Start,       // create the resource requests (shader, mesh)
+    WaitShader,  // waiting for the shader to finish loading
+    WaitMesh,    // waiting for the mesh to finish loading
+    Done,
+};
+
+struct test_renderer_load_machine {
+    test_renderer_load_phase phase = test_renderer_load_phase::Start;
+    PulseAppId app = nullptr;
+    PulseShaderRequest shader{};
+    PulseMeshRequest mesh{};
+    PulseMaterialHandle material{};
+    PulseMeshHandle mesh_handle{};
+    ecs_entity_t window_entity = 0;
+};
+
+// Creates camera + renderable + light entities once the mesh is ready.
+static void create_renderer_scene(
+    ecs_world_t* world,
+    const test_renderer_load_machine& m)
+{
+    // Create a camera entity
+    ecs_entity_t camera_entity = create_transform_entity(world, 0 + 0.5, 0 + 0.5, -38);
+    PulseCamera camera = {};
+    camera.window_entity = m.window_entity;
+    camera.fov = 45.0f;
+    camera.near_plane = 0.1f;
+    camera.far_plane = 1000.0f;
+    ecs_set_ptr(world, camera_entity, PulseCamera, &camera);
+
+    {
+        // Create a renderable entity
+        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0);
+        PulseRenderable renderable = {};
+        renderable.mesh = m.mesh_handle;
+        renderable.material = m.material;
+        ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+    }
+
+    {
+        // Create a renderable entity
+        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0);
+        PulseRenderable renderable = {};
+        renderable.mesh = m.mesh_handle;
+        renderable.material = m.material;
+        ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+    }
+
+    // Create a light entity (optional)
+    ecs_entity_t light_entity = ecs_new(world);
+    PulseLight light = {};
+    light.color = HMM_Vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
+    ecs_set_ptr(world, light_entity, PulseLight, &light);
+}
+
+static void test_renderer_load_system(ecs_iter_t* it) {
+    (void)it;
+    test_renderer_load_machine& m = *(test_renderer_load_machine*)it->ctx;
+    if (!m.app) {
+        return;
+    }
+
+    switch (m.phase) {
+        case test_renderer_load_phase::Start: {
+            //// ---- Create resource requests ----
+            CGPUBlendAttachmentState blend_attachments = {
+                .enable = false,
+                .src_factor = CGPU_BLEND_FACTOR_ONE,
+                .dst_factor = CGPU_BLEND_FACTOR_ZERO,
+                .src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
+                .dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
+                .blend_op = CGPU_BLEND_OP_ADD,
+                .blend_alpha_op = CGPU_BLEND_OP_ADD,
+                .color_mask = CGPU_COLOR_MASK_RGBA,
+            };
+            PulseShaderProperty shader_props[] = {
+                {.name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
+                {.name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
+                {.name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
+            };
+            PulseShaderCreateFromFileDesc shader_desc = {
+                .vert_path = "color.vert.spv",
+                .frag_path = "color.frag.spv",
+                .blend_desc = {
+                    .attachment_count = 1,
+                    .p_attachments = &blend_attachments,
+                    .alpha_to_coverage = false,
+                    .independent_blend = false,
+                },
+                .depth_desc = {
+                    .depth_test = true,
+                    .depth_write = true,
+                    .depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
+                    .stencil_test = false,
+                },
+                .rasterizer_state = {
+                    .cull_mode = CGPU_CULL_MODE_BACK,
+                    .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
+                },
+                .property_count = 3,
+                .p_properties = shader_props,
+            };
+            m.shader = pulse_create_shader_from_file(m.app, &shader_desc);
+            m.mesh = pulse_load_mesh(m.app, "Quad.obj");
+
+            m.phase = test_renderer_load_phase::WaitShader;
+        }
+            break;
+
+        case test_renderer_load_phase::WaitShader:
+            if (pulse_shader_is_ready(m.app, m.shader)) {
+                PulseShaderHandle shader_handle = pulse_shader_get_handle(m.app, m.shader);
+                assert(shader_handle.index != 0);
+
+                PulseMaterialCreateDesc mat_desc = {
+                    .shader = shader_handle,
+                };
+                m.material = pulse_create_material(m.app, &mat_desc);
+                assert(m.material.index != 0);
+
+                // Bind material color via property name (replaces manual set/binding)
+                pulse_material_set_property_float4(
+                    m.app, m.material, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
+
+                m.phase = test_renderer_load_phase::WaitMesh;
+            }
+            break;
+
+        case test_renderer_load_phase::WaitMesh:
+            if (pulse_mesh_is_ready(m.app, m.mesh)) {
+                m.mesh_handle = pulse_mesh_get_handle(m.app, m.mesh);
+                assert(m.mesh_handle.index != 0);
+
+                ecs_world_t* world = pulse_app_world(m.app);
+                create_renderer_scene(world, m);
+
+                m.phase = test_renderer_load_phase::Done;
+            }
+            break;
+
+    }
+}
+
 int main(void) {
     // ---- Create app ----
     PulseAppDesc app_desc = {
@@ -76,81 +220,7 @@ int main(void) {
     assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
 
-    // ---- Load resources ----
-    // Create a shader
-    CGPUBlendAttachmentState blend_attachments = {
-        .enable = false,
-        .src_factor = CGPU_BLEND_FACTOR_ONE,
-        .dst_factor = CGPU_BLEND_FACTOR_ZERO,
-        .src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
-        .dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
-        .blend_op = CGPU_BLEND_OP_ADD,
-        .blend_alpha_op = CGPU_BLEND_OP_ADD,
-        .color_mask = CGPU_COLOR_MASK_RGBA,
-    };
-
-    PulseShaderProperty shader_props[] = {
-        { .name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
-        { .name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
-        { .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
-    };
-
-    PulseShaderCreateFromFileDesc shader_desc = {
-        .vert_path = "color.vert.spv",
-        .frag_path = "color.frag.spv",
-        .blend_desc = {
-            .attachment_count = 1,
-            .p_attachments = &blend_attachments,
-            .alpha_to_coverage = false,
-            .independent_blend = false,
-        },
-        .depth_desc = {
-            .depth_test = true,
-            .depth_write = true,
-            .depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
-            .stencil_test = false,
-        },
-        .rasterizer_state = {
-            .cull_mode = CGPU_CULL_MODE_BACK,
-            .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-        },
-        .property_count = 3,
-        .p_properties = shader_props,
-    };
-    PulseShaderRequest shader = pulse_create_shader_from_file(app, &shader_desc);
-
-    // Load mesh
-    PulseMeshRequest mesh = pulse_load_mesh(app, "Quad.obj");
-
-    // Shader is loaded asynchronously; wait until it's ready so we can
-    // resolve its handle (required to create a material referencing it).
-    for (int i = 0; i < 60 && !pulse_shader_is_ready(app, shader); ++i) {
-        pulse_app_update(app);
-    }
-    assert(pulse_shader_is_ready(app, shader));
-    PulseShaderHandle shader_handle = pulse_shader_get_handle(app, shader);
-    assert(shader_handle.index != 0);
-
-    // Create material (synchronous: shader handle is already loaded)
-    PulseMaterialCreateDesc mat_desc = {
-        .shader = shader_handle,
-    };
-    PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
-    assert(material.index != 0);
-
-    // ---- Wait for mesh to be ready, then resolve its handle ----
-    for (int i = 0; i < 60 && !pulse_mesh_is_ready(app, mesh); ++i) {
-        pulse_app_update(app);
-    }
-    assert(pulse_mesh_is_ready(app, mesh));
-
-    PulseMeshHandle mesh_handle = pulse_mesh_get_handle(app, mesh);
-    assert(mesh_handle.index != 0);
-
-    // Bind material color via property name (replaces manual set/binding)
-    pulse_material_set_property_float4(app, material, "albedo", HMM_V4(1.0f, 0.0f, 0.0f, 1.0f));
-
-    // ---- Create ECS entities ----
+    // ---- Find the primary window (created during window plugin build) ----
     ecs_world_t* world = pulse_app_world(app);
 
     ecs_query_desc_t window_query_desc{};
@@ -166,40 +236,22 @@ int main(void) {
     assert(finded_window != 0);
     ecs_query_fini(window_query);
 
-    // Create a camera entity
-    ecs_entity_t camera_entity = create_transform_entity(world, 0 + 0.5, 0 + 0.5, -38);
-    PulseCamera camera = {};
-    camera.window_entity = finded_window;  // Will be set after window is created
-    camera.fov = 45.0f;
-    camera.near_plane = 0.1f;
-    camera.far_plane = 1000.0f;
-    ecs_set_ptr(world, camera_entity, PulseCamera, &camera);
+    test_renderer_load_machine test_renderer_load;
+    test_renderer_load.app = app;
+    test_renderer_load.window_entity = finded_window;
 
-    {
-        // Create a renderable entity
-        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0);
-        PulseRenderable renderable = {};
-        renderable.mesh = mesh_handle;
-        renderable.material = material;
-        ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
-    }
+    ecs_entity_desc_t entity_desc{};
+    entity_desc.name = "test_renderer_load_machine";
 
-    {
-        // Create a renderable entity
-        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0);
-        PulseRenderable renderable = {};
-        renderable.mesh = mesh_handle;
-        renderable.material = material;
-        ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
-    }
+    ecs_system_desc_t system_desc{};
+    system_desc.entity = ecs_entity_init(world, &entity_desc);
+    system_desc.phase = EcsOnUpdate;      // run system in the OnUpdate phase
+    system_desc.ctx = &test_renderer_load;
+    system_desc.run = test_renderer_load_system;
+    ecs_entity_t load_system = ecs_system_init(world, &system_desc);
+    assert(load_system != 0);
 
-    // Create a light entity (optional)
-    ecs_entity_t light_entity = ecs_new(world);
-    PulseLight light = {};
-    light.color = HMM_Vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
-    ecs_set_ptr(world, light_entity, PulseLight, &light);
-
-     pulse_app_run(app);
+    pulse_app_run(app);
 
     // ---- Verify ECS component queries ----
     // Camera should exist

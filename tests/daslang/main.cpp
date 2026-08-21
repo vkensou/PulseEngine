@@ -78,12 +78,7 @@ int main(void)
     assert(marker_count == 1);
     ecs_query_fini(query);
 
-    // 只跑少量帧，确认插件接入后 app 仍可正常 update。
-    // 脚本本身不依赖窗口/渲染，因此无需添加 window/graphics 等插件。
-    for (int i = 0; i < 5; ++i)
-    {
-        assert(pulse_app_update(app) == PULSE_RESULT_OK);
-    }
+    assert(pulse_app_run(app) == PULSE_RESULT_OK);
 
     pulse_destroy_app(app);
 

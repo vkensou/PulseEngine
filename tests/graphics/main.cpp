@@ -118,6 +118,132 @@ struct test_render_state {
     ObjectData objectData;
 };
 
+enum class test_graphics_load_phase {
+    Start,
+    WaitShader,  // shader still loading; create the material once it's ready
+    WaitAssets,  // record callback resolves texture + mesh handles
+    Done,
+};
+
+struct test_graphics_load_machine {
+    test_graphics_load_phase phase = test_graphics_load_phase::Start;
+    PulseAppId app = nullptr;
+    PulseShaderRequest shader{};
+    test_render_state* render = nullptr;
+};
+
+static void test_graphics_load_system(ecs_iter_t* it) {
+    (void)it;
+    test_graphics_load_machine& m = *(test_graphics_load_machine*)it->ctx;
+    if (!m.app || !m.render) {
+        return;
+    }
+
+    switch (m.phase) {
+        case test_graphics_load_phase::Start: {
+            //// ---- Create resources ----
+            CGPUBlendAttachmentState blend_attachments = {
+                .enable = false,
+                .src_factor = CGPU_BLEND_FACTOR_ONE,
+                .dst_factor = CGPU_BLEND_FACTOR_ZERO,
+                .src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
+                .dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
+                .blend_op = CGPU_BLEND_OP_ADD,
+                .blend_alpha_op = CGPU_BLEND_OP_ADD,
+                .color_mask = CGPU_COLOR_MASK_RGBA,
+            };
+            PulseShaderProperty shader_props[] = {
+                {.name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
+                {.name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
+                {.name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
+            };
+            PulseShaderCreateFromFileDesc shader_desc = {
+                .vert_path = "color.vert.spv",
+                .frag_path = "color.frag.spv",
+                .blend_desc = {
+                    .attachment_count = 1,
+                    .p_attachments = &blend_attachments,
+                    .alpha_to_coverage = false,
+                    .independent_blend = false,
+                },
+                .depth_desc = {
+                    .depth_test = true,
+                    .depth_write = true,
+                    .depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
+                    .stencil_test = false,
+                },
+                .rasterizer_state = {
+                    .cull_mode = CGPU_CULL_MODE_BACK,
+                    .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
+                },
+                .property_count = 3,
+                .p_properties = shader_props,
+            };
+            PulseShaderRequest shader = pulse_create_shader_from_file(m.app, &shader_desc);
+
+            PulseTextureLoadDesc tex_load_desc{
+                .filepath = "TilesGray512.jpg",
+                .generate_mipmaps = true,
+            };
+            PulseTextureRequest texture = pulse_load_texture(
+                m.app, &tex_load_desc);
+
+            std::vector<uint32_t> pixels = { 0xFF00FFFF };
+
+            PulseTextureCreateDesc tex_create_desc
+            {
+                .desc = {
+                    .name = "create_texture",
+                    .width = 1,
+                    .height = 1,
+                    .depth = 1,
+                    .array_size = 1,
+                    .format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,
+                    .mip_levels = 1,
+                    .descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
+                },
+                .pixel_data_size = sizeof(uint32_t),
+                .pixel_data = pixels.data(),
+            };
+
+            PulseTextureRequest texture2 = pulse_create_texture(
+                m.app, &tex_create_desc);
+
+            PulseMeshRequest mesh = pulse_load_mesh(
+                m.app, "Quad.obj");
+
+            m.shader = shader;
+            m.render->texture_request = texture;
+            m.render->mesh_request = mesh;
+            m.phase = test_graphics_load_phase::WaitShader;
+        }
+            break;
+
+        case test_graphics_load_phase::WaitShader:
+            if (pulse_shader_is_ready(m.app, m.shader)) {
+                PulseShaderHandle shader_handle = pulse_shader_get_handle(m.app, m.shader);
+                assert(shader_handle.index != 0);
+
+                PulseMaterialCreateDesc mat_desc = {
+                    .shader = shader_handle,
+                };
+                m.render->material = pulse_create_material(m.app, &mat_desc);
+                assert(m.render->material.index != 0);
+
+                m.phase = test_graphics_load_phase::WaitAssets;
+            }
+            break;
+
+        case test_graphics_load_phase::WaitAssets:
+            // texture/mesh are resolved asynchronously inside record_test_graphic
+            if (m.render->material_resolved && m.render->mesh_resolved) {
+                m.phase = test_graphics_load_phase::Done;
+            }
+            break;
+
+    }
+}
+
 static void record_test_graphic(
     PulseAppId app,
     PulseRenderGraphId graph,
@@ -240,93 +366,6 @@ int main(void) {
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
-    //// ---- Create resources ----
-    CGPUBlendAttachmentState blend_attachments = {
-        .enable = false,
-        .src_factor = CGPU_BLEND_FACTOR_ONE,
-        .dst_factor = CGPU_BLEND_FACTOR_ZERO,
-        .src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
-        .dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
-        .blend_op = CGPU_BLEND_OP_ADD,
-        .blend_alpha_op = CGPU_BLEND_OP_ADD,
-        .color_mask = CGPU_COLOR_MASK_RGBA,
-    };
-    PulseShaderProperty shader_props[] = {
-        {.name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
-        {.name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
-        {.name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
-    };
-    PulseShaderCreateFromFileDesc shader_desc = {
-        .vert_path = "color.vert.spv",
-        .frag_path = "color.frag.spv",
-        .blend_desc = {
-            .attachment_count = 1,
-            .p_attachments = &blend_attachments,
-            .alpha_to_coverage = false,
-            .independent_blend = false,
-        },
-        .depth_desc = {
-            .depth_test = true,
-            .depth_write = true,
-            .depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
-            .stencil_test = false,
-        },
-        .rasterizer_state = {
-            .cull_mode = CGPU_CULL_MODE_BACK,
-            .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-        },
-        .property_count = 3,
-        .p_properties = shader_props,
-    };
-    PulseShaderRequest shader = pulse_create_shader_from_file(app, &shader_desc);
-
-    PulseTextureLoadDesc tex_load_desc{
-        .filepath = "TilesGray512.jpg",
-		.generate_mipmaps = true,
-    };
-    PulseTextureRequest texture = pulse_load_texture(
-        app, &tex_load_desc);
-
-    std::vector<uint32_t> pixels = { 0xFF00FFFF };
-
-    PulseTextureCreateDesc tex_create_desc
-    {
-        .desc = {
-            .name = "create_texture",
-            .width = 1,
-            .height = 1,
-            .depth = 1,
-            .array_size = 1,
-            .format = CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,
-            .mip_levels = 1,
-            .descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
-        },
-		.pixel_data_size = sizeof(uint32_t),
-		.pixel_data = pixels.data(),
-    };
-
-    PulseTextureRequest texture2 = pulse_create_texture(
-        app, &tex_create_desc);
-
-    PulseMeshRequest mesh = pulse_load_mesh(
-        app, "Quad.obj");
-
-    // Wait until the shader is loaded so we can resolve its handle,
-    // which is required to create a material referencing it.
-    for (int i = 0; i < 60 && !pulse_shader_is_ready(app, shader); ++i) {
-        pulse_app_update(app);
-    }
-    assert(pulse_shader_is_ready(app, shader));
-
-    PulseShaderHandle shader_handle = pulse_shader_get_handle(app, shader);
-    assert(shader_handle.index != 0);
-
-	PulseMaterialCreateDesc mat_desc{
-		.shader = shader_handle,
-    };
-    PulseMaterialHandle material = pulse_create_material(app, &mat_desc);
-    assert(material.index != 0);
-
     // ---- Register record callback with graphic resources ----
     test_render_state render_state{};
 
@@ -334,9 +373,6 @@ int main(void) {
     window_query_desc.terms[0] = { .id = ecs_id(PulseWindow) };
     window_query_desc.cache_kind = EcsQueryCacheAuto;
     render_state.window_query = ecs_query_init(pulse_app_world(app), &window_query_desc);
-    render_state.material = material;
-    render_state.texture_request = texture;
-    render_state.mesh_request = mesh;
 
     PulseRenderRecordCallbackDesc cb_desc{};
     cb_desc.callback = record_test_graphic;
@@ -344,12 +380,23 @@ int main(void) {
     cb_desc.priority = 0;
     pulse_add_render_record_callback(app, &cb_desc);
 
-    pulse_app_update(app);
-    pulse_app_update(app);
-    pulse_app_update(app);
-    pulse_app_update(app);
-    pulse_app_update(app);
-    pulse_app_update(app);
+    
+    test_graphics_load_machine test_graphics_load;
+    test_graphics_load.app = app;
+    test_graphics_load.render = &render_state;
+
+    ecs_world_t* world = pulse_app_world(app);
+
+    ecs_entity_desc_t entity_desc{};
+    entity_desc.name = "test_graphics_load_machine";
+
+    ecs_system_desc_t system_desc{};
+    system_desc.entity = ecs_entity_init(world, &entity_desc);
+    system_desc.phase = EcsOnUpdate;      // run system in the OnUpdate phase
+    system_desc.ctx = &test_graphics_load;
+    system_desc.run = test_graphics_load_system;
+    ecs_entity_t load_system = ecs_system_init(world, &system_desc);
+    assert(load_system != 0);
 
     pulse_app_run(app);
 
