@@ -133,9 +133,6 @@ func.App.SetSubappExtract
     .extract    "SubappExtractFn"
     .ctx        "?*anyopaque"
 
-func.App.ExtractSubapps
-    "Result::Enum"
-
 func.GetAppFromWorld
     "AppId"
     .world      "*ecs_world_t"

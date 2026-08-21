@@ -267,22 +267,6 @@ Result App::set_subapp_extract(std::string_view name, SubappExtract extract, voi
     return Result::NotFound;
 }
 
-Result App::extract_subapps() {
-    for (auto& entry : subapps_) {
-        if (!entry.extract) {
-            continue;
-        }
-
-        Result result = entry.extract(*this, *entry.app, entry.extract_ctx);
-        if (result != Result::Ok) {
-            set_error(std::format("extract_subapps: subapp '{}' extract failed", entry.name));
-            return result;
-        }
-    }
-
-    return Result::Ok;
-}
-
 Result App::post_build() {
     state_ = State::PostBuilding;
 

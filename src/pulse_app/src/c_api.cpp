@@ -210,14 +210,6 @@ EPulseResult pulse_app_set_subapp_extract(
     return to_c(impl->set_subapp_extract(name ? name : "", std::move(wrapped), ctx));
 }
 
-EPulseResult pulse_app_extract_subapps(PulseAppId app) {
-    pulse::App* impl = to_app(app);
-    if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    return to_c(impl->extract_subapps());
-}
-
 PulseAppId pulse_get_app_from_world(ecs_world_t* world) {
     if (!world) {
         return nullptr;

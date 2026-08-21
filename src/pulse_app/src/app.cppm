@@ -91,7 +91,6 @@ public:
     App* get_subapp(std::string_view name) const;
     std::unique_ptr<App> remove_subapp(std::string_view name);
     Result set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx);
-    Result extract_subapps();
 
 private:
     flecs::world world_;
