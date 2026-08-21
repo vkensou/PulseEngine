@@ -89,8 +89,14 @@ func.DestroyApp
 func.App.Run
     "Result::Enum"
 
+func.App.Prepare
+    "Result::Enum"
+
 func.App.Update
     "Result::Enum"
+
+func.App.Teardown
+    "void"
 
 func.App.Finish
     "void"

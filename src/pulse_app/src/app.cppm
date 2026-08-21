@@ -76,7 +76,9 @@ public:
     Result add_plugin(Plugin plugin);
 
     Result run();
+    Result prepare();
     Result update();
+    void teardown();
     void finish();
     bool should_quit() const;
 
@@ -108,11 +110,9 @@ private:
     Result post_build();
     Result default_runner();
     Result drain_pending_plugins();
-    Result prepare();
     Result validate_plugin(const Plugin& plugin);
     bool has_pending_plugin(std::string_view name) const;
     void set_error(std::string_view message);
-    void teardown();
 };
 
 } // namespace pulse

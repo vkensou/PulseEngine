@@ -334,6 +334,11 @@ bool App::has_pending_plugin(std::string_view name) const {
 }
 
 Result App::prepare() {
+    if (state_ != State::Created) {
+        set_error(std::format("prepare: app can only be prepared once (current state: {})", state_name(state_)));
+        return Result::InvalidState;
+    }
+
     Result result = drain_pending_plugins();
     if (result != Result::Ok) {
         return result;

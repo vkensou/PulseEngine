@@ -66,12 +66,28 @@ EPulseResult pulse_app_run(PulseAppId app) {
     return to_c(impl->run());
 }
 
+EPulseResult pulse_app_prepare(PulseAppId app) {
+    pulse::App* impl = to_app(app);
+    if (!impl) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    return to_c(impl->prepare());
+}
+
 EPulseResult pulse_app_update(PulseAppId app) {
     pulse::App* impl = to_app(app);
     if (!impl) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     return to_c(impl->update());
+}
+
+void pulse_app_teardown(PulseAppId app) {
+    pulse::App* impl = to_app(app);
+    if (!impl) {
+        return;
+    }
+    impl->teardown();
 }
 
 void pulse_app_finish(PulseAppId app) {

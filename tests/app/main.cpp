@@ -166,6 +166,37 @@ int main(void) {
 
     pulse_destroy_app(app);
 
+    // ---- manual lifecycle: prepare + update*n + teardown ----
+    {
+        PulseAppDesc manual_desc = {
+            .name = "manual-app",
+        };
+        PulseAppId manual = pulse_create_app(&manual_desc);
+        assert(manual != nullptr);
+
+        // update before prepare is invalid
+        assert(pulse_app_update(manual) == PULSE_RESULT_ERROR_INVALID_STATE);
+
+        // prepare once, then update any number of frames
+        assert(pulse_app_prepare(manual) == PULSE_RESULT_OK);
+        for (int i = 0; i < 5; ++i) {
+            assert(pulse_app_update(manual) == PULSE_RESULT_OK);
+        }
+
+        // prepare is single-shot, and run() cannot be mixed with the
+        // manual prepare/update/teardown flow
+        assert(pulse_app_prepare(manual) == PULSE_RESULT_ERROR_INVALID_STATE);
+        assert(pulse_app_run(manual) == PULSE_RESULT_ERROR_INVALID_STATE);
+
+        // explicit teardown ends the manual lifecycle; it is idempotent
+        pulse_app_teardown(manual);
+        assert(pulse_app_update(manual) == PULSE_RESULT_ERROR_INVALID_STATE);
+        assert(pulse_app_run(manual) == PULSE_RESULT_ERROR_INVALID_STATE);
+        pulse_app_teardown(manual);
+
+        pulse_destroy_app(manual);
+    }
+
     // ---- finish / should_quit ----
     {
         PulseAppDesc quit_desc = {
