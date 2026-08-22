@@ -678,7 +678,7 @@ void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity) {
     return raw ? raw->native_view : nullptr;
 }
 
-PULSE_WINDOW_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_WINDOW_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config && config_size != sizeof(PulseWindowPluginDesc)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

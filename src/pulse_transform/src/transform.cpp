@@ -102,7 +102,7 @@ ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child) {
     return ecs_get_target(world, child, EcsChildOf, 0);
 }
 
-PULSE_TRANSFORM_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_TRANSFORM_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config || config_size != 0) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

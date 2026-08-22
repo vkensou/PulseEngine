@@ -12,6 +12,7 @@
 #include <flecs.h> // C++ API - must be included before pulse headers
 
 #include "pulse_app.h"
+#include "pulse_package_loader.h"
 #include "pulse_window.h"
 #include "pulse_input.h"
 #include "pulse_asset.h"
@@ -52,7 +53,7 @@ int main(void)
     auto daslang_desc = pulse_daslang_plugin_desc_default();
     daslang_desc.root_path = "examples/asset";
 
-    PulseModuleListEntry modules[] = {
+    PulsePackageListEntry packages[] = {
         { "PulseInputPlugin", "pulse_input.dll", nullptr, 0, 0, nullptr },
         { "PulseWindowPlugin", "pulse_window.dll", &window_desc, sizeof(window_desc), 1, window_deps },
         { "PulseAssetPlugin", "pulse_asset.dll", &asset_desc, sizeof(asset_desc), 0, nullptr },
@@ -62,11 +63,12 @@ int main(void)
         { "PulseImguiPlugin", "pulse_imgui.dll", nullptr, 0, 4, imgui_deps },
         { "PulseDaslangPlugin", "pulse_daslang.dll", &daslang_desc, sizeof(daslang_desc), 0, nullptr },
     };
-    EPulseModuleLoadResult load_result = pulse_app_load_modules(app, modules, 8);
-    if (load_result != PULSE_MODULE_LOAD_RESULT_OK)
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, packages, 8);
+    if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK)
     {
-        printf("Module load failed: %s\n", pulse_app_last_error(app));
+        printf("Package load failed: %s\n", pulse_app_last_error(app));
         pulse_destroy_app(app);
+        pulse_package_loader_cleanup(app);
         return -1;
     }
 
@@ -75,12 +77,14 @@ int main(void)
     {
         printf("Daslang load module failed: %s\n", pulse_app_last_error(app));
         pulse_destroy_app(app);
+        pulse_package_loader_cleanup(app);
         return -1;
     }
 
     pulse_app_run(app);
 
     pulse_destroy_app(app);
+    pulse_package_loader_cleanup(app);
     printf("Snake daslang example exited.\n");
     return 0;
 }

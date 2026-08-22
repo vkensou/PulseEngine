@@ -381,7 +381,7 @@ PulseAssetRequest pulse_asset_system_to_asset_request_from_dep_ref(PulseAssetSys
     return pulse::asset::dep_ref_to_request(dep_ref);
 }
 
-PULSE_ASSET_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_ASSET_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config && config_size != sizeof(PulseAssetPluginDesc)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

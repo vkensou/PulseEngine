@@ -227,7 +227,7 @@ ecs_entity_t pulse_imgui_get_phase(PulseAppId app) {
     return state ? state->imgui_phase : 0;
 }
 
-PULSE_IMGUI_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_IMGUI_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config && config_size != sizeof(PulseImguiPluginDesc)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

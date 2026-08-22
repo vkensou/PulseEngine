@@ -254,7 +254,7 @@ bool pulse_load_module(PulseAppId app, const char* script_path)
     return pulse_daslang_internal::pulse_load_module(app, state, script_path);
 }
 
-PULSE_DASLANG_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_DASLANG_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config && config_size != sizeof(PulseDaslangPluginDesc)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

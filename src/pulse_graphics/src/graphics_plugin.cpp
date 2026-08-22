@@ -288,7 +288,7 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
     return result;
 }
 
-PULSE_GRAPHICS_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_GRAPHICS_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config && config_size != sizeof(PulseGraphicsPluginDesc)) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

@@ -119,23 +119,6 @@ typedef enum EPulseAppAddPluginResult
 
 } EPulseAppAddPluginResult;
 
-typedef enum EPulseModuleLoadResult
-{
-    PULSE_MODULE_LOAD_RESULT_OK,              /** ( 0)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_INVALID_ARGUMENT, /** ( 1)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_INVALID_STATE, /** ( 2)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND, /** ( 3)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND, /** ( 4)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_REGISTER_FAILED, /** ( 5)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_DUPLICATE_MODULE, /** ( 6)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY, /** ( 7)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_CIRCULAR_DEPENDENCY, /** ( 8)                                */
-    PULSE_MODULE_LOAD_RESULT_ERROR_INTERNAL,  /** ( 9)                                */
-
-    PULSE_MODULE_LOAD_RESULT_COUNT
-
-} EPulseModuleLoadResult;
-
 typedef enum EPulseAppInsertSubappResult
 {
     PULSE_APP_INSERT_SUBAPP_RESULT_OK,        /** ( 0)                                */
@@ -207,7 +190,6 @@ typedef EPulseRunnerResult (*PulseProcRunnerFn)(PulseAppId app, void* ctx);
 typedef EPulseSubappExtractResult (*PulseProcSubappExtractFn)(PulseAppId app, PulseAppId subapp, void* ctx);
 typedef EPulsePluginBuildResult (*PulseProcPluginBuildFn)(PulseAppId app, void* ctx);
 typedef void (*PulseProcPluginShutdownFn)(PulseAppId app, void* ctx);
-typedef EPulseResult (*PulseProcModuleRegisterFn)(PulseAppId app, void* config, uint32_t config_size);
 
 typedef struct PulseAppDesc
 {
@@ -230,17 +212,6 @@ typedef struct PulsePluginDesc
     const char**         dependencies;
 
 } PulsePluginDesc;
-
-typedef struct PulseModuleListEntry
-{
-    const char*          name;
-    const char*          library;
-    void*                config;
-    uint32_t             config_size;
-    uint32_t             dependency_count;
-    const char**         dependencies;
-
-} PulseModuleListEntry;
 
 struct PulseApp;
 typedef struct PulseApp PulseApp;
@@ -272,8 +243,6 @@ PULSE_APP_API void pulse_app_finish(PulseAppId _this);
 PULSE_APP_API bool pulse_app_should_quit(PulseAppId _this);
 PULSE_APP_API EPulseAppSetRunnerResult pulse_app_set_runner(PulseAppId _this, PulseProcRunnerFn runner, void* ctx);
 PULSE_APP_API EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId _this, const PulsePluginDesc* desc);
-PULSE_APP_API EPulseModuleLoadResult pulse_app_load_modules(PulseAppId _this, const PulseModuleListEntry* entries, uint32_t count);
-PULSE_APP_API void pulse_app_register_static_module(PulseAppId _this, const char* name, PulseProcModuleRegisterFn register_fn);
 PULSE_APP_API bool pulse_app_has_plugin(PulseAppId _this, const char* name);
 PULSE_APP_API ecs_world_t* pulse_app_world(PulseAppId _this);
 PULSE_APP_API const char* pulse_app_last_error(PulseAppId _this);

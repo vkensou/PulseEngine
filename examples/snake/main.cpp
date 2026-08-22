@@ -13,6 +13,7 @@
 #include <flecs.h> // C++ API - must be included before pulse headers
 
 #include "pulse_app.h"
+#include "pulse_package_loader.h"
 #include "pulse_window.h"
 #include "pulse_input.h"
 #include "pulse_asset.h"
@@ -52,7 +53,7 @@ int main(void)
 	graphics_desc.enable_debug_layer = true;
 	graphics_desc.enable_gpu_based_validation = true;
 
-	PulseModuleListEntry modules[] = {
+	PulsePackageListEntry packages[] = {
 		{ "PulseInputPlugin", "pulse_input.dll", nullptr, 0, 0, nullptr },
 		{ "PulseWindowPlugin", "pulse_window.dll", &window_desc, sizeof(window_desc), 1, window_deps },
 		{ "PulseAssetPlugin", "pulse_asset.dll", &asset_desc, sizeof(asset_desc), 0, nullptr },
@@ -61,7 +62,7 @@ int main(void)
 		{ "PulseRendererPlugin", "pulse_renderer.dll", nullptr, 0, 3, renderer_deps },
 		{ "PulseImguiPlugin", "pulse_imgui.dll", nullptr, 0, 4, imgui_deps },
 	};
-	assert(pulse_app_load_modules(app, modules, 7) == PULSE_MODULE_LOAD_RESULT_OK);
+	assert(pulse_package_loader_load_packages(app, packages, 7) == PULSE_PACKAGE_LOAD_RESULT_OK);
 
 	// ---- world ----
 	flecs::world world = flecs::world(pulse_app_world(app));
@@ -112,6 +113,7 @@ int main(void)
 	pulse_app_run(app);
 
 	pulse_destroy_app(app);
+	pulse_package_loader_cleanup(app);
 	printf("Snake example exited.\n");
 	return 0;
 }

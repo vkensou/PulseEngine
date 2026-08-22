@@ -1,0 +1,66 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h (use exact C type names since the codegen overwrites custom cname)
+typedef "EPulseResult"
+typedef "PulseAppId"
+
+enum.PackageLoadResult { underscore, comment = "Pulse package loader result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorLibraryNotFound
+    .ErrorEntryNotFound
+    .ErrorRegisterFailed
+    .ErrorDuplicatePackage
+    .ErrorMissingDependency
+    .ErrorCircularDependency
+    .ErrorInternal
+    ()
+
+funcptr.PackageRegisterFn
+    "EPulseResult"
+    .app            "PulseAppId"
+    .config         "?*anyopaque"
+    .configSize     "uint32_t"
+
+struct.PackageListEntry
+    .name           "cstring"
+    .library        "?cstring"
+    .config         "?*anyopaque"
+    .configSize     "uint32_t"
+    .dependencyCount "uint32_t"
+    .dependencies   "*cstring"
+
+func.PackageLoaderLoadPackages
+    "PackageLoadResult::Enum"
+    .app        "PulseAppId"
+    .entries    "*const PackageListEntry"
+    .count      "uint32_t"
+
+func.PackageLoaderRegisterStaticPackage
+    "void"
+    .app        "PulseAppId"
+    .name       "cstring"
+    .registerFn "PackageRegisterFn"
+
+func.PackageLoaderCleanup
+    "void"
+    .app        "PulseAppId"

@@ -656,7 +656,7 @@ void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropert
     }
 }
 
-PULSE_RENDERER_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_RENDERER_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config || config_size != 0) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

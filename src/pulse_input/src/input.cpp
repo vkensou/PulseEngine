@@ -282,7 +282,7 @@ void pulse_input_get_mouse_scroll(PulseAppId app, float* out_x, float* out_y) {
     if (out_y) *out_y = ms->y;
 }
 
-PULSE_INPUT_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+PULSE_INPUT_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
     if (config || config_size != 0) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }

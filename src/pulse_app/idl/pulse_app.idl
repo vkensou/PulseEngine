@@ -88,19 +88,6 @@ enum.AppAddPluginResult { underscore, comment = "Pulse app add plugin result:" }
     .ErrorInternal
     ()
 
-enum.ModuleLoadResult { underscore, comment = "Pulse module loader result:" }
-    .Ok
-    .ErrorInvalidArgument
-    .ErrorInvalidState
-    .ErrorLibraryNotFound
-    .ErrorEntryNotFound
-    .ErrorRegisterFailed
-    .ErrorDuplicateModule
-    .ErrorMissingDependency
-    .ErrorCircularDependency
-    .ErrorInternal
-    ()
-
 enum.AppInsertSubappResult { underscore, comment = "Pulse app insert subapp result:" }
     .Ok
     .ErrorInvalidArgument
@@ -161,12 +148,6 @@ funcptr.PluginShutdownFn
     "void"
     .app            "AppId"
     .ctx            "?*anyopaque"
-funcptr.ModuleRegisterFn
-    "Result::Enum"
-    .app            "AppId"
-    .config         "?*anyopaque"
-    .configSize     "uint32_t"
-
 
 id "AppId"
 
@@ -183,14 +164,6 @@ struct.PluginDesc
     .build          "PluginBuildFn"
     .postBuild      "PluginBuildFn"
     .shutdown       "PluginShutdownFn"
-    .dependencyCount "uint32_t"
-    .dependencies   "*cstring"
-
-struct.ModuleListEntry
-    .name           "cstring"
-    .library        "?cstring"
-    .config         "?*anyopaque"
-    .configSize     "uint32_t"
     .dependencyCount "uint32_t"
     .dependencies   "*cstring"
 
@@ -237,14 +210,6 @@ func.App.SetRunner "AppSetRunnerResult::Enum"
 
 func.App.AddPlugin "AppAddPluginResult::Enum"
     .desc "*const PluginDesc"
-
-func.App.LoadModules "ModuleLoadResult::Enum"
-    .entries    "*const ModuleListEntry"
-    .count      "uint32_t"
-
-func.App.RegisterStaticModule "void"
-    .name       "cstring"
-    .registerFn "ModuleRegisterFn"
 
 func.App.HasPlugin "bool"
     .name       "cstring"
