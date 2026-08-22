@@ -20,12 +20,12 @@ static void test_missing_graphics(void) {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto window_desc = pulse_window_plugin_desc_default();
-    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_RESULT_ERROR_INVALID_STATE);
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE);
 
     pulse_destroy_app(app);
 }
@@ -39,24 +39,24 @@ int main(void) {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto window_desc = pulse_window_plugin_desc_default();
     window_desc.primary_window.title = "test-imgui";
     window_desc.primary_window.width = 640;
     window_desc.primary_window.height = 480;
-    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "examples/snake/assets";
-    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto graphics_desc = pulse_graphics_plugin_desc_default();
-    assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // 注册 + 重复注册校验
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_RESULT_OK);
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     // context 与 imgui phase 在 build 阶段创建（add 时立即执行）
     ImGuiContext* imgui_ctx = pulse_imgui_get_context(app);

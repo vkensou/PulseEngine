@@ -343,15 +343,15 @@ int main(void) {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Add required plugins
     auto window_desc = pulse_window_plugin_desc_default();
-    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "tests/graphics/data";
-    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Add pulse_graphic plugin
     const char *per_draw_shader_properties[] = {
@@ -363,7 +363,7 @@ int main(void) {
     graphic_desc.enable_gpu_based_validation = true;
     graphic_desc.per_draw_shader_property_count = sizeof(per_draw_shader_properties) / sizeof(const char*);
     graphic_desc.p_per_draw_shader_properties = per_draw_shader_properties;
-    assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
     // ---- Register record callback with graphic resources ----

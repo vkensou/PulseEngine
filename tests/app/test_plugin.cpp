@@ -3,14 +3,14 @@
 static bool build_called = false;
 static bool nested_build_called = false;
 
-static EPulseResult nested_build(PulseAppId app, void* ctx) {
+static EPulsePluginBuildResult nested_build(PulseAppId app, void* ctx) {
     (void)ctx;
     nested_build_called = true;
     assert(pulse_app_world(app) != nullptr);
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
-static EPulseResult my_build(PulseAppId app, void* ctx) {
+static EPulsePluginBuildResult my_build(PulseAppId app, void* ctx) {
     (void)ctx;
     build_called = true;
 
@@ -24,7 +24,7 @@ static EPulseResult my_build(PulseAppId app, void* ctx) {
         .name = "NestedPlugin",
         .build = nested_build,
     };
-    return pulse_app_add_plugin(app, &nested);
+    return static_cast<EPulsePluginBuildResult>(pulse_app_add_plugin(app, &nested));
 }
 
 int main(void) {
@@ -41,13 +41,13 @@ int main(void) {
         .name = "TestPlugin",
         .build = my_build,
     };
-    assert(pulse_app_add_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_app_add_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     assert(build_called);
     assert(nested_build_called);
     assert(pulse_app_has_plugin(app, "TestPlugin"));
     assert(pulse_app_has_plugin(app, "NestedPlugin"));
-    assert(pulse_app_add_plugin(app, &desc) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
+    assert(pulse_app_add_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     pulse_destroy_app(app);
 

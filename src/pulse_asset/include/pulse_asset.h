@@ -447,7 +447,7 @@ static inline bool pulse_asset_dep_ref_equals(PulseAssetDepRef a, PulseAssetDepR
  *
  */
 PULSE_API PulseAssetPluginDesc pulse_asset_plugin_desc_default(void);
-PULSE_API EPulseResult pulse_add_asset_plugin(PulseAppId app, const PulseAssetPluginDesc* desc);
+PULSE_API EPulseAppAddPluginResult pulse_add_asset_plugin(PulseAppId app, const PulseAssetPluginDesc* desc);
 PULSE_API PulseAssetSystemId pulse_get_asset_system(PulseAppId app);
 PULSE_API EPulseResult pulse_asset_system_register_type(PulseAssetSystemId _this, const PulseAssetTypeDesc* desc);
 PULSE_API EPulseResult pulse_asset_system_register_loader(PulseAssetSystemId _this, const PulseAssetLoaderDesc* desc);

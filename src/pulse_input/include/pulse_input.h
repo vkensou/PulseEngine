@@ -102,7 +102,7 @@ extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
 extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
 extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
 
-PULSE_API EPulseResult pulse_add_input_plugin(PulseAppId app);
+PULSE_API EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app);
 PULSE_API bool pulse_input_is_key_down(PulseAppId app, int32_t scancode);
 PULSE_API bool pulse_input_key_just_pressed(PulseAppId app, int32_t scancode);
 PULSE_API bool pulse_input_key_just_released(PulseAppId app, int32_t scancode);

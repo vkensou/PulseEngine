@@ -24,12 +24,116 @@ PulseAppId to_handle(pulse::App* app) {
     return reinterpret_cast<PulseAppId>(app);
 }
 
-pulse::Result to_result(EPulseResult result) {
-    return static_cast<pulse::Result>(result);
+pulse::RunnerResult to_runner_result(EPulseRunnerResult result) {
+    switch (result) {
+        case PULSE_RUNNER_RESULT_OK: return pulse::RunnerResult::Ok;
+        case PULSE_RUNNER_RESULT_ERROR_INVALID_ARGUMENT: return pulse::RunnerResult::InvalidArgument;
+        case PULSE_RUNNER_RESULT_ERROR_INVALID_STATE: return pulse::RunnerResult::InvalidState;
+        case PULSE_RUNNER_RESULT_ERROR_SUBAPP_EXTRACT_FAILED: return pulse::RunnerResult::SubappExtractFailed;
+        case PULSE_RUNNER_RESULT_ERROR_SUBAPP_UPDATE_FAILED: return pulse::RunnerResult::SubappUpdateFailed;
+        case PULSE_RUNNER_RESULT_ERROR_INTERNAL: return pulse::RunnerResult::Internal;
+        default: return pulse::RunnerResult::Internal;
+    }
 }
 
-EPulseResult to_c(pulse::Result result) {
-    return static_cast<EPulseResult>(result);
+pulse::SubappExtractResult to_subapp_extract_result(EPulseSubappExtractResult result) {
+    switch (result) {
+        case PULSE_SUBAPP_EXTRACT_RESULT_OK: return pulse::SubappExtractResult::Ok;
+        case PULSE_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_ARGUMENT: return pulse::SubappExtractResult::InvalidArgument;
+        case PULSE_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_STATE: return pulse::SubappExtractResult::InvalidState;
+        case PULSE_SUBAPP_EXTRACT_RESULT_ERROR_INTERNAL: return pulse::SubappExtractResult::Internal;
+        default: return pulse::SubappExtractResult::Internal;
+    }
+}
+
+pulse::PluginBuildResult to_plugin_build_result(EPulsePluginBuildResult result) {
+    switch (result) {
+        case PULSE_PLUGIN_BUILD_RESULT_OK: return pulse::PluginBuildResult::Ok;
+        case PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT: return pulse::PluginBuildResult::InvalidArgument;
+        case PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE: return pulse::PluginBuildResult::InvalidState;
+        case PULSE_PLUGIN_BUILD_RESULT_ERROR_DUPLICATE_PLUGIN: return pulse::PluginBuildResult::DuplicatePlugin;
+        case PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL: return pulse::PluginBuildResult::Internal;
+        default: return pulse::PluginBuildResult::Internal;
+    }
+}
+
+EPulseAppRunResult to_run_c(pulse::RunResult result) {
+    switch (result) {
+        case pulse::RunResult::Ok: return PULSE_APP_RUN_RESULT_OK;
+        case pulse::RunResult::InvalidArgument: return PULSE_APP_RUN_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::RunResult::InvalidState: return PULSE_APP_RUN_RESULT_ERROR_INVALID_STATE;
+        case pulse::RunResult::PluginBuildFailed: return PULSE_APP_RUN_RESULT_ERROR_PLUGIN_BUILD_FAILED;
+        case pulse::RunResult::PluginPostBuildFailed: return PULSE_APP_RUN_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED;
+        case pulse::RunResult::SubappPostBuildFailed: return PULSE_APP_RUN_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED;
+        case pulse::RunResult::SubappPrepareFailed: return PULSE_APP_RUN_RESULT_ERROR_SUBAPP_PREPARE_FAILED;
+        case pulse::RunResult::SubappExtractFailed: return PULSE_APP_RUN_RESULT_ERROR_SUBAPP_EXTRACT_FAILED;
+        case pulse::RunResult::SubappUpdateFailed: return PULSE_APP_RUN_RESULT_ERROR_SUBAPP_UPDATE_FAILED;
+        default: return PULSE_APP_RUN_RESULT_ERROR_INTERNAL;
+    }
+}
+
+EPulseAppPrepareResult to_prepare_c(pulse::PrepareResult result) {
+    switch (result) {
+        case pulse::PrepareResult::Ok: return PULSE_APP_PREPARE_RESULT_OK;
+        case pulse::PrepareResult::InvalidArgument: return PULSE_APP_PREPARE_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::PrepareResult::InvalidState: return PULSE_APP_PREPARE_RESULT_ERROR_INVALID_STATE;
+        case pulse::PrepareResult::PluginBuildFailed: return PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_BUILD_FAILED;
+        case pulse::PrepareResult::PluginPostBuildFailed: return PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED;
+        case pulse::PrepareResult::SubappPostBuildFailed: return PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED;
+        case pulse::PrepareResult::SubappPrepareFailed: return PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_PREPARE_FAILED;
+        default: return PULSE_APP_PREPARE_RESULT_ERROR_INTERNAL;
+    }
+}
+
+EPulseAppUpdateResult to_update_c(pulse::UpdateResult result) {
+    switch (result) {
+        case pulse::UpdateResult::Ok: return PULSE_APP_UPDATE_RESULT_OK;
+        case pulse::UpdateResult::InvalidArgument: return PULSE_APP_UPDATE_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::UpdateResult::InvalidState: return PULSE_APP_UPDATE_RESULT_ERROR_INVALID_STATE;
+        case pulse::UpdateResult::SubappExtractFailed: return PULSE_APP_UPDATE_RESULT_ERROR_SUBAPP_EXTRACT_FAILED;
+        case pulse::UpdateResult::SubappUpdateFailed: return PULSE_APP_UPDATE_RESULT_ERROR_SUBAPP_UPDATE_FAILED;
+        default: return PULSE_APP_UPDATE_RESULT_ERROR_INTERNAL;
+    }
+}
+
+EPulseAppSetRunnerResult to_set_runner_c(pulse::SetRunnerResult result) {
+    switch (result) {
+        case pulse::SetRunnerResult::Ok: return PULSE_APP_SET_RUNNER_RESULT_OK;
+        case pulse::SetRunnerResult::InvalidArgument: return PULSE_APP_SET_RUNNER_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::SetRunnerResult::InvalidState: return PULSE_APP_SET_RUNNER_RESULT_ERROR_INVALID_STATE;
+        default: return PULSE_APP_SET_RUNNER_RESULT_ERROR_INTERNAL;
+    }
+}
+
+EPulseAppAddPluginResult to_add_plugin_c(pulse::AddPluginResult result) {
+    switch (result) {
+        case pulse::AddPluginResult::Ok: return PULSE_APP_ADD_PLUGIN_RESULT_OK;
+        case pulse::AddPluginResult::InvalidArgument: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::AddPluginResult::InvalidState: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE;
+        case pulse::AddPluginResult::DuplicatePlugin: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
+        case pulse::AddPluginResult::PluginBuildFailed: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_PLUGIN_BUILD_FAILED;
+        default: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
+    }
+}
+
+EPulseAppInsertSubappResult to_insert_subapp_c(pulse::InsertSubappResult result) {
+    switch (result) {
+        case pulse::InsertSubappResult::Ok: return PULSE_APP_INSERT_SUBAPP_RESULT_OK;
+        case pulse::InsertSubappResult::InvalidArgument: return PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::InsertSubappResult::InvalidState: return PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INVALID_STATE;
+        case pulse::InsertSubappResult::DuplicateSubapp: return PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_DUPLICATE_SUBAPP;
+        default: return PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INTERNAL;
+    }
+}
+
+EPulseAppSetSubappExtractResult to_set_subapp_extract_c(pulse::SetSubappExtractResult result) {
+    switch (result) {
+        case pulse::SetSubappExtractResult::Ok: return PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_OK;
+        case pulse::SetSubappExtractResult::InvalidArgument: return PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_ARGUMENT;
+        case pulse::SetSubappExtractResult::InvalidState: return PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_STATE;
+        case pulse::SetSubappExtractResult::NotFound: return PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_NOT_FOUND;
+        default: return PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INTERNAL;
+    }
 }
 
 pulse::AppDesc to_desc(const PulseAppDesc* desc) {
@@ -58,28 +162,28 @@ void pulse_destroy_app(PulseAppId app) {
     delete impl;
 }
 
-EPulseResult pulse_app_run(PulseAppId app) {
+EPulseAppRunResult pulse_app_run(PulseAppId app) {
     pulse::App* impl = to_app(app);
     if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_RUN_RESULT_ERROR_INVALID_ARGUMENT;
     }
-    return to_c(impl->run());
+    return to_run_c(impl->run());
 }
 
-EPulseResult pulse_app_prepare(PulseAppId app) {
+EPulseAppPrepareResult pulse_app_prepare(PulseAppId app) {
     pulse::App* impl = to_app(app);
     if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_PREPARE_RESULT_ERROR_INVALID_ARGUMENT;
     }
-    return to_c(impl->prepare());
+    return to_prepare_c(impl->prepare());
 }
 
-EPulseResult pulse_app_update(PulseAppId app) {
+EPulseAppUpdateResult pulse_app_update(PulseAppId app) {
     pulse::App* impl = to_app(app);
     if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_UPDATE_RESULT_ERROR_INVALID_ARGUMENT;
     }
-    return to_c(impl->update());
+    return to_update_c(impl->update());
 }
 
 void pulse_app_teardown(PulseAppId app) {
@@ -103,32 +207,32 @@ bool pulse_app_should_quit(PulseAppId app) {
     return impl ? impl->should_quit() : true;
 }
 
-EPulseResult pulse_app_set_runner(PulseAppId app, PulseProcRunnerFn runner, void* ctx) {
+EPulseAppSetRunnerResult pulse_app_set_runner(PulseAppId app, PulseProcRunnerFn runner, void* ctx) {
     pulse::App* impl = to_app(app);
     if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_SET_RUNNER_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     pulse::Runner wrapped;
     if (runner) {
         wrapped = [app, runner](pulse::App&, void* c) {
-            return to_result(runner(app, c));
+            return to_runner_result(runner(app, c));
         };
     }
-    return to_c(impl->set_runner(std::move(wrapped), ctx));
+    return to_set_runner_c(impl->set_runner(std::move(wrapped), ctx));
 }
 
-EPulseResult pulse_app_add_plugin(PulseAppId app, const PulsePluginDesc* desc) {
+EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId app, const PulsePluginDesc* desc) {
     pulse::App* impl = to_app(app);
     if (!impl || !desc) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     if (desc->struct_size != sizeof(PulsePluginDesc)) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
     if (desc->version != PULSE_PLUGIN_DESC_VERSION) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     PulseProcPluginBuildFn build = desc->build;
@@ -140,12 +244,12 @@ EPulseResult pulse_app_add_plugin(PulseAppId app, const PulsePluginDesc* desc) {
     plugin.ctx = desc->ctx;
     if (build) {
         plugin.build = [app, build](pulse::App&, void* c) {
-            return to_result(build(app, c));
+            return to_plugin_build_result(build(app, c));
         };
     }
     if (post_build) {
         plugin.post_build = [app, post_build](pulse::App&, void* c) {
-            return to_result(post_build(app, c));
+            return to_plugin_build_result(post_build(app, c));
         };
     }
     if (shutdown) {
@@ -154,7 +258,7 @@ EPulseResult pulse_app_add_plugin(PulseAppId app, const PulsePluginDesc* desc) {
         };
     }
 
-    return to_c(impl->add_plugin(std::move(plugin)));
+    return to_add_plugin_c(impl->add_plugin(std::move(plugin)));
 }
 
 bool pulse_app_has_plugin(PulseAppId app, const char* name) {
@@ -172,19 +276,19 @@ const char* pulse_app_last_error(PulseAppId app) {
     return impl ? impl->last_error().data() : "invalid app";
 }
 
-EPulseResult pulse_app_insert_subapp(PulseAppId app, const char* name, PulseAppId subapp) {
+EPulseAppInsertSubappResult pulse_app_insert_subapp(PulseAppId app, const char* name, PulseAppId subapp) {
     if (app == subapp) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INVALID_ARGUMENT;
     }
     pulse::App* impl = to_app(app);
     if (!impl || !subapp) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     auto subapp_cpp = std::unique_ptr<pulse::App>(reinterpret_cast<pulse::App*>(subapp));
     auto result = impl->try_insert_subapp(name ? name : "", subapp_cpp);
-    if (result != pulse::Result::Ok) subapp_cpp.release();
-    return to_c(result);
+    if (result != pulse::InsertSubappResult::Ok) subapp_cpp.release();
+    return to_insert_subapp_c(result);
 }
 
 PulseAppId pulse_app_get_subapp(PulseAppId app, const char* name) {
@@ -205,7 +309,7 @@ PulseAppId pulse_app_remove_subapp(PulseAppId app, const char* name) {
     return to_handle(removed.release());
 }
 
-EPulseResult pulse_app_set_subapp_extract(
+EPulseAppSetSubappExtractResult pulse_app_set_subapp_extract(
     PulseAppId app,
     const char* name,
     PulseProcSubappExtractFn extract,
@@ -213,17 +317,17 @@ EPulseResult pulse_app_set_subapp_extract(
 ) {
     pulse::App* impl = to_app(app);
     if (!impl) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     pulse::SubappExtract wrapped;
     if (extract) {
         wrapped = [app, extract](pulse::App&, pulse::App& subapp, void* c) {
-            return to_result(extract(app, to_handle(&subapp), c));
+            return to_subapp_extract_result(extract(app, to_handle(&subapp), c));
         };
     }
 
-    return to_c(impl->set_subapp_extract(name ? name : "", std::move(wrapped), ctx));
+    return to_set_subapp_extract_c(impl->set_subapp_extract(name ? name : "", std::move(wrapped), ctx));
 }
 
 PulseAppId pulse_get_app_from_world(ecs_world_t* world) {

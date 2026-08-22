@@ -14,14 +14,93 @@ export module pulse_app;
 
 namespace pulse {
 
-export enum class Result {
-    Ok = PULSE_RESULT_OK,
-    InvalidArgument = PULSE_RESULT_ERROR_INVALID_ARGUMENT,
-    InvalidState = PULSE_RESULT_ERROR_INVALID_STATE,
-    DuplicatePlugin = PULSE_RESULT_ERROR_DUPLICATE_PLUGIN,
-    DuplicateSubapp = PULSE_RESULT_ERROR_DUPLICATE_SUBAPP,
-    NotFound = PULSE_RESULT_ERROR_NOT_FOUND,
-    Internal = PULSE_RESULT_ERROR_INTERNAL,
+export enum class RunResult {
+    Ok = PULSE_APP_RUN_RESULT_OK,
+    InvalidArgument = PULSE_APP_RUN_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_RUN_RESULT_ERROR_INVALID_STATE,
+    PluginBuildFailed = PULSE_APP_RUN_RESULT_ERROR_PLUGIN_BUILD_FAILED,
+    PluginPostBuildFailed = PULSE_APP_RUN_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED,
+    SubappPostBuildFailed = PULSE_APP_RUN_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED,
+    SubappPrepareFailed = PULSE_APP_RUN_RESULT_ERROR_SUBAPP_PREPARE_FAILED,
+    SubappExtractFailed = PULSE_APP_RUN_RESULT_ERROR_SUBAPP_EXTRACT_FAILED,
+    SubappUpdateFailed = PULSE_APP_RUN_RESULT_ERROR_SUBAPP_UPDATE_FAILED,
+    Internal = PULSE_APP_RUN_RESULT_ERROR_INTERNAL,
+};
+
+export enum class PrepareResult {
+    Ok = PULSE_APP_PREPARE_RESULT_OK,
+    InvalidArgument = PULSE_APP_PREPARE_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_PREPARE_RESULT_ERROR_INVALID_STATE,
+    PluginBuildFailed = PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_BUILD_FAILED,
+    PluginPostBuildFailed = PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED,
+    SubappPostBuildFailed = PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED,
+    SubappPrepareFailed = PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_PREPARE_FAILED,
+    Internal = PULSE_APP_PREPARE_RESULT_ERROR_INTERNAL,
+};
+
+export enum class UpdateResult {
+    Ok = PULSE_APP_UPDATE_RESULT_OK,
+    InvalidArgument = PULSE_APP_UPDATE_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_UPDATE_RESULT_ERROR_INVALID_STATE,
+    SubappExtractFailed = PULSE_APP_UPDATE_RESULT_ERROR_SUBAPP_EXTRACT_FAILED,
+    SubappUpdateFailed = PULSE_APP_UPDATE_RESULT_ERROR_SUBAPP_UPDATE_FAILED,
+    Internal = PULSE_APP_UPDATE_RESULT_ERROR_INTERNAL,
+};
+
+export enum class SetRunnerResult {
+    Ok = PULSE_APP_SET_RUNNER_RESULT_OK,
+    InvalidArgument = PULSE_APP_SET_RUNNER_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_SET_RUNNER_RESULT_ERROR_INVALID_STATE,
+    Internal = PULSE_APP_SET_RUNNER_RESULT_ERROR_INTERNAL,
+};
+
+export enum class AddPluginResult {
+    Ok = PULSE_APP_ADD_PLUGIN_RESULT_OK,
+    InvalidArgument = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE,
+    DuplicatePlugin = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN,
+    PluginBuildFailed = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_PLUGIN_BUILD_FAILED,
+    Internal = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL,
+};
+
+export enum class InsertSubappResult {
+    Ok = PULSE_APP_INSERT_SUBAPP_RESULT_OK,
+    InvalidArgument = PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INVALID_STATE,
+    DuplicateSubapp = PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_DUPLICATE_SUBAPP,
+    Internal = PULSE_APP_INSERT_SUBAPP_RESULT_ERROR_INTERNAL,
+};
+
+export enum class SetSubappExtractResult {
+    Ok = PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_OK,
+    InvalidArgument = PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_STATE,
+    NotFound = PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_NOT_FOUND,
+    Internal = PULSE_APP_SET_SUBAPP_EXTRACT_RESULT_ERROR_INTERNAL,
+};
+
+export enum class RunnerResult {
+    Ok = PULSE_RUNNER_RESULT_OK,
+    InvalidArgument = PULSE_RUNNER_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_RUNNER_RESULT_ERROR_INVALID_STATE,
+    SubappExtractFailed = PULSE_RUNNER_RESULT_ERROR_SUBAPP_EXTRACT_FAILED,
+    SubappUpdateFailed = PULSE_RUNNER_RESULT_ERROR_SUBAPP_UPDATE_FAILED,
+    Internal = PULSE_RUNNER_RESULT_ERROR_INTERNAL,
+};
+
+export enum class SubappExtractResult {
+    Ok = PULSE_SUBAPP_EXTRACT_RESULT_OK,
+    InvalidArgument = PULSE_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_SUBAPP_EXTRACT_RESULT_ERROR_INVALID_STATE,
+    Internal = PULSE_SUBAPP_EXTRACT_RESULT_ERROR_INTERNAL,
+};
+
+export enum class PluginBuildResult {
+    Ok = PULSE_PLUGIN_BUILD_RESULT_OK,
+    InvalidArgument = PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT,
+    InvalidState = PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE,
+    DuplicatePlugin = PULSE_PLUGIN_BUILD_RESULT_ERROR_DUPLICATE_PLUGIN,
+    Internal = PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL,
 };
 
 export enum class State {
@@ -42,13 +121,13 @@ export struct AppDesc {
 export struct Plugin {
     std::string name;
     void* ctx = nullptr;
-    std::function<Result(App&, void*)> build;
-    std::function<Result(App&, void*)> post_build;
+    std::function<PluginBuildResult(App&, void*)> build;
+    std::function<PluginBuildResult(App&, void*)> post_build;
     std::function<void(App&, void*)> shutdown;
 };
 
-export using Runner = std::function<Result(App&, void*)>;
-export using SubappExtract = std::function<Result(App& parent, App& subapp, void* ctx)>;
+export using Runner = std::function<RunnerResult(App&, void*)>;
+export using SubappExtract = std::function<SubappExtractResult(App& parent, App& subapp, void* ctx)>;
 
 struct RegisteredPlugin {
     Plugin plugin;
@@ -73,26 +152,26 @@ public:
     App& operator=(App&&) = delete;
 
     bool has_plugin(std::string_view name) const;
-    Result add_plugin(Plugin plugin);
+    AddPluginResult add_plugin(Plugin plugin);
 
-    Result run();
-    Result prepare();
-    Result update();
+    RunResult run();
+    PrepareResult prepare();
+    UpdateResult update();
     void teardown();
     void finish();
     bool should_quit() const;
 
-    Result set_runner(Runner runner, void* ctx);
+    SetRunnerResult set_runner(Runner runner, void* ctx);
 
     flecs::world& world() { return world_; }
     std::string_view name() const { return name_; }
     State state() const { return state_; }
     std::string_view last_error() const { return last_error_; }
 
-    Result try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp);
+    InsertSubappResult try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp);
     App* get_subapp(std::string_view name) const;
     std::unique_ptr<App> remove_subapp(std::string_view name);
-    Result set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx);
+    SetSubappExtractResult set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx);
 
 private:
     flecs::world world_;
@@ -107,10 +186,10 @@ private:
     std::string last_error_;
     bool enable_rest_api_ = false;
 
-    Result post_build();
-    Result default_runner();
-    Result drain_pending_plugins();
-    Result validate_plugin(const Plugin& plugin);
+    PrepareResult post_build();
+    RunResult default_runner();
+    AddPluginResult drain_pending_plugins();
+    AddPluginResult validate_plugin(const Plugin& plugin);
     bool has_pending_plugin(std::string_view name) const;
     void set_error(std::string_view message);
 };

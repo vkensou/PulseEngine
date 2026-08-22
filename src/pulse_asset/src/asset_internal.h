@@ -349,7 +349,7 @@ private:
     bool construct_job_loader(AssetSystem& system, LoadJob& job, AssetSlot& slot, const char*& out_error);
 };
 
-EPulseResult asset_plugin_build_callback(PulseAppId app, void* ctx);
+EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx);
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx);
 
 class AssetSystem final {

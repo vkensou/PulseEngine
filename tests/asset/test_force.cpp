@@ -69,7 +69,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -104,12 +104,12 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &force_loader_desc) == PULSE_RESULT_OK);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     PulseAssetRequest force_loaded = load_asset_memory(assetSystem, force_type, "force_loaded.txt", force_bytes, sizeof(force_bytes), nullptr);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, force_loaded) == PULSE_ASSET_STATE_PROCESSING);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, force_loaded) == PULSE_ASSET_STATE_LOADED);
     assert(force_ctor_count == 1);
     assert(force_dtor_count == 1);
@@ -123,7 +123,7 @@ int main(void) {
     assert(((force_asset*)force_loaded_ptr)->value == sizeof(force_bytes));
 
     PulseAssetRequest force_pending = load_asset_memory(assetSystem, force_type, "force_pending.txt", force_bytes, sizeof(force_bytes), nullptr);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, force_pending) == PULSE_ASSET_STATE_PROCESSING);
     assert(force_ctor_count == 2);
     assert(force_dtor_count == 1);
@@ -137,7 +137,7 @@ int main(void) {
     void* missing_force_ptr = nullptr;
     assert(!pulse_asset_system_borrow(assetSystem, force_loaded_handle, &missing_force_ptr, nullptr));
     pulse_asset_system_release(assetSystem, force_loaded_handle, nullptr);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(force_step_count == force_steps_before_unload);
 
     PulseAssetRequest force_reloaded = load_asset_memory(assetSystem, force_type, "force_loaded.txt", force_bytes, sizeof(force_bytes), nullptr);

@@ -641,7 +641,7 @@ static inline PulseAssetRequest pulse_material_request_to_asset_request(PulseMat
  *
  */
 PULSE_API PulseGraphicsPluginDesc pulse_graphics_plugin_desc_default(void);
-PULSE_API EPulseResult pulse_add_graphics_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc);
+PULSE_API EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc);
 
 /**
  * Renderer

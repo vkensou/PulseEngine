@@ -82,7 +82,7 @@ extern ECS_COMPONENT_DECLARE(PulseRenderable);
  * @param[in] app
  *
  */
-PULSE_API EPulseResult pulse_add_renderer_plugin(PulseAppId app);
+PULSE_API EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app);
 PULSE_API void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropertyType type, const char* name);
 
 #ifdef __cplusplus

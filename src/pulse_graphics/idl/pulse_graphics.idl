@@ -20,6 +20,7 @@ typedef "cstring"
 
 --- External types from other modules
 typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 typedef "PulseAssetSystemId"
 typedef "ecs_entity_t"
@@ -409,7 +410,7 @@ func.GraphicsPluginDescDefault
     ()
 
 func.AddGraphicsPlugin
-    "EPulseResult"
+    "EPulseAppAddPluginResult"
     .app  "PulseAppId"
     .desc "*const GraphicsPluginDesc"
     ()

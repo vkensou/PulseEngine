@@ -62,7 +62,7 @@ typedef struct PulseImguiContext
 extern ECS_COMPONENT_DECLARE(PulseImguiContext);
 
 PULSE_API PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void);
-PULSE_API EPulseResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);
+PULSE_API EPulseAppAddPluginResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);
 PULSE_API ImGuiContext* pulse_imgui_get_context(PulseAppId app);
 PULSE_API ecs_entity_t pulse_imgui_get_phase(PulseAppId app);
 

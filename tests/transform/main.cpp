@@ -41,7 +41,7 @@ static void test_components() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     assert(ecs_id(PulseLocalTransform) != 0);
     assert(ecs_id(PulseWorldTransform) != 0);
@@ -51,7 +51,7 @@ static void test_components() {
     assert(ecs_get_type_info(world, ecs_id(PulseLocalTransform))->size == sizeof(PulseLocalTransform));
     assert(ecs_get_type_info(world, ecs_id(PulseWorldTransform))->size == sizeof(PulseWorldTransform));
 
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
     pulse_destroy_app(app);
     printf("    PASS\n");
 }
@@ -64,8 +64,8 @@ static void test_empty_update() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     pulse_destroy_app(app);
     printf("    PASS\n");
 }
@@ -78,7 +78,7 @@ static void test_single_transform() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     ecs_world_t* world = pulse_app_world(app);
     ecs_entity_t e = ecs_new(world);
@@ -91,7 +91,7 @@ static void test_single_transform() {
 	ecs_remove_id(world, e, ecs_id(PulseWorldTransform));
     assert(!ecs_has_id(world, e, ecs_id(PulseWorldTransform)));
 
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
 
     assert(ecs_has_id(world, e, ecs_id(PulseWorldTransform)));
     const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
@@ -117,7 +117,7 @@ static void test_rotation_transform() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     ecs_world_t* world = pulse_app_world(app);
     ecs_entity_t e = ecs_new(world);
@@ -126,7 +126,7 @@ static void test_rotation_transform() {
     HMM_Quat rot = HMM_QFromAxisAngle_RH(HMM_V3(0, 0, 1), HMM_AngleDeg(90));
     set_local_transform(world, e, HMM_V3(1.0f, 2.0f, 3.0f), rot, HMM_V3(1.f, 1.f, 1.f));
 
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
 
     const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
     assert(wt);
@@ -154,7 +154,7 @@ static void test_scale_transform() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     ecs_world_t* world = pulse_app_world(app);
     ecs_entity_t e = ecs_new(world);
@@ -163,7 +163,7 @@ static void test_scale_transform() {
     set_local_transform(world, e, HMM_V3(1.0f, 2.0f, 3.0f),
                         HMM_Q(0.f, 0.f, 0.f, 1.f), HMM_V3(2.0f, 3.0f, 4.0f));
 
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
 
     const PulseWorldTransform* wt = ecs_get(world, e, PulseWorldTransform);
     assert(wt);
@@ -189,7 +189,7 @@ static void test_hierarchy() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     ecs_world_t* world = pulse_app_world(app);
 
@@ -207,7 +207,7 @@ static void test_hierarchy() {
     pulse_set_parent(app, grandchild, child);
 
     // Single update is sufficient: EcsCascade guarantees parent-before-child order
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
 
     const PulseWorldTransform* pw = ecs_get(world, parent, PulseWorldTransform);
     assert(pw);
@@ -234,7 +234,7 @@ static void test_hierarchy() {
 
     // Test remove_parent
     pulse_remove_parent(app, grandchild);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     // After removal, grandchild should be a root (world == local)
     assert(pulse_get_parent(app, grandchild) == 0);
     const PulseWorldTransform* gw2 = ecs_get(world, grandchild, PulseWorldTransform);
@@ -255,7 +255,7 @@ static void test_auto_insertion() {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     ecs_world_t* world = pulse_app_world(app);
     ecs_entity_t e = ecs_new(world);
@@ -266,7 +266,7 @@ static void test_auto_insertion() {
     assert(ecs_get(world, e, PulseLocalTransform) != NULL);
     // Auto-inserted via EcsWith: set triggers the pair, but it's a deferred effect.
     // Run update to let flecs process the With relationships.
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(ecs_get(world, e, PulseWorldTransform) != NULL);
 
     pulse_destroy_app(app);

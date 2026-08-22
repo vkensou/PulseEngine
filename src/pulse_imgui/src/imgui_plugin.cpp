@@ -28,21 +28,21 @@ bool validate_plugin_desc(const PulseImguiPluginDesc* desc) {
          desc->version == PULSE_IMGUI_PLUGIN_DESC_VERSION);
 }
 
-EPulseResult imgui_plugin_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult imgui_plugin_build(PulseAppId app, void* ctx) {
     pulse_imgui_plugin_state* state = static_cast<pulse_imgui_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
     state->app = app;
 
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     // 渲染初始化需要 graphics 插件先就绪（PulseRenderer singleton + asset system）。
     if (!pulse_get_renderer(app)) {
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;
     }
 
     // 输入/窗口组件需要对应插件先注册（pulse_imgui 观察这些组件上的事件）。
@@ -50,13 +50,13 @@ EPulseResult imgui_plugin_build(PulseAppId app, void* ctx) {
         !ecs_id(PulseMouseScroll) || !ecs_id(PulseWindow) ||
         !ecs_id(PulseTextInputEvent) || !ecs_id(PulseWindowFocusEvent) ||
         !ecs_id(PulseWindowMouseHoverEvent)) {
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;
     }
 
     // 渲染目标窗口：当前固定为 primary window。
     ecs_entity_t window_entity = imgui_get_window_entity(world, state);
     if (!window_entity) {
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;
     }
 
     if (state->desc.ini_filename) {
@@ -66,7 +66,7 @@ EPulseResult imgui_plugin_build(PulseAppId app, void* ctx) {
     // 创建 ImGui context（插件生命周期内唯一）。
     state->context = ImGui::CreateContext();
     if (!state->context) {
-        return PULSE_RESULT_ERROR_INTERNAL;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
     }
     ImGui::SetCurrentContext(state->context);
     ImGuiIO& io = ImGui::GetIO();
@@ -98,20 +98,21 @@ EPulseResult imgui_plugin_build(PulseAppId app, void* ctx) {
 
     // 完整平台后端：clipboard / IME / 鼠标光标 / open-url 等。
     if (!imgui_platform_init(world, state)) {
-        return PULSE_RESULT_ERROR_INVALID_STATE;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;
     }
 
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
-EPulseResult imgui_plugin_post_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult imgui_plugin_post_build(PulseAppId app, void* ctx) {
     pulse_imgui_plugin_state* state = static_cast<pulse_imgui_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     // 渲染资源初始化需要 graphics 插件在 post_build 时已就绪。
-    return imgui_render_init(app, state);
+    EPulseResult result = imgui_render_init(app, state);
+    return result == PULSE_RESULT_OK ? PULSE_PLUGIN_BUILD_RESULT_OK : PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 }
 
 void imgui_plugin_shutdown(PulseAppId app, void* ctx) {
@@ -175,16 +176,16 @@ PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void) {
     return desc;
 }
 
-EPulseResult pulse_add_imgui_plugin(
+EPulseAppAddPluginResult pulse_add_imgui_plugin(
     PulseAppId app,
     const PulseImguiPluginDesc* desc
 ) {
     if (!app || !validate_plugin_desc(desc)) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     if (pulse_app_has_plugin(app, kPluginName)) {
-        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
     }
 
     pulse_imgui_plugin_state* state = new pulse_imgui_plugin_state();
@@ -200,8 +201,8 @@ EPulseResult pulse_add_imgui_plugin(
         imgui_plugin_shutdown,
     };
 
-    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
         delete state;
     }
     return result;

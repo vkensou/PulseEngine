@@ -21,8 +21,8 @@ int main(void) {
 
     // Run a few frames; time must advance
     int frames = 10;
-    assert(pulse_app_set_runner(time_app, test_runner, &frames) == PULSE_RESULT_OK);
-    assert(pulse_app_run(time_app) == PULSE_RESULT_OK);
+    assert(pulse_app_set_runner(time_app, test_runner, &frames) == PULSE_APP_SET_RUNNER_RESULT_OK);
+    assert(pulse_app_run(time_app) == PULSE_APP_RUN_RESULT_OK);
 
     ctx = ecs_singleton_get(world, PulseTimer);
     assert(ctx != nullptr);

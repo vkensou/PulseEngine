@@ -20,6 +20,7 @@ typedef "cstring"
 
 --- From pulse_app.h
 typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
 --- Constants
@@ -39,7 +40,7 @@ func.DaslangPluginDescDefault
     ()
 
 func.AddDaslangPlugin
-    "EPulseResult"
+    "EPulseAppAddPluginResult"
     .app  "PulseAppId"
     .desc "*const DaslangPluginDesc"
     ()

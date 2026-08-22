@@ -20,6 +20,7 @@ typedef "cstring"
 
 --- From pulse_app.h (use exact C type names since the codegen overwrites custom cname)
 typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
 --- From flecs.h
@@ -52,7 +53,7 @@ func.ImguiPluginDescDefault
     ()
 
 func.AddImguiPlugin
-    "EPulseResult"
+    "EPulseAppAddPluginResult"
     .app  "PulseAppId"
     .desc "*const ImguiPluginDesc"
     ()

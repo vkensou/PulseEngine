@@ -10,13 +10,13 @@
 
 #include "pulse_app.h"
 
-static EPulseResult test_runner(PulseAppId app, void* ctx) {
+static EPulseRunnerResult test_runner(PulseAppId app, void* ctx) {
     int* frames = (int*)ctx;
     for (int i = 0; i < *frames; ++i) {
-        EPulseResult result = pulse_app_update(app);
-        if (result != PULSE_RESULT_OK) {
-            return result;
+        EPulseAppUpdateResult result = pulse_app_update(app);
+        if (result != PULSE_APP_UPDATE_RESULT_OK) {
+            return static_cast<EPulseRunnerResult>(result);
         }
     }
-    return PULSE_RESULT_OK;
+    return PULSE_RUNNER_RESULT_OK;
 }

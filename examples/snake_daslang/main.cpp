@@ -31,36 +31,36 @@ int main(void)
     assert(app != nullptr);
 
     // ---- 插件 ----
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto window_desc = pulse_window_plugin_desc_default();
     window_desc.primary_window.title = "PulseEngine Snake Daslang";
     window_desc.primary_window.width = 800;
     window_desc.primary_window.height = 600;
     window_desc.primary_window.resizable = false;
-    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "examples/snake/assets";
-    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto graphics_desc = pulse_graphics_plugin_desc_default();
     graphics_desc.enable_debug_layer = true;
     graphics_desc.enable_gpu_based_validation = true;
-    assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_RESULT_OK);
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // ---- daslang 游戏模块 ----
     auto daslang_desc = pulse_daslang_plugin_desc_default();
     daslang_desc.root_path = "examples/asset";
     // 插件只初始化 daScript 环境；脚本通过 pulse_load_module 动态加载。
-    EPulseResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
-    if (daslang_result != PULSE_RESULT_OK)
+    EPulseAppAddPluginResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
+    if (daslang_result != PULSE_APP_ADD_PLUGIN_RESULT_OK)
     {
         printf("Daslang plugin failed: %s\n", pulse_app_last_error(app));
         pulse_destroy_app(app);

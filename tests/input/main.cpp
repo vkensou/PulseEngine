@@ -14,10 +14,10 @@ int main() {
     assert(app != nullptr);
 
     // Add input plugin (no desc needed)
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Adding again should fail with DUPLICATE
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     ecs_world_t* world = pulse_app_world(app);
     assert(world != nullptr);

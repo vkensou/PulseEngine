@@ -107,7 +107,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -183,7 +183,7 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &deep_fail_loader_desc) == PULSE_RESULT_OK);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     int deep_values[] = {1, 2, 3};
     char deep_name[] = "deep-settings-name";

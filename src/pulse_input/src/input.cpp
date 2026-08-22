@@ -11,15 +11,15 @@ constexpr const char* kPluginName = "PulseInputPlugin";
 // Plugin lifecycle
 // ============================================================
 
-EPulseResult input_plugin_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult input_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     auto* state = static_cast<pulse_input_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     state->app = app;
@@ -45,22 +45,22 @@ EPulseResult input_plugin_build(PulseAppId app, void* ctx) {
     resource.state = state;
     ecs_singleton_set_ptr(world, pulse_input_state_resource, &resource);
 
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
-EPulseResult input_plugin_post_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult input_plugin_post_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     auto* state = static_cast<pulse_input_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     install_input_system(world, state);
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
 void input_plugin_shutdown(PulseAppId app, void* ctx) {
@@ -89,13 +89,13 @@ using namespace pulse_input_internal;
 
 extern "C" {
 
-EPulseResult pulse_add_input_plugin(PulseAppId app) {
+EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app) {
     if (!app) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     if (pulse_app_has_plugin(app, kPluginName)) {
-        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
     }
 
     auto* state = new pulse_input_plugin_state();
@@ -110,8 +110,8 @@ EPulseResult pulse_add_input_plugin(PulseAppId app) {
         input_plugin_shutdown,
     };
 
-    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
         delete state;
     }
     return result;

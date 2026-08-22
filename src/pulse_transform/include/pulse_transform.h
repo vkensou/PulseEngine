@@ -53,7 +53,7 @@ extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
 extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
 extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
 
-PULSE_API EPulseResult pulse_add_transform_plugin(PulseAppId app);
+PULSE_API EPulseAppAddPluginResult pulse_add_transform_plugin(PulseAppId app);
 PULSE_API void pulse_set_parent(PulseAppId app, ecs_entity_t child, ecs_entity_t parent);
 PULSE_API void pulse_remove_parent(PulseAppId app, ecs_entity_t child);
 PULSE_API ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child);

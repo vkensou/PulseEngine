@@ -85,7 +85,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -148,17 +148,17 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &dtor_unload_loader_desc) == PULSE_RESULT_OK);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     PulseAssetRequest self_cancel_handle = load_asset_memory(assetSystem, self_cancel_type, "self_cancel.txt", parent_bytes, 6, nullptr);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(self_cancel_ctor_count == 1);
     assert(self_cancel_step_count == 1);
     assert(self_cancel_dtor_count == 1);
     assert(pulse_asset_system_get_state(assetSystem, self_cancel_handle) == PULSE_ASSET_STATE_EMPTY);
 
     PulseAssetRequest dtor_unload_handle = load_asset_memory(assetSystem, dtor_unload_type, "dtor_unload.txt", parent_bytes, 6, nullptr);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(dtor_unload_step_count == 1);
     assert(dtor_unload_dtor_count == 1);
     assert(pulse_asset_system_get_state(assetSystem, dtor_unload_handle) == PULSE_ASSET_STATE_EMPTY);

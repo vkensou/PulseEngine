@@ -242,7 +242,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -254,7 +254,7 @@ int main(void) {
     const char dep_bytes[] = "dependency";
     const char parent_bytes[] = "parent";
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     // Static required dependency succeeds.
     PulseAssetRequest static_dep = load_asset_memory(assetSystem, text_type, "static_dep.txt", dep_bytes, 10, nullptr);
@@ -269,11 +269,11 @@ int main(void) {
         1,
         nullptr);
     assert(pulse_asset_system_get_state(assetSystem, static_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, static_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_get_state(assetSystem, static_parent) == PULSE_ASSET_STATE_PROCESSING);
     assert(parent_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, static_parent) == PULSE_ASSET_STATE_LOADED);
     assert(parent_step_count == 1);
     PulseAssetHandle static_parent_handle = pulse_asset_system_get_handle(assetSystem, static_parent);
@@ -296,7 +296,7 @@ int main(void) {
         failed_static_deps,
         1,
         nullptr);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, static_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_system_get_state(assetSystem, failed_static_parent) == PULSE_ASSET_STATE_FAILED);
     void* failed_static_parent_ptr = nullptr;
@@ -316,13 +316,13 @@ int main(void) {
         parent_bytes,
         6,
         dynamic_settings);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_required_dep) == PULSE_ASSET_STATE_PROCESSING);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(dynamic_step_count == 1);
     assert(dynamic_ctor_count == 1);
     assert(dynamic_dtor_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_required_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_parent) == PULSE_ASSET_STATE_LOADED);
     assert(dynamic_step_count == 2);
@@ -345,10 +345,10 @@ int main(void) {
         parent_bytes,
         6,
         dynamic_failed_settings);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_failed_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_failed_parent) == PULSE_ASSET_STATE_FAILED);
 
     // Optional dependency failure does not fail the parent and is counted.
@@ -362,11 +362,11 @@ int main(void) {
         parent_bytes,
         6,
         dynamic_optional_settings);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_ready_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_optional_failed_dep) == PULSE_ASSET_STATE_FAILED);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_optional_parent) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, dynamic_optional_parent) == PULSE_ASSET_STATE_LOADED);
     PulseAssetHandle dynamic_optional_parent_handle = pulse_asset_system_get_handle(assetSystem, dynamic_optional_parent);
     assert(pulse_asset_handle_is_valid(dynamic_optional_parent_handle));

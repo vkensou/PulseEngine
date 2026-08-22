@@ -36,7 +36,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -80,8 +80,8 @@ int main(void) {
     assert(same_settings_request.index == settings_request.index);
     assert(same_settings_request.generation == settings_request.generation);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(settings_step_count == 1);
 
     PulseAssetHandle settings_handle = pulse_asset_system_get_handle(assetSystem, settings_request);

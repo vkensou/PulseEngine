@@ -496,15 +496,15 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
 // Plugin lifecycle
 // ============================================================
 
-EPulseResult renderer_plugin_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     auto* state = static_cast<pulse_renderer_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     state->app = app;
@@ -526,12 +526,12 @@ EPulseResult renderer_plugin_build(PulseAppId app, void* ctx) {
     };
     pulse_set_per_draw_shader_properties(app, sizeof(per_draw_shader_properties) / sizeof(const char*), per_draw_shader_properties);
 
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
-EPulseResult renderer_plugin_post_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult renderer_plugin_post_build(PulseAppId app, void* ctx) {
     auto* state = static_cast<pulse_renderer_state*>(ctx);
-    if (!state) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    if (!state) return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 
     // Query the device UBO offset alignment once and cache it.
     // Runs after every plugin's build phase, so PulseRenderer (and its
@@ -556,7 +556,7 @@ EPulseResult renderer_plugin_post_build(PulseAppId app, void* ctx) {
     if (result == PULSE_RESULT_OK) {
         state->record_callback_registered = true;
     }
-    return result;
+    return result == PULSE_RESULT_OK ? PULSE_PLUGIN_BUILD_RESULT_OK : PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 }
 
 void renderer_plugin_shutdown(PulseAppId app, void* ctx) {
@@ -599,18 +599,18 @@ using namespace pulse_renderer_internal;
 
 extern "C" {
 
-EPulseResult pulse_add_renderer_plugin(PulseAppId app) {
+EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app) {
     if (!app) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     if (pulse_app_has_plugin(app, kPluginName)) {
-        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
     }
 
     auto* state = new (std::nothrow) pulse_renderer_state();
     if (!state) {
-        return PULSE_RESULT_ERROR_INTERNAL;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     }
 
     // Set default property name mappings
@@ -627,8 +627,8 @@ EPulseResult pulse_add_renderer_plugin(PulseAppId app) {
         renderer_plugin_shutdown,
     };
 
-    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
         delete state;
     }
     return result;

@@ -12,10 +12,10 @@ int main() {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto window_plugin_desc = pulse_window_plugin_desc_default();
-    assert(pulse_add_window_plugin(app, &window_plugin_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_plugin_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Runtime title changes: the component owns the string, invalid
     // entities/titles are rejected.

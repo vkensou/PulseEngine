@@ -107,25 +107,25 @@ PulseAssetSystemId system_from_app(PulseAppId app) {
     return resource ? resource->system : nullptr;
 }
 
-EPulseResult asset_plugin_build_callback(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     PulseAssetSystem* system = static_cast<PulseAssetSystem*>(ctx);
     if (system) {
         auto build_result = system->impl.build(app, world);
         if (build_result != PULSE_RESULT_OK)
-            return build_result;
+            return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 
         ECS_COMPONENT_DEFINE(world, pulse_asset_state_resource);
         pulse_asset_state_resource resource{};
         resource.system = system;
         ecs_singleton_set_ptr(world, pulse_asset_state_resource, &resource);
-        return PULSE_RESULT_OK;
+        return PULSE_PLUGIN_BUILD_RESULT_OK;
     }
-    return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 }
 
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx) {
@@ -149,21 +149,21 @@ PulseAssetPluginDesc pulse_asset_plugin_desc_default(void) {
     return pulse::asset::default_plugin_desc();
 }
 
-EPulseResult pulse_add_asset_plugin(
+EPulseAppAddPluginResult pulse_add_asset_plugin(
     PulseAppId app,
     const PulseAssetPluginDesc* desc
 ) {
     if (!app || !pulse::asset::validate_plugin_desc(desc)) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
     if (pulse_app_has_plugin(app, pulse::asset::kPluginName)) {
-        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
     }
 
     PulseAssetPluginDesc normalized = pulse::asset::normalize_plugin_desc(desc);
     auto* system = new (std::nothrow) PulseAssetSystem(normalized);
     if (!system) {
-        return PULSE_RESULT_ERROR_INTERNAL;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     }
 
     PulsePluginDesc plugin_desc = {
@@ -176,8 +176,8 @@ EPulseResult pulse_add_asset_plugin(
         pulse::asset::asset_plugin_shutdown_callback,
     };
 
-    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, pulse::asset::kPluginName)) {
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, pulse::asset::kPluginName)) {
         delete system;
     }
     return result;

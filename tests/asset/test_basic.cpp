@@ -15,9 +15,9 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseAssetPlugin"));
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_ERROR_DUPLICATE_PLUGIN);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
 
@@ -106,8 +106,8 @@ int main(void) {
     assert(latest_cache_handle.index == refreshed_cache_handle.index);
     assert(latest_cache_handle.generation == refreshed_cache_handle.generation);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, text_request) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_is_ready(assetSystem, text_request));
 

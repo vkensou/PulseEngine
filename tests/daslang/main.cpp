@@ -27,8 +27,8 @@ int main(void)
     auto daslang_desc = pulse_daslang_plugin_desc_default();
     daslang_desc.root_path = "examples/asset";                 // 复用现有 pulse daslib 目录
     // 脚本随后在下方通过 pulse_load_module 动态加载。
-    EPulseResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
-    if (daslang_result != PULSE_RESULT_OK)
+    EPulseAppAddPluginResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
+    if (daslang_result != PULSE_APP_ADD_PLUGIN_RESULT_OK)
     {
         printf("Daslang plugin failed: %s\n", pulse_app_last_error(app));
         pulse_destroy_app(app);
@@ -78,7 +78,7 @@ int main(void)
     assert(marker_count == 1);
     ecs_query_fini(query);
 
-    assert(pulse_app_run(app) == PULSE_RESULT_OK);
+    assert(pulse_app_run(app) == PULSE_APP_RUN_RESULT_OK);
 
     pulse_destroy_app(app);
 

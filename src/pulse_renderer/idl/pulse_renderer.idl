@@ -9,6 +9,7 @@ typedef "cstring"
 
 --- From pulse_app.h
 typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
 --- From flecs.h
@@ -49,7 +50,7 @@ struct.Renderable
 
 --- Functions
 func.AddRendererPlugin
-    "EPulseResult"
+    "EPulseAppAddPluginResult"
     .app  "PulseAppId"
     ()
 

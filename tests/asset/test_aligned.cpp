@@ -53,7 +53,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -90,8 +90,8 @@ int main(void) {
 
     aligned_loader_settings aligned_settings{123};
     PulseAssetRequest aligned_request = load_asset_memory(assetSystem, aligned_type, "aligned.txt", hello_bytes, 11, &aligned_settings);
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, aligned_request) == PULSE_ASSET_STATE_LOADED);
     assert(aligned_ctor_count == 1);
 

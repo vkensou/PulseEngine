@@ -41,18 +41,57 @@ std::string_view state_name(State state) {
     return "<unknown>";
 }
 
-Result App::validate_plugin(const Plugin& plugin) {
+namespace {
+
+RunResult to_run_result(PrepareResult result) {
+    switch (result) {
+        case PrepareResult::Ok: return RunResult::Ok;
+        case PrepareResult::InvalidArgument: return RunResult::InvalidArgument;
+        case PrepareResult::InvalidState: return RunResult::InvalidState;
+        case PrepareResult::PluginBuildFailed: return RunResult::PluginBuildFailed;
+        case PrepareResult::PluginPostBuildFailed: return RunResult::PluginPostBuildFailed;
+        case PrepareResult::SubappPostBuildFailed: return RunResult::SubappPostBuildFailed;
+        case PrepareResult::SubappPrepareFailed: return RunResult::SubappPrepareFailed;
+        default: return RunResult::Internal;
+    }
+}
+
+RunResult to_run_result(RunnerResult result) {
+    switch (result) {
+        case RunnerResult::Ok: return RunResult::Ok;
+        case RunnerResult::InvalidArgument: return RunResult::InvalidArgument;
+        case RunnerResult::InvalidState: return RunResult::InvalidState;
+        case RunnerResult::SubappExtractFailed: return RunResult::SubappExtractFailed;
+        case RunnerResult::SubappUpdateFailed: return RunResult::SubappUpdateFailed;
+        default: return RunResult::Internal;
+    }
+}
+
+RunResult to_run_result(UpdateResult result) {
+    switch (result) {
+        case UpdateResult::Ok: return RunResult::Ok;
+        case UpdateResult::InvalidArgument: return RunResult::InvalidArgument;
+        case UpdateResult::InvalidState: return RunResult::InvalidState;
+        case UpdateResult::SubappExtractFailed: return RunResult::SubappExtractFailed;
+        case UpdateResult::SubappUpdateFailed: return RunResult::SubappUpdateFailed;
+        default: return RunResult::Internal;
+    }
+}
+
+} // namespace
+
+AddPluginResult App::validate_plugin(const Plugin& plugin) {
     if (plugin.name.empty()) {
         set_error("add_plugin: plugin name is required");
-        return Result::InvalidArgument;
+        return AddPluginResult::InvalidArgument;
     }
 
     if (has_plugin(plugin.name) || has_pending_plugin(plugin.name)) {
         set_error(std::format("add_plugin: plugin '{}' is already registered", plugin.name));
-        return Result::DuplicatePlugin;
+        return AddPluginResult::DuplicatePlugin;
     }
 
-    return Result::Ok;
+    return AddPluginResult::Ok;
 }
 
 App::App(const AppDesc& desc)
@@ -85,14 +124,14 @@ bool App::has_plugin(std::string_view name) const {
     return false;
 }
 
-Result App::add_plugin(Plugin plugin) {
+AddPluginResult App::add_plugin(Plugin plugin) {
     if (state_ != State::Created && state_ != State::Building) {
         set_error(std::format("add_plugin: plugins can only be added before post-build (current state: {})", state_name(state_)));
-        return Result::InvalidState;
+        return AddPluginResult::InvalidState;
     }
 
-    Result result = validate_plugin(plugin);
-    if (result != Result::Ok) {
+    AddPluginResult result = validate_plugin(plugin);
+    if (result != AddPluginResult::Ok) {
         return result;
     }
 
@@ -101,57 +140,57 @@ Result App::add_plugin(Plugin plugin) {
     pending_plugins_.push_back(std::move(entry));
 
     if (state_ == State::Building) {
-        return Result::Ok;
+        return AddPluginResult::Ok;
     }
 
     return drain_pending_plugins();
 }
 
-Result App::run() {
+RunResult App::run() {
     if (state_ != State::Created) {
         set_error(std::format("run: app can only be run once (current state: {})", state_name(state_)));
-        return Result::InvalidState;
+        return RunResult::InvalidState;
     }
 
-    Result result = prepare();
-    if (result != Result::Ok) {
+    PrepareResult result = prepare();
+    if (result != PrepareResult::Ok) {
         teardown();
-        return result;
+        return to_run_result(result);
     }
-    
-    result = runner_fn_ ? runner_fn_(*this, runner_ctx_) : default_runner();
+
+    RunResult run_result = runner_fn_ ? to_run_result(runner_fn_(*this, runner_ctx_)) : default_runner();
 
     teardown();
-    return result;
+    return run_result;
 }
 
-Result App::update() {
+UpdateResult App::update() {
     if (state_ != State::Running) {
         set_error(std::format(
             "update: can only be called while running (current state: {})",
             state_name(state_)));
-        return Result::InvalidState;
+        return UpdateResult::InvalidState;
     }
 
     world_.progress();
 
     for (auto& subapp : subapps_) {
         if (subapp.extract) {
-            Result result = subapp.extract(*this, *subapp.app, subapp.extract_ctx);
-            if (result != Result::Ok) {
+            SubappExtractResult result = subapp.extract(*this, *subapp.app, subapp.extract_ctx);
+            if (result != SubappExtractResult::Ok) {
                 set_error(std::format("update: subapp '{}' extract failed", subapp.name));
-                return result;
+                return UpdateResult::SubappExtractFailed;
             }
         }
 
-        Result result = subapp.app->update();
-        if (result != Result::Ok) {
+        UpdateResult result = subapp.app->update();
+        if (result != UpdateResult::Ok) {
             set_error(std::format("update: subapp '{}' update() failed", subapp.name));
-            return result;
+            return UpdateResult::SubappUpdateFailed;
         }
     }
 
-    return Result::Ok;
+    return UpdateResult::Ok;
 }
 
 void App::teardown() {
@@ -183,32 +222,32 @@ bool App::should_quit() const {
     return request_finish_;
 }
 
-Result App::set_runner(Runner runner, void* ctx) {
+SetRunnerResult App::set_runner(Runner runner, void* ctx) {
     if (state_ == State::Running || state_ == State::Shutdown) {
         set_error(std::format("set_runner: runner can only be set before the app starts running (current state: {})", state_name(state_)));
-        return Result::InvalidState;
+        return SetRunnerResult::InvalidState;
     }
 
     runner_fn_ = std::move(runner);
     runner_ctx_ = ctx;
-    return Result::Ok;
+    return SetRunnerResult::Ok;
 }
 
-Result App::try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp) {
+InsertSubappResult App::try_insert_subapp(std::string_view name, std::unique_ptr<App>& subapp) {
     if (name.empty() || !subapp) {
         set_error("try_insert_subapp: subapp name and app handle are required");
-        return Result::InvalidArgument;
+        return InsertSubappResult::InvalidArgument;
     }
 
     if (state_ == State::Running || state_ == State::Shutdown) {
         set_error(std::format("try_insert_subapp: subapps can only be inserted before the app starts running (current state: {})", state_name(state_)));
-        return Result::InvalidState;
+        return InsertSubappResult::InvalidState;
     }
 
     for (const auto& entry : subapps_) {
         if (entry.name == name) {
             set_error(std::format("try_insert_subapp: subapp '{}' is already registered", name));
-            return Result::DuplicateSubapp;
+            return InsertSubappResult::DuplicateSubapp;
         }
     }
 
@@ -216,7 +255,7 @@ Result App::try_insert_subapp(std::string_view name, std::unique_ptr<App>& subap
     entry.name = name;
     entry.app = std::move(subapp);
     subapps_.push_back(std::move(entry));
-    return Result::Ok;
+    return InsertSubappResult::Ok;
 }
 
 App* App::get_subapp(std::string_view name) const {
@@ -244,62 +283,62 @@ std::unique_ptr<App> App::remove_subapp(std::string_view name) {
     return nullptr;
 }
 
-Result App::set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx) {
+SetSubappExtractResult App::set_subapp_extract(std::string_view name, SubappExtract extract, void* ctx) {
     if (name.empty()) {
         set_error("set_subapp_extract: subapp name is required");
-        return Result::InvalidArgument;
+        return SetSubappExtractResult::InvalidArgument;
     }
 
     if (state_ == State::Running || state_ == State::Shutdown) {
         set_error(std::format("set_subapp_extract: extract can only be set before the app starts running (current state: {})", state_name(state_)));
-        return Result::InvalidState;
+        return SetSubappExtractResult::InvalidState;
     }
 
     for (auto& entry : subapps_) {
         if (entry.name == name) {
             entry.extract = std::move(extract);
             entry.extract_ctx = ctx;
-            return Result::Ok;
+            return SetSubappExtractResult::Ok;
         }
     }
 
     set_error(std::format("set_subapp_extract: subapp '{}' not found", std::string(name)));
-    return Result::NotFound;
+    return SetSubappExtractResult::NotFound;
 }
 
-Result App::post_build() {
+PrepareResult App::post_build() {
     state_ = State::PostBuilding;
 
     for (auto& entry : plugins_) {
         if (entry.plugin.post_build) {
-            Result result = entry.plugin.post_build(*this, entry.plugin.ctx);
-            if (result != Result::Ok) {
+            PluginBuildResult result = entry.plugin.post_build(*this, entry.plugin.ctx);
+            if (result != PluginBuildResult::Ok) {
                 set_error(std::format("post_build: plugin '{}' post-build failed", entry.plugin.name));
-                return result;
+                return PrepareResult::PluginPostBuildFailed;
             }
         }
     }
 
     for (auto& subapp : subapps_) {
-        Result result = subapp.app->post_build();
-        if (result != Result::Ok) {
+        PrepareResult result = subapp.app->post_build();
+        if (result != PrepareResult::Ok) {
             set_error(std::format("post_build: subapp '{}' post-build failed", subapp.name));
-            return result;
+            return PrepareResult::SubappPostBuildFailed;
         }
     }
 
     state_ = State::Created;
 
-    return Result::Ok;
+    return PrepareResult::Ok;
 }
 
-Result App::default_runner() {
-    return update();
+RunResult App::default_runner() {
+    return to_run_result(update());
 }
 
-Result App::drain_pending_plugins() {
+AddPluginResult App::drain_pending_plugins() {
     if (state_ == State::Building) {
-        return Result::Ok;
+        return AddPluginResult::Ok;
     }
 
     state_ = State::Building;
@@ -309,11 +348,17 @@ Result App::drain_pending_plugins() {
         pending_plugins_.pop_front();
 
         if (entry.plugin.build) {
-            Result result = entry.plugin.build(*this, entry.plugin.ctx);
-            if (result != Result::Ok) {
+            PluginBuildResult result = entry.plugin.build(*this, entry.plugin.ctx);
+            if (result != PluginBuildResult::Ok) {
                 set_error(std::format("plugin build failed: {}", entry.plugin.name));
                 state_ = State::Created;
-                return result;
+                switch (result) {
+                    case PluginBuildResult::InvalidArgument: return AddPluginResult::InvalidArgument;
+                    case PluginBuildResult::InvalidState: return AddPluginResult::InvalidState;
+                    case PluginBuildResult::DuplicatePlugin: return AddPluginResult::DuplicatePlugin;
+                    case PluginBuildResult::Internal: return AddPluginResult::Internal;
+                    default: return AddPluginResult::Internal;
+                }
             }
         }
 
@@ -321,7 +366,7 @@ Result App::drain_pending_plugins() {
     }
 
     state_ = State::Created;
-    return Result::Ok;
+    return AddPluginResult::Ok;
 }
 
 bool App::has_pending_plugin(std::string_view name) const {
@@ -333,38 +378,45 @@ bool App::has_pending_plugin(std::string_view name) const {
     return false;
 }
 
-Result App::prepare() {
+PrepareResult App::prepare() {
     if (state_ != State::Created) {
         set_error(std::format("prepare: app can only be prepared once (current state: {})", state_name(state_)));
-        return Result::InvalidState;
+        return PrepareResult::InvalidState;
     }
 
-    Result result = drain_pending_plugins();
-    if (result != Result::Ok) {
-        return result;
+    AddPluginResult result = drain_pending_plugins();
+    if (result != AddPluginResult::Ok) {
+        switch (result) {
+            case AddPluginResult::InvalidArgument: return PrepareResult::InvalidArgument;
+            case AddPluginResult::InvalidState: return PrepareResult::InvalidState;
+            case AddPluginResult::DuplicatePlugin: return PrepareResult::PluginBuildFailed;
+            case AddPluginResult::PluginBuildFailed: return PrepareResult::PluginBuildFailed;
+            case AddPluginResult::Internal: return PrepareResult::Internal;
+            default: return PrepareResult::Internal;
+        }
     }
 
-    result = post_build();
-    if (result != Result::Ok) {
-        return result;
+    PrepareResult prepare_result = post_build();
+    if (prepare_result != PrepareResult::Ok) {
+        return prepare_result;
     }
-    
+
     if (enable_rest_api_) {
         world_.import<flecs::stats>();
         world_.set<flecs::Rest>({});
     }
 
     for (auto& subapp : subapps_) {
-        result = subapp.app->prepare();
-        if (result != Result::Ok) {
+        PrepareResult subapp_result = subapp.app->prepare();
+        if (subapp_result != PrepareResult::Ok) {
             set_error(std::format("prepare: subapp '{}' failed", subapp.name));
             teardown();
-            return result;
+            return PrepareResult::SubappPrepareFailed;
         }
     }
 
     state_ = State::Running;
-    return Result::Ok;
+    return PrepareResult::Ok;
 }
 
 void App::set_error(std::string_view message) {

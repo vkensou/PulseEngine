@@ -42,7 +42,7 @@ typedef struct PulseDaslangPluginDesc
  *
  */
 PULSE_API PulseDaslangPluginDesc pulse_daslang_plugin_desc_default(void);
-PULSE_API EPulseResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDesc* desc);
+PULSE_API EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDesc* desc);
 PULSE_API bool pulse_load_module(PulseAppId app, const char* script_path);
 
 #ifdef __cplusplus

@@ -136,7 +136,7 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
         state->asset_system, state->blit_linear_sampler.handle);
 }
 
-EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult graphic_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     pulse_graphics_state* state = static_cast<pulse_graphics_state*>(ctx);
     state->app = app;
@@ -144,7 +144,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
 
     if (!create_renderer(state)) {
         destroy_renderer(state);
-        return PULSE_RESULT_ERROR_INTERNAL;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
     }
 
     ECS_COMPONENT_DEFINE(world, pulse_graphics_state_resource);
@@ -164,7 +164,7 @@ EPulseResult graphic_plugin_build(PulseAppId app, void* ctx) {
     install_observers(state, world);
     install_render_systems(state, world);
 
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
 void graphic_plugin_shutdown(PulseAppId app, void* ctx) {
@@ -254,12 +254,12 @@ PulseGraphicsPluginDesc pulse_graphics_plugin_desc_default(void) {
     return desc;
 }
 
-EPulseResult pulse_add_graphics_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc) {
-    if (!app || !validate_plugin_desc(desc)) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (pulse_app_has_plugin(app, kPluginName)) return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGraphicsPluginDesc* desc) {
+    if (!app || !validate_plugin_desc(desc)) return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+    if (pulse_app_has_plugin(app, kPluginName)) return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
 
     pulse_graphics_state* state = new (std::nothrow) pulse_graphics_state();
-    if (!state) return PULSE_RESULT_ERROR_INTERNAL;
+    if (!state) return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     state->desc = normalize_plugin_desc(desc);
     state->desc.per_draw_shader_property_count = 0;
     state->desc.p_per_draw_shader_properties = nullptr;
@@ -277,8 +277,8 @@ EPulseResult pulse_add_graphics_plugin(PulseAppId app, const PulseGraphicsPlugin
         graphic_plugin_shutdown,
     };
 
-    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
         delete state;
     }
     return result;

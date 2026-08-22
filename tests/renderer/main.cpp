@@ -192,32 +192,32 @@ int main(void) {
 
     // ---- Add plugins ----
     // input plugin (required by window)
-    assert(pulse_add_input_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // window plugin
     auto window_desc = pulse_window_plugin_desc_default();
     window_desc.primary_window.width = 800;
     window_desc.primary_window.height = 600;
-    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // asset plugin
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     // Use test data from graphics test
     asset_desc.root_path = "tests/graphics/data";
-    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // transform plugin
-    assert(pulse_add_transform_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // graphics plugin
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_RESULT_OK);
+    assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
 
     // ---- Add renderer plugin ----
-    assert(pulse_add_renderer_plugin(app) == PULSE_RESULT_OK);
+    assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
 
     // ---- Find the primary window (created during window plugin build) ----

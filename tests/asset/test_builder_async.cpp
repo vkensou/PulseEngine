@@ -156,7 +156,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -249,7 +249,7 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &builder_dynamic_loader_desc) == PULSE_RESULT_OK);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     // Builder that is pending for one step, then completes.
     int builder_pending_external = 3;
@@ -266,7 +266,7 @@ int main(void) {
     assert(builder_pending_step_count == 1);
     assert(builder_pending_dtor_count == 0);
     builder_pending_settings.value = 99;
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_pending_request) == PULSE_ASSET_STATE_LOADED);
     assert(builder_pending_step_count == 2);
     assert(builder_pending_dtor_count == 1);
@@ -304,15 +304,15 @@ int main(void) {
     PulseAssetRequest builder_wait_handle = pulse_asset_system_build(assetSystem, &builder_wait_desc);
     assert(pulse_asset_system_get_state(assetSystem, builder_wait_handle) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_wait_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_required_dep) == PULSE_ASSET_STATE_PROCESSING);
     assert(pulse_asset_system_get_state(assetSystem, builder_wait_handle) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_wait_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_required_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_get_state(assetSystem, builder_wait_handle) == PULSE_ASSET_STATE_PROCESSING);
     assert(builder_wait_step_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_wait_handle) == PULSE_ASSET_STATE_LOADED);
     assert(builder_wait_step_count == 1);
     PulseAssetHandle builder_wait_handle_value = pulse_asset_system_get_handle(assetSystem, builder_wait_handle);
@@ -336,11 +336,11 @@ int main(void) {
     assert(builder_dynamic_ctor_count == 1);
     assert(builder_dynamic_step_count == 1);
     assert(builder_dynamic_dtor_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_dynamic_dep) == PULSE_ASSET_STATE_PROCESSING);
     assert(pulse_asset_system_get_state(assetSystem, builder_dynamic_request) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_dynamic_step_count == 1);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, builder_dynamic_dep) == PULSE_ASSET_STATE_LOADED);
     assert(pulse_asset_system_get_state(assetSystem, builder_dynamic_request) == PULSE_ASSET_STATE_LOADED);
     assert(builder_dynamic_step_count == 2);

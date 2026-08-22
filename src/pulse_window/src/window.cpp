@@ -420,38 +420,42 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
     return PULSE_RESULT_OK;
 }
 
-EPulseResult window_runner(PulseAppId app, void* ctx) {
+EPulseRunnerResult window_runner(PulseAppId app, void* ctx) {
     pulse_window_plugin_state* state = static_cast<pulse_window_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_RUNNER_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     while (!pulse_app_should_quit(app)) {
-        EPulseResult result = pulse_window_poll_events(app, state);
-        if (result != PULSE_RESULT_OK) {
-            return result;
+        EPulseResult poll_result = pulse_window_poll_events(app, state);
+        if (poll_result != PULSE_RESULT_OK) {
+            switch (poll_result) {
+                case PULSE_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RUNNER_RESULT_ERROR_INVALID_ARGUMENT;
+                case PULSE_RESULT_ERROR_INVALID_STATE: return PULSE_RUNNER_RESULT_ERROR_INVALID_STATE;
+                default: return PULSE_RUNNER_RESULT_ERROR_INTERNAL;
+            }
         }
 
-        result = pulse_app_update(app);
-        if (result != PULSE_RESULT_OK) {
-            return result;
+        EPulseAppUpdateResult update_result = pulse_app_update(app);
+        if (update_result != PULSE_APP_UPDATE_RESULT_OK) {
+            return static_cast<EPulseRunnerResult>(update_result);
         }
 
         SDL_Delay(0);
     }
 
-    return PULSE_RESULT_OK;
+    return PULSE_RUNNER_RESULT_OK;
 }
 
-EPulseResult window_plugin_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult window_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     pulse_window_plugin_state* state = static_cast<pulse_window_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     state->app = app;
@@ -466,7 +470,7 @@ EPulseResult window_plugin_build(PulseAppId app, void* ctx) {
     const uint32_t already_initialized = SDL_WasInit(init_flags);
     const uint32_t missing_flags = init_flags & ~already_initialized;
     if (missing_flags && !SDL_InitSubSystem(missing_flags)) {
-        return PULSE_RESULT_ERROR_INTERNAL;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
     }
     state->initialized_sdl_flags = missing_flags;
 
@@ -475,32 +479,41 @@ EPulseResult window_plugin_build(PulseAppId app, void* ctx) {
         EPulseResult result =
             pulse_window_create(app, &state->desc.primary_window, &primary);
         if (result != PULSE_RESULT_OK) {
-            return result;
+            return result == PULSE_RESULT_ERROR_INVALID_ARGUMENT
+                ? PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT
+                : result == PULSE_RESULT_ERROR_INVALID_STATE
+                    ? PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE
+                    : PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
         }
         ecs_add_id(world, primary, PulsePrimaryWindow);
     }
 
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
-EPulseResult window_plugin_post_build(PulseAppId app, void* ctx) {
+EPulsePluginBuildResult window_plugin_post_build(PulseAppId app, void* ctx) {
     pulse_window_plugin_state* state = static_cast<pulse_window_plugin_state*>(ctx);
     if (!state) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     ecs_world_t* world = pulse_app_world(app);
     if (!world) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     install_window_post_frame_system(world, state);
 
     if (state->desc.flags & PULSE_WINDOW_PLUGIN_INSTALL_RUNNER) {
-        return pulse_app_set_runner(app, window_runner, state);
+        EPulseAppSetRunnerResult result = pulse_app_set_runner(app, window_runner, state);
+        return result == PULSE_APP_SET_RUNNER_RESULT_OK
+            ? PULSE_PLUGIN_BUILD_RESULT_OK
+            : result == PULSE_APP_SET_RUNNER_RESULT_ERROR_INVALID_STATE
+                ? PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE
+                : PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
     }
 
-    return PULSE_RESULT_OK;
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
 void window_plugin_shutdown(PulseAppId app, void* ctx) {
@@ -554,16 +567,16 @@ PulseWindowPluginDesc pulse_window_plugin_desc_default(void) {
     return desc;
 }
 
-EPulseResult pulse_add_window_plugin(
+EPulseAppAddPluginResult pulse_add_window_plugin(
     PulseAppId app,
     const PulseWindowPluginDesc* desc
 ) {
     if (!app || !validate_plugin_desc(desc)) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     if (pulse_app_has_plugin(app, kPluginName)) {
-        return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
     }
 
     pulse_window_plugin_state* state = new pulse_window_plugin_state();
@@ -579,8 +592,8 @@ EPulseResult pulse_add_window_plugin(
         window_plugin_shutdown,
     };
 
-    EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-    if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
         delete state;
     }
     return result;

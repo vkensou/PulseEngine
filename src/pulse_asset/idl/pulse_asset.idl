@@ -20,6 +20,7 @@ typedef "cstring"
 
 --- From pulse_app.h
 typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
 --- Constants
@@ -267,7 +268,7 @@ func.AssetPluginDescDefault
     ()
 
 func.AddAssetPlugin
-    "EPulseResult"
+    "EPulseAppAddPluginResult"
     .app   "PulseAppId"
     .desc  "*const AssetPluginDesc"
     ()

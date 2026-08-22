@@ -31,19 +31,108 @@ enum.Result { underscore, comment = "Pulse Result:" }
     .ErrorInternal
     ()
 
+enum.AppRunResult { underscore, comment = "Pulse app run result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorPluginBuildFailed
+    .ErrorPluginPostBuildFailed
+    .ErrorSubappPostBuildFailed
+    .ErrorSubappPrepareFailed
+    .ErrorSubappExtractFailed
+    .ErrorSubappUpdateFailed
+    .ErrorInternal
+    ()
+
+enum.AppPrepareResult { underscore, comment = "Pulse app prepare result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorPluginBuildFailed
+    .ErrorPluginPostBuildFailed
+    .ErrorSubappPostBuildFailed
+    .ErrorSubappPrepareFailed
+    .ErrorInternal
+    ()
+
+enum.AppUpdateResult { underscore, comment = "Pulse app update result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorSubappExtractFailed
+    .ErrorSubappUpdateFailed
+    .ErrorInternal
+    ()
+
+enum.AppSetRunnerResult { underscore, comment = "Pulse app set runner result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorInternal
+    ()
+
+enum.AppAddPluginResult { underscore, comment = "Pulse app add plugin result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicatePlugin
+    .ErrorPluginBuildFailed
+    .ErrorInternal
+    ()
+
+enum.AppInsertSubappResult { underscore, comment = "Pulse app insert subapp result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicateSubapp
+    .ErrorInternal
+    ()
+
+enum.AppSetSubappExtractResult { underscore, comment = "Pulse app set subapp extract result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorNotFound
+    .ErrorInternal
+    ()
+
+enum.RunnerResult { underscore, comment = "Pulse runner callback result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorSubappExtractFailed
+    .ErrorSubappUpdateFailed
+    .ErrorInternal
+    ()
+
+enum.SubappExtractResult { underscore, comment = "Pulse subapp extract callback result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorInternal
+    ()
+
+enum.PluginBuildResult { underscore, comment = "Pulse plugin build callback result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicatePlugin
+    .ErrorInternal
+    ()
+
 funcptr.RunnerFn
-    "Result::Enum"
+    "RunnerResult::Enum"
     .app            "AppId"
     .ctx            "?*anyopaque"
 
 funcptr.SubappExtractFn
-    "Result::Enum"
+    "SubappExtractResult::Enum"
     .app            "AppId"
     .subapp         "AppId"
     .ctx            "?*anyopaque"
 
 funcptr.PluginBuildFn
-    "Result::Enum"
+    "PluginBuildResult::Enum"
     .app            "AppId"
     .ctx            "?*anyopaque"
 
@@ -87,13 +176,13 @@ func.DestroyApp
     .app "AppId"
 
 func.App.Run
-    "Result::Enum"
+    "AppRunResult::Enum"
 
 func.App.Prepare
-    "Result::Enum"
+    "AppPrepareResult::Enum"
 
 func.App.Update
-    "Result::Enum"
+    "AppUpdateResult::Enum"
 
 func.App.Teardown
     "void"
@@ -104,11 +193,11 @@ func.App.Finish
 func.App.ShouldQuit
     "bool"
 
-func.App.SetRunner "Result::Enum"
+func.App.SetRunner "AppSetRunnerResult::Enum"
     .runner     "RunnerFn"
     .ctx        "?*anyopaque"
 
-func.App.AddPlugin "Result::Enum"
+func.App.AddPlugin "AppAddPluginResult::Enum"
     .desc "*const PluginDesc"
 
 func.App.HasPlugin "bool"
@@ -121,7 +210,7 @@ func.App.LastError
     "cstring"
 
 func.App.InsertSubapp
-    "Result::Enum"
+    "AppInsertSubappResult::Enum"
     .name       "cstring"
     .subapp     "AppId"
 
@@ -134,7 +223,7 @@ func.App.RemoveSubapp
     .name       "cstring"
 
 func.App.SetSubappExtract
-    "Result::Enum"
+    "AppSetSubappExtractResult::Enum"
     .name       "cstring"
     .extract    "SubappExtractFn"
     .ctx        "?*anyopaque"

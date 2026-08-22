@@ -70,20 +70,20 @@ namespace pulse_daslang_internal
     }
 
 
-	EPulseResult daslang_plugin_build(PulseAppId app, void* ctx)
+	EPulsePluginBuildResult daslang_plugin_build(PulseAppId app, void* ctx)
 	{
 		auto* state = static_cast<pulse_daslang_state*>(ctx);
 		if (!state)
-			return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+			return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 
 		state->app = app;
 		ecs_world_t* world = pulse_app_world(app);
 		if (!world)
-			return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+			return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 
 		EPulseResult env_result = ensure_das_environment();
 		if (env_result != PULSE_RESULT_OK)
-			return env_result;
+			return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 
         ECS_COMPONENT_DEFINE(world, pulse_daslang_state_resource);
 
@@ -95,14 +95,14 @@ namespace pulse_daslang_internal
 		dasPulseECS::ensure_event_tag(world);
 
 		das::setDasRoot(state->root_path.c_str());
-		return PULSE_RESULT_OK;
+		return PULSE_PLUGIN_BUILD_RESULT_OK;
 	}
 
-	EPulseResult daslang_plugin_post_build(PulseAppId app, void* ctx)
+	EPulsePluginBuildResult daslang_plugin_post_build(PulseAppId app, void* ctx)
 	{
 		(void)app;
 		(void)ctx;
-		return PULSE_RESULT_OK;
+		return PULSE_PLUGIN_BUILD_RESULT_OK;
 	}
 
 	void daslang_plugin_shutdown(PulseAppId app, void* ctx)
@@ -214,17 +214,17 @@ PulseDaslangPluginDesc pulse_daslang_plugin_desc_default(void)
 	return desc;
 }
 
-EPulseResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDesc* desc)
+EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDesc* desc)
 {
 	if (!app || !desc)
-		return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
 	if (desc->struct_size != sizeof(PulseDaslangPluginDesc) || desc->version != PULSE_DASLANG_PLUGIN_DESC_VERSION)
-		return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
 	if (!desc->root_path)
-		return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
 
 	if (pulse_app_has_plugin(app, pulse_daslang_internal::kPluginName))
-		return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
 
 	auto* state = new pulse_daslang_internal::pulse_daslang_state();
 	state->root_path = desc->root_path;
@@ -239,8 +239,8 @@ EPulseResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDe
 		pulse_daslang_internal::daslang_plugin_shutdown,
 	};
 
-	EPulseResult result = pulse_app_add_plugin(app, &plugin_desc);
-	if (result != PULSE_RESULT_OK && !pulse_app_has_plugin(app, pulse_daslang_internal::kPluginName))
+	EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+	if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, pulse_daslang_internal::kPluginName))
 		delete state;
 	return result;
 }

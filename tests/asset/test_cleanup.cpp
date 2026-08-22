@@ -64,7 +64,7 @@ int main(void) {
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
-    assert(pulse_add_asset_plugin(app, &desc) == PULSE_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
     assert(assetSystem != nullptr);
@@ -100,36 +100,36 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &cleanup_loader_desc) == PULSE_RESULT_OK);
 
-    assert(pulse_app_prepare(app) == PULSE_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     int cleanup_success = 0;
     PulseAssetRequest cleanup_done = load_asset_memory(assetSystem, cleanup_type, "cleanup_done.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_done) == PULSE_ASSET_STATE_PROCESSING);
     assert(cleanup_ctor_count == 1);
     assert(cleanup_dtor_count == 0);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_done) == PULSE_ASSET_STATE_LOADED);
     assert(cleanup_dtor_count == 1);
 
     int cleanup_failure = 1;
     PulseAssetRequest cleanup_failed = load_asset_memory(assetSystem, cleanup_type, "cleanup_fail.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_failure);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_failed) == PULSE_ASSET_STATE_FAILED);
     assert(cleanup_dtor_count == 2);
 
     PulseAssetRequest cleanup_unload = load_asset_memory(assetSystem, cleanup_type, "cleanup_unload.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_unload) == PULSE_ASSET_STATE_PROCESSING);
     pulse_asset_system_cancel(assetSystem, cleanup_unload);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_unload) == PULSE_ASSET_STATE_PENDING_DELETE);
     assert(cleanup_dtor_count == 2);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_unload) == PULSE_ASSET_STATE_EMPTY);
     assert(cleanup_dtor_count == 3);
 
     PulseAssetRequest cleanup_shutdown = load_asset_memory(assetSystem, cleanup_type, "cleanup_shutdown.txt", cleanup_bytes, sizeof(cleanup_bytes), &cleanup_success);
-    assert(pulse_app_update(app) == PULSE_RESULT_OK);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, cleanup_shutdown) == PULSE_ASSET_STATE_PROCESSING);
     assert(cleanup_dtor_count == 3);
 
