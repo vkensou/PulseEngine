@@ -167,13 +167,16 @@ EPulseAppAddPluginResult pulse_add_asset_plugin(
     }
 
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        pulse::asset::kPluginName,
-        system,
-        pulse::asset::asset_plugin_build_callback,
-        nullptr,
-        pulse::asset::asset_plugin_shutdown_callback,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_ASSET_PLUGIN_DESC_VERSION,
+        .name = pulse::asset::kPluginName,
+        .ctx = system,
+        .build = pulse::asset::asset_plugin_build_callback,
+        .post_build = nullptr,
+        .shutdown = pulse::asset::asset_plugin_shutdown_callback,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -183,7 +186,7 @@ EPulseAppAddPluginResult pulse_add_asset_plugin(
     return result;
 }
 
-PULSE_API PulseAssetSystemId pulse_get_asset_system(
+PulseAssetSystemId pulse_get_asset_system(
     PulseAppId app
 ) {
     return pulse::asset::system_from_app(app);
@@ -376,6 +379,20 @@ PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_request(PulseAssetSyst
 PulseAssetRequest pulse_asset_system_to_asset_request_from_dep_ref(PulseAssetSystemId asset_system, PulseAssetDepRef dep_ref) {
     (void)asset_system;
     return pulse::asset::dep_ref_to_request(dep_ref);
+}
+
+PULSE_ASSET_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config && config_size != sizeof(PulseAssetPluginDesc)) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_asset_plugin(app, static_cast<const PulseAssetPluginDesc*>(config));
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 }

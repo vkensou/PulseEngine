@@ -267,14 +267,18 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
         state->per_draw_shader_properties.emplace_back(desc->p_per_draw_shader_properties[i]);
     }
 
+    const char* graphics_dependencies[] = { "PulseWindowPlugin", "PulseAssetPlugin" };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        graphic_plugin_build,
-        nullptr,
-        graphic_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_GRAPHICS_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = graphic_plugin_build,
+        .post_build = nullptr,
+        .shutdown = graphic_plugin_shutdown,
+        .dependency_count = 2,
+        .dependencies = graphics_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -282,6 +286,20 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
         delete state;
     }
     return result;
+}
+
+PULSE_GRAPHICS_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config && config_size != sizeof(PulseGraphicsPluginDesc)) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_graphics_plugin(app, static_cast<const PulseGraphicsPluginDesc*>(config));
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 } // extern "C"

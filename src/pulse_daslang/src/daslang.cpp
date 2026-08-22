@@ -230,13 +230,16 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
 	state->root_path = desc->root_path;
 
 	PulsePluginDesc plugin_desc = {
-		sizeof(PulsePluginDesc),
-		PULSE_PLUGIN_DESC_VERSION,
-		pulse_daslang_internal::kPluginName,
-		state,
-		pulse_daslang_internal::daslang_plugin_build,
-		pulse_daslang_internal::daslang_plugin_post_build,
-		pulse_daslang_internal::daslang_plugin_shutdown,
+		.struct_size = sizeof(PulsePluginDesc),
+		.version = PULSE_PLUGIN_DESC_VERSION,
+		.plugin_version = PULSE_DASLANG_PLUGIN_DESC_VERSION,
+		.name = pulse_daslang_internal::kPluginName,
+		.ctx = state,
+		.build = pulse_daslang_internal::daslang_plugin_build,
+		.post_build = pulse_daslang_internal::daslang_plugin_post_build,
+		.shutdown = pulse_daslang_internal::daslang_plugin_shutdown,
+		.dependency_count = 0,
+		.dependencies = nullptr,
 	};
 
 	EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -249,6 +252,20 @@ bool pulse_load_module(PulseAppId app, const char* script_path)
 {
     auto state = pulse_daslang_internal::state_from_app(app);
     return pulse_daslang_internal::pulse_load_module(app, state, script_path);
+}
+
+PULSE_DASLANG_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config && config_size != sizeof(PulseDaslangPluginDesc)) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_daslang_plugin(app, static_cast<const PulseDaslangPluginDesc*>(config));
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 } // extern "C"

@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // int32_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_INPUT_MODULE_BUILD)
+#  define PULSE_INPUT_API PULSE_EXPORT
+#else
+#  define PULSE_INPUT_API PULSE_IMPORT
 #endif
 
 #define PULSE_SCANCODE_COUNT 512
@@ -31,13 +34,13 @@ $cfuncptrs
 $cstructs
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
-extern ECS_COMPONENT_DECLARE(PulseMouseInput);
-extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
-extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
-extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
-extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
-extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseInput);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
 
 $c99decl
 

@@ -9,10 +9,13 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_DASLANG_MODULE_BUILD)
+#  define PULSE_DASLANG_API PULSE_EXPORT
+#else
+#  define PULSE_DASLANG_API PULSE_IMPORT
 #endif
 
 /**
@@ -41,9 +44,9 @@ typedef struct PulseDaslangPluginDesc
  * Functions
  *
  */
-PULSE_API PulseDaslangPluginDesc pulse_daslang_plugin_desc_default(void);
-PULSE_API EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDesc* desc);
-PULSE_API bool pulse_load_module(PulseAppId app, const char* script_path);
+PULSE_DASLANG_API PulseDaslangPluginDesc pulse_daslang_plugin_desc_default(void);
+PULSE_DASLANG_API EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDaslangPluginDesc* desc);
+PULSE_DASLANG_API bool pulse_load_module(PulseAppId app, const char* script_path);
 
 #ifdef __cplusplus
 }

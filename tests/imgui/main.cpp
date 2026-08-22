@@ -25,7 +25,8 @@ static void test_missing_graphics(void) {
     auto window_desc = pulse_window_plugin_desc_default();
     assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE);
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY);
 
     pulse_destroy_app(app);
 }

@@ -582,14 +582,18 @@ EPulseAppAddPluginResult pulse_add_window_plugin(
     pulse_window_plugin_state* state = new pulse_window_plugin_state();
     state->desc = normalize_plugin_desc(desc);
 
+    const char* window_dependencies[] = { "PulseInputPlugin" };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        window_plugin_build,
-        window_plugin_post_build,
-        window_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_WINDOW_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = window_plugin_build,
+        .post_build = window_plugin_post_build,
+        .shutdown = window_plugin_shutdown,
+        .dependency_count = 1,
+        .dependencies = window_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -672,6 +676,20 @@ void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity) {
 
     const PulseSdlWindow* raw = ecs_get(world, entity, PulseSdlWindow);
     return raw ? raw->native_view : nullptr;
+}
+
+PULSE_WINDOW_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config && config_size != sizeof(PulseWindowPluginDesc)) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_window_plugin(app, static_cast<const PulseWindowPluginDesc*>(config));
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 } // extern "C"

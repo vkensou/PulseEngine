@@ -30,39 +30,42 @@ int main(void)
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    // ---- 插件 ----
-    assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    // ---- 插件（通过 module list + loader 动态加载） ----
+    static const char* window_deps[] = { "PulseInputPlugin" };
+    static const char* graphics_deps[] = { "PulseWindowPlugin", "PulseAssetPlugin" };
+    static const char* renderer_deps[] = { "PulseWindowPlugin", "PulseGraphicPlugin", "PulseTransformPlugin" };
+    static const char* imgui_deps[] = { "PulseWindowPlugin", "PulseInputPlugin", "PulseAssetPlugin", "PulseGraphicPlugin" };
 
     auto window_desc = pulse_window_plugin_desc_default();
     window_desc.primary_window.title = "PulseEngine Snake Daslang";
     window_desc.primary_window.width = 800;
     window_desc.primary_window.height = 600;
     window_desc.primary_window.resizable = false;
-    assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     asset_desc.root_path = "examples/snake/assets";
-    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-
-    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto graphics_desc = pulse_graphics_plugin_desc_default();
     graphics_desc.enable_debug_layer = true;
     graphics_desc.enable_gpu_based_validation = true;
-    assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-
-    // ---- daslang 游戏模块 ----
     auto daslang_desc = pulse_daslang_plugin_desc_default();
     daslang_desc.root_path = "examples/asset";
-    // 插件只初始化 daScript 环境；脚本通过 pulse_load_module 动态加载。
-    EPulseAppAddPluginResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
-    if (daslang_result != PULSE_APP_ADD_PLUGIN_RESULT_OK)
+
+    PulseModuleListEntry modules[] = {
+        { "PulseInputPlugin", "pulse_input.dll", nullptr, 0, 0, nullptr },
+        { "PulseWindowPlugin", "pulse_window.dll", &window_desc, sizeof(window_desc), 1, window_deps },
+        { "PulseAssetPlugin", "pulse_asset.dll", &asset_desc, sizeof(asset_desc), 0, nullptr },
+        { "PulseTransformPlugin", "pulse_transform.dll", nullptr, 0, 0, nullptr },
+        { "PulseGraphicPlugin", "pulse_graphics.dll", &graphics_desc, sizeof(graphics_desc), 2, graphics_deps },
+        { "PulseRendererPlugin", "pulse_renderer.dll", nullptr, 0, 3, renderer_deps },
+        { "PulseImguiPlugin", "pulse_imgui.dll", nullptr, 0, 4, imgui_deps },
+        { "PulseDaslangPlugin", "pulse_daslang.dll", &daslang_desc, sizeof(daslang_desc), 0, nullptr },
+    };
+    EPulseModuleLoadResult load_result = pulse_app_load_modules(app, modules, 8);
+    if (load_result != PULSE_MODULE_LOAD_RESULT_OK)
     {
-        printf("Daslang plugin failed: %s\n", pulse_app_last_error(app));
+        printf("Module load failed: %s\n", pulse_app_last_error(app));
         pulse_destroy_app(app);
         return -1;
     }

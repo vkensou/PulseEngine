@@ -101,13 +101,16 @@ EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app) {
     auto* state = new pulse_input_plugin_state();
 
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        input_plugin_build,
-        input_plugin_post_build,
-        input_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_INPUT_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = input_plugin_build,
+        .post_build = input_plugin_post_build,
+        .shutdown = input_plugin_shutdown,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -277,6 +280,20 @@ void pulse_input_get_mouse_scroll(PulseAppId app, float* out_x, float* out_y) {
     }
     if (out_x) *out_x = ms->x;
     if (out_y) *out_y = ms->y;
+}
+
+PULSE_INPUT_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config || config_size != 0) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_input_plugin(app);
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 } // extern "C"

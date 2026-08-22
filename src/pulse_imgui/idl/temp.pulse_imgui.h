@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_IMGUI_MODULE_BUILD)
+#  define PULSE_IMGUI_API PULSE_EXPORT
+#else
+#  define PULSE_IMGUI_API PULSE_IMPORT
 #endif
 
 $cconsts
@@ -33,7 +36,7 @@ $cfuncptrs
 $cstructs
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseImguiContext);
+PULSE_IMGUI_API extern ECS_COMPONENT_DECLARE(PulseImguiContext);
 
 $c99decl
 

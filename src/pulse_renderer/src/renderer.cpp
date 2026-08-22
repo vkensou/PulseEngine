@@ -617,14 +617,22 @@ EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app) {
     state->property_names[PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX] = "vpMatrix";
     state->property_names[PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX] = "wMatrix";
 
+    const char* renderer_dependencies[] = {
+        "PulseWindowPlugin",
+        "PulseGraphicPlugin",
+        "PulseTransformPlugin"
+    };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        renderer_plugin_build,
-        renderer_plugin_post_build,
-        renderer_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_RENDERER_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = renderer_plugin_build,
+        .post_build = renderer_plugin_post_build,
+        .shutdown = renderer_plugin_shutdown,
+        .dependency_count = 3,
+        .dependencies = renderer_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -645,6 +653,20 @@ void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropert
 
     if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT) {
         state->property_names[(int)type] = name;
+    }
+}
+
+PULSE_RENDERER_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config || config_size != 0) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_renderer_plugin(app);
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
     }
 }
 

@@ -65,13 +65,16 @@ EPulseAppAddPluginResult pulse_add_transform_plugin(PulseAppId app) {
     auto* state = new pulse_transform_plugin_state();
 
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        transform_plugin_build,
-        transform_plugin_post_build,
-        transform_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_TRANSFORM_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = transform_plugin_build,
+        .post_build = transform_plugin_post_build,
+        .shutdown = transform_plugin_shutdown,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -97,6 +100,20 @@ ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || !child) return 0;
     return ecs_get_target(world, child, EcsChildOf, 0);
+}
+
+PULSE_TRANSFORM_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config || config_size != 0) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_transform_plugin(app);
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 } // extern "C"

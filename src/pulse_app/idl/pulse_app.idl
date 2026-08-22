@@ -19,7 +19,7 @@ typedef "size_t"
 typedef "cstring"
 typedef "ecs_world_t"
 
-const_value.PluginDescVersion { value = "1u" }
+const_value.PluginDescVersion { value = "2u" }
 
 enum.Result { underscore, comment = "Pulse Result:" }
     .OK
@@ -28,6 +28,8 @@ enum.Result { underscore, comment = "Pulse Result:" }
     .ErrorDuplicatePlugin
     .ErrorDuplicateSubapp
     .ErrorNotFound
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
     .ErrorInternal
     ()
 
@@ -36,6 +38,8 @@ enum.AppRunResult { underscore, comment = "Pulse app run result:" }
     .ErrorInvalidArgument
     .ErrorInvalidState
     .ErrorPluginBuildFailed
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
     .ErrorPluginPostBuildFailed
     .ErrorSubappPostBuildFailed
     .ErrorSubappPrepareFailed
@@ -49,6 +53,8 @@ enum.AppPrepareResult { underscore, comment = "Pulse app prepare result:" }
     .ErrorInvalidArgument
     .ErrorInvalidState
     .ErrorPluginBuildFailed
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
     .ErrorPluginPostBuildFailed
     .ErrorSubappPostBuildFailed
     .ErrorSubappPrepareFailed
@@ -77,6 +83,21 @@ enum.AppAddPluginResult { underscore, comment = "Pulse app add plugin result:" }
     .ErrorInvalidState
     .ErrorDuplicatePlugin
     .ErrorPluginBuildFailed
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
+    .ErrorInternal
+    ()
+
+enum.ModuleLoadResult { underscore, comment = "Pulse module loader result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorLibraryNotFound
+    .ErrorEntryNotFound
+    .ErrorRegisterFailed
+    .ErrorDuplicateModule
+    .ErrorMissingDependency
+    .ErrorCircularDependency
     .ErrorInternal
     ()
 
@@ -140,6 +161,12 @@ funcptr.PluginShutdownFn
     "void"
     .app            "AppId"
     .ctx            "?*anyopaque"
+funcptr.ModuleRegisterFn
+    "Result::Enum"
+    .app            "AppId"
+    .config         "?*anyopaque"
+    .configSize     "uint32_t"
+
 
 id "AppId"
 
@@ -150,11 +177,22 @@ struct.AppDesc
 struct.PluginDesc
     .structSize     "uint32_t"
     .version        "uint32_t"
+    .pluginVersion  "uint32_t"
     .name           "cstring"
     .ctx            "?*anyopaque"
     .build          "PluginBuildFn"
     .postBuild      "PluginBuildFn"
     .shutdown       "PluginShutdownFn"
+    .dependencyCount "uint32_t"
+    .dependencies   "*cstring"
+
+struct.ModuleListEntry
+    .name           "cstring"
+    .library        "?cstring"
+    .config         "?*anyopaque"
+    .configSize     "uint32_t"
+    .dependencyCount "uint32_t"
+    .dependencies   "*cstring"
 
 struct.App()
 
@@ -199,6 +237,14 @@ func.App.SetRunner "AppSetRunnerResult::Enum"
 
 func.App.AddPlugin "AppAddPluginResult::Enum"
     .desc "*const PluginDesc"
+
+func.App.LoadModules "ModuleLoadResult::Enum"
+    .entries    "*const ModuleListEntry"
+    .count      "uint32_t"
+
+func.App.RegisterStaticModule "void"
+    .name       "cstring"
+    .registerFn "ModuleRegisterFn"
 
 func.App.HasPlugin "bool"
     .name       "cstring"

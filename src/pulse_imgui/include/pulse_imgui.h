@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_IMGUI_MODULE_BUILD)
+#  define PULSE_IMGUI_API PULSE_EXPORT
+#else
+#  define PULSE_IMGUI_API PULSE_IMPORT
 #endif
 
 #define PULSE_IMGUI_PLUGIN_DESC_VERSION 1u
@@ -59,12 +62,12 @@ typedef struct PulseImguiContext
 
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseImguiContext);
+PULSE_IMGUI_API extern ECS_COMPONENT_DECLARE(PulseImguiContext);
 
-PULSE_API PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void);
-PULSE_API EPulseAppAddPluginResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);
-PULSE_API ImGuiContext* pulse_imgui_get_context(PulseAppId app);
-PULSE_API ecs_entity_t pulse_imgui_get_phase(PulseAppId app);
+PULSE_IMGUI_API PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void);
+PULSE_IMGUI_API EPulseAppAddPluginResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);
+PULSE_IMGUI_API ImGuiContext* pulse_imgui_get_context(PulseAppId app);
+PULSE_IMGUI_API ecs_entity_t pulse_imgui_get_phase(PulseAppId app);
 
 #ifdef __cplusplus
 }

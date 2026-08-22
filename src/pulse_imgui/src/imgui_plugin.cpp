@@ -191,14 +191,23 @@ EPulseAppAddPluginResult pulse_add_imgui_plugin(
     pulse_imgui_plugin_state* state = new pulse_imgui_plugin_state();
     state->desc = normalize_plugin_desc(desc);
 
+    const char* imgui_dependencies[] = {
+        "PulseWindowPlugin",
+        "PulseInputPlugin",
+        "PulseAssetPlugin",
+        "PulseGraphicPlugin"
+    };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        imgui_plugin_build,
-        imgui_plugin_post_build,
-        imgui_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_IMGUI_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = imgui_plugin_build,
+        .post_build = imgui_plugin_post_build,
+        .shutdown = imgui_plugin_shutdown,
+        .dependency_count = 4,
+        .dependencies = imgui_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -216,6 +225,20 @@ ImGuiContext* pulse_imgui_get_context(PulseAppId app) {
 ecs_entity_t pulse_imgui_get_phase(PulseAppId app) {
     pulse_imgui_plugin_state* state = state_from_app(app);
     return state ? state->imgui_phase : 0;
+}
+
+PULSE_IMGUI_API EPulseResult pulse_module_register(PulseAppId app, const void* config, uint32_t config_size) {
+    if (config && config_size != sizeof(PulseImguiPluginDesc)) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    EPulseAppAddPluginResult r = pulse_add_imgui_plugin(app, static_cast<const PulseImguiPluginDesc*>(config));
+    switch (r) {
+        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
+        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
+        default: return PULSE_RESULT_ERROR_INTERNAL;
+    }
 }
 
 } // extern "C"

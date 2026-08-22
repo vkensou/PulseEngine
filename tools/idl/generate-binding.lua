@@ -11,6 +11,7 @@ local binding       = arg[3]
 local output_path   = arg[4]
 local prefix        = arg[5]
 local indent        = arg[6]
+local api_macro     = arg[7]
 
 if not idl_path or not binding or not output_path then
 	error("Usage: lua generate-binding.lua <idl_path> <template_path> <binding> <output_path> <prefix> [indent]")
@@ -18,6 +19,10 @@ end
 
 local codegen = require "codegen"
 local idl = codegen.idl(idl_path, prefix)
+
+if api_macro then
+    codegen._naming.api_macro = api_macro
+end
 
 local modname = "bindings-" .. binding
 local gen = require(modname)
