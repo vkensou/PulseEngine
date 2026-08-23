@@ -10,7 +10,7 @@ int main() {
     // reported before any library is opened.
     const char* window_deps[] = { "PulseInputPlugin" };
     PulsePackageListEntry entries[] = {
-        { "PulseWindowPlugin", "pulse_window.dll", nullptr, 0, 1, window_deps },
+        { "PulseWindowPlugin", "pulse_window.dll", nullptr, 1, window_deps },
     };
 
     assert(pulse_package_loader_load_packages(app, entries, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);

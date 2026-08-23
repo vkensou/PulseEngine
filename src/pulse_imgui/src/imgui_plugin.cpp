@@ -1,3 +1,4 @@
+#include "pulse_config.h"
 #include "imgui_internal.h"
 
 #include <cstring>
@@ -57,10 +58,6 @@ EPulsePluginBuildResult imgui_plugin_build(PulseAppId app, void* ctx) {
     ecs_entity_t window_entity = imgui_get_window_entity(world, state);
     if (!window_entity) {
         return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;
-    }
-
-    if (state->desc.ini_filename) {
-        state->ini_filename = ecs_os_strdup(state->desc.ini_filename);
     }
 
     // 创建 ImGui context（插件生命周期内唯一）。
@@ -190,6 +187,10 @@ EPulseAppAddPluginResult pulse_add_imgui_plugin(
 
     pulse_imgui_plugin_state* state = new pulse_imgui_plugin_state();
     state->desc = normalize_plugin_desc(desc);
+    if (state->desc.ini_filename) {
+        state->ini_filename = ecs_os_strdup(state->desc.ini_filename);
+        state->desc.ini_filename = nullptr;
+    }
 
     const char* imgui_dependencies[] = {
         "PulseWindowPlugin",
@@ -227,11 +228,13 @@ ecs_entity_t pulse_imgui_get_phase(PulseAppId app) {
     return state ? state->imgui_phase : 0;
 }
 
-PULSE_IMGUI_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
-    if (config && config_size != sizeof(PulseImguiPluginDesc)) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+PULSE_IMGUI_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
+    PulseImguiPluginDesc desc = pulse_imgui_plugin_desc_default();
+    if (config) {
+        desc.flags = (EPulseImguiPluginFlags)(uint32_t)pulse_config_get_int(config, "flags", (int64_t)desc.flags);
+        desc.ini_filename = pulse_config_get_string(config, "ini_filename", desc.ini_filename);
     }
-    EPulseAppAddPluginResult r = pulse_add_imgui_plugin(app, static_cast<const PulseImguiPluginDesc*>(config));
+    EPulseAppAddPluginResult r = pulse_add_imgui_plugin(app, &desc);
     switch (r) {
         case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
         case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;

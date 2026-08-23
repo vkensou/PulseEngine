@@ -15,7 +15,7 @@
 
 namespace {
 
-using PulsePackageRegisterFn = EPulseResult (*)(PulseAppId, const void*, uint32_t);
+using PulsePackageRegisterFn = EPulseResult (*)(PulseAppId, PulseConfig*);
 
 std::unordered_map<PulseAppId, std::vector<void*>>& package_library_handles() {
     static std::unordered_map<PulseAppId, std::vector<void*>> handles;
@@ -145,7 +145,7 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
             fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
         }
 
-        EPulseResult result = fn(app, entry->config, entry->config_size);
+        EPulseResult result = fn(app, entry->config);
         if (result != PULSE_RESULT_OK) {
             if (lib) {
                 close_package_library(lib);

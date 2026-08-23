@@ -12,6 +12,7 @@
 #include <flecs.h> // C++ API - must be included before pulse headers
 
 #include "pulse_app.h"
+#include "pulse_config.h"
 #include "pulse_package_loader.h"
 #include "pulse_window.h"
 #include "pulse_input.h"
@@ -37,33 +38,44 @@ int main(void)
     static const char* renderer_deps[] = { "PulseWindowPlugin", "PulseGraphicPlugin", "PulseTransformPlugin" };
     static const char* imgui_deps[] = { "PulseWindowPlugin", "PulseInputPlugin", "PulseAssetPlugin", "PulseGraphicPlugin" };
 
-    auto window_desc = pulse_window_plugin_desc_default();
-    window_desc.primary_window.title = "PulseEngine Snake Daslang";
-    window_desc.primary_window.width = 800;
-    window_desc.primary_window.height = 600;
-    window_desc.primary_window.resizable = false;
+    PulseConfig* window_cfg = pulse_config_create();
+    {
+        PulseConfig* pw = pulse_config_create();
+        pulse_config_set_string(pw, "title", "PulseEngine Snake Daslang");
+        pulse_config_set_int(pw, "width", 800);
+        pulse_config_set_int(pw, "height", 600);
+        pulse_config_set_bool(pw, "resizable", false);
+        pulse_config_set_obj(window_cfg, "primary_window", pw);
+        pulse_config_release(pw);
+    }
 
-    PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
-    asset_desc.root_path = "examples/snake/assets";
+    PulseConfig* asset_cfg = pulse_config_create();
+    pulse_config_set_string(asset_cfg, "root_path", "examples/snake/assets");
+    pulse_config_set_int(asset_cfg, "max_requests_per_update", 8);
 
-    auto graphics_desc = pulse_graphics_plugin_desc_default();
-    graphics_desc.enable_debug_layer = true;
-    graphics_desc.enable_gpu_based_validation = true;
+    PulseConfig* graphics_cfg = pulse_config_create();
+    pulse_config_set_bool(graphics_cfg, "enable_debug_layer", true);
+    pulse_config_set_bool(graphics_cfg, "enable_gpu_based_validation", true);
 
-    auto daslang_desc = pulse_daslang_plugin_desc_default();
-    daslang_desc.root_path = "examples/asset";
+    PulseConfig* daslang_cfg = pulse_config_create();
+    pulse_config_set_string(daslang_cfg, "root_path", "examples/asset");
 
     PulsePackageListEntry packages[] = {
-        { "PulseInputPlugin", "pulse_input.dll", nullptr, 0, 0, nullptr },
-        { "PulseWindowPlugin", "pulse_window.dll", &window_desc, sizeof(window_desc), 1, window_deps },
-        { "PulseAssetPlugin", "pulse_asset.dll", &asset_desc, sizeof(asset_desc), 0, nullptr },
-        { "PulseTransformPlugin", "pulse_transform.dll", nullptr, 0, 0, nullptr },
-        { "PulseGraphicPlugin", "pulse_graphics.dll", &graphics_desc, sizeof(graphics_desc), 2, graphics_deps },
-        { "PulseRendererPlugin", "pulse_renderer.dll", nullptr, 0, 3, renderer_deps },
-        { "PulseImguiPlugin", "pulse_imgui.dll", nullptr, 0, 4, imgui_deps },
-        { "PulseDaslangPlugin", "pulse_daslang.dll", &daslang_desc, sizeof(daslang_desc), 0, nullptr },
+        { "PulseInputPlugin", "pulse_input.dll", nullptr, 0, nullptr },
+        { "PulseWindowPlugin", "pulse_window.dll", window_cfg, 1, window_deps },
+        { "PulseAssetPlugin", "pulse_asset.dll", asset_cfg, 0, nullptr },
+        { "PulseTransformPlugin", "pulse_transform.dll", nullptr, 0, nullptr },
+        { "PulseGraphicPlugin", "pulse_graphics.dll", graphics_cfg, 2, graphics_deps },
+        { "PulseRendererPlugin", "pulse_renderer.dll", nullptr, 3, renderer_deps },
+        { "PulseImguiPlugin", "pulse_imgui.dll", nullptr, 4, imgui_deps },
+        { "PulseDaslangPlugin", "pulse_daslang.dll", daslang_cfg, 0, nullptr },
     };
     EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, packages, 8);
+    pulse_config_release(window_cfg);
+    pulse_config_release(asset_cfg);
+    pulse_config_release(graphics_cfg);
+    pulse_config_release(daslang_cfg);
+
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK)
     {
         printf("Package load failed: %s\n", pulse_app_last_error(app));

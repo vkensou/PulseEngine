@@ -12,6 +12,7 @@ extern "C" {
 #include <stdint.h>  // uint32_t
 #include "pulse_platform.h"
 #include "pulse_app.h"
+#include "pulse_config.h"
 
 #if defined(PULSE_PACKAGE_LOADER_MODULE_BUILD)
 #  define PULSE_PACKAGE_LOADER_API PULSE_EXPORT

@@ -1,3 +1,4 @@
+#include "pulse_config.h"
 #include "graphics_internal.h"
 
 #include <algorithm>
@@ -289,11 +290,15 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
     return result;
 }
 
-PULSE_GRAPHICS_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
-    if (config && config_size != sizeof(PulseGraphicsPluginDesc)) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+PULSE_GRAPHICS_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
+    PulseGraphicsPluginDesc desc = pulse_graphics_plugin_desc_default();
+    if (config) {
+        desc.enable_debug_layer = pulse_config_get_bool(config, "enable_debug_layer", desc.enable_debug_layer);
+        desc.enable_gpu_based_validation = pulse_config_get_bool(config, "enable_gpu_based_validation", desc.enable_gpu_based_validation);
+        desc.enable_vsync = pulse_config_get_bool(config, "enable_vsync", desc.enable_vsync);
+        desc.image_count = (uint32_t)pulse_config_get_int(config, "image_count", desc.image_count);
     }
-    EPulseAppAddPluginResult r = pulse_add_graphics_plugin(app, static_cast<const PulseGraphicsPluginDesc*>(config));
+    EPulseAppAddPluginResult r = pulse_add_graphics_plugin(app, &desc);
     switch (r) {
         case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
         case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;

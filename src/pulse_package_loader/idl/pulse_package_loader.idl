@@ -22,6 +22,9 @@ typedef "cstring"
 typedef "EPulseResult"
 typedef "PulseAppId"
 
+--- Opaque config tree from pulse_config.h
+struct.Config()
+
 enum.PackageLoadResult { underscore, comment = "Pulse package loader result:" }
     .Ok
     .ErrorInvalidArgument
@@ -38,14 +41,12 @@ enum.PackageLoadResult { underscore, comment = "Pulse package loader result:" }
 funcptr.PackageRegisterFn
     "EPulseResult"
     .app            "PulseAppId"
-    .config         "?*anyopaque"
-    .configSize     "uint32_t"
+    .config         "?*Config"
 
 struct.PackageListEntry
     .name           "cstring"
     .library        "?cstring"
-    .config         "?*anyopaque"
-    .configSize     "uint32_t"
+    .config         "?*Config"
     .dependencyCount "uint32_t"
     .dependencies   "*cstring"
 

@@ -1,3 +1,4 @@
+#include "pulse_config.h"
 #include "transform_internal.h"
 
 namespace pulse_transform_internal {
@@ -102,8 +103,8 @@ ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child) {
     return ecs_get_target(world, child, EcsChildOf, 0);
 }
 
-PULSE_TRANSFORM_API EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size) {
-    if (config || config_size != 0) {
+PULSE_TRANSFORM_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
+    if (config) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     EPulseAppAddPluginResult r = pulse_add_transform_plugin(app);

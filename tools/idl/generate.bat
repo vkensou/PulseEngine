@@ -1,4 +1,5 @@
 .\lua54.exe generate-binding.lua ..\..\src\pulse_app\idl\pulse_app.idl ..\..\src\pulse_app\idl\temp.pulse_app.h c ..\..\src\pulse_app\include\pulse_app.h Pulse "    " PULSE_APP_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_config\idl\pulse_config.idl ..\..\src\pulse_config\idl\temp.pulse_config.h c ..\..\src\pulse_config\include\pulse_config.h Pulse "    " PULSE_CONFIG_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_package_loader\idl\pulse_package_loader.idl ..\..\src\pulse_package_loader\idl\temp.pulse_package_loader.h c ..\..\src\pulse_package_loader\include\pulse_package_loader.h Pulse "    " PULSE_PACKAGE_LOADER_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_window\idl\pulse_window.idl ..\..\src\pulse_window\idl\temp.pulse_window.h c ..\..\src\pulse_window\include\pulse_window.h Pulse "    " PULSE_WINDOW_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_input\idl\pulse_input.idl ..\..\src\pulse_input\idl\temp.pulse_input.h c ..\..\src\pulse_input\include\pulse_input.h Pulse "    " PULSE_INPUT_API

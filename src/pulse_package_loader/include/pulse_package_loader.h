@@ -12,6 +12,7 @@ extern "C" {
 #include <stdint.h>  // uint32_t
 #include "pulse_platform.h"
 #include "pulse_app.h"
+#include "pulse_config.h"
 
 #if defined(PULSE_PACKAGE_LOADER_MODULE_BUILD)
 #  define PULSE_PACKAGE_LOADER_API PULSE_EXPORT
@@ -43,14 +44,20 @@ typedef enum EPulsePackageLoadResult
 
 
 
-typedef EPulseResult (*PulseProcPackageRegisterFn)(PulseAppId app, void* config, uint32_t config_size);
+typedef EPulseResult (*PulseProcPackageRegisterFn)(PulseAppId app, PulseConfig* config);
+
+/**
+ * Opaque config tree from pulse_config.h
+ *
+ */
+struct PulseConfig;
+typedef struct PulseConfig PulseConfig;
 
 typedef struct PulsePackageListEntry
 {
     const char*          name;
     const char*          library;
-    void*                config;
-    uint32_t             config_size;
+    PulseConfig*         config;
     uint32_t             dependency_count;
     const char**         dependencies;
 
