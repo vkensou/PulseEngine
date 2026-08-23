@@ -125,6 +125,16 @@ target("pulse_graphics")
     add_rules("utils.hlsl2spv", {bin2c = true})
     add_files("src/pulse_graphics/src/runtime/*.hlsl")
 
+target("pulse_transform")
+    set_kind("shared")
+    add_defines("PULSE_TRANSFORM_MODULE_BUILD")
+    add_deps("pulse_platform")
+    add_deps("pulse_app")
+    add_deps("pulse_math")
+    add_includedirs("src/pulse_transform/include", {public = true})
+    add_headerfiles("src/pulse_transform/include/*.h")
+    add_files("src/pulse_transform/src/*.cpp")
+
 target("pulse_renderer")
     set_kind("shared")
     add_defines("PULSE_RENDERER_MODULE_BUILD")
@@ -271,17 +281,6 @@ for _, test_file in ipairs(os.files("tests/input/test_*.cpp")) do
         add_files("tests/helper/msvc_headless_asserts.c")
         add_tests("default", {group = "input", rundir = "$(projectdir)"})
 end
-
-target("pulse_transform")
-    set_kind("shared")
-    add_defines("PULSE_TRANSFORM_MODULE_BUILD")
-    add_deps("pulse_platform")
-    add_deps("pulse_app")
-    add_deps("pulse_math")
-    add_includedirs("src/pulse_transform/include", {public = true})
-    add_headerfiles("src/pulse_transform/include/*.h")
-    add_files("src/pulse_transform/src/*.cpp")
-    add_files("tests/helper/msvc_headless_asserts.c")
 
 for _, test_file in ipairs(os.files("tests/transform/test_*.cpp")) do
     local test_name = "test-transform-" .. path.basename(test_file):gsub("^test_", "")
