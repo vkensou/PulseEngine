@@ -1,14 +1,3 @@
-// ============================================================
-// PulseEngine Snake 插件入口
-//
-// example-snake 从独立二进制改为动态插件（package）：
-//   - pulse_package_register 是 package loader 查找的入口
-//   - pulse_add_snake_plugin 按 pulse-window 等插件的模式把
-//     游戏模块注册成一个 PulsePlugin
-//   - snake_plugin_build 只负责蛇游戏模块的接入：
-//     通用 gameplay 初始化交给 pulse_gameplay，随后 importModule
-// ============================================================
-
 #include "snake_module.h"
 
 #include "pulse_cpp_gameplay.h"
@@ -34,10 +23,8 @@ EPulsePluginBuildResult snake_plugin_build(PulseAppId app, void* ctx)
 
     flecs::world world_view(world);
 
-    // ---- 通用 gameplay 接入：事件基础（组件绑定由各插件内部完成） ----
     pulse::init_gameplay_base(world_view);
 
-    // ---- 游戏模块 ----
     pulse::ModuleContext moduleContext = pulse::make_module_context(
         world_view,
         pulse_imgui_get_phase(app),

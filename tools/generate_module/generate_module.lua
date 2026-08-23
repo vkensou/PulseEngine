@@ -1,9 +1,10 @@
 --[[
-  用法: lua generate_module.lua <dump|generate> [头文件名.h]
+  用法: lua generate_module.lua <dump|generate> [头文件名.h] [packageinfo.json]
   默认头文件: snake.h
-  dump: 仅打印解析结果。 generate: 生成 <文件名>_module.{h,cpp} 文件（与头文件同目录）。
+  dump: 仅打印解析结果。 generate: 生成 <文件名>_module.{h,cpp} 和 <文件名>_plugin.cpp 文件（与头文件同目录）。
+  可选 packageinfo.json: 从 manifest 读取插件 dependencies；缺省时自动读取同目录 package.json，没有 manifest 时插件依赖为空。
   模块入口固定名 importModule（模块作为 DLL 扩展加载时，引擎按此名查找入口）。
-  旧版用法: lua generate_module.lua foo.h 等同于 generate foo.h
+  旧版用法: lua generate_module.lua foo.h [packageinfo.json] 等同于 generate foo.h [packageinfo.json]
 ]]
 local function collapse_ws(s)
     return (s:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", ""))
@@ -72,6 +73,33 @@ local function write_file(filename, content)
     if not f then error("无法写入文件: " .. filename) end
     f:write(content)
     f:close()
+end
+
+-- 加载独立 JSON 解析器（json.lua，与 generate_module.lua 同目录）
+local script_dir = arg[0]:match("^(.*[/\\])") or ""
+local json = dofile(script_dir .. "json.lua")
+
+-- 读取可选的 packageinfo（JSON manifest），返回 dependencies 列表；未提供时返回 nil。
+local function load_packageinfo_dependencies(packageinfo_path)
+    if not packageinfo_path or packageinfo_path == "" then
+        return nil
+    end
+    local content = read_file(packageinfo_path)
+    local ok, data = pcall(json.parse, content)
+    if not ok then
+        gen_error("解析 packageinfo 失败: " .. tostring(data))
+    end
+    if type(data) ~= "table" or type(data.dependencies) ~= "table" then
+        gen_error("packageinfo 缺少 dependencies 数组: " .. packageinfo_path)
+    end
+    local deps = {}
+    for _, dep in ipairs(data.dependencies) do
+        if type(dep) ~= "string" then
+            gen_error("packageinfo.dependencies 必须全是字符串: " .. packageinfo_path)
+        end
+        table.insert(deps, dep)
+    end
+    return deps
 end
 
 -- 提取 `PHASE=` 后的取值并精确比对（避免 PHASE=INIT 误匹配 PHASE=INITFOO）
@@ -1525,6 +1553,151 @@ local function generate_module_cpp(module_name, systems, state_machine, resource
     return table.concat(output, "\n")
 end
 
+-- 模块名转 CamelCase（snake -> Snake，snake_daslang -> SnakeDaslang）
+local function module_display_name(module_name)
+    local parts = {}
+    for part in module_name:gmatch("[^_]+") do
+        table.insert(parts, part:sub(1, 1):upper() .. part:sub(2):lower())
+    end
+    return table.concat(parts)
+end
+
+-- 生成 <module>_plugin.cpp：把 ECS 模块包装成可被 launcher 动态加载的 PulsePlugin。
+-- 产物与 snake_plugin.cpp 当前结构保持一致，仅替换模块相关命名。
+local function generate_plugin_cpp(module_name, dependencies)
+    local display = module_display_name(module_name)
+    local plugin_name = "Pulse" .. display .. "Plugin"
+    local add_plugin_fn = "pulse_add_" .. module_name .. "_plugin"
+    local build_fn = module_name .. "_plugin_build"
+    local shutdown_fn = module_name .. "_plugin_shutdown"
+    local state_type = display .. "PluginState"
+    local dependency_var = module_name .. "_dependencies"
+    local deps = dependencies or {}
+
+    -- 依赖数组声明：无依赖时为空串。{{DEP_DECL}} 与下行写在同一行，
+    -- 有依赖时声明自带结尾空行，保证两种情况下 plugin_desc 前都恰好空一行。
+    local dep_decl = ""
+    local dep_field = "        .dependencies = nullptr,"
+    if #deps > 0 then
+        local dep_items = {}
+        for _, dep in ipairs(deps) do
+            table.insert(dep_items, '        "' .. dep .. '",')
+        end
+        dep_decl = "    static const char* " .. dependency_var .. "[] = {\n"
+            .. table.concat(dep_items, "\n") .. "\n    };\n\n"
+        dep_field = "        .dependencies = " .. dependency_var .. ","
+    end
+
+    local tpl = [[
+#include "{{MODULE_NAME}}_module.h"
+
+#include "pulse_cpp_gameplay.h"
+#include "pulse_imgui.h"
+
+namespace {
+
+constexpr const char* kPluginName = "{{PLUGIN_NAME}}";
+
+using {{STATE_TYPE}} = pulse::GameplayModuleState;
+
+EPulsePluginBuildResult {{BUILD_FN}}(PulseAppId app, void* ctx)
+{
+    if (!app || !ctx) {
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    auto* state = static_cast<{{STATE_TYPE}}*>(ctx);
+    ecs_world_t* world = pulse_app_world(app);
+    if (!world) {
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    flecs::world world_view(world);
+
+    pulse::init_gameplay_base(world_view);
+
+    pulse::ModuleContext moduleContext = pulse::make_module_context(
+        world_view,
+        pulse_imgui_get_phase(app),
+        &state->eventCenter);
+    importModule(&moduleContext);
+
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
+}
+
+void {{SHUTDOWN_FN}}(PulseAppId app, void* ctx)
+{
+    auto* state = static_cast<{{STATE_TYPE}}*>(ctx);
+    if (!state) {
+        return;
+    }
+    state->eventCenter.clear();
+    delete state;
+}
+
+EPulseAppAddPluginResult {{ADD_PLUGIN_FN}}(PulseAppId app)
+{
+    if (!app) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    if (pulse_app_has_plugin(app, kPluginName)) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
+    }
+
+    auto* state = new (std::nothrow) {{STATE_TYPE}}();
+    if (!state) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
+    }
+
+{{DEP_DECL}}    PulsePluginDesc plugin_desc = {
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = 1,
+        .name = kPluginName,
+        .ctx = state,
+        .build = {{BUILD_FN}},
+        .post_build = nullptr,
+        .shutdown = {{SHUTDOWN_FN}},
+        .dependency_count = {{DEP_COUNT}},
+{{DEP_FIELD}}
+    };
+
+    EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
+    if (result != PULSE_APP_ADD_PLUGIN_RESULT_OK && !pulse_app_has_plugin(app, kPluginName)) {
+        delete state;
+    }
+    return result;
+}
+
+} // namespace
+
+extern "C" PULSE_EXPORT EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size)
+{
+    if (config || config_size != 0) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    return pulse::to_package_result({{ADD_PLUGIN_FN}}(app));
+}
+]]
+
+    local subs = {
+        MODULE_NAME = module_name,
+        DISPLAY = display,
+        PLUGIN_NAME = plugin_name,
+        ADD_PLUGIN_FN = add_plugin_fn,
+        BUILD_FN = build_fn,
+        SHUTDOWN_FN = shutdown_fn,
+        STATE_TYPE = state_type,
+        DEP_COUNT = tostring(#deps),
+        DEP_DECL = dep_decl,
+        DEP_FIELD = dep_field,
+    }
+    for key, value in pairs(subs) do
+        tpl = tpl:gsub("{{" .. key .. "}}", value)
+    end
+    return tpl
+end
+
 local function generate_module_h()
     return [[#pragma once
 
@@ -1536,10 +1709,11 @@ end
 
 local function print_usage()
     io.stderr:write(
-        "用法: lua generate_module.lua <dump|generate> [头文件名.h]\n"
-            .. "  默认头文件: snake.h | dump: 仅输出到控制台 | generate: 生成 <文件名>_module.{h,cpp}\n"
+        "用法: lua generate_module.lua <dump|generate> [头文件名.h] [packageinfo.json]\n"
+            .. "  默认头文件: snake.h | dump: 仅输出到控制台 | generate: 生成 <文件名>_module.{h,cpp} 和 <文件名>_plugin.cpp\n"
+            .. "  可选 packageinfo.json: 读取 dependencies；缺省自动读取同目录 package.json，没有则依赖为空\n"
             .. "  模块入口固定名 importModule（DLL 插件协议入口名）\n"
-            .. "  旧版用法: lua generate_module.lua foo.h => generate foo.h\n"
+            .. "  旧版用法: lua generate_module.lua foo.h [packageinfo.json] => generate foo.h [packageinfo.json]\n"
     )
 end
 
@@ -1554,12 +1728,15 @@ local function main(...)
     end
 
     local a1 = argv[1]
+    local packageinfo_path = nil
     if a1 == "dump" or a1 == "generate" then
         mode = a1
         header_path = argv[2] or "snake.h"
+        packageinfo_path = argv[3]
     elseif a1:match("%.h$") or a1:find("/", 1, true) or a1:find("\\", 1, true) then
         mode = "generate"
         header_path = a1
+        packageinfo_path = argv[2]
     else
         print_usage()
         error("需要 dump, generate, 或 .h 文件路径")
@@ -1584,6 +1761,16 @@ local function main(...)
     -- 输出到头文件所在目录（头文件无目录时输出到当前目录）
     local out_dir = header_path:match("^(.*[/\\])") or ""
 
+    -- 未显式传 packageinfo 时，自动读取同目录 package.json（若存在）
+    if not packageinfo_path then
+        local default_packageinfo = out_dir .. "package.json"
+        local f = io.open(default_packageinfo, "r")
+        if f then
+            f:close()
+            packageinfo_path = default_packageinfo
+        end
+    end
+
     local module_h = generate_module_h()
     write_file(out_dir .. module_name .. "_module.h", module_h)
     print("输出: " .. out_dir .. module_name .. "_module.h")
@@ -1591,6 +1778,11 @@ local function main(...)
     local module_cpp = generate_module_cpp(module_name, systems, state_machine, resources)
     write_file(out_dir .. module_name .. "_module.cpp", module_cpp)
     print("输出: " .. out_dir .. module_name .. "_module.cpp")
+
+    local plugin_dependencies = load_packageinfo_dependencies(packageinfo_path)
+    local plugin_cpp = generate_plugin_cpp(module_name, plugin_dependencies)
+    write_file(out_dir .. module_name .. "_plugin.cpp", plugin_cpp)
+    print("输出: " .. out_dir .. module_name .. "_plugin.cpp")
 
     print("完成 (generate 模式)。")
 end

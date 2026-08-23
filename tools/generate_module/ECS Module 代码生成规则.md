@@ -166,3 +166,25 @@ checkCollisionSystem.set<checkCollisionSystemWrapperState>({ .playerQuery = modu
 ```
 
 对于事件system，上面已经描述过了，但还是再总结一下：首先是Wrapper签名要体现附加查询，其次是注册时创建查询并传给reg函数。
+
+## 8. 插件入口生成
+
+`generate` 模式除生成 `<文件名>_module.{h,cpp}` 外，还会在同目录生成
+`<文件名>_plugin.cpp`，用于把 ECS 模块包装成 launcher 可动态加载的
+PulsePlugin：
+
+- 模块名 `snake` 会生成 `PulseSnakePlugin`、`pulse_add_snake_plugin`、
+  `snake_plugin_build` / `snake_plugin_shutdown`，以及
+  `pulse_package_register` 导出入口。
+- 插件 build 阶段固定做：`pulse::init_gameplay_base` →
+  `pulse::make_module_context` → `importModule`。
+- 生成器不内置默认插件依赖列表，不假设任何依赖。
+- 插件依赖只来自 packageinfo 的 `dependencies` 字段。
+- 可通过可选参数 `[packageinfo.json]`（例如 `examples/snake/package.json`）
+  传入 manifest，生成器会读取其中的 `dependencies`。
+- 不传 `packageinfo` 时，若头文件同目录存在 `package.json`，生成器也会自动读取；
+  都没有时插件依赖为空。
+- 生成器通过同目录下的独立 `tools/generate_module/json.lua` 解析 JSON，
+  只用于读取 packageinfo 的依赖信息；`package.json` 本身保持 JSON 格式，
+  不影响其他 Python/加载器工具。
+- 生成的插件文件与手写版本允许存在小幅风格差异，保证可编译、可运行即可。
