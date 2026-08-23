@@ -10,7 +10,7 @@ PulseEngine是一个模块化的基于ECS（flecs）的游戏引擎，核心设�
 
 - `docs` 是文档目录
 - `src/pulse_*` 是各个插件目录
-- `tests/*` 是各插件的测试工程
+- `tests/*` 是各插件的测试用例
 - `cgpu` 是项目使用的RHI
 - `src/rendergraph` 是项目使用的rendergraph代码
 - `dascript` 是dascript目录
@@ -26,3 +26,4 @@ PulseEngine是一个模块化的基于ECS（flecs）的游戏引擎，核心设�
 ## 注意
 - xmake 的命令不支持同时构建多个目标，比如`xmake build pulse-window pulse-asset`，只能一个一个构建。
 - 不要用`xmake build` 构建测试项目，直接用 `xmake test`。
+- tests目录下的测试用例可以通过`xmake test`测试。

@@ -38,6 +38,7 @@ includes("src/khr/xmake.lua")
 includes("dascript/xmake.lua")
 
 includes("xmake/rules/window_screenshot/xmake.lua")
+includes("xmake/rules/window_title_test/xmake.lua")
 
 target("pulse_platform")
     set_kind("headeronly")
@@ -224,6 +225,8 @@ target("test-window")
     add_deps("pulse_window")
     add_files("tests/window/*.cpp")
     add_files("tests/helper/msvc_headless_asserts.c")
+    add_rules("pulse.window_title_test", { title = "test-window retitled", wait = 10, close_timeout_ms = 8000, })
+    add_tests("default", {group = "window", rundir = "$(projectdir)"})
 
 for _, test_file in ipairs(os.files("tests/asset/test_*.cpp")) do
     local test_name = "test-asset-" .. path.basename(test_file):gsub("^test_", "")

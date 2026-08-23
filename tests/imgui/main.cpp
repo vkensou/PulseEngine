@@ -69,6 +69,9 @@ int main(void) {
     ImGui::SetCurrentContext(imgui_ctx);
     {
         ImGuiIO& io = ImGui::GetIO();
+        // 截图测试不能依赖仓库根目录的 imgui.ini：显式禁用 Ini 文件的读写，
+        // 窗口位置/尺寸由下方 SetNextWindowPos/SetNextWindowSize 固定。
+        io.IniFilename = nullptr;
         assert(io.BackendPlatformUserData != nullptr);
         assert((io.BackendFlags & ImGuiBackendFlags_HasMouseCursors) != 0);
         assert((io.BackendFlags & ImGuiBackendFlags_HasSetMousePos) != 0);
@@ -89,6 +92,9 @@ int main(void) {
     world.system("imgui_test_ui_onupdate")
         .kind(flecs::PostUpdate)
         .run([&show_demo_window](flecs::iter& it) {
+            // 固定窗口位置和尺寸，避免受 imgui.ini 影响。
+            ImGui::SetNextWindowPos(ImVec2(38, 99), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(380, 194), ImGuiCond_Always);
             ImGui::Begin("imgui test (OnUpdate)");
             ImGui::Text("Hello, PulseEngine imgui!");
             ImGui::End();
@@ -97,6 +103,9 @@ int main(void) {
     world.system("imgui_test_ui_phase")
         .kind(phase)
         .run([](flecs::iter& it) {
+            // 固定窗口位置和尺寸，避免受 imgui.ini 影响。
+            ImGui::SetNextWindowPos(ImVec2(150, 183), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(419, 238), ImGuiCond_Always);
             ImGui::Begin("imgui test (phase)");
             ImGui::Text("Drawn after game logic.");
             ImGui::End();
