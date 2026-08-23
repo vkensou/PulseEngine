@@ -37,6 +37,8 @@ includes("src/khr/xmake.lua")
 
 includes("dascript/xmake.lua")
 
+includes("xmake/rules/window_screenshot/xmake.lua")
+
 target("pulse_platform")
     set_kind("headeronly")
     add_includedirs("src/pulse_platform/include", {public = true})
@@ -238,6 +240,8 @@ target("test-graphics")
     add_deps("pulse_graphics")
     add_files("tests/graphics/*.cpp")
     add_files("tests/helper/msvc_headless_asserts.c")
+    add_rules("pulse.window_screenshot_test", {baseline = "tests/graphics/baseline.png", wait = 3, threshold = 0.995})
+    add_tests("screenshot", {group = "graphics", rundir = "$(projectdir)"})
 
 for _, test_file in ipairs(os.files("tests/math/test_*.cpp")) do
     local test_name = "test-math-" .. path.basename(test_file):gsub("^test_", "")
@@ -307,6 +311,8 @@ target("test-renderer")
     add_deps("pulse_renderer")
     add_files("tests/renderer/*.cpp")
     add_files("tests/helper/msvc_headless_asserts.c")
+    add_rules("pulse.window_screenshot_test", {baseline = "tests/renderer/baseline.png", wait = 5, threshold = 0.995})
+    add_tests("screenshot", {group = "renderer", rundir = "$(projectdir)"})
 
 target("test-imgui")
     set_group("tests")
@@ -320,6 +326,8 @@ target("test-imgui")
     add_deps("pulse_imgui")
     add_files("tests/imgui/*.cpp")
     add_files("tests/helper/msvc_headless_asserts.c")
+    add_rules("pulse.window_screenshot_test", {baseline = "tests/imgui/baseline.png", wait = 5, threshold = 0.995})
+    add_tests("screenshot", {group = "imgui", rundir = "$(projectdir)"})
 
 for _, test_file in ipairs(os.files("tests/daslang/test_*.cpp")) do
     local test_name = "test-daslang-" .. path.basename(test_file):gsub("^test_", "")

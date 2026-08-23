@@ -19,14 +19,15 @@
 // Simple helper to create a transform entity
 static ecs_entity_t create_transform_entity(
     ecs_world_t* world,
-    float x, float y, float z)
+    float x, float y, float z,
+    float scale = 1.0f)
 {
     ecs_entity_t entity = ecs_new(world);
 
     PulseLocalTransform local = {};
     local.translation = HMM_Vec3{ x, y, z };
     local.rotation = HMM_Quat{ 0, 0, 0, 1 };
-    local.scale = HMM_Vec3{ 1, 1, 1 };
+    local.scale = HMM_Vec3{ scale, scale, scale };
     ecs_set_ptr(world, entity, PulseLocalTransform, &local);
 
     // Also explicitly initialize WorldTransform to identity,
@@ -71,7 +72,7 @@ static void create_renderer_scene(
 
     {
         // Create a renderable entity
-        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0);
+        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0, 6.0f);
         PulseRenderable renderable = {};
         renderable.mesh = m.mesh_handle;
         renderable.material = m.material;
@@ -80,7 +81,7 @@ static void create_renderer_scene(
 
     {
         // Create a renderable entity
-        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0);
+        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0, 6.0f);
         PulseRenderable renderable = {};
         renderable.mesh = m.mesh_handle;
         renderable.material = m.material;
