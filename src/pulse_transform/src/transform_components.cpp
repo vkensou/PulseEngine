@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "transform_internal.h"
 
 #include <assert.h>
@@ -64,6 +65,12 @@ void register_components(ecs_world_t* world) {
     // Auto-insertion (EcsWith):
     //   Adding LocalTransform automatically ensures WorldTransform is present.
     ecs_add_pair(world, ecs_id(PulseLocalTransform), EcsWith, ecs_id(PulseWorldTransform));
+
+    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
+    flecs::world world_view(world);
+    world_view.component<PulseLocalTransform>("PulseLocalTransform", true, ecs_id(PulseLocalTransform));
+    world_view.component<PulseWorldTransform>("PulseWorldTransform", true, ecs_id(PulseWorldTransform));
+    world_view.component<PulseShowMatrix>("PulseShowMatrix", true, ecs_id(PulseShowMatrix));
 }
 
 void install_transform_systems(ecs_world_t* world) {

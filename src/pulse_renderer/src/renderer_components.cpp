@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "renderer_internal.h"
 
 #include <string.h>
@@ -14,6 +15,12 @@ void register_renderer_components(ecs_world_t* world) {
     ECS_COMPONENT_DEFINE(world, PulseLight);
     ECS_COMPONENT_DEFINE(world, PulseRenderable);
     ECS_COMPONENT_DEFINE(world, pulse_renderer_state_resource);
+
+    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
+    flecs::world world_view(world);
+    world_view.component<PulseCamera>("PulseCamera", true, ecs_id(PulseCamera));
+    world_view.component<PulseLight>("PulseLight", true, ecs_id(PulseLight));
+    world_view.component<PulseRenderable>("PulseRenderable", true, ecs_id(PulseRenderable));
 }
 
 pulse_renderer_state* state_from_app(PulseAppId app) {

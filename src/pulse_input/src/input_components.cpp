@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "input_internal.h"
 
 #include <algorithm>
@@ -146,6 +147,16 @@ void register_components(ecs_world_t* world) {
     ECS_COMPONENT_DEFINE(world, PulseMouseButtonEvent);
     ECS_COMPONENT_DEFINE(world, PulseMouseScrollEvent);
     ECS_COMPONENT_DEFINE(world, pulse_input_state_resource);
+
+    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
+    flecs::world world_view(world);
+    world_view.component<PulseKeyboardInput>("PulseKeyboardInput", true, ecs_id(PulseKeyboardInput));
+    world_view.component<PulseMouseInput>("PulseMouseInput", true, ecs_id(PulseMouseInput));
+    world_view.component<PulseMouseMotion>("PulseMouseMotion", true, ecs_id(PulseMouseMotion));
+    world_view.component<PulseMouseScroll>("PulseMouseScroll", true, ecs_id(PulseMouseScroll));
+    world_view.component<PulseKeyEvent>("PulseKeyEvent", true, ecs_id(PulseKeyEvent));
+    world_view.component<PulseMouseButtonEvent>("PulseMouseButtonEvent", true, ecs_id(PulseMouseButtonEvent));
+    world_view.component<PulseMouseScrollEvent>("PulseMouseScrollEvent", true, ecs_id(PulseMouseScrollEvent));
 }
 
 pulse_input_plugin_state* state_from_world(ecs_world_t* world) {

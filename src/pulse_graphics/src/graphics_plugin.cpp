@@ -263,7 +263,8 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
     state->desc = normalize_plugin_desc(desc);
     state->desc.per_draw_shader_property_count = 0;
     state->desc.p_per_draw_shader_properties = nullptr;
-    for (size_t i = 0; i < desc->per_draw_shader_property_count; ++i) {
+    const size_t per_draw_shader_property_count = desc ? desc->per_draw_shader_property_count : 0;
+    for (size_t i = 0; i < per_draw_shader_property_count; ++i) {
         state->per_draw_shader_properties.emplace_back(desc->p_per_draw_shader_properties[i]);
     }
 

@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "window_internal.h"
 
 ECS_COMPONENT_DECLARE(PulseWindow);
@@ -203,6 +204,12 @@ void register_components(ecs_world_t* world) {
     ECS_TAG_DEFINE(world, PulsePrimaryWindow);
     ECS_TAG_DEFINE(world, PulseWindowCloseRequested);
     ECS_TAG_DEFINE(world, PulseWindowResized);
+
+    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
+    flecs::world world_view(world);
+    world_view.component<PulseWindow>("PulseWindow", true, ecs_id(PulseWindow));
+    world_view.component<PulseSdlWindow>("PulseSdlWindow", true, ecs_id(PulseSdlWindow));
+    world_view.component<PulsePrimaryWindow>("PulsePrimaryWindow", true, ecs_id(PulsePrimaryWindow));
 }
 
 pulse_window_plugin_state* state_from_world(ecs_world_t* world) {
