@@ -1,4 +1,3 @@
-#include "pulse_config.h"
 #include "renderer_internal.h"
 
 #include <algorithm>
@@ -654,20 +653,6 @@ void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropert
 
     if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT) {
         state->property_names[(int)type] = name;
-    }
-}
-
-PULSE_RENDERER_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    if (config) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    EPulseAppAddPluginResult r = pulse_add_renderer_plugin(app);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
     }
 }
 

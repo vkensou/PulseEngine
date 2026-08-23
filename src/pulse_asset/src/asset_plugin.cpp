@@ -1,4 +1,3 @@
-#include "pulse_config.h"
 #include "asset_internal.h"
 
 struct PulseAssetSystem {
@@ -380,22 +379,6 @@ PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_request(PulseAssetSyst
 PulseAssetRequest pulse_asset_system_to_asset_request_from_dep_ref(PulseAssetSystemId asset_system, PulseAssetDepRef dep_ref) {
     (void)asset_system;
     return pulse::asset::dep_ref_to_request(dep_ref);
-}
-
-PULSE_ASSET_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
-    if (config) {
-        desc.root_path = pulse_config_get_string(config, "root_path", desc.root_path);
-        desc.max_requests_per_update = (uint32_t)pulse_config_get_int(config, "max_requests_per_update", desc.max_requests_per_update);
-    }
-    EPulseAppAddPluginResult r = pulse_add_asset_plugin(app, &desc);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
-    }
 }
 
 }

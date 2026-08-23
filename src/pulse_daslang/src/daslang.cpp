@@ -1,6 +1,5 @@
 #include <flecs.h> // C++ API - must be included before pulse headers
 
-#include "pulse_config.h"
 #include "pulse_daslang.h"
 
 #include "daslang_internal.h"
@@ -253,21 +252,6 @@ bool pulse_load_module(PulseAppId app, const char* script_path)
 {
     auto state = pulse_daslang_internal::state_from_app(app);
     return pulse_daslang_internal::pulse_load_module(app, state, script_path);
-}
-
-PULSE_DASLANG_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    PulseDaslangPluginDesc desc = pulse_daslang_plugin_desc_default();
-    if (config) {
-        desc.root_path = pulse_config_get_string(config, "root_path", desc.root_path);
-    }
-    EPulseAppAddPluginResult r = pulse_add_daslang_plugin(app, &desc);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
-    }
 }
 
 } // extern "C"

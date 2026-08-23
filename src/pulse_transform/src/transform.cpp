@@ -1,4 +1,3 @@
-#include "pulse_config.h"
 #include "transform_internal.h"
 
 namespace pulse_transform_internal {
@@ -101,20 +100,6 @@ ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t child) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || !child) return 0;
     return ecs_get_target(world, child, EcsChildOf, 0);
-}
-
-PULSE_TRANSFORM_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    if (config) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    EPulseAppAddPluginResult r = pulse_add_transform_plugin(app);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
-    }
 }
 
 } // extern "C"

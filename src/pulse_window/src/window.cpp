@@ -1,6 +1,5 @@
 #include "window_internal.h"
 
-#include "pulse_config.h"
 #include "pulse_input.h"
 
 #include <algorithm>
@@ -686,31 +685,6 @@ void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity) {
 
     const PulseSdlWindow* raw = ecs_get(world, entity, PulseSdlWindow);
     return raw ? raw->native_view : nullptr;
-}
-
-PULSE_WINDOW_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    PulseWindowPluginDesc desc = pulse_window_plugin_desc_default();
-    if (config) {
-        PulseConfig* pw = pulse_config_get_obj(config, "primary_window");
-        if (pw) {
-            const char* title = pulse_config_get_string(pw, "title", desc.primary_window.title);
-            if (title) desc.primary_window.title = title;
-            desc.primary_window.width = (int32_t)pulse_config_get_int(pw, "width", desc.primary_window.width);
-            desc.primary_window.height = (int32_t)pulse_config_get_int(pw, "height", desc.primary_window.height);
-            desc.primary_window.resizable = pulse_config_get_bool(pw, "resizable", desc.primary_window.resizable);
-            desc.primary_window.external_graphics_context = pulse_config_get_bool(pw, "external_graphics_context", desc.primary_window.external_graphics_context);
-        }
-        desc.sdl_init_flags = (uint32_t)pulse_config_get_int(config, "sdl_init_flags", desc.sdl_init_flags);
-        desc.flags = (EPulseWindowPluginFlags)(uint32_t)pulse_config_get_int(config, "flags", (int64_t)desc.flags);
-    }
-    EPulseAppAddPluginResult r = pulse_add_window_plugin(app, &desc);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
-    }
 }
 
 } // extern "C"

@@ -1,4 +1,3 @@
-#include "pulse_config.h"
 #include "imgui_internal.h"
 
 #include <cstring>
@@ -226,22 +225,6 @@ ImGuiContext* pulse_imgui_get_context(PulseAppId app) {
 ecs_entity_t pulse_imgui_get_phase(PulseAppId app) {
     pulse_imgui_plugin_state* state = state_from_app(app);
     return state ? state->imgui_phase : 0;
-}
-
-PULSE_IMGUI_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    PulseImguiPluginDesc desc = pulse_imgui_plugin_desc_default();
-    if (config) {
-        desc.flags = (EPulseImguiPluginFlags)(uint32_t)pulse_config_get_int(config, "flags", (int64_t)desc.flags);
-        desc.ini_filename = pulse_config_get_string(config, "ini_filename", desc.ini_filename);
-    }
-    EPulseAppAddPluginResult r = pulse_add_imgui_plugin(app, &desc);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
-    }
 }
 
 } // extern "C"

@@ -1,4 +1,3 @@
-#include "pulse_config.h"
 #include "input_internal.h"
 
 #include <algorithm>
@@ -281,20 +280,6 @@ void pulse_input_get_mouse_scroll(PulseAppId app, float* out_x, float* out_y) {
     }
     if (out_x) *out_x = ms->x;
     if (out_y) *out_y = ms->y;
-}
-
-PULSE_INPUT_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
-    if (config) {
-        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    EPulseAppAddPluginResult r = pulse_add_input_plugin(app);
-    switch (r) {
-        case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT: return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE: return PULSE_RESULT_ERROR_INVALID_STATE;
-        case PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN: return PULSE_RESULT_ERROR_DUPLICATE_PLUGIN;
-        default: return PULSE_RESULT_ERROR_INTERNAL;
-    }
 }
 
 } // extern "C"
