@@ -1,0 +1,10 @@
+{
+  "name": "PulseRendererPlugin",
+  "version": "1.0.0",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "PulseWindowPlugin",
+    "PulseGraphicPlugin",
+    "PulseTransformPlugin"
+  ]
+}

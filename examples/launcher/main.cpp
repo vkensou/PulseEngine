@@ -29,9 +29,9 @@ int main(void)
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    PulseConfig* root = pulse_config_create_from_json_file("packages.json");
+    PulseConfig* root = pulse_config_create_from_json_file("launcher.manifest");
     if (!root) {
-        fprintf(stderr, "bad packages.json: %s\n", pulse_config_last_error());
+        fprintf(stderr, "bad launcher.manifest: %s\n", pulse_config_last_error());
         pulse_destroy_app(app);
         pulse_package_loader_cleanup(app);
         return 1;
@@ -39,7 +39,7 @@ int main(void)
 
     PulseConfigArray* packages = pulse_config_get_array(root, "packages");
     if (!packages) {
-        fprintf(stderr, "bad packages.json: missing 'packages' array\n");
+        fprintf(stderr, "bad launcher.manifest: missing 'packages' array\n");
         pulse_config_release(root);
         pulse_destroy_app(app);
         pulse_package_loader_cleanup(app);
@@ -55,7 +55,7 @@ int main(void)
     for (size_t i = 0; i < count; ++i) {
         PulseConfig* pkg = pulse_config_array_get(packages, i);
         if (!pkg) {
-            fprintf(stderr, "bad packages.json: null package at index %zu\n", i);
+            fprintf(stderr, "bad launcher.manifest: null package at index %zu\n", i);
             pulse_config_release(root);
             pulse_destroy_app(app);
             pulse_package_loader_cleanup(app);

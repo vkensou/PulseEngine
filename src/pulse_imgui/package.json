@@ -1,0 +1,11 @@
+{
+  "name": "PulseImguiPlugin",
+  "version": "1.0.0",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "PulseWindowPlugin",
+    "PulseInputPlugin",
+    "PulseAssetPlugin",
+    "PulseGraphicPlugin"
+  ]
+}

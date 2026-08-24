@@ -26,21 +26,33 @@ rule("pulse.package_output")
             return
         end
 
-        local plat = is_plat("windows") and "windows" or is_plat("linux") and "linux"
-        if not plat then
-            return
+        local rulename = "pulse.package_output"
+        local location = target:extraconf("rules", rulename, "location")
+
+        -- Reassemble targetdir using xmake's default logic:
+        --   builddir / plat / arch / mode
+        local config = import("core.project.config")
+        local builddir = config.get("builddir") or config.get("buildir") or "build"
+        if not path.is_absolute(builddir) then
+            builddir = path.absolute(builddir, os.projectdir())
         end
 
-        local mode = is_mode("debug") and "debug" or "release"
-        local rulename = "pulse.package_output"
-        local output_root = path.join(os.projectdir(), "build", plat, mode)
+        local targetdir = builddir
+        local plat = target:plat()
+        if plat then
+            targetdir = path.join(targetdir, plat)
+        end
+        local arch = target:arch()
+        if arch then
+            targetdir = path.join(targetdir, arch)
+        end
+        local mode = config.mode()
+        if mode then
+            targetdir = path.join(targetdir, mode)
+        end
 
-        local location = target:extraconf("rules", rulename, "location")
-        local targetdir
-        if location == "root" then
-            targetdir = output_root
-        else
-            targetdir = path.join(output_root, "packages", target:name())
+        if location ~= "root" then
+            targetdir = path.join(targetdir, "packages", target:name())
         end
 
         os.mkdir(targetdir)
@@ -98,5 +110,21 @@ rule("pulse.package_output")
             if os.isdir(dir) then
                 os.cp(path.join(dir, "*"), target:targetdir())
             end
+        end
+    end)
+
+rule("pulse.copy_manifest")
+
+    after_build(function (target)
+
+        if not (target:is_binary()) then
+            return
+        end
+
+        local rulename = "pulse.copy_manifest"
+        local location = target:extraconf("rules", rulename, "manifest")
+
+        if location and os.isfile(location) then
+            os.cp(location, path.join(target:targetdir(), path.filename(location)))
         end
     end)

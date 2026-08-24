@@ -1,0 +1,6 @@
+{
+  "name": "PulseAssetPlugin",
+  "version": "1.0.0",
+  "entry": "pulse_package_register",
+  "dependencies": []
+}
