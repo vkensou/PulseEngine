@@ -25,6 +25,6 @@ PulseEngine是一个模块化的基于ECS（flecs）的游戏引擎，核心设�
 - 接口用法拿不准的时候先去 `tests` 目录查找参考，不要一上来就去翻源码。
 
 ## 注意
-- xmake 的命令不支持同时构建多个目标，比如`xmake build pulse-window pulse-asset`，只能一个一个构建。
+- xmake 的命令不支持同时构建多个目标，比如`xmake build pulse_window pulse_asset`，只能一个一个构建。
 - 不要用`xmake build` 构建测试项目，直接用 `xmake test`。
 - tests目录下的测试用例可以通过`xmake test`测试。

@@ -39,6 +39,7 @@ includes("dascript/xmake.lua")
 
 includes("xmake/rules/window_screenshot/xmake.lua")
 includes("xmake/rules/window_title_test/xmake.lua")
+includes("xmake/rules/package_output/xmake.lua")
 
 target("pulse_platform")
     set_kind("headeronly")
@@ -47,6 +48,7 @@ target("pulse_platform")
 
 target("pulse_app")
     set_kind("shared")
+    add_rules("pulse.package_output", {location = "root"})
     add_defines("PULSE_APP_MODULE_BUILD")
     add_defines("flecs_EXPORTS")
     add_deps("pulse_platform")
@@ -58,6 +60,7 @@ target("pulse_app")
 
 target("pulse_config")
     set_kind("shared")
+    add_rules("pulse.package_output", {location = "root"})
     set_exceptions("cxx")
     add_defines("PULSE_CONFIG_MODULE_BUILD")
     add_deps("pulse_platform")
@@ -67,6 +70,7 @@ target("pulse_config")
 
 target("pulse_package_loader")
     set_kind("shared")
+    add_rules("pulse.package_output", {location = "root"})
     add_defines("PULSE_PACKAGE_LOADER_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -83,6 +87,7 @@ target("pulse_math")
 
 target("pulse_window")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_WINDOW_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -95,6 +100,7 @@ target("pulse_window")
 
 target("pulse_input")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_INPUT_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -106,6 +112,7 @@ target("pulse_input")
 
 target("pulse_asset")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_ASSET_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -117,6 +124,7 @@ target("pulse_asset")
 
 target("pulse_graphics")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_GRAPHICS_MODULE_BUILD")
     add_deps("pulse_platform")
     set_exceptions("cxx")
@@ -142,6 +150,7 @@ target("pulse_graphics")
 
 target("pulse_transform")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_TRANSFORM_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -153,6 +162,7 @@ target("pulse_transform")
 
 target("pulse_renderer")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_RENDERER_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -168,6 +178,7 @@ target("pulse_renderer")
 
 target("pulse_imgui")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_IMGUI_MODULE_BUILD")
     add_deps("pulse_platform")
     set_exceptions("cxx")
@@ -194,6 +205,7 @@ target("pulse_cpp_gameplay")
 
 target("pulse_daslang")
     set_kind("shared")
+    add_rules("pulse.package_output")
     add_defines("PULSE_DASLANG_MODULE_BUILD")
     add_deps("pulse_platform")
     set_exceptions("cxx")
@@ -419,65 +431,16 @@ target("example-snake")
     add_deps("pulse_cpp_gameplay")
     add_includedirs("examples/snake", {public = false, order = true})
     add_files("examples/snake/*.cpp")
-    -- 临时方案
-    after_build(function(target)
-        -- 把外部共享依赖（SDL3/imgui）复制到插件构建目录，
-        -- 这样 launcher 的 after_build 可以把它们一起收进独立运行目录。
-        local dep_win = target:dep("pulse_window")
-        local dep_img = target:dep("pulse_imgui")
-        local sdl3 = dep_win and dep_win:pkg("libsdl3")
-        if sdl3 then
-            local sdl_dll = path.join(sdl3:installdir(), "bin", "SDL3.dll")
-            if os.isfile(sdl_dll) then
-                os.cp(sdl_dll, target:targetdir())
-            end
-        end
-        local imgui = dep_img and dep_img:pkg("imgui")
-        if imgui then
-            local imgui_dll = path.join(imgui:installdir(), "bin", "imgui.dll")
-            if os.isfile(imgui_dll) then
-                os.cp(imgui_dll, target:targetdir())
-            end
-        end
-    end)
+    add_rules("pulse.package_output")
 
 target("launcher")
     set_group("examples")
     set_kind("binary")
-    set_rundir("$(projectdir)/run/launcher")
     add_deps("pulse_app")
     add_deps("pulse_config")
     add_deps("pulse_package_loader")
     add_files("examples/launcher/main.cpp")
-    -- 临时方案
-    after_build(function(target)
-        local output_dir = path.join(os.projectdir(), "run", "launcher")
-        os.mkdir(output_dir)
-
-        -- 需要先构建 example-snake，否则 example_snake.dll 和外部 SDL3/imgui
-        -- 还不在 targetdir 中，无法被收进独立运行目录。
-        -- 把当前构建目录里的所有 Pulse DLL 复制到独立运行目录
-        for _, dll in ipairs(os.files(path.join(target:targetdir(), "*.dll"))) do
-            os.cp(dll, output_dir)
-        end
-
-        -- launcher 本体
-        os.cp(target:targetfile(), output_dir)
-
-        -- packages.json 配置
-        local packages_json = path.join(os.projectdir(), "examples", "launcher", "packages.json")
-        if os.isfile(packages_json) then
-            os.cp(packages_json, output_dir)
-        end
-
-        -- snake 资源（默认 asset root 是 assets/）
-        local assets_dir = path.join(os.projectdir(), "examples", "snake", "assets")
-        if os.isdir(assets_dir) then
-            local dest_assets = path.join(output_dir, "assets")
-            os.mkdir(dest_assets)
-            os.cp(path.join(assets_dir, "*"), dest_assets)
-        end
-    end)
+    add_rules("pulse.package_output", {location = "root", extra_dirs = {"examples/snake/assets"}})
 
 target("example-snake-daslang")
     set_group("examples")
