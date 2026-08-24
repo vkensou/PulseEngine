@@ -1,6 +1,7 @@
 {
   "name": "PulseInputPlugin",
   "version": "1.0.0",
+  "library": "pulse_input.dll",
   "entry": "pulse_package_register",
   "dependencies": []
 }

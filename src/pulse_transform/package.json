@@ -1,6 +1,7 @@
 {
   "name": "PulseTransformPlugin",
   "version": "1.0.0",
+  "library": "pulse_transform.dll",
   "entry": "pulse_package_register",
   "dependencies": []
 }

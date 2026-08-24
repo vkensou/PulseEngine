@@ -1,10 +1,11 @@
 {
   "name": "PulseRendererPlugin",
   "version": "1.0.0",
+  "library": "pulse_renderer.dll",
   "entry": "pulse_package_register",
   "dependencies": [
-    "PulseWindowPlugin",
-    "PulseGraphicPlugin",
-    "PulseTransformPlugin"
+    "pulse_window",
+    "pulse_graphics",
+    "pulse_transform"
   ]
 }

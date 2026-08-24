@@ -1,6 +1,7 @@
 {
-  "name": "PulseAssetPlugin",
+  "name": "pulse_asset",
   "version": "1.0.0",
+  "library": "pulse_asset.dll",
   "entry": "pulse_package_register",
   "dependencies": []
 }
