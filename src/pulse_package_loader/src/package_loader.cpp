@@ -1,6 +1,7 @@
 #include "pulse_package_loader.h"
 
 #include <string>
+#include <cstdio>
 #include <unordered_map>
 #include <vector>
 
@@ -35,9 +36,47 @@ void close_package_library(void* handle) {
 #endif
 }
 
+#ifdef _WIN32
+std::string current_dll_directory() {
+    DWORD size = GetDllDirectoryA(0, nullptr);
+    if (size == 0) {
+        return {};
+    }
+
+    std::string dir(size, '\0');
+    DWORD copied = GetDllDirectoryA(size, &dir[0]);
+    if (copied == 0) {
+        return {};
+    }
+
+    auto nul = dir.find('\0');
+    if (nul != std::string::npos) {
+        dir.resize(nul);
+    }
+    return dir;
+}
+#endif
+
 void* open_package_library(const char* path) {
 #ifdef _WIN32
-    return static_cast<void*>(LoadLibraryA(path));
+    std::string previous_dir = current_dll_directory();
+
+    std::string package_path(path ? path : "");
+    auto slash = package_path.find_last_of("/\\");
+    std::string package_dir = (slash == std::string::npos) ? std::string() : package_path.substr(0, slash);
+
+    if (!package_dir.empty()) {
+        char full_path[MAX_PATH];
+        DWORD full_len = GetFullPathNameA(package_dir.c_str(), MAX_PATH, full_path, nullptr);
+        if (full_len > 0 && full_len < MAX_PATH) {
+            package_dir.assign(full_path, full_len);
+        }
+    }
+
+    SetDllDirectoryA(package_dir.empty() ? nullptr : package_dir.c_str());
+    void* handle = static_cast<void*>(LoadLibraryA(path));
+    SetDllDirectoryA(previous_dir.empty() ? nullptr : previous_dir.c_str());
+    return handle;
 #else
     return dlopen(path, RTLD_NOW | RTLD_LOCAL);
 #endif
@@ -129,6 +168,10 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
         if (entry->library && entry->library[0]) {
             lib = open_package_library(entry->library);
             if (!lib) {
+#ifdef _WIN32
+                DWORD ret1 = GetLastError();
+                printf("Load library %s failed: %d\n", entry->library, ret1);
+#endif
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             }
             void* symbol = find_package_register(lib);

@@ -56,6 +56,21 @@ target("pulse_app")
     add_files("src/pulse_app/src/*.c")
     add_files("src/pulse_app/src/*.cpp")
     add_files("src/pulse_app/src/*.cppm", {public = true})
+    after_build(function (target)
+        -- SDL3 is used by several pulse_* packages; copy its runtime DLL next to the core outputs.
+        local project = import("core.project.project")
+        local pkg = project.required_package("libsdl3")
+        if pkg then
+            local destdir = target:targetdir()
+            local libfiles = pkg:get("libfiles") or {}
+            for _, file in ipairs(libfiles) do
+                local filename = path.filename(file)
+                if filename:find("%.dll") or filename:find("%.so") or filename:find("%.dylib") then
+                    os.cp(file, path.join(destdir, filename))
+                end
+            end
+        end
+    end)
 
 target("pulse_config")
     set_kind("shared")
@@ -176,6 +191,7 @@ target("pulse_renderer")
 target("pulse_imgui")
     set_kind("shared")
     add_rules("pulse.package_output")
+    add_rules("pulse.copy_package_runtime", {packages = {"imgui"}})
     add_defines("PULSE_IMGUI_MODULE_BUILD")
     add_deps("pulse_platform")
     set_exceptions("cxx")

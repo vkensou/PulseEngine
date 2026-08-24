@@ -11,9 +11,6 @@
     {
       "name": "PulseWindowPlugin",
       "library": "packages/pulse_window/pulse_window.dll",
-      "dependencies": [
-        "PulseInputPlugin"
-      ],
       "config": {
         "primary_window": {
           "title": "PulseEngine Snake",
@@ -40,10 +37,6 @@
     {
       "name": "PulseGraphicPlugin",
       "library": "packages/pulse_graphics/pulse_graphics.dll",
-      "dependencies": [
-        "PulseWindowPlugin",
-        "PulseAssetPlugin"
-      ],
       "config": {
         "enable_debug_layer": true,
         "enable_vsync": true
@@ -51,35 +44,15 @@
     },
     {
       "name": "PulseRendererPlugin",
-      "library": "packages/pulse_renderer/pulse_renderer.dll",
-      "dependencies": [
-        "PulseWindowPlugin",
-        "PulseGraphicPlugin",
-        "PulseTransformPlugin"
-      ]
+      "library": "packages/pulse_renderer/pulse_renderer.dll"
     },
     {
       "name": "PulseImguiPlugin",
-      "library": "packages/pulse_imgui/pulse_imgui.dll",
-      "dependencies": [
-        "PulseWindowPlugin",
-        "PulseInputPlugin",
-        "PulseAssetPlugin",
-        "PulseGraphicPlugin"
-      ]
+      "library": "packages/pulse_imgui/pulse_imgui.dll"
     },
     {
       "name": "PulseSnakePlugin",
-      "library": "packages/example-snake/example_snake.dll",
-      "dependencies": [
-        "PulseWindowPlugin",
-        "PulseInputPlugin",
-        "PulseAssetPlugin",
-        "PulseTransformPlugin",
-        "PulseGraphicPlugin",
-        "PulseRendererPlugin",
-        "PulseImguiPlugin"
-      ]
+      "library": "packages/example-snake/example_snake.dll"
     }
   ]
 }
