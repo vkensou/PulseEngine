@@ -61,7 +61,7 @@ typedef struct PulsePackageListEntry
 } PulsePackageListEntry;
 
 
-PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulseAppId app, const PulsePackageListEntry* entries, uint32_t count);
+PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulseAppId app, uint32_t search_path_count, const char** p_search_paths, uint32_t entry_count, const PulsePackageListEntry* p_entries);
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(PulseAppId app, const char* name, PulseProcPackageRegisterFn register_fn);
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulseAppId app);
 

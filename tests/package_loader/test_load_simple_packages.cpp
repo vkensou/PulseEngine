@@ -7,17 +7,18 @@ int main() {
     assert(app != nullptr);
 
     PulsePackageListEntry entries[] = {
-        { "PulseInputPlugin", nullptr },
-        { "PulseTransformPlugin", nullptr },
+        { "pulse_input", nullptr },
+        { "pulse_transform", nullptr },
     };
 
-    assert(pulse_package_loader_load_packages(app, entries, 2) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    const char* search_paths[] = { "packages" };
+    assert(pulse_package_loader_load_packages(app, 1, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "PulseInputPlugin"));
     assert(pulse_app_has_plugin(app, "PulseTransformPlugin"));
 
     // Loading the same package again is a duplicate.
-    PulsePackageListEntry dup = { "PulseInputPlugin", nullptr };
-    assert(pulse_package_loader_load_packages(app, &dup, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_DUPLICATE_PACKAGE);
+    PulsePackageListEntry dup = { "pulse_input", nullptr };
+    assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, &dup) == PULSE_PACKAGE_LOAD_RESULT_ERROR_DUPLICATE_PACKAGE);
     pulse_destroy_app(app);
     pulse_package_loader_cleanup(app);
     return 0;

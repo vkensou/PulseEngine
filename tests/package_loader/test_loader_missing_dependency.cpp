@@ -10,10 +10,11 @@ int main() {
     // reported before any library is opened.  The loader reads package.json
     // itself, so the caller no longer needs to supply dependencies.
     PulsePackageListEntry entries[] = {
-        { "PulseWindowPlugin", nullptr },
+        { "pulse_window", nullptr },
     };
 
-    assert(pulse_package_loader_load_packages(app, entries, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);
+    const char* search_paths[] = { "packages" };
+    assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, entries) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);
 
     pulse_destroy_app(app);
     pulse_package_loader_cleanup(app);

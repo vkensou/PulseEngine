@@ -49,9 +49,11 @@ struct.PackageListEntry
 
 func.PackageLoaderLoadPackages
     "PackageLoadResult::Enum"
-    .app        "PulseAppId"
-    .entries    "*const PackageListEntry"
-    .count      "uint32_t"
+    .app                "PulseAppId"
+    .searchPathCount    "uint32_t"
+    .pSearchPaths       "[*]cstring"
+    .entryCount         "uint32_t"
+    .pEntries           "*const PackageListEntry"
 
 func.PackageLoaderRegisterStaticPackage
     "void"

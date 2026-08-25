@@ -324,7 +324,9 @@ for (size_t i = 0; i < count; ++i) {
     // dependencies：get_array + array_count + array_get + get_string
 }
 
-EPulsePackageLoadResult r = pulse_package_loader_load_packages(app, entries, count);
+// 包搜索路径：按数组顺序依次搜索，靠前的优先级更高
+const char* search_paths[] = { "packages" };
+EPulsePackageLoadResult r = pulse_package_loader_load_packages(app, 1, search_paths, count, entries);
 // load 返回后 entries 可释放，root 可释放
 pulse_config_release(root);
 ```

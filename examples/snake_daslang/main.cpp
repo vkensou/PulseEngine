@@ -66,7 +66,8 @@ int main(void)
         { "pulse_imgui", nullptr },
         { "pulse_daslang", daslang_cfg },
     };
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, packages, 8);
+    const char* search_paths[] = { "packages" };
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, 1, search_paths, 8, packages);
     pulse_config_release(window_cfg);
     pulse_config_release(asset_cfg);
     pulse_config_release(graphics_cfg);

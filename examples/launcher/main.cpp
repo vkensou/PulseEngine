@@ -74,7 +74,8 @@ int main(void)
         entries.push_back(entry);
     }
 
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, entries.data(), (uint32_t)entries.size());
+    const char* search_paths[] = { "packages" };
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, (uint32_t)(sizeof(search_paths) / sizeof(search_paths[0])), search_paths, (uint32_t)entries.size(), entries.data());
 
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK) {
         fprintf(stderr, "failed to load packages, result=%d\n", (int)load_result);

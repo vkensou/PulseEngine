@@ -49,6 +49,7 @@ void close_package_library(void* handle) {
 
 bool iequals(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
+#ifdef _WIN32
     for (size_t i = 0; i < a.size(); ++i) {
         char ca = a[i], cb = b[i];
         if (ca >= 'A' && ca <= 'Z') ca = static_cast<char>(ca - 'A' + 'a');
@@ -56,6 +57,9 @@ bool iequals(const std::string& a, const std::string& b) {
         if (ca != cb) return false;
     }
     return true;
+#else
+    return a == b;
+#endif
 }
 
 std::string join_path(const std::string& a, const std::string& b) {
@@ -124,38 +128,38 @@ std::vector<std::string> list_subdirectories(const std::string& path) {
     return result;
 }
 
-std::string find_package_json(const std::string& package_name) {
-    std::vector<std::string> roots;
-    std::string mod_dir = module_directory();
-    if (!mod_dir.empty()) roots.push_back(mod_dir);
-    roots.push_back(".");
+std::string find_in_packages_root(const std::string& packages_root, const std::string& package_name) {
+    std::string direct = join_path(join_path(packages_root, package_name), "package.json");
+    if (file_exists(direct)) return direct;
 
-    for (const auto& root : roots) {
-        std::string direct = join_path(join_path(join_path(root, "packages"), package_name), "package.json");
-        if (file_exists(direct)) return direct;
-    }
+    for (const auto& dir : list_subdirectories(packages_root)) {
+        std::string candidate = join_path(join_path(packages_root, dir), "package.json");
+        if (!file_exists(candidate)) continue;
 
-    for (const auto& root : roots) {
-        std::string packages_root = join_path(root, "packages");
-        for (const auto& dir : list_subdirectories(packages_root)) {
-            std::string candidate = join_path(join_path(packages_root, dir), "package.json");
-            if (!file_exists(candidate)) continue;
-
-            PulseConfig* cfg = pulse_config_create_from_json_file(candidate.c_str());
-            if (!cfg) continue;
-            const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
-            bool match = manifest_name && manifest_name[0] && iequals(manifest_name, package_name);
-            pulse_config_release(cfg);
-            if (match || iequals(dir, package_name)) return candidate;
-        }
+        PulseConfig* cfg = pulse_config_create_from_json_file(candidate.c_str());
+        if (!cfg) continue;
+        const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
+        bool match = manifest_name && manifest_name[0] && iequals(manifest_name, package_name);
+        pulse_config_release(cfg);
+        if (match || iequals(dir, package_name)) return candidate;
     }
     return {};
 }
 
-bool resolve_package(const char* entry_name, ResolvedPackage& out) {
+std::string find_package_json(const std::string& package_name,
+                              const std::vector<std::string>& search_paths) {
+    for (const auto& sp : search_paths) {
+        if (sp.empty()) continue;
+        std::string found = find_in_packages_root(sp, package_name);
+        if (!found.empty()) return found;
+    }
+    return {};
+}
+
+bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::vector<std::string>& search_paths) {
     if (!entry_name || !entry_name[0]) return false;
 
-    std::string manifest_path = find_package_json(entry_name);
+    std::string manifest_path = find_package_json(entry_name, search_paths);
     if (manifest_path.empty()) return false;
 
     PulseConfig* cfg = pulse_config_create_from_json_file(manifest_path.c_str());
@@ -257,14 +261,20 @@ bool package_name_loaded(PulseAppId app, const std::string& name,
     return false;
 }
 
-EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageListEntry* entries, uint32_t count) {
+EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_count, const char** search_paths, const PulsePackageListEntry* entries, uint32_t count) {
     if (!app || (!entries && count != 0)) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
+    if (search_paths == nullptr && search_path_count != 0) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
     if (count == 0) return PULSE_PACKAGE_LOAD_RESULT_OK;
 
     struct PendingEntry {
         const PulsePackageListEntry* entry;
         ResolvedPackage resolved;
     };
+
+    std::vector<std::string> search_path_roots;
+    search_path_roots.reserve(search_path_count);
+    for (uint32_t i = 0; i < search_path_count; ++i)
+        if (search_paths[i]) search_path_roots.emplace_back(search_paths[i]);
 
     auto& static_packages = static_package_registry()[app];
     std::vector<PendingEntry> pending;
@@ -273,11 +283,11 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
         if (!entries[i].name || !entries[i].name[0]) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
 
         PendingEntry pe{&entries[i], {}};
-        if (!resolve_package(entries[i].name, pe.resolved)) {
+        if (!resolve_package(entries[i].name, pe.resolved, search_path_roots)) {
             // No manifest found: allowed only for static packages.
             if (static_packages.find(entries[i].name) == static_packages.end()) {
-                fprintf(stderr, "package '%s': no manifest found at 'packages/%s/package.json' (and not registered as a static package)\n",
-                        entries[i].name, entries[i].name);
+                fprintf(stderr, "package '%s': no manifest found in any search path (and not registered as a static package)\n",
+                        entries[i].name);
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             }
         }
@@ -376,8 +386,9 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
 extern "C" {
 
 PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(
-    PulseAppId app, const PulsePackageListEntry* entries, uint32_t count) {
-    return load_packages_impl(app, entries, count);
+    PulseAppId app, uint32_t search_path_count, const char** search_paths,
+    uint32_t count, const PulsePackageListEntry* entries) {
+    return load_packages_impl(app, search_path_count, search_paths, entries, count);
 }
 
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(

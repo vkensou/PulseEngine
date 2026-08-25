@@ -1,5 +1,5 @@
 {
-  "name": "PulseWindowPlugin",
+  "name": "pulse_window",
   "version": "1.0.0",
   "library": "pulse_window.dll",
   "entry": "pulse_package_register",

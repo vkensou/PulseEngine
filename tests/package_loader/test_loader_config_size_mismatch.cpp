@@ -10,11 +10,12 @@ int main() {
     // PulseConfig should make register fail and loader report failure.
     PulseConfig* cfg = pulse_config_create();
     PulsePackageListEntry entry = {
-        "PulseInputPlugin",
+        "pulse_input",
         cfg
     };
 
-    assert(pulse_package_loader_load_packages(app, &entry, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
+    const char* search_paths[] = { "packages" };
+    assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
 
     pulse_config_release(cfg);
     pulse_destroy_app(app);

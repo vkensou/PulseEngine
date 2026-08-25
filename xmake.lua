@@ -272,7 +272,6 @@ for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
         set_group("tests")
         set_kind("binary")
         set_default(false)
-        set_rundir("$(projectdir)")
         add_includedirs("tests/package_loader")
         add_deps("pulse_app")
         add_deps("pulse_config")
@@ -281,7 +280,7 @@ for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
         add_deps("pulse_transform")
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")
-        add_tests("default", {group = "package_loader", rundir = "$(projectdir)"})
+        add_tests("default", {group = "package_loader"})
 end
 
 target("test-window")

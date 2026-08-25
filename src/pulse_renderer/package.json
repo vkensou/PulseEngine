@@ -1,5 +1,5 @@
 {
-  "name": "PulseRendererPlugin",
+  "name": "pulse_renderer",
   "version": "1.0.0",
   "library": "pulse_renderer.dll",
   "entry": "pulse_package_register",
