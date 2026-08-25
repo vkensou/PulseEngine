@@ -237,6 +237,15 @@ target("pulse_daslang")
         add_cxflags("/bigobj")
     end
 
+target("launcher")
+    set_group("examples")
+    set_kind("binary")
+    add_deps("pulse_app")
+    add_deps("pulse_config")
+    add_deps("pulse_package_loader")
+    add_files("src/launcher/main.cpp")
+    add_rules("pulse.copy_manifest", {manifest = "src/launcher/launcher.manifest.json"})
+
 for _, test_file in ipairs(os.files("tests/app/test_*.cpp")) do
     local test_name = "test-app-" .. path.basename(test_file):gsub("^test_", "")
     target(test_name)
@@ -444,15 +453,6 @@ target("example-snake")
     add_includedirs("examples/snake", {public = false, order = true})
     add_files("examples/snake/*.cpp")
     add_rules("pulse.package_output")
-
-target("launcher")
-    set_group("examples")
-    set_kind("binary")
-    add_deps("pulse_app")
-    add_deps("pulse_config")
-    add_deps("pulse_package_loader")
-    add_files("examples/launcher/main.cpp")
-    add_rules("pulse.copy_manifest", {manifest = "examples/launcher/launcher.manifest"})
 
 target("example-snake-daslang")
     set_group("examples")
