@@ -1,5 +1,6 @@
 #include "pulse_package_loader.h"
 #include "pulse_config.h"
+#include "pulse_script_register.h"
 #include "pulse_vfs.h"
 
 #include <cstdio>
@@ -29,6 +30,8 @@ struct ResolvedPackage {
     std::string library_path;
     std::string entry_symbol = "pulse_package_register";
     std::string package_dir;
+    std::string type = "native";
+    std::string script_file;
     bool has_assets = false;
     std::vector<std::string> dependencies;
 };
@@ -40,6 +43,11 @@ std::unordered_map<PulseAppId, std::vector<void*>>& package_library_handles() {
 
 std::unordered_map<PulseAppId, std::unordered_map<std::string, PulseProcPackageRegisterFn>>& static_package_registry() {
     static std::unordered_map<PulseAppId, std::unordered_map<std::string, PulseProcPackageRegisterFn>> registry;
+    return registry;
+}
+
+std::unordered_map<std::string, PulseProcScriptPackageLoadFn>& script_runtime_registry() {
+    static std::unordered_map<std::string, PulseProcScriptPackageLoadFn> registry;
     return registry;
 }
 
@@ -178,38 +186,45 @@ bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::ve
 
     out.has_assets = pulse_config_get_bool(cfg, "assets", false);
 
-    // Optional DLL entry symbol; fall back to the default register function.
-    const char* entry_symbol = pulse_config_get_string(cfg, "entry", nullptr);
-    if (entry_symbol && entry_symbol[0]) out.entry_symbol = entry_symbol;
+    const char* type = pulse_config_get_string(cfg, "type", nullptr);
+    out.type = (type && type[0]) ? type : "native";
 
-    const char* library = pulse_config_get_string(cfg, "library", nullptr);
-    const bool library_absolute = library && library[0] && (library[0] == '/' || library[0] == '\\' || library[1] == ':');
-    if (library && library[0]) {
-        out.library_path = library_absolute
-                               ? library
-                               : join_path(package_dir, library);
-    } else {
-        std::string base = package_dir;
-        auto last = base.find_last_of("/\\");
-        base = (last == std::string::npos) ? base : base.substr(last + 1);
-        if (base.empty()) base = entry_name;
+    const char* script_file = pulse_config_get_string(cfg, "script_file", nullptr);
+    if (script_file && script_file[0]) out.script_file = script_file;
+
+    if (out.type == "native") {
+        // Optional DLL entry symbol; fall back to the default register function.
+        const char* entry_symbol = pulse_config_get_string(cfg, "entry", nullptr);
+        if (entry_symbol && entry_symbol[0]) out.entry_symbol = entry_symbol;
+
+        const char* library = pulse_config_get_string(cfg, "library", nullptr);
+        const bool library_absolute = library && library[0] && (library[0] == '/' || library[0] == '\\' || library[1] == ':');
+        if (library && library[0]) {
+            out.library_path = library_absolute
+                                   ? library
+                                   : join_path(package_dir, library);
+        } else {
+            std::string base = package_dir;
+            auto last = base.find_last_of("/\\");
+            base = (last == std::string::npos) ? base : base.substr(last + 1);
+            if (base.empty()) base = entry_name;
 #ifdef _WIN32
-        out.library_path = join_path(package_dir, base + ".dll");
+            out.library_path = join_path(package_dir, base + ".dll");
 #elif defined(__APPLE__)
-        out.library_path = join_path(package_dir, "lib" + base + ".dylib");
+            out.library_path = join_path(package_dir, "lib" + base + ".dylib");
 #else
-        out.library_path = join_path(package_dir, "lib" + base + ".so");
+            out.library_path = join_path(package_dir, "lib" + base + ".so");
 #endif
-    }
+        }
 
-    if (!library_absolute && !file_exists(out.library_path)) {
-        auto slash = out.library_path.find_last_of("/\\");
-        if (slash != std::string::npos) {
-            printf("library '%s' not found beside package manifest, falling back to name search\n", out.library_path.c_str());
-            out.library_path = out.library_path.substr(slash + 1);
+        if (!library_absolute && !file_exists(out.library_path)) {
+            auto slash = out.library_path.find_last_of("/\\");
+            if (slash != std::string::npos) {
+                printf("library '%s' not found beside package manifest, falling back to name search\n", out.library_path.c_str());
+                out.library_path = out.library_path.substr(slash + 1);
+            }
         }
     }
-
     if (PulseConfigArray* dep_arr = pulse_config_get_array(cfg, "dependencies")) {
         const size_t dep_count = pulse_config_array_count(dep_arr);
         out.dependencies.reserve(dep_count);
@@ -270,6 +285,27 @@ void* find_package_register(void* handle, const char* entry_symbol) {
 #endif
 }
 
+void register_script_runtimes(void* lib) {
+    void* symbol = find_package_register(lib, PULSE_PACKAGE_GET_RUNTIMES_SYMBOL);
+    if (!symbol) return;
+
+    auto get_runtimes = reinterpret_cast<PulseProcPackageGetRuntimesFn>(symbol);
+    const PulseScriptRuntimeDesc* runtimes = nullptr;
+    const uint32_t count = get_runtimes(&runtimes);
+    if (!runtimes) return;
+
+    auto& registry = script_runtime_registry();
+    for (uint32_t i = 0; i < count; ++i) {
+        const PulseScriptRuntimeDesc& desc = runtimes[i];
+        if (!desc.type || !desc.type[0] || !desc.load) continue;
+        if (registry.emplace(desc.type, desc.load).second) {
+            printf("script runtime registered: %s\n", desc.type);
+        } else {
+            printf("warning: script runtime '%s' already registered, keeping the first one\n", desc.type);
+        }
+    }
+}
+
 bool package_name_loaded(PulseAppId app, const std::string& name,
                          const std::vector<std::string>& loaded,
                          const std::unordered_map<std::string, std::string>& manifest_names) {
@@ -310,6 +346,11 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
                         entries[i].name);
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             }
+        }
+        if (pe.resolved.type != "native" && pe.resolved.script_file.empty()) {
+            fprintf(stderr, "package '%s': type '%s' requires 'script_file' in package.json\n",
+                    entries[i].name, pe.resolved.type.c_str());
+            return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
         }
         if (pulse_app_has_plugin(app, entries[i].name) ||
             (!pe.resolved.manifest_name.empty() && pulse_app_has_plugin(app, pe.resolved.manifest_name.c_str())))
@@ -369,6 +410,32 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
     auto& handles = package_library_handles();
     for (size_t idx : order) {
         const auto& pe = pending[idx];
+
+        if (pe.resolved.has_assets && !pe.resolved.package_dir.empty()) {
+            pulse_vfs_add_content_root(pe.resolved.package_dir.c_str());
+        }
+
+        if (pe.resolved.type != "native") {
+            auto& registry = script_runtime_registry();
+            auto runtime = registry.find(pe.resolved.type);
+            if (runtime == registry.end()) {
+                fprintf(stderr, "package '%s': no script runtime registered for type '%s'\n",
+                        pe.entry->name, pe.resolved.type.c_str());
+                return PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME;
+            }
+
+            PulsePackageScriptInfo info = {
+                pe.entry->name,
+                pe.resolved.package_dir.c_str(),
+                pe.resolved.script_file.c_str(),
+                pe.entry->config,
+            };
+            if (runtime->second(app, &info) != PULSE_RESULT_OK) {
+                return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
+            }
+            continue;
+        }
+
         PulsePackageRegisterFn fn = nullptr;
         void* lib = nullptr;
 
@@ -392,15 +459,14 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
             fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
         }
 
-        if (pe.resolved.has_assets && !pe.resolved.package_dir.empty()) {
-            pulse_vfs_add_content_root(pe.resolved.package_dir.c_str());
-        }
-
         if (fn(app, pe.entry->config) != PULSE_RESULT_OK) {
             if (lib) close_package_library(lib);
             return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
         }
-        if (lib) handles[app].push_back(lib);
+        if (lib) {
+            register_script_runtimes(lib);
+            handles[app].push_back(lib);
+        }
     }
     return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
@@ -431,6 +497,8 @@ PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulseAppId app) {
     auto& static_packages = static_package_registry();
     auto sm_it = static_packages.find(app);
     if (sm_it != static_packages.end()) static_packages.erase(sm_it);
+
+    script_runtime_registry().clear();
 }
 
 } // extern "C"
