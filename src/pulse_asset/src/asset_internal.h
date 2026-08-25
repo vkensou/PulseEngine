@@ -94,7 +94,6 @@ public:
     static std::pmr::string normalize_extension(const char* extension, std::pmr::memory_resource* resource);
     static std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std::pmr::memory_resource* resource);
     static std::pmr::string extension_from_path(const std::pmr::string& path, std::pmr::memory_resource* resource);
-    static std::pmr::string join_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource);
     static std::optional<std::pmr::vector<uint8_t>> read_file(const char* filename, std::pmr::memory_resource* resource);
 };
 
@@ -379,7 +378,6 @@ public:
 
     PulseAppId app() const { return app_; }
     uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }
-    const std::pmr::string& root_path() const { return root_path_; }
     std::pmr::memory_resource* resource() { return &memory_pool_; }
     AssetRegistry& registry() { return registry_; }
     const AssetRegistry& registry() const { return registry_; }
@@ -391,7 +389,6 @@ private:
     PulseAppId app_ = nullptr;
     PulseAssetPluginDesc desc_{};
     std::pmr::unsynchronized_pool_resource memory_pool_;
-    std::pmr::string root_path_;
     ecs_entity_t process_system_ = 0;
     AssetRegistry registry_;
     AssetStorage storage_;

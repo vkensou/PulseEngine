@@ -1,0 +1,56 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- Operation result codes for VFS calls
+enum.VfsResult { underscore, comment = "Pulse VFS operation result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorNotFound
+    .ErrorInternal
+    ()
+
+func.VfsAddContentRoot
+    "VfsResult::Enum"
+    .rootPath "cstring"
+    ()
+
+func.VfsResolvePath
+    "bool"
+    .path "cstring"
+    .outPath "*char"
+    .outPathSize "size_t"
+    ()
+
+func.VfsFileExists
+    "bool"
+    .path "cstring"
+    ()
+
+func.VfsReadFile
+    "bool"
+    .path "cstring"
+    .outData "?**anyopaque"
+    .outSize "?*uint64_t"
+    ()
+
+func.VfsFreeBuffer
+    "void"
+    .data "?*anyopaque"
+    ()

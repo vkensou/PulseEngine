@@ -16,7 +16,6 @@ bool handles_equal(PulseAssetHandle a, PulseAssetHandle b) {
 
 AssetSystem::AssetSystem(const PulseAssetPluginDesc& desc)
     : desc_(desc),
-      root_path_(desc.root_path ? desc.root_path : "", &memory_pool_),
       registry_(&memory_pool_),
       storage_(&memory_pool_, registry_),
       load_queue_(&memory_pool_) {

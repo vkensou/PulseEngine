@@ -264,7 +264,6 @@ typedef struct PulseAssetPluginDesc
 {
     uint32_t             struct_size;
     uint32_t             version;
-    const char*          root_path;
     uint32_t             max_requests_per_update;
 
 } PulseAssetPluginDesc;

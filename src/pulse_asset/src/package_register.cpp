@@ -13,7 +13,6 @@ extern "C" {
     PULSE_ASSET_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     if (config) {
-        desc.root_path = pulse_config_get_string(config, "root_path", desc.root_path);
         desc.max_requests_per_update = (uint32_t)pulse_config_get_int(config, "max_requests_per_update", desc.max_requests_per_update);
     }
     EPulseAppAddPluginResult r = pulse_add_asset_plugin(app, &desc);

@@ -5,6 +5,7 @@
 
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_vfs.h"
 #include "pulse_input.h"
 #include "pulse_window.h"
 #include "pulse_graphics.h"
@@ -350,7 +351,7 @@ int main(void) {
     assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
-    asset_desc.root_path = "tests/graphics/data";
+    assert(pulse_vfs_add_content_root("tests/graphics/data") == PULSE_VFS_RESULT_OK);
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Add pulse_graphic plugin

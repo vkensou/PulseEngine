@@ -1,5 +1,6 @@
 #include "pulse_package_loader.h"
 #include "pulse_config.h"
+#include "pulse_vfs.h"
 
 #include <cstdio>
 #include <cstring>
@@ -27,6 +28,8 @@ struct ResolvedPackage {
     std::string manifest_name;
     std::string library_path;
     std::string entry_symbol = "pulse_package_register";
+    std::string package_dir;
+    bool has_assets = false;
     std::vector<std::string> dependencies;
 };
 
@@ -168,9 +171,12 @@ bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::ve
 
     auto slash = manifest_path.find_last_of("/\\");
     std::string package_dir = slash == std::string::npos ? std::string() : manifest_path.substr(0, slash);
+    out.package_dir = package_dir;
 
     const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
     out.manifest_name = (manifest_name && manifest_name[0]) ? manifest_name : entry_name;
+
+    out.has_assets = pulse_config_get_bool(cfg, "assets", false);
 
     // Optional DLL entry symbol; fall back to the default register function.
     const char* entry_symbol = pulse_config_get_string(cfg, "entry", nullptr);
@@ -375,6 +381,10 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
             auto it = static_packages.find(pe.entry->name ? pe.entry->name : "");
             if (it == static_packages.end()) return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
+        }
+
+        if (pe.resolved.has_assets && !pe.resolved.package_dir.empty()) {
+            pulse_vfs_add_content_root(pe.resolved.package_dir.c_str());
         }
 
         if (fn(app, pe.entry->config) != PULSE_RESULT_OK) {

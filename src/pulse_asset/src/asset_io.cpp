@@ -1,6 +1,6 @@
 #include "asset_internal.h"
 
-#include <SDL3/SDL.h>
+#include "pulse_vfs.h"
 #include <algorithm>
 
 namespace pulse::asset {
@@ -140,50 +140,19 @@ std::pmr::string AssetIo::extension_from_path(const std::pmr::string& path, std:
     return normalize_extension(path.c_str() + dot + 1, resource);
 }
 
-std::pmr::string AssetIo::join_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource) {
-    if (root_path.empty()) {
-        return std::pmr::string(path, resource);
-    }
-
-    std::pmr::string out(root_path, resource);
-    if (root_path.back() == '/' || root_path.back() == '\\') {
-        out += path;
-        return out;
-    }
-    out.push_back('/');
-    out += path;
-    return out;
-}
-
 std::optional<std::pmr::vector<uint8_t>> AssetIo::read_file(const char* filename, std::pmr::memory_resource* resource) {
-    SDL_IOStream* stream = SDL_IOFromFile(filename, "rb");
-    if (!stream) {
-        return std::optional<std::pmr::vector<uint8_t>>{};
-    }
-
-    Sint64 size = SDL_GetIOSize(stream);
-    if (size < 0) {
-        SDL_CloseIO(stream);
-        return std::optional<std::pmr::vector<uint8_t>>{};
-    }
-    if (static_cast<uint64_t>(size) > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
-        SDL_CloseIO(stream);
+    void* data = nullptr;
+    uint64_t size = 0;
+    if (!pulse_vfs_read_file(filename, &data, &size)) {
         return std::optional<std::pmr::vector<uint8_t>>{};
     }
 
     std::pmr::vector<uint8_t> buffer(resource);
-    buffer.resize(static_cast<size_t>(size));
-    size_t read = 0;
-    while (read < buffer.size()) {
-        size_t chunk = SDL_ReadIO(stream, buffer.data() + read, buffer.size() - read);
-        if (chunk == 0) {
-            SDL_CloseIO(stream);
-            return std::optional<std::pmr::vector<uint8_t>>{};
-        }
-        read += chunk;
+    if (size > 0) {
+        buffer.resize(static_cast<size_t>(size));
+        std::memcpy(buffer.data(), data, static_cast<size_t>(size));
     }
-
-    SDL_CloseIO(stream);
+    pulse_vfs_free_buffer(data);
     return std::move(buffer);
 }
 

@@ -166,7 +166,6 @@ struct.AssetLoadDependencyHint()
 struct.AssetPluginDesc
     .structSize             "uint32_t"
     .version                "uint32_t"
-    .rootPath               "cstring"
     .maxRequestsPerUpdate   "uint32_t"
     ()
 

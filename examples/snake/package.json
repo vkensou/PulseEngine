@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "library": "example_snake.dll",
   "entry": "pulse_package_register",
+  "assets": true,
   "dependencies": [
     "pulse_window",
     "pulse_input",

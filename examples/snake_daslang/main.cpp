@@ -14,6 +14,7 @@
 #include "pulse_app.h"
 #include "pulse_config.h"
 #include "pulse_package_loader.h"
+#include "pulse_vfs.h"
 #include "pulse_window.h"
 #include "pulse_input.h"
 #include "pulse_asset.h"
@@ -46,7 +47,7 @@ int main(void)
     }
 
     PulseConfig* asset_cfg = pulse_config_create();
-    pulse_config_set_string(asset_cfg, "root_path", "examples/snake/assets");
+    pulse_vfs_add_content_root("examples/snake/assets");
     pulse_config_set_int(asset_cfg, "max_requests_per_update", 8);
 
     PulseConfig* graphics_cfg = pulse_config_create();

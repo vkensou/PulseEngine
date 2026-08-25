@@ -23,7 +23,6 @@
     {
       "name": "pulse_asset",
       "config": {
-        "root_path": "assets",
         "max_requests_per_update": 64
       }
     },

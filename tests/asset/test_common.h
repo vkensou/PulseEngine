@@ -12,6 +12,11 @@
 
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_vfs.h"
+
+static void asset_test_add_root(const char* root) {
+    assert(pulse_vfs_add_content_root(root) == PULSE_VFS_RESULT_OK);
+}
 
 static PulseAssetRequest load_asset_file(
     PulseAssetSystemId assetSystem,

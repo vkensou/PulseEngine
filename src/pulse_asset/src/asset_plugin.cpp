@@ -21,7 +21,6 @@ PulseAssetPluginDesc default_plugin_desc() {
     PulseAssetPluginDesc desc{};
     desc.struct_size = sizeof(PulseAssetPluginDesc);
     desc.version = PULSE_ASSET_PLUGIN_DESC_VERSION;
-    desc.root_path = "assets";
     desc.max_requests_per_update = 8;
     return desc;
 }
@@ -33,9 +32,6 @@ PulseAssetPluginDesc normalize_plugin_desc(const PulseAssetPluginDesc* desc) {
     }
     normalized.struct_size = sizeof(PulseAssetPluginDesc);
     normalized.version = PULSE_ASSET_PLUGIN_DESC_VERSION;
-    if (!normalized.root_path || !normalized.root_path[0]) {
-        normalized.root_path = ".";
-    }
     if (normalized.max_requests_per_update == 0) {
         normalized.max_requests_per_update = 8;
     }
