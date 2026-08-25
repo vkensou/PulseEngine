@@ -45,10 +45,7 @@ funcptr.PackageRegisterFn
 
 struct.PackageListEntry
     .name           "cstring"
-    .library        "?cstring"
     .config         "?*Config"
-    .dependencyCount "uint32_t"
-    .dependencies   "*cstring"
 
 func.PackageLoaderLoadPackages
     "PackageLoadResult::Enum"

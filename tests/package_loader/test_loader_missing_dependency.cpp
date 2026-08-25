@@ -7,10 +7,10 @@ int main() {
     assert(app != nullptr);
 
     // pulse_window depends on pulse_input; omitting it from the list should be
-    // reported before any library is opened.
-    const char* window_deps[] = { "PulseInputPlugin" };
+    // reported before any library is opened.  The loader reads package.json
+    // itself, so the caller no longer needs to supply dependencies.
     PulsePackageListEntry entries[] = {
-        { "PulseWindowPlugin", "pulse_window.dll", nullptr, 1, window_deps },
+        { "PulseWindowPlugin", nullptr },
     };
 
     assert(pulse_package_loader_load_packages(app, entries, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);

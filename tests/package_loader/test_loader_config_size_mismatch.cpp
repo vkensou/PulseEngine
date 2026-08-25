@@ -11,10 +11,7 @@ int main() {
     PulseConfig* cfg = pulse_config_create();
     PulsePackageListEntry entry = {
         "PulseInputPlugin",
-        "pulse_input.dll",
-        cfg,
-        0,
-        nullptr
+        cfg
     };
 
     assert(pulse_package_loader_load_packages(app, &entry, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);

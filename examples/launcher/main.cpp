@@ -4,17 +4,17 @@
 // 这个 launcher 不链接任何具体的 pulse_* 插件，只链接：
 //   - pulse_app            创建/运行 app
 //   - pulse_package_loader 动态加载 package
-//   - pulse_config         读取 packages.json 并传递配置树
+//   - pulse_config         读取 launcher.manifest 并传递配置树
 //
-// 所有插件（包括 example-snake 本身）都通过 packages.json 在运行时
-// 加载；每个包的 config 子对象以 PulseConfig* 借用形式传给插件。
+// launcher 只负责获取需要加载的包列表及其 config；
+// 每个包自己的 package.json（library、dependencies 等）由
+// pulse_package_loader 内部读取和解析。
 // ============================================================
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 
-#include <string>
 #include <vector>
 
 #include "pulse_app.h"
@@ -49,11 +49,7 @@ int main(void)
 
     const size_t count = pulse_config_array_count(packages);
     std::vector<PulsePackageListEntry> entries;
-    std::vector<std::vector<std::string>> dependency_storage;
-    std::vector<std::vector<const char*>> dependency_ptrs;
     entries.reserve(count);
-    dependency_storage.reserve(count);
-    dependency_ptrs.reserve(count);
 
     for (size_t i = 0; i < count; ++i) {
         PulseConfig* pkg = pulse_config_array_get(packages, i);
@@ -66,61 +62,15 @@ int main(void)
         }
 
         PulsePackageListEntry entry = {};
-        entry.name    = pulse_config_get_string(pkg, "name", nullptr);
-        entry.library = pulse_config_get_string(pkg, "library", nullptr);
-        entry.config  = pulse_config_get_obj(pkg, "config");
-
-        dependency_storage.emplace_back();
-        dependency_ptrs.emplace_back();
-
-        if (entry.library && entry.library[0]) {
-            std::string library_path(entry.library);
-            std::string::size_type slash = library_path.find_last_of("/\\");
-            std::string package_json_path = (slash == std::string::npos)
-                ? "package.json"
-                : library_path.substr(0, slash + 1) + "package.json";
-
-            PulseConfig* package_json = pulse_config_create_from_json_file(package_json_path.c_str());
-            if (!package_json) {
-                fprintf(stderr, "bad package manifest %s: %s\n", package_json_path.c_str(), pulse_config_last_error());
-                pulse_config_release(root);
-                pulse_destroy_app(app);
-                pulse_package_loader_cleanup(app);
-                return 1;
-            }
-
-            PulseConfigArray* dep_arr = pulse_config_get_array(package_json, "dependencies");
-            if (dep_arr) {
-                const size_t dep_count = pulse_config_array_count(dep_arr);
-                dependency_storage.back().reserve(dep_count);
-                dependency_ptrs.back().reserve(dep_count);
-                for (size_t d = 0; d < dep_count; ++d) {
-                    PulseConfig* dep = pulse_config_array_get(dep_arr, d);
-                    const char* dep_name = dep ? pulse_config_get_string(dep, nullptr, nullptr) : nullptr;
-                    if (!dep_name) {
-                        fprintf(stderr, "bad dependency entry %zu in %s\n", d, package_json_path.c_str());
-                        pulse_config_release(package_json);
-                        pulse_config_release(root);
-                        pulse_destroy_app(app);
-                        pulse_package_loader_cleanup(app);
-                        return 1;
-                    }
-                    dependency_storage.back().push_back(dep_name);
-                    dependency_ptrs.back().push_back(dependency_storage.back().back().c_str());
-                }
-            }
-
-            entry.dependency_count = (uint32_t)dependency_ptrs.back().size();
-            if (!dependency_ptrs.back().empty()) {
-                entry.dependencies = dependency_ptrs.back().data();
-            }
-
-            pulse_config_release(package_json);
-        } else {
-            entry.dependency_count = 0;
-            entry.dependencies = nullptr;
+        entry.name = pulse_config_get_string(pkg, "name", nullptr);
+        if (!entry.name || !entry.name[0]) {
+            fprintf(stderr, "bad launcher.manifest: missing 'name' at index %zu\n", i);
+            pulse_config_release(root);
+            pulse_destroy_app(app);
+            pulse_package_loader_cleanup(app);
+            return 1;
         }
-
+        entry.config = pulse_config_get_obj(pkg, "config");
         entries.push_back(entry);
     }
 

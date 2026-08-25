@@ -1,8 +1,11 @@
 #include "pulse_package_loader.h"
+#include "pulse_config.h"
 
-#include <string>
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN32
@@ -12,11 +15,20 @@
 #include <windows.h>
 #else
 #include <dlfcn.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #endif
 
 namespace {
 
 using PulsePackageRegisterFn = EPulseResult (*)(PulseAppId, PulseConfig*);
+
+struct ResolvedPackage
+{
+    std::string manifest_name;   // "name" field of package.json (may differ from the entry name)
+    std::string library_path;
+    std::vector<std::string> dependencies;
+};
 
 std::unordered_map<PulseAppId, std::vector<void*>>& package_library_handles() {
     static std::unordered_map<PulseAppId, std::vector<void*>> handles;
@@ -34,6 +46,218 @@ void close_package_library(void* handle) {
 #else
     if (handle) dlclose(handle);
 #endif
+}
+
+bool iequals(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < a.size(); ++i) {
+        char ca = a[i];
+        char cb = b[i];
+        if (ca >= 'A' && ca <= 'Z') ca = static_cast<char>(ca - 'A' + 'a');
+        if (cb >= 'A' && cb <= 'Z') cb = static_cast<char>(cb - 'A' + 'a');
+        if (ca != cb) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string join_path(const std::string& a, const std::string& b) {
+    if (a.empty()) {
+        return b;
+    }
+    char last = a[a.size() - 1];
+    if (last == '/' || last == '\\') {
+        return a + b;
+    }
+    return a + "/" + b;
+}
+
+bool file_exists(const std::string& path) {
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesA(path.c_str());
+    return attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+#else
+    struct stat st;
+    return ::stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+#endif
+}
+
+std::string module_directory() {
+#ifdef _WIN32
+    HMODULE mod = nullptr;
+    if (!GetModuleHandleExA(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCSTR>(&module_directory),
+            &mod)) {
+        return {};
+    }
+
+    char path[MAX_PATH];
+    DWORD len = GetModuleFileNameA(mod, path, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) {
+        return {};
+    }
+
+    std::string full(path, len);
+    auto slash = full.find_last_of("/\\");
+    if (slash == std::string::npos) {
+        return {};
+    }
+    return full.substr(0, slash);
+#else
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void*>(&module_directory), &info) && info.dli_fname) {
+        std::string full(info.dli_fname);
+        auto slash = full.find_last_of('/');
+        if (slash == std::string::npos) {
+            return {};
+        }
+        return full.substr(0, slash);
+    }
+    return {};
+#endif
+}
+
+std::vector<std::string> list_subdirectories(const std::string& path) {
+    std::vector<std::string> result;
+#ifdef _WIN32
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA((path + "\\*").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) {
+        return result;
+    }
+    do {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            const char* name = fd.cFileName;
+            if (std::strcmp(name, ".") != 0 && std::strcmp(name, "..") != 0) {
+                result.push_back(name);
+            }
+        }
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+#else
+    DIR* dir = opendir(path.c_str());
+    if (!dir) {
+        return result;
+    }
+    while (struct dirent* ent = readdir(dir)) {
+        if (ent->d_type == DT_DIR) {
+            const char* name = ent->d_name;
+            if (std::strcmp(name, ".") != 0 && std::strcmp(name, "..") != 0) {
+                result.push_back(name);
+            }
+        }
+    }
+    closedir(dir);
+#endif
+    return result;
+}
+
+std::string find_package_json(const std::string& package_name) {
+    std::vector<std::string> roots;
+    std::string mod_dir = module_directory();
+    if (!mod_dir.empty()) {
+        roots.push_back(mod_dir);
+    }
+    roots.push_back(".");
+
+    for (const auto& root : roots) {
+        std::string packages_root = join_path(root, "packages");
+        std::string direct = join_path(join_path(packages_root, package_name), "package.json");
+        if (file_exists(direct)) {
+            return direct;
+        }
+    }
+
+    for (const auto& root : roots) {
+        std::string packages_root = join_path(root, "packages");
+        std::vector<std::string> dirs = list_subdirectories(packages_root);
+        for (const auto& dir : dirs) {
+            std::string candidate = join_path(join_path(packages_root, dir), "package.json");
+            if (!file_exists(candidate)) {
+                continue;
+            }
+            PulseConfig* cfg = pulse_config_create_from_json_file(candidate.c_str());
+            if (!cfg) {
+                continue;
+            }
+            const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
+            bool match = manifest_name && manifest_name[0] && iequals(manifest_name, package_name);
+            pulse_config_release(cfg);
+            if (match || iequals(dir, package_name)) {
+                return candidate;
+            }
+        }
+    }
+
+    return {};
+}
+
+bool resolve_package(const char* entry_name, ResolvedPackage& out) {
+    if (!entry_name || !entry_name[0]) {
+        return false;
+    }
+
+    std::string manifest_path = find_package_json(entry_name);
+    if (manifest_path.empty()) {
+        return false;
+    }
+
+    PulseConfig* cfg = pulse_config_create_from_json_file(manifest_path.c_str());
+    if (!cfg) {
+        return false;
+    }
+
+    std::string package_dir;
+    auto slash = manifest_path.find_last_of("/\\");
+    if (slash != std::string::npos) {
+        package_dir = manifest_path.substr(0, slash);
+    }
+
+    const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
+    out.manifest_name = (manifest_name && manifest_name[0]) ? manifest_name : (entry_name ? entry_name : "");
+
+    const char* library = pulse_config_get_string(cfg, "library", nullptr);
+    if (library && library[0]) {
+        if (library[0] == '/' || library[0] == '\\' || (library[0] && library[1] == ':')) {
+            out.library_path = library;
+        } else {
+            out.library_path = join_path(package_dir, library);
+        }
+    } else {
+        std::string base;
+        auto last = package_dir.find_last_of("/\\");
+        base = (last == std::string::npos) ? package_dir : package_dir.substr(last + 1);
+        if (base.empty()) {
+            base = entry_name;
+        }
+#ifdef _WIN32
+        out.library_path = join_path(package_dir, base + ".dll");
+#elif defined(__APPLE__)
+        out.library_path = join_path(package_dir, "lib" + base + ".dylib");
+#else
+        out.library_path = join_path(package_dir, "lib" + base + ".so");
+#endif
+    }
+
+    PulseConfigArray* dep_arr = pulse_config_get_array(cfg, "dependencies");
+    if (dep_arr) {
+        const size_t dep_count = pulse_config_array_count(dep_arr);
+        out.dependencies.reserve(dep_count);
+        for (size_t i = 0; i < dep_count; ++i) {
+            PulseConfig* dep = pulse_config_array_get(dep_arr, i);
+            const char* dep_name = dep ? pulse_config_get_string(dep, nullptr, nullptr) : nullptr;
+            if (dep_name && dep_name[0]) {
+                out.dependencies.emplace_back(dep_name);
+            }
+        }
+    }
+
+    pulse_config_release(cfg);
+    return true;
 }
 
 #ifdef _WIN32
@@ -90,12 +314,18 @@ void* find_package_register(void* handle) {
 #endif
 }
 
-bool package_name_loaded(PulseAppId app, const char* name, const std::vector<std::string>& loaded) {
-    if (pulse_app_has_plugin(app, name)) {
+bool package_name_loaded(PulseAppId app, const std::string& name,
+                         const std::vector<std::string>& loaded,
+                         const std::unordered_map<std::string, std::string>& manifest_names) {
+    if (pulse_app_has_plugin(app, name.c_str())) {
+        return true;
+    }
+    auto it = manifest_names.find(name);
+    if (it != manifest_names.end() && !it->second.empty() && pulse_app_has_plugin(app, it->second.c_str())) {
         return true;
     }
     for (const auto& item : loaded) {
-        if (item == name) {
+        if (iequals(item, name)) {
             return true;
         }
     }
@@ -110,48 +340,93 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
         return PULSE_PACKAGE_LOAD_RESULT_OK;
     }
 
-    std::vector<const PulsePackageListEntry*> remaining;
-    remaining.reserve(count);
+    struct PendingEntry {
+        const PulsePackageListEntry* entry;
+        ResolvedPackage resolved;
+    };
+
+    auto& static_packages = static_package_registry()[app];
+    std::vector<PendingEntry> pending;
+    pending.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
         if (!entries[i].name || !entries[i].name[0]) {
             return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
         }
-        if (pulse_app_has_plugin(app, entries[i].name)) {
+        PendingEntry pe;
+        pe.entry = &entries[i];
+        if (!resolve_package(entries[i].name, pe.resolved)) {
+            // No package.json found: this is only allowed for packages that
+            // were registered through pulse_package_loader_register_static_package.
+            if (static_packages.find(entries[i].name) == static_packages.end()) {
+                fprintf(stderr, "package '%s': no manifest found at 'packages/%s/package.json' (and not registered as a static package)\n",
+                        entries[i].name, entries[i].name);
+                return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
+            }
+        }
+        if (pulse_app_has_plugin(app, entries[i].name) ||
+            (!pe.resolved.manifest_name.empty() && pulse_app_has_plugin(app, pe.resolved.manifest_name.c_str()))) {
             return PULSE_PACKAGE_LOAD_RESULT_ERROR_DUPLICATE_PACKAGE;
         }
-        remaining.push_back(&entries[i]);
+        pending.push_back(std::move(pe));
     }
 
-    std::vector<const PulsePackageListEntry*> order;
+    std::vector<bool> loaded_flag(count, false);
+    std::vector<size_t> order;
     std::vector<std::string> loaded;
-    bool progress = true;
-    while (!remaining.empty() && progress) {
-        progress = false;
-        for (auto it = remaining.begin(); it != remaining.end(); ) {
+    std::unordered_map<std::string, std::string> manifest_names;
+    for (const auto& pe : pending) {
+        if (!pe.resolved.manifest_name.empty()) {
+            manifest_names.emplace(pe.entry->name, pe.resolved.manifest_name);
+        }
+    }
+    size_t remaining_count = count;
+    while (remaining_count > 0) {
+        bool progress = false;
+        for (size_t i = 0; i < count; ++i) {
+            if (loaded_flag[i]) {
+                continue;
+            }
             bool ready = true;
-            for (uint32_t d = 0; d < (*it)->dependency_count; ++d) {
-                const char* dep = (*it)->dependencies ? (*it)->dependencies[d] : nullptr;
-                if (!dep || !package_name_loaded(app, dep, loaded)) {
+            for (const auto& dep : pending[i].resolved.dependencies) {
+                if (!package_name_loaded(app, dep, loaded, manifest_names)) {
                     ready = false;
                     break;
                 }
             }
             if (!ready) {
-                ++it;
                 continue;
             }
-            order.push_back(*it);
-            loaded.emplace_back((*it)->name);
-            it = remaining.erase(it);
+            loaded_flag[i] = true;
+            order.push_back(i);
+            loaded.emplace_back(pending[i].entry->name);
+            if (!pending[i].resolved.manifest_name.empty() && pending[i].resolved.manifest_name != pending[i].entry->name) {
+                loaded.emplace_back(pending[i].resolved.manifest_name);
+            }
+            --remaining_count;
             progress = true;
+        }
+        if (!progress) {
+            break;
         }
     }
 
-    if (!remaining.empty()) {
-        for (const auto* entry : remaining) {
-            for (uint32_t d = 0; d < entry->dependency_count; ++d) {
-                const char* dep = entry->dependencies ? entry->dependencies[d] : nullptr;
-                if (!dep || !package_name_loaded(app, dep, loaded)) {
+    if (remaining_count > 0) {
+        for (size_t i = 0; i < count; ++i) {
+            if (loaded_flag[i]) {
+                continue;
+            }
+            for (const auto& dep : pending[i].resolved.dependencies) {
+                if (package_name_loaded(app, dep, loaded, manifest_names)) {
+                    continue;
+                }
+                bool in_pending = false;
+                for (size_t j = 0; j < count; ++j) {
+                    if (!loaded_flag[j] && iequals(pending[j].entry->name, dep)) {
+                        in_pending = true;
+                        break;
+                    }
+                }
+                if (!in_pending) {
                     return PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY;
                 }
             }
@@ -160,17 +435,17 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
     }
 
     auto& handles = package_library_handles();
-    auto& static_packages = static_package_registry()[app];
-    for (const auto* entry : order) {
+    for (size_t idx : order) {
+        const auto& pe = pending[idx];
         PulsePackageRegisterFn fn = nullptr;
         void* lib = nullptr;
 
-        if (entry->library && entry->library[0]) {
-            lib = open_package_library(entry->library);
+        if (!pe.resolved.library_path.empty()) {
+            lib = open_package_library(pe.resolved.library_path.c_str());
             if (!lib) {
 #ifdef _WIN32
                 DWORD ret1 = GetLastError();
-                printf("Load library %s failed: %d\n", entry->library, ret1);
+                printf("Load library %s failed: %d\n", pe.resolved.library_path.c_str(), ret1);
 #endif
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             }
@@ -181,14 +456,14 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, const PulsePackageLis
             }
             fn = reinterpret_cast<PulsePackageRegisterFn>(symbol);
         } else {
-            auto it = static_packages.find(entry->name ? entry->name : "");
+            auto it = static_packages.find(pe.entry->name ? pe.entry->name : "");
             if (it == static_packages.end()) {
-                return PULSE_PACKAGE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND;
+                return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             }
             fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
         }
 
-        EPulseResult result = fn(app, entry->config);
+        EPulseResult result = fn(app, pe.entry->config);
         if (result != PULSE_RESULT_OK) {
             if (lib) {
                 close_package_library(lib);

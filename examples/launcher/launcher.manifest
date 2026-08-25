@@ -41,10 +41,10 @@
       "name": "pulse_renderer"
     },
     {
-      "name": "pulse_imgui",
+      "name": "pulse_imgui"
     },
     {
-      "name": "pulse_snake",
+      "name": "pulse_snake"
     }
   ]
 }

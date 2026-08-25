@@ -56,10 +56,7 @@ typedef struct PulseConfig PulseConfig;
 typedef struct PulsePackageListEntry
 {
     const char*          name;
-    const char*          library;
     PulseConfig*         config;
-    uint32_t             dependency_count;
-    const char**         dependencies;
 
 } PulsePackageListEntry;
 

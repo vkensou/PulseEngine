@@ -6,7 +6,9 @@ int main() {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    PulsePackageListEntry bad = { "BadPackage", "definitely_missing_package.dll", nullptr, 0, nullptr };
+    // No package.json for this name anywhere and it is not registered as a
+    // static package, so the loader cannot locate a loadable library.
+    PulsePackageListEntry bad = { "BadPackage", nullptr };
     assert(pulse_package_loader_load_packages(app, &bad, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
 
     pulse_destroy_app(app);

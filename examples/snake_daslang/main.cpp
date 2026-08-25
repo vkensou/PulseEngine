@@ -32,12 +32,8 @@ int main(void)
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    // ---- 插件（通过 module list + loader 动态加载） ----
-    static const char* window_deps[] = { "PulseInputPlugin" };
-    static const char* graphics_deps[] = { "PulseWindowPlugin", "PulseAssetPlugin" };
-    static const char* renderer_deps[] = { "PulseWindowPlugin", "PulseGraphicPlugin", "PulseTransformPlugin" };
-    static const char* imgui_deps[] = { "PulseWindowPlugin", "PulseInputPlugin", "PulseAssetPlugin", "PulseGraphicPlugin" };
-
+    // ---- 插件（通过 loader 动态加载；library/dependencies 由 loader
+    //      读取各包自己的 package.json） ----
     PulseConfig* window_cfg = pulse_config_create();
     {
         PulseConfig* pw = pulse_config_create();
@@ -61,14 +57,14 @@ int main(void)
     pulse_config_set_string(daslang_cfg, "root_path", "examples/asset");
 
     PulsePackageListEntry packages[] = {
-        { "PulseInputPlugin", "pulse_input.dll", nullptr, 0, nullptr },
-        { "PulseWindowPlugin", "pulse_window.dll", window_cfg, 1, window_deps },
-        { "PulseAssetPlugin", "pulse_asset.dll", asset_cfg, 0, nullptr },
-        { "PulseTransformPlugin", "pulse_transform.dll", nullptr, 0, nullptr },
-        { "PulseGraphicPlugin", "pulse_graphics.dll", graphics_cfg, 2, graphics_deps },
-        { "PulseRendererPlugin", "pulse_renderer.dll", nullptr, 3, renderer_deps },
-        { "PulseImguiPlugin", "pulse_imgui.dll", nullptr, 4, imgui_deps },
-        { "PulseDaslangPlugin", "pulse_daslang.dll", daslang_cfg, 0, nullptr },
+        { "pulse_input", nullptr },
+        { "pulse_window", window_cfg },
+        { "pulse_asset", asset_cfg },
+        { "pulse_transform", nullptr },
+        { "pulse_graphics", graphics_cfg },
+        { "pulse_renderer", nullptr },
+        { "pulse_imgui", nullptr },
+        { "pulse_daslang", daslang_cfg },
     };
     EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, packages, 8);
     pulse_config_release(window_cfg);
