@@ -2,7 +2,8 @@
   用法: lua generate_module.lua <dump|generate> [头文件名.h] [packageinfo.json]
   默认头文件: snake.h
   dump: 仅打印解析结果。 generate: 生成 <文件名>_module.{h,cpp} 和 <文件名>_plugin.cpp 文件（与头文件同目录）。
-  可选 packageinfo.json: 从 manifest 读取插件 dependencies；缺省时自动读取同目录 package.json，没有 manifest 时插件依赖为空。
+  可选 packageinfo.json: 从 manifest 读取模块名（name）与插件 dependencies；缺省时自动读取同目录 package.json，
+  没有 manifest 时模块名取头文件名（去掉 .h），插件依赖为空。
   模块入口固定名 importModule（模块作为 DLL 扩展加载时，引擎按此名查找入口）。
   旧版用法: lua generate_module.lua foo.h [packageinfo.json] 等同于 generate foo.h [packageinfo.json]
 ]]
@@ -79,8 +80,8 @@ end
 local script_dir = arg[0]:match("^(.*[/\\])") or ""
 local json = dofile(script_dir .. "json.lua")
 
--- 读取可选的 packageinfo（JSON manifest），返回 dependencies 列表；未提供时返回 nil。
-local function load_packageinfo_dependencies(packageinfo_path)
+-- 读取可选的 packageinfo（JSON manifest），返回 { name, dependencies }；未提供时返回 nil。
+local function load_packageinfo(packageinfo_path)
     if not packageinfo_path or packageinfo_path == "" then
         return nil
     end
@@ -89,17 +90,30 @@ local function load_packageinfo_dependencies(packageinfo_path)
     if not ok then
         gen_error("解析 packageinfo 失败: " .. tostring(data))
     end
-    if type(data) ~= "table" or type(data.dependencies) ~= "table" then
-        gen_error("packageinfo 缺少 dependencies 数组: " .. packageinfo_path)
+    if type(data) ~= "table" then
+        gen_error("packageinfo 格式错误（应为 JSON 对象）: " .. packageinfo_path)
     end
-    local deps = {}
-    for _, dep in ipairs(data.dependencies) do
-        if type(dep) ~= "string" then
-            gen_error("packageinfo.dependencies 必须全是字符串: " .. packageinfo_path)
+    local info = {}
+    if data.name ~= nil then
+        if type(data.name) ~= "string" or data.name == "" then
+            gen_error("packageinfo.name 必须是非空字符串: " .. packageinfo_path)
         end
-        table.insert(deps, dep)
+        info.name = data.name
     end
-    return deps
+    if data.dependencies ~= nil then
+        if type(data.dependencies) ~= "table" then
+            gen_error("packageinfo 缺少 dependencies 数组: " .. packageinfo_path)
+        end
+        local deps = {}
+        for _, dep in ipairs(data.dependencies) do
+            if type(dep) ~= "string" then
+                gen_error("packageinfo.dependencies 必须全是字符串: " .. packageinfo_path)
+            end
+            table.insert(deps, dep)
+        end
+        info.dependencies = deps
+    end
+    return info
 end
 
 -- 提取 `PHASE=` 后的取值并精确比对（避免 PHASE=INIT 误匹配 PHASE=INITFOO）
@@ -1564,9 +1578,10 @@ end
 
 -- 生成 <module>_plugin.cpp：把 ECS 模块包装成可被 launcher 动态加载的 PulsePlugin。
 -- 产物与 snake_plugin.cpp 当前结构保持一致，仅替换模块相关命名。
+-- 插件名（kPluginName）与模块名一致（如模块名 snake -> "snake"）。
 local function generate_plugin_cpp(module_name, dependencies)
     local display = module_display_name(module_name)
-    local plugin_name = "Pulse" .. display .. "Plugin"
+    local plugin_name = module_name
     local add_plugin_fn = "pulse_add_" .. module_name .. "_plugin"
     local build_fn = module_name .. "_plugin_build"
     local shutdown_fn = module_name .. "_plugin_shutdown"
@@ -1749,9 +1764,6 @@ local function main(...)
     local resources = parse_resources(content, header_path)
     validate_state_tokens(systems, state_machine, header_path)
 
-    local module_name = header_path:match("([^/\\]+)%.h$") or "module"
-    module_name = module_name:gsub("%.h$", "")
-
     if mode == "dump" then
         print_parsed_systems_dump(systems, state_machine, resources)
         print("完成 (dump 模式)。")
@@ -1771,6 +1783,18 @@ local function main(...)
         end
     end
 
+    -- 模块名：有 packageinfo 时优先取其中的 name（与包名/插件名保持一致），
+    -- 缺省时取头文件名（去掉 .h）
+    local packageinfo = load_packageinfo(packageinfo_path)
+    local module_name
+    if packageinfo and packageinfo.name then
+        module_name = packageinfo.name
+        print("模块名: " .. module_name .. "（来自 " .. packageinfo_path .. "）")
+    else
+        module_name = header_path:match("([^/\\]+)%.h$") or "module"
+        module_name = module_name:gsub("%.h$", "")
+    end
+
     local module_h = generate_module_h()
     write_file(out_dir .. module_name .. "_module.h", module_h)
     print("输出: " .. out_dir .. module_name .. "_module.h")
@@ -1779,7 +1803,7 @@ local function main(...)
     write_file(out_dir .. module_name .. "_module.cpp", module_cpp)
     print("输出: " .. out_dir .. module_name .. "_module.cpp")
 
-    local plugin_dependencies = load_packageinfo_dependencies(packageinfo_path)
+    local plugin_dependencies = packageinfo and packageinfo.dependencies
     local plugin_cpp = generate_plugin_cpp(module_name, plugin_dependencies)
     write_file(out_dir .. module_name .. "_plugin.cpp", plugin_cpp)
     print("输出: " .. out_dir .. module_name .. "_plugin.cpp")

@@ -5,7 +5,7 @@
 
 namespace {
 
-constexpr const char* kPluginName = "PulseSnakePlugin";
+constexpr const char* kPluginName = "snake";
 
 using SnakePluginState = pulse::GameplayModuleState;
 
