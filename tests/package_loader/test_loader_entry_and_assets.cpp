@@ -1,7 +1,7 @@
 // Verifies the package.json "assets": true feature of the package loader:
-// the package directory (and its <dir>/assets subdirectory, if present) is
-// registered as a pulse_vfs content root so assets shipped with the package
-// can be resolved by their relative path.
+// the package directory is registered as a pulse_vfs content root, so
+// package.json and assets shipped with the package (in <dir>/assets) can be
+// resolved through pulse_vfs by their relative paths.
 //
 // Positive control: pkg_assets declares "assets": true and ships an assets/
 // directory in the source tree, so package.json and assets/marker.dat must be
@@ -27,9 +27,9 @@ int main() {
     assert(pulse_app_has_plugin(app, "AssetsEntryPlugin"));
     assert(pulse_app_has_plugin(app, "CustomEntryPlugin"));
 
-    // pkg_assets has "assets": true -> its package dir and assets/ are content roots.
+    // pkg_assets has "assets": true -> its package dir is a content root.
     assert(pulse_vfs_file_exists("package.json"));
-    assert(pulse_vfs_file_exists("marker.dat"));
+    assert(pulse_vfs_file_exists("assets/marker.dat"));
 
     // pkg_custom_entry has no "assets" field -> its package dir is NOT a root.
     assert(!pulse_vfs_file_exists("test-pkg-custom-entry.dll"));
