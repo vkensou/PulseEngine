@@ -474,6 +474,7 @@ for _, test_file in ipairs(os.files("tests/daslang/test_*.cpp")) do
         add_deps("pulse_graphics")
         add_deps("pulse_imgui")
         add_deps("pulse_daslang")
+        add_deps("pulse_package_loader")
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")
         add_tests("default", {group = "daslang", rundir = "$(projectdir)"})
