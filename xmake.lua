@@ -288,6 +288,15 @@ target("test-pkg-assets")
     add_deps("pulse_config")
     add_files("tests/package_loader/pkg_assets/package.cpp")
 
+target("test-pkg-script-runtime")
+    set_group("tests")
+    set_kind("shared")
+    set_default(false)
+    add_deps("pulse_app")
+    add_deps("pulse_config")
+    add_deps("pulse_script_register")
+    add_files("tests/package_loader/pkg_script_runtime/package.cpp")
+
 for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
     local test_name = "test-package_loader-" .. path.basename(test_file):gsub("^test_", "")
     target(test_name)
@@ -306,6 +315,9 @@ for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
         if path.basename(test_file) == "test_loader_entry_and_assets" then
             add_deps("test-pkg-assets")
             add_deps("test-pkg-custom-entry")
+        end
+        if path.basename(test_file) == "test_loader_script_runtime" then
+            add_deps("test-pkg-script-runtime")
         end
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")

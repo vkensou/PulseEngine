@@ -1,0 +1,10 @@
+{
+  "name": "pkg_mockscript",
+  "version": "1.0.0",
+  "type": "mockscript",
+  "script_file": "main.mock",
+  "assets": true,
+  "dependencies": [
+    "pkg_script_runtime"
+  ]
+}
