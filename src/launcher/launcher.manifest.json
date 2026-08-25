@@ -11,7 +11,7 @@
       "name": "pulse_window",
       "config": {
         "primary_window": {
-          "title": "PulseEngine Snake",
+          "title": "PulseEngine Snake Daslang",
           "width": 800,
           "height": 600,
           "resizable": false,
@@ -43,7 +43,10 @@
       "name": "pulse_imgui"
     },
     {
-      "name": "snake"
+      "name": "pulse_daslang"
+    },
+    {
+      "name": "snake_daslang"
     }
   ]
 }
