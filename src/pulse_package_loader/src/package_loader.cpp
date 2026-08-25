@@ -26,6 +26,7 @@ using PulsePackageRegisterFn = EPulseResult (*)(PulseAppId, PulseConfig*);
 struct ResolvedPackage {
     std::string manifest_name;
     std::string library_path;
+    std::string entry_symbol = "pulse_package_register";
     std::vector<std::string> dependencies;
 };
 
@@ -171,6 +172,10 @@ bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::ve
     const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
     out.manifest_name = (manifest_name && manifest_name[0]) ? manifest_name : entry_name;
 
+    // Optional DLL entry symbol; fall back to the default register function.
+    const char* entry_symbol = pulse_config_get_string(cfg, "entry", nullptr);
+    if (entry_symbol && entry_symbol[0]) out.entry_symbol = entry_symbol;
+
     const char* library = pulse_config_get_string(cfg, "library", nullptr);
     if (library && library[0]) {
         out.library_path = (library[0] == '/' || library[0] == '\\' || library[1] == ':')
@@ -242,11 +247,11 @@ void* open_package_library(const char* path) {
 #endif
 }
 
-void* find_package_register(void* handle) {
+void* find_package_register(void* handle, const char* entry_symbol) {
 #ifdef _WIN32
-    return reinterpret_cast<void*>(GetProcAddress(static_cast<HMODULE>(handle), "pulse_package_register"));
+    return reinterpret_cast<void*>(GetProcAddress(static_cast<HMODULE>(handle), entry_symbol));
 #else
-    return dlsym(handle, "pulse_package_register");
+    return dlsym(handle, entry_symbol);
 #endif
 }
 
@@ -360,7 +365,7 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
 #endif
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
             }
-            void* symbol = find_package_register(lib);
+            void* symbol = find_package_register(lib, pe.resolved.entry_symbol.c_str());
             if (!symbol) {
                 close_package_library(lib);
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND;

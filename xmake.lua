@@ -275,6 +275,15 @@ for _, test_file in ipairs(os.files("tests/config/test_*.cpp")) do
         add_tests("default", {group = "config", rundir = "$(projectdir)"})
 end
 
+target("test-pkg-custom-entry")
+    set_group("tests")
+    set_kind("shared")
+    set_default(false)
+    add_deps("pulse_app")
+    add_deps("pulse_config")
+    add_files("tests/package_loader/pkg_custom_entry/package.cpp")
+    add_rules("pulse.package_output")
+
 for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
     local test_name = "test-package_loader-" .. path.basename(test_file):gsub("^test_", "")
     target(test_name)
@@ -287,6 +296,9 @@ for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
         add_deps("pulse_package_loader")
         add_deps("pulse_input")
         add_deps("pulse_transform")
+        if path.basename(test_file) == "test_loader_custom_entry" then
+            add_deps("test-pkg-custom-entry")
+        end
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")
         add_tests("default", {group = "package_loader"})
