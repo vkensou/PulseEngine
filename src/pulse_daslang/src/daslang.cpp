@@ -1,6 +1,7 @@
 #include <flecs.h> // C++ API - must be included before pulse headers
 
 #include "pulse_daslang.h"
+#include "pulse_script_register.h"
 
 #include "daslang_internal.h"
 
@@ -241,6 +242,19 @@ namespace pulse_daslang_internal
         const pulse_daslang_state_resource* res = ecs_singleton_get(world, pulse_daslang_state_resource);
         return res ? res->state : nullptr;
     }
+
+	EPulseResult daslang_script_package_load(PulseAppId app, const PulsePackageScriptInfo* info)
+	{
+		if (!app || !info || !info->script_file || !info->script_file[0] || !info->package_dir || !info->package_dir[0])
+			return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+
+		std::filesystem::path script = std::filesystem::absolute(
+			std::filesystem::path(info->package_dir) / info->script_file);
+
+		if (!::pulse_load_module(app, script.generic_string().c_str()))
+			return PULSE_RESULT_ERROR_INTERNAL;
+		return PULSE_RESULT_OK;
+	}
 }
 
 extern "C" {
@@ -289,6 +303,17 @@ bool pulse_load_module(PulseAppId app, const char* script_path)
 {
     auto state = pulse_daslang_internal::state_from_app(app);
     return pulse_daslang_internal::pulse_load_module(app, state, script_path);
+}
+
+PULSE_DASLANG_API uint32_t pulse_package_get_runtimes(const PulseScriptRuntimeDesc** out_runtimes)
+{
+	static const PulseScriptRuntimeDesc runtimes[] = {
+		{ "daslang", pulse_daslang_internal::daslang_script_package_load },
+	};
+	if (!out_runtimes)
+		return 0;
+	*out_runtimes = runtimes;
+	return 1;
 }
 
 } // extern "C"
