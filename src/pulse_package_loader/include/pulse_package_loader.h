@@ -33,7 +33,8 @@ typedef enum EPulsePackageLoadResult
     PULSE_PACKAGE_LOAD_RESULT_ERROR_DUPLICATE_PACKAGE, /** ( 6)                                */
     PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY, /** ( 7)                                */
     PULSE_PACKAGE_LOAD_RESULT_ERROR_CIRCULAR_DEPENDENCY, /** ( 8)                                */
-    PULSE_PACKAGE_LOAD_RESULT_ERROR_INTERNAL, /** ( 9)                                */
+    PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME, /** ( 9)                                */
+    PULSE_PACKAGE_LOAD_RESULT_ERROR_INTERNAL, /** (10)                                */
 
     PULSE_PACKAGE_LOAD_RESULT_COUNT
 
