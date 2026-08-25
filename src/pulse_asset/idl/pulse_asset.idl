@@ -366,11 +366,6 @@ func.AssetSystem.ForceUnloadAssets
     .typeId "uint64_t"
     ()
 
-func.AssetSystem.AddContentRoot
-    "EPulseResult"
-    .rootPath "cstring"
-    ()
-
 func.AssetLoadTaskAddDependency
     "EPulseResult"
     .dependencyHint "*AssetLoadDependencyHint"

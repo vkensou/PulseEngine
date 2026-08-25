@@ -237,12 +237,8 @@ void LoadQueue::process_pending_read(AssetSystem& system, LoadJob& job, AssetSlo
     if (job.source.kind == PULSE_ASSET_LOAD_SOURCE_MEMORY) {
         job.bytes = std::move(job.source.memory_data);
     } else if (job.source.kind == PULSE_ASSET_LOAD_SOURCE_FILE) {
-        std::optional<std::pmr::string> resolved_path = system.resolve_file_path(slot.path);
-        if (!resolved_path.has_value()) {
-            job.finish(&slot, LoadJobOutcome::Failed, "asset file not found in any content root");
-            return;
-        }
-        auto file_bytes = AssetIo::read_file(resolved_path->c_str(), system.resource());
+        std::pmr::string full_path = AssetIo::join_path(system.root_path(), slot.path, system.resource());
+        auto file_bytes = AssetIo::read_file(full_path.c_str(), system.resource());
         if (!file_bytes.has_value()) {
             job.finish(&slot, LoadJobOutcome::Failed, "failed to read asset file");
             return;

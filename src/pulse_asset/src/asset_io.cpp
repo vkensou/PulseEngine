@@ -96,16 +96,6 @@ std::pmr::string AssetIo::normalize_path(const char* path, std::pmr::memory_reso
     return out;
 }
 
-std::pmr::string AssetIo::normalize_root(const char* root_path, std::pmr::memory_resource* resource) {
-    std::pmr::string out(root_path ? root_path : "", resource);
-    for (char& c : out) {
-        if (c == '\\') {
-            c = '/';
-        }
-    }
-    return out;
-}
-
 std::pmr::string AssetIo::normalize_extension(const char* extension, std::pmr::memory_resource* resource) {
     std::pmr::string out(extension ? extension : "", resource);
     if (!out.empty() && out[0] == '.') {
@@ -163,18 +153,6 @@ std::pmr::string AssetIo::join_path(const std::pmr::string& root_path, const std
     out.push_back('/');
     out += path;
     return out;
-}
-
-bool AssetIo::file_exists(const char* filename) {
-    if (!filename || !filename[0]) {
-        return false;
-    }
-    SDL_IOStream* stream = SDL_IOFromFile(filename, "rb");
-    if (!stream) {
-        return false;
-    }
-    SDL_CloseIO(stream);
-    return true;
 }
 
 std::optional<std::pmr::vector<uint8_t>> AssetIo::read_file(const char* filename, std::pmr::memory_resource* resource) {
