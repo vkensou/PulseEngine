@@ -91,10 +91,12 @@ public:
 class AssetIo final {
 public:
     static std::pmr::string normalize_path(const char* path, std::pmr::memory_resource* resource);
+    static std::pmr::string normalize_root(const char* root_path, std::pmr::memory_resource* resource);
     static std::pmr::string normalize_extension(const char* extension, std::pmr::memory_resource* resource);
     static std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std::pmr::memory_resource* resource);
     static std::pmr::string extension_from_path(const std::pmr::string& path, std::pmr::memory_resource* resource);
     static std::pmr::string join_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource);
+    static bool file_exists(const char* filename);
     static std::optional<std::pmr::vector<uint8_t>> read_file(const char* filename, std::pmr::memory_resource* resource);
 };
 
@@ -366,6 +368,7 @@ public:
 
     EPulseResult register_type(const PulseAssetTypeDesc* desc);
     EPulseResult register_loader(const PulseAssetLoaderDesc* desc);
+    EPulseResult add_content_root(const char* root_path);
     PulseAssetHandle load(const PulseAssetLoadDesc* desc);
     PulseAssetHandle load_from_memory(const PulseAssetMemoryLoadDesc* desc);
     PulseAssetHandle build_asset(const PulseAssetBuildDesc* desc);
@@ -380,6 +383,8 @@ public:
     PulseAppId app() const { return app_; }
     uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }
     const std::pmr::string& root_path() const { return root_path_; }
+    const std::pmr::vector<std::pmr::string>& content_roots() const { return content_roots_; }
+    std::optional<std::pmr::string> resolve_file_path(const std::pmr::string& path);
     std::pmr::memory_resource* resource() { return &memory_pool_; }
     AssetRegistry& registry() { return registry_; }
     const AssetRegistry& registry() const { return registry_; }
@@ -392,6 +397,7 @@ private:
     PulseAssetPluginDesc desc_{};
     std::pmr::unsynchronized_pool_resource memory_pool_;
     std::pmr::string root_path_;
+    std::pmr::vector<std::pmr::string> content_roots_;
     ecs_entity_t process_system_ = 0;
     AssetRegistry registry_;
     AssetStorage storage_;

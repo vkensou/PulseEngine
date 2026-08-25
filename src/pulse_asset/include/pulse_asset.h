@@ -469,6 +469,7 @@ PULSE_ASSET_API bool pulse_asset_system_release(PulseAssetSystemId _this, PulseA
 PULSE_ASSET_API bool pulse_asset_system_borrow(PulseAssetSystemId _this, PulseAssetHandle handle, void** out_ref, EPulseBorrowErrorCode* out_error);
 PULSE_ASSET_API void pulse_asset_system_mark_modified(PulseAssetSystemId _this, PulseAssetHandle handle);
 PULSE_ASSET_API void pulse_asset_system_force_unload_assets(PulseAssetSystemId _this, uint64_t type_id);
+PULSE_ASSET_API EPulseResult pulse_asset_system_add_content_root(PulseAssetSystemId _this, const char* root_path);
 PULSE_ASSET_API EPulseResult pulse_asset_load_task_add_dependency(PulseAssetLoadDependencyHint* dependency_hint, PulseAssetDepRef dependency, EPulseLoadDependencyRequirement requirement);
 PULSE_ASSET_API PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_handle(PulseAssetSystemId _this, PulseAssetHandle handle);
 PULSE_ASSET_API PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_request(PulseAssetSystemId _this, PulseAssetRequest request);

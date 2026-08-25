@@ -34,6 +34,48 @@ EPulseResult AssetSystem::register_loader(const PulseAssetLoaderDesc* desc) {
     return registry_.register_loader(desc);
 }
 
+EPulseResult AssetSystem::add_content_root(const char* root_path) {
+    if (!root_path || !root_path[0]) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    std::pmr::string normalized = AssetIo::normalize_root(root_path, resource());
+    if (normalized.empty()) {
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    content_roots_.push_back(std::move(normalized));
+    return PULSE_RESULT_OK;
+}
+
+std::optional<std::pmr::string> AssetSystem::resolve_file_path(const std::pmr::string& path) {
+    std::pmr::memory_resource* resource = this->resource();
+
+    // Content roots, most recently added first (searched from the back).
+    for (auto it = content_roots_.rbegin(); it != content_roots_.rend(); ++it) {
+        std::pmr::string candidate = AssetIo::join_path(*it, path, resource);
+        if (AssetIo::file_exists(candidate.c_str())) {
+            return candidate;
+        }
+    }
+
+    // Plugin default root is searched last (lowest priority).
+    if (!root_path_.empty()) {
+        std::pmr::string candidate = AssetIo::join_path(root_path_, path, resource);
+        if (AssetIo::file_exists(candidate.c_str())) {
+            return candidate;
+        }
+    }
+
+    // No root configured: keep the old behavior of resolving relative to the
+    // working directory.
+    if (root_path_.empty() && AssetIo::file_exists(path.c_str())) {
+        return path;
+    }
+
+    return std::nullopt;
+}
+
 PulseAssetHandle AssetSystem::load(const PulseAssetLoadDesc* desc) {
     if (!desc || desc->struct_size != sizeof(PulseAssetLoadDesc) ||
         desc->version != PULSE_ASSET_LOAD_DESC_VERSION) {

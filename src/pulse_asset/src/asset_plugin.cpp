@@ -355,6 +355,11 @@ void pulse_asset_system_force_unload_assets(PulseAssetSystemId asset_system, uin
     }
 }
 
+EPulseResult pulse_asset_system_add_content_root(PulseAssetSystemId asset_system, const char* root_path) {
+    pulse::asset::AssetSystem* system = to_impl(asset_system);
+    return system ? system->add_content_root(root_path) : PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+}
+
 EPulseResult pulse_asset_load_task_add_dependency(
     PulseAssetLoadDependencyHint* hint,
     PulseAssetDepRef dependency,
