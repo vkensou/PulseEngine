@@ -1,10 +1,18 @@
-﻿# Single-purpose PowerShell script: start the target executable and print its PID.
+# Single-purpose PowerShell script: start the target executable and print its PID.
 
 $ErrorActionPreference = 'Stop'
 
 $exe      = $env:PULSE_PROC_EXE
 $curdir   = $env:PULSE_PROC_CURDIR
 $argsJson = $env:PULSE_PROC_ARGS_JSON
+
+# Optional extra DLL search dirs (e.g. shared deps' targetdirs collected by
+# xmake's runenvs), prepended so the exe can find pulse_*.dll even when
+# package_output moves them into build/.../packages/<name>/.
+$extraPath = $env:PULSE_PROC_PATH
+if ($extraPath) {
+    $env:PATH = $extraPath + ';' + $env:PATH
+}
 
 $exeArgs = @()
 if ($argsJson) {

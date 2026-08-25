@@ -61,8 +61,21 @@ rule("pulse.window_screenshot_test")
         local rundir = opt.rundir or target:rundir()
         local runargs = table.wrap(opt.runargs or target:get("runargs"))
 
+        -- Reuse xmake's built-in run environment (on Windows it collects the
+        -- targetdirs of all shared deps into PATH), so the spawned exe can
+        -- find pulse_*.dll even when package_output moves them into packages/.
+        local runenvs = import("private.action.run.runenvs", {anonymous = true, try = true})
+        local extrapath = ""
+        if runenvs then
+            local addenvs, setenvs = runenvs.make(target)
+            local envs = runenvs.join(addenvs, setenvs)
+            if envs and envs.PATH then
+                extrapath = envs.PATH
+            end
+        end
+
         -- Key steps: launch, wait, capture, compare, close.
-        local pid, start_err = start_process(targetfile, rundir, runargs)
+        local pid, start_err = start_process(targetfile, rundir, runargs, extrapath)
         if not pid then
             opt.errors = string.format("启动测试程序失败: %s", start_err)
             cprint("${color.failure}%s${clear}", opt.errors)

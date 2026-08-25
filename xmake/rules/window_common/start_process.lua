@@ -1,6 +1,6 @@
 --!Key step: start the target executable and return its PID.
 
-function main(targetfile, rundir, runargs)
+function main(targetfile, rundir, runargs, extrapath)
     local json = import("core.base.json")
     local run_powershell = import("xmake.rules.window_common.run_powershell", {rootdir = os.projectdir(), anonymous = true})
     local scriptfile = path.join(os.projectdir(), "xmake", "rules", "window_common", "scripts", "start_process.ps1")
@@ -10,7 +10,8 @@ function main(targetfile, rundir, runargs)
     local envs = {
         PULSE_PROC_EXE       = targetfile,
         PULSE_PROC_CURDIR    = rundir,
-        PULSE_PROC_ARGS_JSON = (#runargs > 0) and json.encode(runargs) or "[]"
+        PULSE_PROC_ARGS_JSON = (#runargs > 0) and json.encode(runargs) or "[]",
+        PULSE_PROC_PATH      = extrapath or ""
     }
 
     local res = run_powershell(scriptfile, envs, {outfile = outfile, errfile = errfile})
