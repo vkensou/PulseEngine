@@ -12,8 +12,8 @@ int main() {
     PulsePackageListEntry entries[] = {
         { "pkg_custom_entry", nullptr },
     };
-    const char* search_paths[] = { "packages" };
-    assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    const char* search_paths[] = { "src", "tests/package_loader" };
+    assert(pulse_package_loader_load_packages(app, 2, search_paths, 1, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
     // The custom "entry" symbol from package.json was used to register this plugin.
     assert(pulse_app_has_plugin(app, "CustomEntryPlugin"));
 

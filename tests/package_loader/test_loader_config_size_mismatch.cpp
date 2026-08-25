@@ -14,7 +14,7 @@ int main() {
         cfg
     };
 
-    const char* search_paths[] = { "packages" };
+    const char* search_paths[] = { "src", "tests/package_loader" };
     assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
 
     pulse_config_release(cfg);

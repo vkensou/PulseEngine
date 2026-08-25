@@ -11,7 +11,8 @@ int main() {
         { "pulse_transform", nullptr },
     };
 
-    const char* search_paths[] = { "packages" };
+    // 搜索目录相对运行目录（项目根）解析：包清单来自 src/ 与 tests/
+    const char* search_paths[] = { "src", "tests/package_loader" };
     assert(pulse_package_loader_load_packages(app, 1, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "pulse_input"));
     assert(pulse_app_has_plugin(app, "pulse_transform"));

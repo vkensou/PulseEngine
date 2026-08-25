@@ -1,10 +1,11 @@
 // Verifies the package.json "assets": true feature of the package loader:
-// the package directory is registered as a pulse_vfs content root so assets
-// shipped next to the package can be resolved by their relative path.
+// the package directory (and its <dir>/assets subdirectory, if present) is
+// registered as a pulse_vfs content root so assets shipped with the package
+// can be resolved by their relative path.
 //
-// Positive control: pkg_assets declares "assets": true, so its directory
-// (which contains the built DLL and the copied marker.txt) must be resolvable
-// through pulse_vfs.
+// Positive control: pkg_assets declares "assets": true and ships an assets/
+// directory in the source tree, so package.json and assets/marker.dat must be
+// resolvable through pulse_vfs.
 //
 // Negative control: pkg_custom_entry declares no "assets" field, so nothing in
 // its directory may be resolvable through pulse_vfs.
@@ -21,13 +22,12 @@ int main() {
         { "pkg_assets", nullptr },
         { "pkg_custom_entry", nullptr },
     };
-    const char* search_paths[] = { "packages" };
-    assert(pulse_package_loader_load_packages(app, 1, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    const char* search_paths[] = { "src", "tests/package_loader" };
+    assert(pulse_package_loader_load_packages(app, 2, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "AssetsEntryPlugin"));
     assert(pulse_app_has_plugin(app, "CustomEntryPlugin"));
 
-    // pkg_assets has "assets": true -> its package dir is a content root.
-    assert(pulse_vfs_file_exists("test-pkg-assets.dll"));
+    // pkg_assets has "assets": true -> its package dir and assets/ are content roots.
     assert(pulse_vfs_file_exists("package.json"));
     assert(pulse_vfs_file_exists("marker.dat"));
 

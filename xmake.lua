@@ -65,21 +65,6 @@ target("pulse_vfs")
     add_includedirs("src/pulse_vfs/include", {public = true})
     add_headerfiles("src/pulse_vfs/include/*.h")
     add_files("src/pulse_vfs/src/*.cpp")
-    after_build(function (target)
-        -- SDL3 is used by pulse_vfs at runtime; copy its DLL next to the core outputs.
-        local project = import("core.project.project")
-        local pkg = project.required_package("libsdl3")
-        if pkg then
-            local destdir = target:targetdir()
-            local libfiles = pkg:get("libfiles") or {}
-            for _, file in ipairs(libfiles) do
-                local filename = path.filename(file)
-                if filename:find("%.dll") or filename:find("%.so") or filename:find("%.dylib") then
-                    os.cp(file, path.join(destdir, filename))
-                end
-            end
-        end
-    end)
 
 target("pulse_config")
     set_kind("shared")
@@ -109,7 +94,6 @@ target("pulse_math")
 
 target("pulse_window")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_WINDOW_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -122,7 +106,6 @@ target("pulse_window")
 
 target("pulse_input")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_INPUT_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -134,7 +117,6 @@ target("pulse_input")
 
 target("pulse_asset")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_ASSET_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -146,7 +128,6 @@ target("pulse_asset")
 
 target("pulse_graphics")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_GRAPHICS_MODULE_BUILD")
     add_deps("pulse_platform")
     set_exceptions("cxx")
@@ -172,7 +153,6 @@ target("pulse_graphics")
 
 target("pulse_transform")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_TRANSFORM_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -184,7 +164,6 @@ target("pulse_transform")
 
 target("pulse_renderer")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_RENDERER_MODULE_BUILD")
     add_deps("pulse_platform")
     add_deps("pulse_app")
@@ -200,7 +179,6 @@ target("pulse_renderer")
 
 target("pulse_imgui")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_rules("pulse.copy_package_runtime", {packages = {"imgui"}})
     add_defines("PULSE_IMGUI_MODULE_BUILD")
     add_deps("pulse_platform")
@@ -228,7 +206,6 @@ target("pulse_cpp_gameplay")
 
 target("pulse_daslang")
     set_kind("shared")
-    add_rules("pulse.package_output")
     add_defines("PULSE_DASLANG_MODULE_BUILD")
     add_deps("pulse_platform")
     set_exceptions("cxx")
@@ -254,6 +231,7 @@ target("launcher")
     add_deps("pulse_config")
     add_deps("pulse_package_loader")
     add_files("src/launcher/main.cpp")
+    set_runargs(path.absolute("src"), path.absolute("examples"))
     add_rules("pulse.copy_manifest", {manifest = "src/launcher/launcher.manifest.json"})
 
 for _, test_file in ipairs(os.files("tests/app/test_*.cpp")) do
@@ -292,7 +270,6 @@ target("test-pkg-custom-entry")
     add_deps("pulse_app")
     add_deps("pulse_config")
     add_files("tests/package_loader/pkg_custom_entry/package.cpp")
-    add_rules("pulse.package_output")
 
 target("test-pkg-assets")
     set_group("tests")
@@ -301,7 +278,6 @@ target("test-pkg-assets")
     add_deps("pulse_app")
     add_deps("pulse_config")
     add_files("tests/package_loader/pkg_assets/package.cpp")
-    add_rules("pulse.package_output", {extra_dirs = {"tests/package_loader/pkg_assets/data"}})
 
 for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
     local test_name = "test-package_loader-" .. path.basename(test_file):gsub("^test_", "")
@@ -324,7 +300,8 @@ for _, test_file in ipairs(os.files("tests/package_loader/test_*.cpp")) do
         end
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")
-        add_tests("default", {group = "package_loader"})
+        set_rundir("$(projectdir)")
+        add_tests("default", {group = "package_loader", rundir = "$(projectdir)"})
 end
 
 target("test-window")
@@ -491,7 +468,6 @@ target("example-snake")
     add_deps("pulse_cpp_gameplay")
     add_includedirs("examples/snake", {public = false, order = true})
     add_files("examples/snake/*.cpp")
-    add_rules("pulse.package_output")
 
 target("example-snake-daslang")
     set_group("examples")

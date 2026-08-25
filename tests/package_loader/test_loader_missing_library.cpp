@@ -8,7 +8,7 @@ int main() {
 
     // No package.json for this name in any search path and it is not registered
     // as a static package, so the loader cannot locate a loadable library.
-    const char* search_paths[] = { "packages", "nowhere" };
+    const char* search_paths[] = { "src", "tests/package_loader", "nowhere" };
     PulsePackageListEntry bad = { "BadPackage", nullptr };
     assert(pulse_package_loader_load_packages(app, 2, search_paths, 1, &bad) == PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
 

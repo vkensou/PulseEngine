@@ -9,11 +9,15 @@
 // launcher 只负责获取需要加载的包列表及其 config；
 // 每个包自己的 package.json（library、dependencies 等）由
 // pulse_package_loader 内部读取和解析。
+//
+// 命令行参数：每个位置参数都是一个 packages 搜索目录（可以传多个）；
+// 未传任何参数时默认搜索当前目录 "."。
 // ============================================================
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <vector>
 
@@ -21,8 +25,27 @@
 #include "pulse_config.h"
 #include "pulse_package_loader.h"
 
-int main(void)
+int main(int argc, char** argv)
 {
+    // packages 搜索目录：每个位置参数是一个搜索目录；未传时默认当前目录 "."。
+    std::vector<const char*> search_paths;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            printf("Usage: launcher [package-search-dir ...]\n");
+            printf("  Each argument is a directory searched for packages (package.json).\n");
+            printf("  If none is given, the current directory is searched.\n");
+            return 0;
+        }
+        search_paths.push_back(argv[i]);
+    }
+    if (search_paths.empty()) {
+        search_paths.push_back(".");
+    }
+    printf("package search dirs:");
+    for (const char* dir : search_paths)
+        printf(" %s", dir);
+    printf("\n");
+
     PulseAppDesc app_desc = {
         .name = "pulse-launcher",
         .enable_restapi = true,
@@ -74,8 +97,7 @@ int main(void)
         entries.push_back(entry);
     }
 
-    const char* search_paths[] = { "packages" };
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, (uint32_t)(sizeof(search_paths) / sizeof(search_paths[0])), search_paths, (uint32_t)entries.size(), entries.data());
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, (uint32_t)search_paths.size(), search_paths.data(), (uint32_t)entries.size(), entries.data());
 
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK) {
         fprintf(stderr, "failed to load packages, result=%d\n", (int)load_result);

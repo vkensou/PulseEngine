@@ -13,7 +13,7 @@ int main() {
         { "pulse_window", nullptr },
     };
 
-    const char* search_paths[] = { "packages" };
+    const char* search_paths[] = { "src", "tests/package_loader" };
     assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, entries) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);
 
     pulse_destroy_app(app);

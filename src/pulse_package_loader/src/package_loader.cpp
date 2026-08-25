@@ -183,8 +183,9 @@ bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::ve
     if (entry_symbol && entry_symbol[0]) out.entry_symbol = entry_symbol;
 
     const char* library = pulse_config_get_string(cfg, "library", nullptr);
+    const bool library_absolute = library && library[0] && (library[0] == '/' || library[0] == '\\' || library[1] == ':');
     if (library && library[0]) {
-        out.library_path = (library[0] == '/' || library[0] == '\\' || library[1] == ':')
+        out.library_path = library_absolute
                                ? library
                                : join_path(package_dir, library);
     } else {
@@ -199,6 +200,14 @@ bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::ve
 #else
         out.library_path = join_path(package_dir, "lib" + base + ".so");
 #endif
+    }
+
+    if (!library_absolute && !file_exists(out.library_path)) {
+        auto slash = out.library_path.find_last_of("/\\");
+        if (slash != std::string::npos) {
+            printf("library '%s' not found beside package manifest, falling back to name search\n", out.library_path.c_str());
+            out.library_path = out.library_path.substr(slash + 1);
+        }
     }
 
     if (PulseConfigArray* dep_arr = pulse_config_get_array(cfg, "dependencies")) {
