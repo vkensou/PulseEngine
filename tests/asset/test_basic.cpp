@@ -16,7 +16,7 @@ int main(void) {
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     desc.root_path = "tests/asset/data";
     assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseAssetPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_asset"));
     assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);

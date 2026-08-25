@@ -8,7 +8,7 @@ namespace pulse_imgui_internal {
 
 ECS_COMPONENT_DECLARE(pulse_imgui_state_resource);
 
-constexpr const char* kPluginName = "PulseImguiPlugin";
+constexpr const char* kPluginName = "pulse_imgui";
 
 namespace {
 
@@ -192,10 +192,10 @@ EPulseAppAddPluginResult pulse_add_imgui_plugin(
     }
 
     const char* imgui_dependencies[] = {
-        "PulseWindowPlugin",
-        "PulseInputPlugin",
-        "PulseAssetPlugin",
-        "PulseGraphicPlugin"
+        "pulse_window",
+        "pulse_input",
+        "pulse_asset",
+        "pulse_graphics"
     };
     PulsePluginDesc plugin_desc = {
         .struct_size = sizeof(PulsePluginDesc),

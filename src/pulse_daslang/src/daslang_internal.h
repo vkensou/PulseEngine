@@ -8,7 +8,7 @@
 
 namespace pulse_daslang_internal
 {
-	constexpr const char* kPluginName = "PulseDaslangPlugin";
+	constexpr const char* kPluginName = "pulse_daslang";
 
     struct Module
     {

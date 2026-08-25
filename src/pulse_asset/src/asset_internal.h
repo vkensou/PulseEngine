@@ -23,7 +23,7 @@ class AssetStorage;
 class AssetSlot;
 class LoadJob;
 
-constexpr const char* kPluginName = "PulseAssetPlugin";
+constexpr const char* kPluginName = "pulse_asset";
 
 PulseAssetHandle invalid_handle();
 bool is_invalid_handle(PulseAssetHandle handle);

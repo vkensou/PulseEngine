@@ -215,11 +215,11 @@ int main(void) {
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_graphics"));
 
     // ---- Add renderer plugin ----
     assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_renderer"));
 
     // ---- Find the primary window (created during window plugin build) ----
     ecs_world_t* world = pulse_app_world(app);

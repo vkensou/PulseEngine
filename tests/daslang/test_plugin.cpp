@@ -28,7 +28,7 @@ int main(void)
         return -1;
     }
 
-    assert(pulse_app_has_plugin(app, "PulseDaslangPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
     // Adding again should fail with DUPLICATE
     auto daslang_desc2 = pulse_daslang_plugin_desc_default();

@@ -31,7 +31,7 @@ int main(void)
         return -1;
     }
 
-    assert(pulse_app_has_plugin(app, "PulseDaslangPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
     // 动态加载并执行 das 脚本
     if (!pulse_load_module(app, "tests/daslang/das_test.das"))

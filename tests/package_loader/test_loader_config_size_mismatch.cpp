@@ -6,7 +6,7 @@ int main() {
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
-    // PulseInputPlugin does not accept a config; passing any non-null
+    // pulse_input does not accept a config; passing any non-null
     // PulseConfig should make register fail and loader report failure.
     PulseConfig* cfg = pulse_config_create();
     PulsePackageListEntry entry = {

@@ -13,8 +13,8 @@ int main() {
 
     const char* search_paths[] = { "packages" };
     assert(pulse_package_loader_load_packages(app, 1, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseInputPlugin"));
-    assert(pulse_app_has_plugin(app, "PulseTransformPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_input"));
+    assert(pulse_app_has_plugin(app, "pulse_transform"));
 
     // Loading the same package again is a duplicate.
     PulsePackageListEntry dup = { "pulse_input", nullptr };

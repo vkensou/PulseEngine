@@ -382,11 +382,11 @@ PULSE_INPUT_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig*
 {
   "app": { "name": "pulse-launcher", "enable_restapi": true },
   "packages": [
-    { "name": "PulseInputPlugin", "library": "pulse_input.dll" },
+    { "name": "pulse_input", "library": "pulse_input.dll" },
     {
-      "name": "PulseWindowPlugin",
+      "name": "pulse_window",
       "library": "pulse_window.dll",
-      "dependencies": ["PulseInputPlugin"],
+      "dependencies": ["pulse_input"],
       "config": {
         "primary_window": {
           "title": "Pulse Launcher",
@@ -397,14 +397,14 @@ PULSE_INPUT_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig*
       }
     },
     {
-      "name": "PulseAssetPlugin",
+      "name": "pulse_asset",
       "library": "pulse_asset.dll",
       "config": { "root_path": "examples/snake/assets", "max_requests_per_update": 64 }
     },
     {
-      "name": "PulseGraphicPlugin",
+      "name": "pulse_graphics",
       "library": "pulse_graphics.dll",
-      "dependencies": ["PulseWindowPlugin", "PulseAssetPlugin"],
+      "dependencies": ["pulse_window", "pulse_asset"],
       "config": { "enable_debug_layer": true, "enable_vsync": true }
     }
   ]

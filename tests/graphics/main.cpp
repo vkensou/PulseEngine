@@ -364,7 +364,7 @@ int main(void) {
     graphic_desc.per_draw_shader_property_count = sizeof(per_draw_shader_properties) / sizeof(const char*);
     graphic_desc.p_per_draw_shader_properties = per_draw_shader_properties;
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_graphics"));
 
     // ---- Register record callback with graphic resources ----
     test_render_state render_state{};

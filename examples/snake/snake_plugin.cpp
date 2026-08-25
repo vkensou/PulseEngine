@@ -1,6 +1,5 @@
 #include "snake_module.h"
 
-#include "pulse_config.h"
 #include "pulse_cpp_gameplay.h"
 #include "pulse_imgui.h"
 
@@ -60,13 +59,13 @@ EPulseAppAddPluginResult pulse_add_snake_plugin(PulseAppId app)
     }
 
     static const char* snake_dependencies[] = {
-        "PulseWindowPlugin",
-        "PulseInputPlugin",
-        "PulseAssetPlugin",
-        "PulseTransformPlugin",
-        "PulseGraphicPlugin",
-        "PulseRendererPlugin",
-        "PulseImguiPlugin",
+        "pulse_window",
+        "pulse_input",
+        "pulse_asset",
+        "pulse_transform",
+        "pulse_graphics",
+        "pulse_renderer",
+        "pulse_imgui",
     };
 
     PulsePluginDesc plugin_desc = {
@@ -91,9 +90,9 @@ EPulseAppAddPluginResult pulse_add_snake_plugin(PulseAppId app)
 
 } // namespace
 
-extern "C" PULSE_EXPORT EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config)
+extern "C" PULSE_EXPORT EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size)
 {
-    if (config) {
+    if (config || config_size != 0) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     return pulse::to_package_result(pulse_add_snake_plugin(app));

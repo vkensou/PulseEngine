@@ -5,7 +5,7 @@
 
 namespace pulse_input_internal {
 
-constexpr const char* kPluginName = "PulseInputPlugin";
+constexpr const char* kPluginName = "pulse_input";
 
 // ============================================================
 // Plugin lifecycle

@@ -8,7 +8,7 @@
 namespace pulse_graphics_internal {
 
 constexpr uint32_t kDefaultImageCount = 3;
-const char* kPluginName = "PulseGraphicPlugin";
+const char* kPluginName = "pulse_graphics";
 ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
 void pulse_graphics_state::sort_record_callbacks() {
@@ -268,7 +268,7 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
         state->per_draw_shader_properties.emplace_back(desc->p_per_draw_shader_properties[i]);
     }
 
-    const char* graphics_dependencies[] = { "PulseWindowPlugin", "PulseAssetPlugin" };
+    const char* graphics_dependencies[] = { "pulse_window", "pulse_asset" };
     PulsePluginDesc plugin_desc = {
         .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,

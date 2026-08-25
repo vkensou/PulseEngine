@@ -8,7 +8,7 @@
 
 namespace pulse_window_internal {
 
-constexpr const char* kPluginName = "PulseWindowPlugin";
+constexpr const char* kPluginName = "pulse_window";
 
 namespace {
 
@@ -591,7 +591,7 @@ EPulseAppAddPluginResult pulse_add_window_plugin(
         state->desc.primary_window.title = state->owned_title;
     }
 
-    const char* window_dependencies[] = { "PulseInputPlugin" };
+    const char* window_dependencies[] = { "pulse_input" };
     PulsePluginDesc plugin_desc = {
         .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,

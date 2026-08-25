@@ -2,7 +2,7 @@
 
 namespace pulse_transform_internal {
 
-constexpr const char* kPluginName = "PulseTransformPlugin";
+constexpr const char* kPluginName = "pulse_transform";
 
 // ============================================================
 // Plugin lifecycle
