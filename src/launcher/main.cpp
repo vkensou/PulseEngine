@@ -19,11 +19,33 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <string>
 #include <vector>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 #include "pulse_app.h"
 #include "pulse_config.h"
 #include "pulse_package_loader.h"
+
+std::string executable_directory() {
+#ifdef _WIN32
+    char path[MAX_PATH];
+    DWORD len = GetModuleFileNameA(nullptr, path, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) return {};
+    std::string full(path, len);
+    auto slash = full.find_last_of("/\\");
+    return slash == std::string::npos ? std::string{} : full.substr(0, slash);
+#else
+    (void)sizeof("platform");
+    return {};
+#endif
+}
 
 int main(int argc, char** argv)
 {
@@ -55,12 +77,18 @@ int main(int argc, char** argv)
 
     PulseConfig* root = pulse_config_create_from_json_file("launcher.manifest.json");
     if (!root) {
+        std::string manifest_path = executable_directory();
+        if (!manifest_path.empty()) {
+            manifest_path += "/launcher.manifest.json";
+            root = pulse_config_create_from_json_file(manifest_path.c_str());
+        }
+    }
+    if (!root) {
         fprintf(stderr, "bad launcher.manifest.json: %s\n", pulse_config_last_error());
         pulse_destroy_app(app);
         pulse_package_loader_cleanup(app);
         return 1;
     }
-
     PulseConfigArray* packages = pulse_config_get_array(root, "packages");
     if (!packages) {
         fprintf(stderr, "bad launcher.manifest.json: missing 'packages' array\n");
