@@ -24,13 +24,12 @@ typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
 --- Constants
-const_value.DaslangPluginDescVersion { value = "1u" }
+const_value.DaslangPluginDescVersion { value = "2u" }
 
 --- Plugin descriptor
 struct.DaslangPluginDesc
     .structSize "uint32_t"
     .version    "uint32_t"
-    .rootPath   "cstring"
     ()
 
 --- Functions

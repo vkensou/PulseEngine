@@ -9,6 +9,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
 #include "daScript/daScript.h"
 #include "daScript/simulate/fs_file_info.h"
 
@@ -47,7 +56,35 @@ namespace pulse_daslang_internal
 		return PULSE_RESULT_OK;
 	}
 
-	EPulseResult report_program_errors(const das::ProgramPtr& program, DaslangTextPrinter& printer)
+	std::string module_directory()
+	{
+#ifdef _WIN32
+		HMODULE mod = nullptr;
+		if (!GetModuleHandleExA(
+				GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+				reinterpret_cast<LPCSTR>(&module_directory),
+				&mod))
+			return {};
+
+		char path[MAX_PATH];
+		DWORD len = GetModuleFileNameA(mod, path, MAX_PATH);
+		if (len == 0 || len >= MAX_PATH) return {};
+
+		std::string full(path, len);
+		auto slash = full.find_last_of("/\\");
+		return slash == std::string::npos ? std::string{} : full.substr(0, slash);
+#else
+		Dl_info info;
+		if (dladdr(reinterpret_cast<void*>(&module_directory), &info) && info.dli_fname) {
+			std::string full(info.dli_fname);
+			auto slash = full.find_last_of('/');
+			return slash == std::string::npos ? std::string{} : full.substr(0, slash);
+		}
+		return {};
+#endif
+	}
+
+	EPulseResult report_program_errors(const das::ProgramPtr& program, DaslangTextPrinter& printer)	
 	{
 		if (!program)
 		{
@@ -93,6 +130,10 @@ namespace pulse_daslang_internal
 		// Event systems broadcast through the SingleHolder entity carrying
 		// pulse::EventTag, mirroring the C++ module host setup.
 		dasPulseECS::ensure_event_tag(world);
+
+		state->root_path = module_directory();
+		if (state->root_path.empty())
+			return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 
 		das::setDasRoot(state->root_path.c_str());
 		return PULSE_PLUGIN_BUILD_RESULT_OK;
@@ -209,7 +250,6 @@ PulseDaslangPluginDesc pulse_daslang_plugin_desc_default(void)
 	PulseDaslangPluginDesc desc = {
 		sizeof(PulseDaslangPluginDesc),
 		PULSE_DASLANG_PLUGIN_DESC_VERSION,
-		nullptr,
 	};
 	return desc;
 }
@@ -220,14 +260,11 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
 		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
 	if (desc->struct_size != sizeof(PulseDaslangPluginDesc) || desc->version != PULSE_DASLANG_PLUGIN_DESC_VERSION)
 		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
-	if (!desc->root_path)
-		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
 
 	if (pulse_app_has_plugin(app, pulse_daslang_internal::kPluginName))
 		return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
 
 	auto* state = new pulse_daslang_internal::pulse_daslang_state();
-	state->root_path = desc->root_path;
 
 	PulsePluginDesc plugin_desc = {
 		.struct_size = sizeof(PulsePluginDesc),

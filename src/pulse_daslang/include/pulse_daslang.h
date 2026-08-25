@@ -22,7 +22,7 @@ extern "C" {
  * Constants
  *
  */
-#define PULSE_DASLANG_PLUGIN_DESC_VERSION 1u
+#define PULSE_DASLANG_PLUGIN_DESC_VERSION 2u
 
 
 
@@ -35,7 +35,6 @@ typedef struct PulseDaslangPluginDesc
 {
     uint32_t             struct_size;
     uint32_t             version;
-    const char*          root_path;
 
 } PulseDaslangPluginDesc;
 

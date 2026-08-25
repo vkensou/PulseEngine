@@ -12,9 +12,6 @@ extern "C" {
 
     PULSE_DASLANG_API EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config) {
     PulseDaslangPluginDesc desc = pulse_daslang_plugin_desc_default();
-    if (config) {
-        desc.root_path = pulse_config_get_string(config, "root_path", desc.root_path);
-    }
     EPulseAppAddPluginResult r = pulse_add_daslang_plugin(app, &desc);
     switch (r) {
         case PULSE_APP_ADD_PLUGIN_RESULT_OK: return PULSE_RESULT_OK;
