@@ -1606,6 +1606,7 @@ local function generate_plugin_cpp(module_name, dependencies)
     local tpl = [[
 #include "{{MODULE_NAME}}_module.h"
 
+#include "pulse_config.h"
 #include "pulse_cpp_gameplay.h"
 #include "pulse_imgui.h"
 
@@ -1686,9 +1687,9 @@ EPulseAppAddPluginResult {{ADD_PLUGIN_FN}}(PulseAppId app)
 
 } // namespace
 
-extern "C" PULSE_EXPORT EPulseResult pulse_package_register(PulseAppId app, const void* config, uint32_t config_size)
+extern "C" PULSE_EXPORT EPulseResult pulse_package_register(PulseAppId app, PulseConfig* config)
 {
-    if (config || config_size != 0) {
+    if (config) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     return pulse::to_package_result({{ADD_PLUGIN_FN}}(app));
