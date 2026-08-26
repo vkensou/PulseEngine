@@ -25,6 +25,11 @@ void AssetSystem::process_load_requests() {
     load_queue_.process(*this);
 }
 
+void AssetSystem::drain_loads() {
+    while (load_queue_.drain_pass(*this)) {
+    }
+}
+
 EPulseResult AssetSystem::register_type(const PulseAssetTypeDesc* desc) {
     return registry_.register_type(desc);
 }

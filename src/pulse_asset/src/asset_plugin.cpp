@@ -124,6 +124,19 @@ EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx) {
     return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 }
 
+EPulsePluginBuildResult asset_plugin_post_build_callback(PulseAppId app, void* ctx) {
+    (void)app;
+    PulseAssetSystem* system = static_cast<PulseAssetSystem*>(ctx);
+    if (!system) {
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    // All build callbacks have run; drain every load task queued so far so
+    // assets requested at build time are ready before the app starts running.
+    system->impl.drain_loads();
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
+}
+
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx) {
     AssetSystem* system = static_cast<AssetSystem*>(ctx);
     if (!system) {
@@ -169,7 +182,7 @@ EPulseAppAddPluginResult pulse_add_asset_plugin(
         .name = pulse::asset::kPluginName,
         .ctx = system,
         .build = pulse::asset::asset_plugin_build_callback,
-        .post_build = nullptr,
+        .post_build = pulse::asset::asset_plugin_post_build_callback,
         .shutdown = pulse::asset::asset_plugin_shutdown_callback,
         .dependency_count = 0,
         .dependencies = nullptr,

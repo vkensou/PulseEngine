@@ -332,6 +332,7 @@ public:
 
     JobIterator enqueue(LoadJob&& job);
     void process(AssetSystem& system);
+    bool drain_pass(AssetSystem& system);
     LoadJobOutcome process_immediate_builder(AssetSystem& system, JobIterator job_it);
     void cancel_all(AssetSystem& system);
     void cancel_type(AssetSystem& system, uint64_t type_id);
@@ -349,6 +350,7 @@ private:
 };
 
 EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx);
+EPulsePluginBuildResult asset_plugin_post_build_callback(PulseAppId app, void* ctx);
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx);
 
 class AssetSystem final {
@@ -362,6 +364,7 @@ public:
     EPulseResult build(PulseAppId app, ecs_world_t* world);
     void shutdown(PulseAppId app);
     void process_load_requests();
+    void drain_loads();
 
     EPulseResult register_type(const PulseAssetTypeDesc* desc);
     EPulseResult register_loader(const PulseAssetLoaderDesc* desc);
