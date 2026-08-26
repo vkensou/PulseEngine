@@ -23,6 +23,7 @@ int main(void)
     assert(app != nullptr);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
+    assert(pulse_vfs_add_content_root("src/pulse_daslang") == PULSE_VFS_RESULT_OK);
     assert(pulse_vfs_add_content_root("tests/daslang/pkg_das_test") == PULSE_VFS_RESULT_OK);
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
  
@@ -38,12 +39,9 @@ int main(void)
 
     assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
-    // 动态加载并执行 das 脚本
-    if (!pulse_load_module(app, "tests/daslang/pkg_das_test/das_test.das"))
-    {
-        pulse_destroy_app(app);
-        return -1;
-    }
+    assert(pulse_load_module(app, "tests/daslang/pkg_das_test/das_test.das"));
+
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     // 验证 das 脚本的 importModule 确实执行了：它应创建 DasTestMarker 组件并写值。
     ecs_world_t* world = pulse_app_world(app);

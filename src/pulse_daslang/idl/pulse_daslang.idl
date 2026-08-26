@@ -25,6 +25,7 @@ typedef "PulseAppId"
 
 --- Constants
 const_value.DaslangPluginDescVersion { value = "2u" }
+const_value.TypeDaslangScript { value = "UINT64_C(0x2000)" }
 
 --- Plugin descriptor
 struct.DaslangPluginDesc

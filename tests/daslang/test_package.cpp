@@ -39,6 +39,8 @@ int main(void)
     assert(pulse_app_has_plugin(app, "pulse_asset"));
     assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
+
     // das_test.das 的 importModule 会创建带 DasTestMarker 组件的实体。
     ecs_world_t* world = pulse_app_world(app);
     ecs_id_t marker_id = ecs_lookup(world, "DasTestMarker");

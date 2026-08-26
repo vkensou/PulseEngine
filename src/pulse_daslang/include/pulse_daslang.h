@@ -24,6 +24,8 @@ extern "C" {
  */
 #define PULSE_DASLANG_PLUGIN_DESC_VERSION 2u
 
+#define PULSE_TYPE_DASLANG_SCRIPT UINT64_C(0x2000)
+
 
 
 

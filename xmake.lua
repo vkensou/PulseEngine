@@ -221,6 +221,7 @@ target("pulse_daslang")
     add_deps("pulse_config")
     add_deps("pulse_math")
     add_deps("pulse_asset")
+    add_deps("pulse_vfs")
     add_deps("pulse_graphics")
     add_deps("pulse_imgui")
     add_deps("pulse_script_register")
@@ -232,14 +233,6 @@ target("pulse_daslang")
     if is_plat("windows") then
         add_cxflags("/bigobj")
     end
-
-    after_build(function (target)
-        -- Ship the das standard library (pulse/, daslib/) next to the DLL so
-        -- the plugin's default root_path (its own module directory) finds it.
-        local dasdir = path.join(os.projectdir(), "src/pulse_daslang/das")
-        os.cp(path.join(dasdir, "pulse"), path.join(target:targetdir(), "pulse"))
-        os.cp(path.join(dasdir, "daslib"), path.join(target:targetdir(), "daslib"))
-    end)
 
 target("launcher")
     set_group("examples")
