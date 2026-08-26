@@ -280,6 +280,9 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
 
 	auto* state = new pulse_daslang_internal::pulse_daslang_state();
 
+    const char* daslang_dependencies[] = {
+        "pulse_asset",
+    };
 	PulsePluginDesc plugin_desc = {
 		.struct_size = sizeof(PulsePluginDesc),
 		.version = PULSE_PLUGIN_DESC_VERSION,
@@ -289,8 +292,8 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
 		.build = pulse_daslang_internal::daslang_plugin_build,
 		.post_build = pulse_daslang_internal::daslang_plugin_post_build,
 		.shutdown = pulse_daslang_internal::daslang_plugin_shutdown,
-		.dependency_count = 0,
-		.dependencies = nullptr,
+		.dependency_count = 1,
+		.dependencies = daslang_dependencies,
 	};
 
 	EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

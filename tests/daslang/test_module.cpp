@@ -10,6 +10,8 @@
 #include <flecs.h> // C++ API - must be included before pulse headers
 
 #include "pulse_app.h"
+#include "pulse_asset.h"
+#include "pulse_vfs.h"
 #include "pulse_daslang.h"
 
 int main(void)
@@ -20,6 +22,10 @@ int main(void)
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
 
+    PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
+    assert(pulse_vfs_add_content_root("tests/daslang/pkg_das_test") == PULSE_VFS_RESULT_OK);
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+ 
     // ---- daslang 插件 ----
     auto daslang_desc = pulse_daslang_plugin_desc_default();
     // 脚本随后在下方通过 pulse_load_module 动态加载。

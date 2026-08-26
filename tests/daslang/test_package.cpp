@@ -22,11 +22,12 @@ int main(void)
     assert(app != nullptr);
 
     PulsePackageListEntry entries[] = {
+        { "pulse_asset", nullptr },
         { "pulse_daslang", nullptr },
         { "pkg_das_test", nullptr },
     };
     const char* search_paths[] = { "src", "tests/daslang" };
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, 2, search_paths, 2, entries);
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, 2, search_paths, 3, entries);
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK)
     {
         printf("Package load failed: %s (result=%d)\n", pulse_app_last_error(app), (int)load_result);
@@ -35,6 +36,7 @@ int main(void)
         return -1;
     }
 
+    assert(pulse_app_has_plugin(app, "pulse_asset"));
     assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
     // das_test.das 的 importModule 会创建带 DasTestMarker 组件的实体。

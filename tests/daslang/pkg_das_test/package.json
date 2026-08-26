@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "daslang",
   "script_file": "das_test.das",
+  "assets": true,
   "dependencies": [
     "pulse_daslang"
   ]

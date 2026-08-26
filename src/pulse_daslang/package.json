@@ -2,5 +2,8 @@
   "name": "pulse_daslang",
   "version": "1.0.0",
   "entry": "pulse_package_register",
-  "dependencies": []
+  "assets": true,
+  "dependencies": [
+    "pulse_asset"
+  ]
 }
