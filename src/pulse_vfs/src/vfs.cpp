@@ -1,433 +1,339 @@
 // ============================================================================
-// pulse_vfs - PulseEngine virtual file system (core package)
+// pulse_vfs - PulseEngine virtual file system
 //
-// Registers "content roots" (search directories) and resolves asset paths
-// through them. The backend uses SDL3 file I/O directly (SDL_IOFromFile /
-// SDL_ReadIO / SDL_EnumerateDirectory).
-//
-// Resolution order:
-//   1. Content roots, most recently added first (a package's own assets
-//      shadow earlier registered roots with the same relative path).
-//   2. The raw path relative to the working directory (fallback, also covers
-//      absolute paths).
-//
-// API style follows C: fopen/fread/fseek-like stream handles for files
-// (pulse_vfs_open_file / read / write / seek / tell / close), opendir/readdir-
-// like scans for directories (pulse_vfs_open_dir / read_dir / close_dir), and
-// stat-like queries (pulse_vfs_get_path_info).
+// Thin C API wrapper around PhysicsFS (PhysFS). The public surface is aligned
+// with PHYSFS's core file/mount/stat/enumerate operations.
 // ============================================================================
 
 #include "pulse_vfs.h"
 
-#include <SDL3/SDL.h>
+#include "physfs.h"
 
-#include <cstring>
-#include <mutex>
 #include <new>
-#include <string>
-#include <vector>
+
+struct PulseVfsFile {
+    PHYSFS_File* handle = nullptr;
+};
 
 namespace pulse::vfs {
 
-std::vector<std::string>& content_roots() {
-    static std::vector<std::string> roots;
-    return roots;
+constexpr const char* kPluginName = "pulse_vfs";
+
+EPulsePluginBuildResult vfs_plugin_build_callback(PulseAppId app, void* ctx) {
+    (void)app;
+    (void)ctx;
+
+    if (PHYSFS_isInit()) {
+        return PULSE_PLUGIN_BUILD_RESULT_OK;
+    }
+    return PHYSFS_init(nullptr) != 0
+        ? PULSE_PLUGIN_BUILD_RESULT_OK
+        : PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 }
 
-std::mutex& roots_mutex() {
-    static std::mutex m;
-    return m;
+void vfs_plugin_shutdown_callback(PulseAppId app, void* ctx) {
+    (void)app;
+    (void)ctx;
+
+    if (PHYSFS_isInit()) {
+        PHYSFS_deinit();
+    }
 }
 
-// Normalizes a path so that equivalent spellings compare and join equal:
-//   - backslashes become forward slashes
-//   - leading/trailing whitespace is trimmed
-//   - runs of '/' collapse to one ("//server" UNC prefixes kept)
-//   - "." segments are dropped
-//   - ".." pops the previous segment (kept when nothing can be popped)
-//   - a trailing slash is dropped
-// Returns "" for empty input, "." when everything collapsed (e.g. "./"),
-// and "/" for the bare root.
-std::string normalize_path(const char* path) {
-    std::string in(path ? path : "");
-
-    size_t b = 0;
-    size_t e = in.size();
-    while (b < e && (in[b] == ' ' || in[b] == '\t')) {
-        ++b;
+EPulseVfsErrorCode to_pulse_error(PHYSFS_ErrorCode code) {
+    switch (code) {
+        case PHYSFS_ERR_OK: return PULSE_VFS_ERROR_CODE_OK;
+        case PHYSFS_ERR_OTHER_ERROR: return PULSE_VFS_ERROR_CODE_OTHER_ERROR;
+        case PHYSFS_ERR_OUT_OF_MEMORY: return PULSE_VFS_ERROR_CODE_OUT_OF_MEMORY;
+        case PHYSFS_ERR_NOT_INITIALIZED: return PULSE_VFS_ERROR_CODE_NOT_INITIALIZED;
+        case PHYSFS_ERR_IS_INITIALIZED: return PULSE_VFS_ERROR_CODE_IS_INITIALIZED;
+        case PHYSFS_ERR_ARGV0_IS_NULL: return PULSE_VFS_ERROR_CODE_ARGV0_IS_NULL;
+        case PHYSFS_ERR_UNSUPPORTED: return PULSE_VFS_ERROR_CODE_UNSUPPORTED;
+        case PHYSFS_ERR_PAST_EOF: return PULSE_VFS_ERROR_CODE_PAST_EOF;
+        case PHYSFS_ERR_FILES_STILL_OPEN: return PULSE_VFS_ERROR_CODE_FILES_STILL_OPEN;
+        case PHYSFS_ERR_INVALID_ARGUMENT: return PULSE_VFS_ERROR_CODE_INVALID_ARGUMENT;
+        case PHYSFS_ERR_NOT_MOUNTED: return PULSE_VFS_ERROR_CODE_NOT_MOUNTED;
+        case PHYSFS_ERR_NOT_FOUND: return PULSE_VFS_ERROR_CODE_NOT_FOUND;
+        case PHYSFS_ERR_SYMLINK_FORBIDDEN: return PULSE_VFS_ERROR_CODE_SYMLINK_FORBIDDEN;
+        case PHYSFS_ERR_NO_WRITE_DIR: return PULSE_VFS_ERROR_CODE_NO_WRITE_DIR;
+        case PHYSFS_ERR_OPEN_FOR_READING: return PULSE_VFS_ERROR_CODE_OPEN_FOR_READING;
+        case PHYSFS_ERR_OPEN_FOR_WRITING: return PULSE_VFS_ERROR_CODE_OPEN_FOR_WRITING;
+        case PHYSFS_ERR_NOT_A_FILE: return PULSE_VFS_ERROR_CODE_NOT_AFILE;
+        case PHYSFS_ERR_READ_ONLY: return PULSE_VFS_ERROR_CODE_READ_ONLY;
+        case PHYSFS_ERR_CORRUPT: return PULSE_VFS_ERROR_CODE_CORRUPT;
+        case PHYSFS_ERR_SYMLINK_LOOP: return PULSE_VFS_ERROR_CODE_SYMLINK_LOOP;
+        case PHYSFS_ERR_IO: return PULSE_VFS_ERROR_CODE_IO;
+        case PHYSFS_ERR_PERMISSION: return PULSE_VFS_ERROR_CODE_PERMISSION;
+        case PHYSFS_ERR_NO_SPACE: return PULSE_VFS_ERROR_CODE_NO_SPACE;
+        case PHYSFS_ERR_BAD_FILENAME: return PULSE_VFS_ERROR_CODE_BAD_FILENAME;
+        case PHYSFS_ERR_BUSY: return PULSE_VFS_ERROR_CODE_BUSY;
+        case PHYSFS_ERR_DIR_NOT_EMPTY: return PULSE_VFS_ERROR_CODE_DIR_NOT_EMPTY;
+        case PHYSFS_ERR_OS_ERROR: return PULSE_VFS_ERROR_CODE_OSERROR;
+        case PHYSFS_ERR_DUPLICATE: return PULSE_VFS_ERROR_CODE_DUPLICATE;
+        case PHYSFS_ERR_BAD_PASSWORD: return PULSE_VFS_ERROR_CODE_BAD_PASSWORD;
+        case PHYSFS_ERR_APP_CALLBACK: return PULSE_VFS_ERROR_CODE_APP_CALLBACK;
     }
-    while (e > b && (in[e - 1] == ' ' || in[e - 1] == '\t')) {
-        --e;
-    }
-    in = in.substr(b, e - b);
-    for (char& c : in) {
-        if (c == '\\') {
-            c = '/';
-        }
-    }
-    if (in.empty()) {
-        return "";
-    }
-
-    std::vector<std::string> segs;
-    size_t i = 0;
-    while (i < in.size()) {
-        size_t j = in.find('/', i);
-        if (j == std::string::npos) {
-            j = in.size();
-        }
-        std::string seg = in.substr(i, j - i);
-        i = j + 1;
-
-        if (seg.empty()) {
-            // Leading slash(es): keep at most two empty segments so "/x" stays
-            // rooted and "//server/share" keeps its UNC prefix; interior
-            // repeats collapse.
-            if (segs.empty()) {
-                segs.emplace_back("");
-            } else if (segs.size() == 1 && segs[0].empty()) {
-                segs.emplace_back("");
-            }
-            continue;
-        }
-        if (seg == ".") {
-            continue;
-        }
-        if (seg == "..") {
-            // Pop a normal segment, but never the root marker, a drive
-            // letter ("C:"), or a leading "..".
-            if (!segs.empty() && segs.back() != "" && segs.back() != ".." &&
-                !(segs.back().size() >= 2 && segs.back()[1] == ':')) {
-                segs.pop_back();
-            } else {
-                segs.emplace_back("..");
-            }
-            continue;
-        }
-        segs.emplace_back(std::move(seg));
-    }
-
-    std::string out;
-    for (size_t k = 0; k < segs.size(); ++k) {
-        if (k > 0) {
-            out += '/';
-        }
-        out += segs[k];
-    }
-    if (out.empty()) {
-        out = (segs.size() == 1 && segs[0].empty()) ? "/" : ".";
-    }
-    return out;
+    return PULSE_VFS_ERROR_CODE_OTHER_ERROR;
 }
 
-// A content root is a path too; normalize it the same way so duplicate
-// registration is detected ("a/b" vs "a/./b" vs "a\\b").
-std::string normalize_root(const char* root) {
-    return normalize_path(root);
+PHYSFS_ErrorCode to_physfs_error(EPulseVfsErrorCode code) {
+    switch (code) {
+        case PULSE_VFS_ERROR_CODE_OK: return PHYSFS_ERR_OK;
+        case PULSE_VFS_ERROR_CODE_OTHER_ERROR: return PHYSFS_ERR_OTHER_ERROR;
+        case PULSE_VFS_ERROR_CODE_OUT_OF_MEMORY: return PHYSFS_ERR_OUT_OF_MEMORY;
+        case PULSE_VFS_ERROR_CODE_NOT_INITIALIZED: return PHYSFS_ERR_NOT_INITIALIZED;
+        case PULSE_VFS_ERROR_CODE_IS_INITIALIZED: return PHYSFS_ERR_IS_INITIALIZED;
+        case PULSE_VFS_ERROR_CODE_ARGV0_IS_NULL: return PHYSFS_ERR_ARGV0_IS_NULL;
+        case PULSE_VFS_ERROR_CODE_UNSUPPORTED: return PHYSFS_ERR_UNSUPPORTED;
+        case PULSE_VFS_ERROR_CODE_PAST_EOF: return PHYSFS_ERR_PAST_EOF;
+        case PULSE_VFS_ERROR_CODE_FILES_STILL_OPEN: return PHYSFS_ERR_FILES_STILL_OPEN;
+        case PULSE_VFS_ERROR_CODE_INVALID_ARGUMENT: return PHYSFS_ERR_INVALID_ARGUMENT;
+        case PULSE_VFS_ERROR_CODE_NOT_MOUNTED: return PHYSFS_ERR_NOT_MOUNTED;
+        case PULSE_VFS_ERROR_CODE_NOT_FOUND: return PHYSFS_ERR_NOT_FOUND;
+        case PULSE_VFS_ERROR_CODE_SYMLINK_FORBIDDEN: return PHYSFS_ERR_SYMLINK_FORBIDDEN;
+        case PULSE_VFS_ERROR_CODE_NO_WRITE_DIR: return PHYSFS_ERR_NO_WRITE_DIR;
+        case PULSE_VFS_ERROR_CODE_OPEN_FOR_READING: return PHYSFS_ERR_OPEN_FOR_READING;
+        case PULSE_VFS_ERROR_CODE_OPEN_FOR_WRITING: return PHYSFS_ERR_OPEN_FOR_WRITING;
+        case PULSE_VFS_ERROR_CODE_NOT_AFILE: return PHYSFS_ERR_NOT_A_FILE;
+        case PULSE_VFS_ERROR_CODE_READ_ONLY: return PHYSFS_ERR_READ_ONLY;
+        case PULSE_VFS_ERROR_CODE_CORRUPT: return PHYSFS_ERR_CORRUPT;
+        case PULSE_VFS_ERROR_CODE_SYMLINK_LOOP: return PHYSFS_ERR_SYMLINK_LOOP;
+        case PULSE_VFS_ERROR_CODE_IO: return PHYSFS_ERR_IO;
+        case PULSE_VFS_ERROR_CODE_PERMISSION: return PHYSFS_ERR_PERMISSION;
+        case PULSE_VFS_ERROR_CODE_NO_SPACE: return PHYSFS_ERR_NO_SPACE;
+        case PULSE_VFS_ERROR_CODE_BAD_FILENAME: return PHYSFS_ERR_BAD_FILENAME;
+        case PULSE_VFS_ERROR_CODE_BUSY: return PHYSFS_ERR_BUSY;
+        case PULSE_VFS_ERROR_CODE_DIR_NOT_EMPTY: return PHYSFS_ERR_DIR_NOT_EMPTY;
+        case PULSE_VFS_ERROR_CODE_OSERROR: return PHYSFS_ERR_OS_ERROR;
+        case PULSE_VFS_ERROR_CODE_DUPLICATE: return PHYSFS_ERR_DUPLICATE;
+        case PULSE_VFS_ERROR_CODE_BAD_PASSWORD: return PHYSFS_ERR_BAD_PASSWORD;
+        case PULSE_VFS_ERROR_CODE_APP_CALLBACK: return PHYSFS_ERR_APP_CALLBACK;
+        case PULSE_VFS_ERROR_CODE_COUNT: break;
+    }
+    return PHYSFS_ERR_OTHER_ERROR;
 }
 
-std::string join_path(const std::string& root, const std::string& rel) {
-    if (root.empty()) {
-        return rel;
-    }
-    if (root.back() == '/') {
-        return root + rel;
-    }
-    return root + "/" + rel;
-}
-
-// Returns true when full_path exists, be it a file, a directory or anything
-// else the OS knows about (SDL_GetPathInfo reports type != NONE).
-bool exists_at(const std::string& full_path) {
-    SDL_PathInfo info{};
-    if (!SDL_GetPathInfo(full_path.c_str(), &info)) {
-        return false;
-    }
-    return info.type != SDL_PATHTYPE_NONE;
-}
-
-// Searches the content roots (most recent first), then falls back to the raw
-// path relative to the working directory. Returns an empty string when the
-// path cannot be found anywhere.
-std::string resolve(const std::string& rel) {
-    {
-        std::lock_guard<std::mutex> lock(roots_mutex());
-        const std::vector<std::string>& roots = content_roots();
-        for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
-            std::string candidate = join_path(*it, rel);
-            if (exists_at(candidate)) {
-                return candidate;
-            }
-        }
-    }
-    if (exists_at(rel)) {
-        return rel;
-    }
-    return {};
-}
-
-EPulseVfsPathType to_path_type(SDL_PathType type) {
+EPulseVfsFileType to_pulse_file_type(PHYSFS_FileType type) {
     switch (type) {
-        case SDL_PATHTYPE_NONE:
-            return PULSE_VFS_PATH_TYPE_NONE;
-        case SDL_PATHTYPE_FILE:
-            return PULSE_VFS_PATH_TYPE_FILE;
-        case SDL_PATHTYPE_DIRECTORY:
-            return PULSE_VFS_PATH_TYPE_DIRECTORY;
-        default:
-            return PULSE_VFS_PATH_TYPE_OTHER;
+        case PHYSFS_FILETYPE_REGULAR: return PULSE_VFS_FILE_TYPE_REGULAR;
+        case PHYSFS_FILETYPE_DIRECTORY: return PULSE_VFS_FILE_TYPE_DIRECTORY;
+        case PHYSFS_FILETYPE_SYMLINK: return PULSE_VFS_FILE_TYPE_SYMLINK;
+        case PHYSFS_FILETYPE_OTHER: return PULSE_VFS_FILE_TYPE_OTHER;
     }
+    return PULSE_VFS_FILE_TYPE_OTHER;
+}
+
+struct EnumerateContext {
+    PulseProcVfsEnumerateCallback callback = nullptr;
+    void* user_data = nullptr;
+};
+
+PHYSFS_EnumerateCallbackResult enumerate_adapter(void* data, const char* origdir, const char* fname) {
+    auto* ctx = static_cast<EnumerateContext*>(data);
+    return static_cast<PHYSFS_EnumerateCallbackResult>(
+        ctx->callback(ctx->user_data, origdir, fname));
 }
 
 } // namespace pulse::vfs
 
-// Opaque handle storage. Stay out of the pulse::vfs namespace on purpose: the
-// public header declares them as struct PulseVfsFile / PulseVfsDir via the
-// DEFINE_PULSE_OBJECT macro.
-struct PulseVfsFile {
-    SDL_IOStream* stream;
-};
-
-struct PulseVfsDir {
-    std::vector<std::string> names;         // owns the entry name strings
-    std::vector<PulseVfsDirEntry> entries;  // name pointers point into `names`
-    size_t cursor = 0;
-};
-
 extern "C" {
 
-PULSE_VFS_API EPulseVfsResult pulse_vfs_add_content_root(const char* root_path) {
-    if (!root_path || !root_path[0]) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    std::string normalized = pulse::vfs::normalize_root(root_path);
-    if (normalized.empty()) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    std::lock_guard<std::mutex> lock(pulse::vfs::roots_mutex());
-    std::vector<std::string>& roots = pulse::vfs::content_roots();
-    for (const std::string& root : roots) {
-        if (root == normalized) {
-            return PULSE_VFS_RESULT_OK; // already registered
-        }
-    }
-    roots.push_back(std::move(normalized));
-    return PULSE_VFS_RESULT_OK;
+PULSE_VFS_API PulseVfsPluginDesc pulse_vfs_plugin_desc_default(void) {
+    PulseVfsPluginDesc desc{};
+    desc.struct_size = sizeof(PulseVfsPluginDesc);
+    desc.version = PULSE_VFS_PLUGIN_DESC_VERSION;
+    return desc;
 }
 
-PULSE_VFS_API bool pulse_vfs_path_exists(const char* path) {
-    if (!path || !path[0]) {
+PULSE_VFS_API EPulseAppAddPluginResult pulse_add_vfs_plugin(
+    PulseAppId app,
+    const PulseVfsPluginDesc* desc
+) {
+    if (!app) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    if (desc &&
+        (desc->struct_size != sizeof(PulseVfsPluginDesc) ||
+         desc->version != PULSE_VFS_PLUGIN_DESC_VERSION)) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    if (pulse_app_has_plugin(app, pulse::vfs::kPluginName)) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
+    }
+
+    PulsePluginDesc plugin_desc{};
+    plugin_desc.struct_size = sizeof(PulsePluginDesc);
+    plugin_desc.version = PULSE_PLUGIN_DESC_VERSION;
+    plugin_desc.plugin_version = PULSE_VFS_PLUGIN_DESC_VERSION;
+    plugin_desc.name = pulse::vfs::kPluginName;
+    plugin_desc.ctx = nullptr;
+    plugin_desc.build = pulse::vfs::vfs_plugin_build_callback;
+    plugin_desc.post_build = nullptr;
+    plugin_desc.shutdown = pulse::vfs::vfs_plugin_shutdown_callback;
+    plugin_desc.dependency_count = 0;
+    plugin_desc.dependencies = nullptr;
+
+    return pulse_app_add_plugin(app, &plugin_desc);
+}
+
+PULSE_VFS_API bool pulse_vfs_mount(const char* new_dir, const char* mount_point, bool append_to_path) {
+    return PHYSFS_mount(new_dir, mount_point, append_to_path ? 1 : 0) != 0;
+}
+
+PULSE_VFS_API bool pulse_vfs_unmount(const char* old_dir) {
+    return PHYSFS_unmount(old_dir) != 0;
+}
+
+PULSE_VFS_API const char* pulse_vfs_get_write_dir(void) {
+    return PHYSFS_getWriteDir();
+}
+
+PULSE_VFS_API bool pulse_vfs_set_write_dir(const char* new_dir) {
+    return PHYSFS_setWriteDir(new_dir) != 0;
+}
+
+PULSE_VFS_API bool pulse_vfs_exists(const char* fname) {
+    if (!fname) {
         return false;
     }
-    return !pulse::vfs::resolve(pulse::vfs::normalize_path(path)).empty();
+    return PHYSFS_exists(fname) != 0;
 }
 
-PULSE_VFS_API EPulseVfsResult pulse_vfs_get_path_info(const char* path, PulseVfsPathInfo* out_info) {
-    if (out_info) {
-        out_info->type = PULSE_VFS_PATH_TYPE_NONE;
-        out_info->size = 0;
-    }
-    if (!path || !path[0] || !out_info) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
+PULSE_VFS_API bool pulse_vfs_stat(const char* fname, PulseVfsStat* stat) {
+    if (!fname || !stat) {
+        return false;
     }
 
-    std::string resolved = pulse::vfs::resolve(pulse::vfs::normalize_path(path));
-    if (resolved.empty()) {
-        return PULSE_VFS_RESULT_ERROR_NOT_FOUND;
+    PHYSFS_Stat raw{};
+    if (PHYSFS_stat(fname, &raw) == 0) {
+        return false;
     }
 
-    SDL_PathInfo raw{};
-    if (!SDL_GetPathInfo(resolved.c_str(), &raw)) {
-        return PULSE_VFS_RESULT_ERROR_IO;
-    }
-    out_info->type = pulse::vfs::to_path_type(raw.type);
-    out_info->size = static_cast<uint64_t>(raw.size);
-    return PULSE_VFS_RESULT_OK;
+    stat->file_size = raw.filesize;
+    stat->mod_time = raw.modtime;
+    stat->create_time = raw.createtime;
+    stat->access_time = raw.accesstime;
+    stat->file_type = pulse::vfs::to_pulse_file_type(raw.filetype);
+    stat->read_only = raw.readonly != 0;
+    return true;
 }
 
-PULSE_VFS_API PulseVfsFileId pulse_vfs_open_file(const char* path, const char* mode) {
-    if (!path || !path[0] || !mode || !mode[0]) {
+PULSE_VFS_API PulseVfsFileId pulse_vfs_open_read(const char* filename) {
+    PHYSFS_File* handle = PHYSFS_openRead(filename);
+    if (!handle) {
         return nullptr;
     }
 
-    std::string resolved = pulse::vfs::resolve(pulse::vfs::normalize_path(path));
-    if (resolved.empty()) {
-        // Read modes fail when nothing resolves. Write/append modes may also
-        // target a file that does not exist yet ("wb"/"a" create it), so they
-        // fall back to the raw path, like fopen() would.
-        if (std::strchr(mode, 'r')) {
-            return nullptr;
-        }
-        resolved = pulse::vfs::normalize_path(path);
-    }
-
-    SDL_IOStream* stream = SDL_IOFromFile(resolved.c_str(), mode);
-    if (!stream) {
-        return nullptr;
-    }
-
-    PulseVfsFile* file = new (std::nothrow) PulseVfsFile{stream};
+    PulseVfsFile* file = new (std::nothrow) PulseVfsFile;
     if (!file) {
-        SDL_CloseIO(stream);
+        PHYSFS_close(handle);
         return nullptr;
     }
+    file->handle = handle;
     return file;
 }
 
-PULSE_VFS_API EPulseVfsResult pulse_vfs_read_file(PulseVfsFileId file, void* buffer, size_t max_bytes, size_t* out_read) {
-    if (out_read) {
-        *out_read = 0;
+PULSE_VFS_API PulseVfsFileId pulse_vfs_open_write(const char* filename) {
+    PHYSFS_File* handle = PHYSFS_openWrite(filename);
+    if (!handle) {
+        return nullptr;
     }
-    if (!file || !file->stream) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
+
+    PulseVfsFile* file = new (std::nothrow) PulseVfsFile;
+    if (!file) {
+        PHYSFS_close(handle);
+        return nullptr;
     }
-    if (max_bytes == 0) {
-        return PULSE_VFS_RESULT_OK; // nothing requested, nothing to fail on
-    }
-    if (!buffer) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    size_t reads = SDL_ReadIO(file->stream, buffer, max_bytes);
-    if (out_read) {
-        *out_read = reads;
-    }
-    // (size_t)-1 is SDL's only real error signal. A 0 result means EOF (or a
-    // zero-size request, handled above), which is normal flow, not an error:
-    // callers loop while out_read > 0.
-    if (reads == static_cast<size_t>(-1)) {
-        return PULSE_VFS_RESULT_ERROR_IO;
-    }
-    return PULSE_VFS_RESULT_OK;
+    file->handle = handle;
+    return file;
 }
 
-PULSE_VFS_API EPulseVfsResult pulse_vfs_write_file(PulseVfsFileId file, const void* buffer, size_t size) {
-    if (!file || !file->stream) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
+PULSE_VFS_API PulseVfsFileId pulse_vfs_open_append(const char* filename) {
+    PHYSFS_File* handle = PHYSFS_openAppend(filename);
+    if (!handle) {
+        return nullptr;
     }
-    if (size == 0) {
-        return PULSE_VFS_RESULT_OK;
+
+    PulseVfsFile* file = new (std::nothrow) PulseVfsFile;
+    if (!file) {
+        PHYSFS_close(handle);
+        return nullptr;
     }
-    if (!buffer) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-    size_t writes = SDL_WriteIO(file->stream, buffer, size);
-    return writes < size ? PULSE_VFS_RESULT_ERROR_IO : PULSE_VFS_RESULT_OK;
+    file->handle = handle;
+    return file;
 }
 
-PULSE_VFS_API EPulseVfsResult pulse_vfs_seek_file(PulseVfsFileId file, int64_t offset, EPulseVfsSeekOrigin origin) {
-    if (!file || !file->stream) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
+PULSE_VFS_API bool pulse_vfs_close(PulseVfsFileId file) {
+    if (!file || !file->handle) {
+        return false;
     }
-    SDL_IOWhence whence;
-    switch (origin) {
-        case PULSE_VFS_SEEK_ORIGIN_SET:
-            whence = SDL_IO_SEEK_SET;
-            break;
-        case PULSE_VFS_SEEK_ORIGIN_CURRENT:
-            whence = SDL_IO_SEEK_CUR;
-            break;
-        case PULSE_VFS_SEEK_ORIGIN_END:
-            whence = SDL_IO_SEEK_END;
-            break;
-        default:
-            return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
+    if (PHYSFS_close(file->handle) == 0) {
+        return false;
     }
-    auto result = SDL_SeekIO(file->stream, offset, whence);
-    return result >= 0 ? PULSE_VFS_RESULT_OK : PULSE_VFS_RESULT_ERROR_IO;
+    file->handle = nullptr;
+    delete file;
+    return true;
 }
 
-PULSE_VFS_API int64_t pulse_vfs_tell_file(PulseVfsFileId file) {
-    if (!file || !file->stream) {
+PULSE_VFS_API int64_t pulse_vfs_read_bytes(PulseVfsFileId file, void* buffer, uint64_t len) {
+    if (!file || !file->handle) {
         return -1;
     }
-    return SDL_TellIO(file->stream); // -1 on error
+    return PHYSFS_readBytes(file->handle, buffer, len);
 }
 
-PULSE_VFS_API EPulseVfsResult pulse_vfs_get_file_size(PulseVfsFileId file, uint64_t* out_size) {
-    if (!file || !file->stream || !out_size) {
-        return PULSE_VFS_RESULT_ERROR_INVALID_ARGUMENT;
+PULSE_VFS_API int64_t pulse_vfs_write_bytes(PulseVfsFileId file, const void* buffer, uint64_t len) {
+    if (!file || !file->handle) {
+        return -1;
     }
-    Sint64 size = SDL_GetIOSize(file->stream);
-    if (size < 0) {
-        return PULSE_VFS_RESULT_ERROR_IO;
-    }
-    *out_size = static_cast<uint64_t>(size);
-    return PULSE_VFS_RESULT_OK;
+    return PHYSFS_writeBytes(file->handle, buffer, len);
 }
 
-PULSE_VFS_API void pulse_vfs_close_file(PulseVfsFileId file) {
-    if (!file) {
-        return;
+PULSE_VFS_API bool pulse_vfs_eof(PulseVfsFileId file) {
+    if (!file || !file->handle) {
+        return false;
     }
-    if (file->stream) {
-        SDL_CloseIO(file->stream);
-    }
-    file->stream = nullptr;
-    delete file;
+    return PHYSFS_eof(file->handle) != 0;
 }
 
-PULSE_VFS_API PulseVfsDirId pulse_vfs_open_dir(const char* path) {
-    if (!path || !path[0]) {
-        return nullptr;
+PULSE_VFS_API int64_t pulse_vfs_tell(PulseVfsFileId file) {
+    if (!file || !file->handle) {
+        return -1;
     }
-
-    std::string resolved = pulse::vfs::resolve(pulse::vfs::normalize_path(path));
-    if (resolved.empty()) {
-        return nullptr;
-    }
-
-    // Collect the raw names first. Entry name pointers must stay valid until
-    // close_dir, so the entries table is built only after the enumeration
-    // finished and `names` will never move again.
-    std::vector<std::string> names;
-    const bool ok = SDL_EnumerateDirectory(
-        resolved.c_str(),
-        [](void* userdata, const char* dirname, const char* fname) -> SDL_EnumerationResult {
-            auto* n = static_cast<std::vector<std::string>*>(userdata);
-            (void)dirname;
-            n->emplace_back(fname);
-            return SDL_ENUM_CONTINUE;
-        },
-        &names);
-
-    if (!ok) {
-        return nullptr;
-    }
-
-    PulseVfsDir* dir = new (std::nothrow) PulseVfsDir;
-    if (!dir) {
-        return nullptr;
-    }
-
-    dir->names = std::move(names);
-    dir->entries.reserve(dir->names.size());
-    for (const std::string& name : dir->names) {
-        PulseVfsDirEntry entry{};
-        entry.name = name.c_str();
-        SDL_PathInfo info{};
-        if (SDL_GetPathInfo(pulse::vfs::join_path(resolved, name).c_str(), &info)) {
-            entry.type = pulse::vfs::to_path_type(info.type);
-        } else {
-            entry.type = PULSE_VFS_PATH_TYPE_NONE;
-        }
-        dir->entries.push_back(entry);
-    }
-    return dir;
+    return PHYSFS_tell(file->handle);
 }
 
-PULSE_VFS_API PulseVfsDirEntry* pulse_vfs_read_dir(PulseVfsDirId dir) {
-    if (!dir) {
-        return nullptr;
+PULSE_VFS_API bool pulse_vfs_seek(PulseVfsFileId file, uint64_t pos) {
+    if (!file || !file->handle) {
+        return false;
     }
-    if (dir->cursor >= dir->entries.size()) {
-        return nullptr;
-    }
-    return &dir->entries[dir->cursor++];
+    return PHYSFS_seek(file->handle, pos) != 0;
 }
 
-PULSE_VFS_API void pulse_vfs_close_dir(PulseVfsDirId dir) {
-    delete dir;
+PULSE_VFS_API int64_t pulse_vfs_file_length(PulseVfsFileId file) {
+    if (!file || !file->handle) {
+        return -1;
+    }
+    return PHYSFS_fileLength(file->handle);
+}
+
+PULSE_VFS_API bool pulse_vfs_enumerate(const char* dir, PulseProcVfsEnumerateCallback callback, void* user_data) {
+    if (!dir || !callback) {
+        return false;
+    }
+
+    pulse::vfs::EnumerateContext ctx;
+    ctx.callback = callback;
+    ctx.user_data = user_data;
+    return PHYSFS_enumerate(dir, pulse::vfs::enumerate_adapter, &ctx) != 0;
+}
+
+PULSE_VFS_API EPulseVfsErrorCode pulse_vfs_get_last_error_code(void) {
+    return pulse::vfs::to_pulse_error(PHYSFS_getLastErrorCode());
+}
+
+PULSE_VFS_API const char* pulse_vfs_get_error_by_code(EPulseVfsErrorCode code) {
+    return PHYSFS_getErrorByCode(pulse::vfs::to_physfs_error(code));
 }
 
 } // extern "C"

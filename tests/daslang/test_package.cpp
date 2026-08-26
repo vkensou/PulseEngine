@@ -12,6 +12,7 @@
 
 #include "pulse_app.h"
 #include "pulse_package_loader.h"
+#include "pulse_vfs.h"
 
 int main(void)
 {
@@ -20,6 +21,10 @@ int main(void)
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_vfs_mount("src/pulse_daslang", "/", false));
+    assert(pulse_vfs_mount("tests/daslang/pkg_das_test", "/", false));
 
     PulsePackageListEntry entries[] = {
         { "pulse_asset", nullptr },

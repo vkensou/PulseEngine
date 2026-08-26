@@ -411,8 +411,8 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
     for (size_t idx : order) {
         const auto& pe = pending[idx];
 
-        if (pe.resolved.has_assets && !pe.resolved.package_dir.empty()) {
-            pulse_vfs_add_content_root(pe.resolved.package_dir.c_str());
+        if ((pe.resolved.has_assets || pe.resolved.type != "native") && !pe.resolved.package_dir.empty()) {
+            pulse_vfs_mount(pe.resolved.package_dir.c_str(), "/", false);
         }
 
         if (pe.resolved.type != "native") {

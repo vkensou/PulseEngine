@@ -15,6 +15,8 @@ int main() {
         PulseAppDesc app_desc = { .name = "loader-script-runtime-unknown" };
         PulseAppId app = pulse_create_app(&app_desc);
         assert(app != nullptr);
+        PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+        assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
         PulsePackageListEntry entries[] = {
             { "pkg_unknown_runtime", nullptr },
@@ -33,6 +35,8 @@ int main() {
         PulseAppDesc app_desc = { .name = "loader-script-runtime" };
         PulseAppId app = pulse_create_app(&app_desc);
         assert(app != nullptr);
+        PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+        assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
         PulseConfig* cfg = pulse_config_create();
         pulse_config_set_string(cfg, "greeting", "hello");
@@ -49,7 +53,7 @@ int main() {
         // Registered by the mock handler after validating all info fields.
         assert(pulse_app_has_plugin(app, "MockScriptLoaded"));
         // "assets": true mounted the script package dir as a VFS content root.
-        assert(pulse_vfs_path_exists("assets/mock_marker.dat"));
+        assert(pulse_vfs_exists("assets/mock_marker.dat"));
 
         pulse_destroy_app(app);
         pulse_package_loader_cleanup(app);

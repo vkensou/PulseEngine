@@ -15,7 +15,7 @@
 #include "pulse_vfs.h"
 
 static void asset_test_add_root(const char* root) {
-    assert(pulse_vfs_add_content_root(root) == PULSE_VFS_RESULT_OK);
+    assert(pulse_vfs_mount(root, "/", false));
 }
 
 static PulseAssetRequest load_asset_file(

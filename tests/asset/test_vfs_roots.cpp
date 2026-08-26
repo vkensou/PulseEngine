@@ -17,9 +17,11 @@ int main(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Content root for the test data directory.
-    assert(pulse_vfs_add_content_root("tests/asset/data") == PULSE_VFS_RESULT_OK);
+    assert(pulse_vfs_mount("tests/asset/data", "/", false));
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
     assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
@@ -27,16 +29,16 @@ int main(void) {
 
     // A nested directory added as an extra content root, like the package
     // asset dirs registered by pulse_package_loader.
-    assert(pulse_vfs_add_content_root("tests/asset/data/deep") == PULSE_VFS_RESULT_OK);
-    assert(pulse_vfs_path_exists("deep.dat"));
-    assert(pulse_vfs_path_exists("hello.dat"));
-    assert(!pulse_vfs_path_exists("no_such_file.dat"));
+    assert(pulse_vfs_mount("tests/asset/data/deep", "/", false));
+    assert(pulse_vfs_exists("deep.dat"));
+    assert(pulse_vfs_exists("hello.dat"));
+    assert(!pulse_vfs_exists("no_such_file.dat"));
 
     // stat()-style checks confirm the file resolves and reports as a file.
-    PulseVfsPathInfo info = {};
-    assert(pulse_vfs_get_path_info("deep.dat", &info) == PULSE_VFS_RESULT_OK);
-    assert(info.type == PULSE_VFS_PATH_TYPE_FILE);
-    assert(pulse_vfs_get_path_info("no_such_file.dat", &info) == PULSE_VFS_RESULT_ERROR_NOT_FOUND);
+    PulseVfsStat info = {};
+    assert(pulse_vfs_stat("deep.dat", &info));
+    assert(info.file_type == PULSE_VFS_FILE_TYPE_REGULAR);
+    assert(!pulse_vfs_stat("no_such_file.dat", &info));
 
     PulseAssetTypeDesc type_desc = {
         sizeof(PulseAssetTypeDesc),

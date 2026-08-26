@@ -191,6 +191,8 @@ int main(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // ---- Add plugins ----
     // input plugin (required by window)
@@ -204,7 +206,7 @@ int main(void) {
 
     // asset plugin (test data from graphics test)
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
-    assert(pulse_vfs_add_content_root("tests/graphics/data") == PULSE_VFS_RESULT_OK);
+    assert(pulse_vfs_mount("tests/graphics/data", "/", false));
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // transform plugin

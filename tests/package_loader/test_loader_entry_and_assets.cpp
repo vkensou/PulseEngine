@@ -17,6 +17,8 @@ int main() {
     PulseAppDesc app_desc = { .name = "loader-entry-and-assets" };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulsePackageListEntry entries[] = {
         { "pkg_assets", nullptr },
@@ -28,14 +30,14 @@ int main() {
     assert(pulse_app_has_plugin(app, "CustomEntryPlugin"));
 
     // pkg_assets has "assets": true -> its package dir is a content root.
-    assert(pulse_vfs_path_exists("package.json"));
-    assert(pulse_vfs_path_exists("assets/marker.dat"));
+    assert(pulse_vfs_exists("package.json"));
+    assert(pulse_vfs_exists("assets/marker.dat"));
 
     // pkg_custom_entry has no "assets" field -> its package dir is NOT a root.
-    assert(!pulse_vfs_path_exists("test-pkg-custom-entry.dll"));
+    assert(!pulse_vfs_exists("test-pkg-custom-entry.dll"));
 
     // Unknown files resolve nowhere.
-    assert(!pulse_vfs_path_exists("no_such_package_file.dat"));
+    assert(!pulse_vfs_exists("no_such_package_file.dat"));
 
     pulse_destroy_app(app);
     pulse_package_loader_cleanup(app);

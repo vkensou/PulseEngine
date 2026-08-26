@@ -18,112 +18,196 @@ typedef "anyopaque"
 typedef "size_t"
 typedef "cstring"
 
-enum.VfsResult { underscore, comment = "Pulse VFS operation result:" }
+--- From pulse_app.h
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+const_value.VfsPluginDescVersion { value = "1u" }
+
+--- Pulse VFS error codes, aligned with PHYSFS_ErrorCode.
+enum.VfsErrorCode { underscore, comment = "Pulse VFS error codes:" }
     .Ok
-    .ErrorInvalidArgument
-    .ErrorNotFound
-    .ErrorBufferTooSmall
-    .ErrorIO
-    .ErrorInternal
+    .OtherError
+    .OutOfMemory
+    .NotInitialized
+    .IsInitialized
+    .Argv0IsNull
+    .Unsupported
+    .PastEof
+    .FilesStillOpen
+    .InvalidArgument
+    .NotMounted
+    .NotFound
+    .SymlinkForbidden
+    .NoWriteDir
+    .OpenForReading
+    .OpenForWriting
+    .NotAFile
+    .ReadOnly
+    .Corrupt
+    .SymlinkLoop
+    .IO
+    .Permission
+    .NoSpace
+    .BadFilename
+    .Busy
+    .DirNotEmpty
+    .OSError
+    .Duplicate
+    .BadPassword
+    .AppCallback
     ()
 
-enum.VfsSeekOrigin { underscore, comment = "Pulse VFS seek origin:" }
-    .Set       --- Relative to the beginning of the stream
-    .Current   --- Relative to the current read/write position
-    .End       --- Relative to the end of the stream
-    ()
-
-enum.VfsPathType { underscore, comment = "Pulse VFS path type:" }
-    .None       --- Path does not exist
-    .File       --- A regular file
+--- Pulse VFS file type, aligned with PHYSFS_FileType.
+enum.VfsFileType { underscore, comment = "Pulse VFS file type:" }
+    .Regular    --- A normal file
     .Directory  --- A directory
-    .Other      --- Something else (device, socket, ...)
+    .Symlink    --- A symbolic link
+    .Other      --- Something completely different like a device
     ()
 
-struct.VfsPathInfo
-    .type   "VfsPathType::Enum"
-    .size   "uint64_t"
+--- Result returned by VfsEnumerateCallback, aligned with PHYSFS_EnumerateCallbackResult.
+enum.VfsEnumerateResult { underscore, comment = "Pulse VFS enumerate callback result:" }
+    .Error { value = -1 }   --- Stop enumerating, report error to app
+    .Stop  { value = 0 }    --- Stop enumerating, report success to app
+    .Ok    { value = 1 }    --- Keep enumerating, no problems
     ()
 
-struct.VfsDirEntry
-    .name   "cstring"
-    .type   "VfsPathType::Enum"
+--- Metadata for a file or directory, aligned with PHYSFS_Stat.
+struct.VfsStat
+    .fileSize   "int64_t"
+    .modTime    "int64_t"
+    .createTime "int64_t"
+    .accessTime "int64_t"
+    .fileType   "VfsFileType::Enum"
+    .readOnly   "bool"
+    ()
+
+--- Plugin descriptor
+struct.VfsPluginDesc
+    .structSize "uint32_t"
+    .version    "uint32_t"
     ()
 
 id "VfsFileId"
-id "VfsDirId"
 
-func.VfsAddContentRoot
-    "VfsResult::Enum"
-    .rootPath           "cstring"
+--- Callback for enumeration, aligned with PHYSFS_EnumerateCallback.
+funcptr.VfsEnumerateCallback
+    "VfsEnumerateResult::Enum"
+    .data       "?*anyopaque"
+    .origDir    "cstring"
+    .fname      "cstring"
     ()
 
-func.VfsPathExists
+func.VfsPluginDescDefault
+    "VfsPluginDesc"
+    ()
+
+func.AddVfsPlugin
+    "EPulseAppAddPluginResult"
+    .app    "PulseAppId"
+    .desc   "*const VfsPluginDesc"
+    ()
+
+func.VfsMount
     "bool"
-    .path               "cstring"
+    .newDir         "cstring"
+    .mountPoint     "?cstring"
+    .appendToPath   "bool"
     ()
 
-func.VfsGetPathInfo
-    "VfsResult::Enum"
-    .path               "cstring"
-    .outInfo            "*VfsPathInfo"
+func.VfsUnmount
+    "bool"
+    .oldDir     "cstring"
     ()
 
-func.VfsOpenFile
+func.VfsGetWriteDir
+    "?cstring"
+    ()
+
+func.VfsSetWriteDir
+    "bool"
+    .newDir     "?cstring"
+    ()
+
+func.VfsExists
+    "bool"
+    .fname      "cstring"
+    ()
+
+func.VfsStat
+    "bool"
+    .fname      "cstring"
+    .stat       "*VfsStat"
+    ()
+
+func.VfsOpenRead
     "?VfsFileId"
-    .path               "cstring"
-    .mode               "cstring"
+    .filename   "cstring"
     ()
 
-func.VfsReadFile
-    "VfsResult::Enum"
-    .file               "VfsFileId"
-    .buffer             "*anyopaque"
-    .maxBytes           "size_t"
-    .outRead            "*size_t"
+func.VfsOpenWrite
+    "?VfsFileId"
+    .filename   "cstring"
     ()
 
-func.VfsWriteFile
-    "VfsResult::Enum"
-    .file               "VfsFileId"
-    .buffer             "*const anyopaque"
-    .size               "size_t"
+func.VfsOpenAppend
+    "?VfsFileId"
+    .filename   "cstring"
     ()
 
-func.VfsSeekFile
-    "VfsResult::Enum"
-    .file               "VfsFileId"
-    .offset             "int64_t"
-    .origin             "VfsSeekOrigin::Enum"
+func.VfsClose
+    "bool"
+    .file       "VfsFileId"
     ()
 
-func.VfsTellFile
+func.VfsReadBytes
     "int64_t"
-    .file               "VfsFileId"
+    .file       "VfsFileId"
+    .buffer     "*anyopaque"
+    .len        "uint64_t"
     ()
 
-func.VfsGetFileSize
-    "VfsResult::Enum"
-    .file               "VfsFileId"
-    .outSize            "*uint64_t"
+func.VfsWriteBytes
+    "int64_t"
+    .file       "VfsFileId"
+    .buffer     "*const anyopaque"
+    .len        "uint64_t"
     ()
 
-func.VfsCloseFile
-    "void"
-    .file               "VfsFileId"
+func.VfsEof
+    "bool"
+    .file       "VfsFileId"
     ()
 
-func.VfsOpenDir
-    "?VfsDirId"
-    .path               "cstring"
+func.VfsTell
+    "int64_t"
+    .file       "VfsFileId"
     ()
 
-func.VfsReadDir
-    "?*VfsDirEntry"
-    .dir                "VfsDirId"
+func.VfsSeek
+    "bool"
+    .file       "VfsFileId"
+    .pos        "uint64_t"
     ()
 
-func.VfsCloseDir
-    "void"
-    .dir                "VfsDirId"
+func.VfsFileLength
+    "int64_t"
+    .file       "VfsFileId"
+    ()
+
+func.VfsEnumerate
+    "bool"
+    .dir        "cstring"
+    .callback   "VfsEnumerateCallback"
+    .userData   "?*anyopaque"
+    ()
+
+func.VfsGetLastErrorCode
+    "VfsErrorCode::Enum"
+    ()
+
+func.VfsGetErrorByCode
+    "?cstring"
+    .code       "VfsErrorCode::Enum"
     ()

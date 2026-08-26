@@ -24,6 +24,7 @@
 #include "pulse_app.h"
 #include "pulse_config.h"
 #include "pulse_package_loader.h"
+#include "pulse_vfs.h"
 
 int main(int argc, char** argv)
 {
@@ -52,6 +53,9 @@ int main(int argc, char** argv)
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseConfig* root = pulse_config_create_from_json_file("launcher.manifest.json");
     if (!root) {

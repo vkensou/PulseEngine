@@ -6,6 +6,7 @@
 #include "daslang_internal.h"
 
 #include <format>
+#include <vector>
 #include <memory>
 #include <stdio.h>
 #include <string.h>
@@ -313,29 +314,29 @@ namespace pulse_daslang_internal
             std::string marker = std::format("{}/{}/{}", state->das_root, dir[0], dir[1]);
             std::string dir_path = std::format("{}/{}", state->das_root, dir[0]);
 
-            PulseVfsDirId vfs_dir = pulse_vfs_open_dir(dir_path.c_str());
-            if (!vfs_dir)
-            {
-                if (!pulse_vfs_path_exists(marker.c_str()))
-                {
+            std::vector<std::string> names;
+            auto collect_das = [](void* data, const char* /*orig_dir*/, const char* fname) -> EPulseVfsEnumerateResult {
+                auto* out = static_cast<std::vector<std::string>*>(data);
+                if (fname) {
+                    const size_t name_len = std::strlen(fname);
+                    if (name_len >= 4 && std::strcmp(fname + name_len - 4, ".das") == 0) {
+                        out->emplace_back(fname);
+                    }
+                }
+                return PULSE_VFS_ENUMERATE_RESULT_OK;
+            };
+            if (!pulse_vfs_enumerate(dir_path.c_str(), collect_das, &names)) {
+                if (!pulse_vfs_exists(marker.c_str())) {
                     fprintf(stderr,
                         "daslang: cannot resolve '%s' (pulse_daslang das root not registered as a vfs content root?)\n",
                         marker.c_str());
                 }
                 continue;
             }
-            for (PulseVfsDirEntry* e = pulse_vfs_read_dir(vfs_dir); e != nullptr; e = pulse_vfs_read_dir(vfs_dir))
-            {
-                if (e->type != PULSE_VFS_PATH_TYPE_FILE)
-                    continue;
-                const char* name = e->name;
-                size_t name_len = std::strlen(name);
-                if (name_len < 5 || std::strcmp(name + name_len - 4, ".das") != 0)
-                    continue;
+            for (const std::string& name : names) {
                 std::string rel = std::format("{}/{}/{}", state->das_root, dir[0], name);
                 request_script_asset(as, rel);
             }
-            pulse_vfs_close_dir(vfs_dir);
         }
     }
 
@@ -547,11 +548,7 @@ namespace pulse_daslang_internal
         if (!state)
             return PULSE_RESULT_ERROR_INTERNAL;
 
-        std::string script = std::string(info->package_dir);
-        if (!script.empty() && script.back() != '/' && script.back() != '\\')
-            script += '/';
-        script += info->script_file;
-        if (!request_script_load(app, state, script.c_str()))
+        if (!request_script_load(app, state, info->script_file))
             return PULSE_RESULT_ERROR_INTERNAL;
         return PULSE_RESULT_OK;
     }

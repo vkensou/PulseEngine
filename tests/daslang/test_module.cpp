@@ -21,10 +21,12 @@ int main(void)
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
-    assert(pulse_vfs_add_content_root("src/pulse_daslang") == PULSE_VFS_RESULT_OK);
-    assert(pulse_vfs_add_content_root("tests/daslang/pkg_das_test") == PULSE_VFS_RESULT_OK);
+    assert(pulse_vfs_mount("src/pulse_daslang", "/", false));
+    assert(pulse_vfs_mount("tests/daslang/pkg_das_test", "/", false));
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
  
     // ---- daslang 插件 ----
@@ -39,7 +41,7 @@ int main(void)
 
     assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
-    assert(pulse_load_module(app, "tests/daslang/pkg_das_test/das_test.das"));
+    assert(pulse_load_module(app, "das_test.das"));
 
     assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 

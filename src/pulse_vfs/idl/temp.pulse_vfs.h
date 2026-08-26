@@ -11,6 +11,7 @@ extern "C" {
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint64_t
 #include "pulse_platform.h"
+#include "pulse_app.h"
 
 #if defined(PULSE_VFS_MODULE_BUILD)
 #  define PULSE_VFS_API PULSE_EXPORT
