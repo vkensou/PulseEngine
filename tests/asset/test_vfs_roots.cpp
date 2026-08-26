@@ -28,14 +28,15 @@ int main(void) {
     // A nested directory added as an extra content root, like the package
     // asset dirs registered by pulse_package_loader.
     assert(pulse_vfs_add_content_root("tests/asset/data/deep") == PULSE_VFS_RESULT_OK);
-    assert(pulse_vfs_file_exists("deep.dat"));
-    assert(pulse_vfs_file_exists("hello.dat"));
-    assert(!pulse_vfs_file_exists("no_such_file.dat"));
+    assert(pulse_vfs_path_exists("deep.dat"));
+    assert(pulse_vfs_path_exists("hello.dat"));
+    assert(!pulse_vfs_path_exists("no_such_file.dat"));
 
-    char resolved[512] = {0};
-    assert(pulse_vfs_resolve_path("deep.dat", resolved, sizeof(resolved)));
-    assert(strstr(resolved, "tests/asset/data/deep/deep.dat") != nullptr);
-    assert(!pulse_vfs_resolve_path("no_such_file.dat", resolved, sizeof(resolved)));
+    // stat()-style checks confirm the file resolves and reports as a file.
+    PulseVfsPathInfo info = {};
+    assert(pulse_vfs_get_path_info("deep.dat", &info) == PULSE_VFS_RESULT_OK);
+    assert(info.type == PULSE_VFS_PATH_TYPE_FILE);
+    assert(pulse_vfs_get_path_info("no_such_file.dat", &info) == PULSE_VFS_RESULT_ERROR_NOT_FOUND);
 
     PulseAssetTypeDesc type_desc = {
         sizeof(PulseAssetTypeDesc),

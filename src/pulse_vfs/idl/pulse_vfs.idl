@@ -18,39 +18,112 @@ typedef "anyopaque"
 typedef "size_t"
 typedef "cstring"
 
---- Operation result codes for VFS calls
 enum.VfsResult { underscore, comment = "Pulse VFS operation result:" }
     .Ok
     .ErrorInvalidArgument
     .ErrorNotFound
+    .ErrorBufferTooSmall
+    .ErrorIO
     .ErrorInternal
     ()
 
+enum.VfsSeekOrigin { underscore, comment = "Pulse VFS seek origin:" }
+    .Set       --- Relative to the beginning of the stream
+    .Current   --- Relative to the current read/write position
+    .End       --- Relative to the end of the stream
+    ()
+
+enum.VfsPathType { underscore, comment = "Pulse VFS path type:" }
+    .None       --- Path does not exist
+    .File       --- A regular file
+    .Directory  --- A directory
+    .Other      --- Something else (device, socket, ...)
+    ()
+
+struct.VfsPathInfo
+    .type   "VfsPathType::Enum"
+    .size   "uint64_t"
+    ()
+
+struct.VfsDirEntry
+    .name   "cstring"
+    .type   "VfsPathType::Enum"
+    ()
+
+id "VfsFileId"
+id "VfsDirId"
+
 func.VfsAddContentRoot
     "VfsResult::Enum"
-    .rootPath "cstring"
+    .rootPath           "cstring"
     ()
 
-func.VfsResolvePath
+func.VfsPathExists
     "bool"
-    .path "cstring"
-    .outPath "*char"
-    .outPathSize "size_t"
+    .path               "cstring"
     ()
 
-func.VfsFileExists
-    "bool"
-    .path "cstring"
+func.VfsGetPathInfo
+    "VfsResult::Enum"
+    .path               "cstring"
+    .outInfo            "*VfsPathInfo"
+    ()
+
+func.VfsOpenFile
+    "?VfsFileId"
+    .path               "cstring"
+    .mode               "cstring"
     ()
 
 func.VfsReadFile
-    "bool"
-    .path "cstring"
-    .outData "?**anyopaque"
-    .outSize "?*uint64_t"
+    "VfsResult::Enum"
+    .file               "VfsFileId"
+    .buffer             "*anyopaque"
+    .maxBytes           "size_t"
+    .outRead            "*size_t"
     ()
 
-func.VfsFreeBuffer
+func.VfsWriteFile
+    "VfsResult::Enum"
+    .file               "VfsFileId"
+    .buffer             "*const anyopaque"
+    .size               "size_t"
+    ()
+
+func.VfsSeekFile
+    "VfsResult::Enum"
+    .file               "VfsFileId"
+    .offset             "int64_t"
+    .origin             "VfsSeekOrigin::Enum"
+    ()
+
+func.VfsTellFile
+    "int64_t"
+    .file               "VfsFileId"
+    ()
+
+func.VfsGetFileSize
+    "VfsResult::Enum"
+    .file               "VfsFileId"
+    .outSize            "*uint64_t"
+    ()
+
+func.VfsCloseFile
     "void"
-    .data "?*anyopaque"
+    .file               "VfsFileId"
+    ()
+
+func.VfsOpenDir
+    "?VfsDirId"
+    .path               "cstring"
+    ()
+
+func.VfsReadDir
+    "?*VfsDirEntry"
+    .dir                "VfsDirId"
+    ()
+
+func.VfsCloseDir
+    "void"
+    .dir                "VfsDirId"
     ()

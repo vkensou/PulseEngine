@@ -49,7 +49,7 @@ int main() {
         // Registered by the mock handler after validating all info fields.
         assert(pulse_app_has_plugin(app, "MockScriptLoaded"));
         // "assets": true mounted the script package dir as a VFS content root.
-        assert(pulse_vfs_file_exists("assets/mock_marker.dat"));
+        assert(pulse_vfs_path_exists("assets/mock_marker.dat"));
 
         pulse_destroy_app(app);
         pulse_package_loader_cleanup(app);

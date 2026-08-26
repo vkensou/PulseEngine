@@ -355,6 +355,19 @@ for _, test_file in ipairs(os.files("tests/asset/test_*.cpp")) do
         add_tests("default", {group = "asset", rundir = "$(projectdir)"})
 end
 
+for _, test_file in ipairs(os.files("tests/vfs/test_*.cpp")) do
+    local test_name = "test-vfs-" .. path.basename(test_file):gsub("^test_", "")
+    target(test_name)
+        set_group("tests")
+        set_kind("binary")
+        set_default(false)
+        set_rundir("$(projectdir)")
+        add_deps("pulse_vfs")
+        add_files(test_file)
+        add_files("tests/helper/msvc_headless_asserts.c")
+        add_tests("default", {group = "vfs", rundir = "$(projectdir)"})
+end
+
 target("test-graphics")
     set_group("tests")
     set_kind("binary")

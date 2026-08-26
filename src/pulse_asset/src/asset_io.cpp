@@ -141,18 +141,26 @@ std::pmr::string AssetIo::extension_from_path(const std::pmr::string& path, std:
 }
 
 std::optional<std::pmr::vector<uint8_t>> AssetIo::read_file(const char* filename, std::pmr::memory_resource* resource) {
-    void* data = nullptr;
-    uint64_t size = 0;
-    if (!pulse_vfs_read_file(filename, &data, &size)) {
+    PulseVfsFileId file = pulse_vfs_open_file(filename, "rb");
+    if (!file) {
         return std::optional<std::pmr::vector<uint8_t>>{};
     }
 
     std::pmr::vector<uint8_t> buffer(resource);
-    if (size > 0) {
-        buffer.resize(static_cast<size_t>(size));
-        std::memcpy(buffer.data(), data, static_cast<size_t>(size));
+    uint8_t chunk[8192];
+    for (;;) {
+        size_t n = 0;
+        EPulseVfsResult r = pulse_vfs_read_file(file, chunk, sizeof(chunk), &n);
+        if (r != PULSE_VFS_RESULT_OK) {
+            pulse_vfs_close_file(file);
+            return std::optional<std::pmr::vector<uint8_t>>{};
+        }
+        if (n == 0) {
+            break; // EOF
+        }
+        buffer.insert(buffer.end(), chunk, chunk + n);
     }
-    pulse_vfs_free_buffer(data);
+    pulse_vfs_close_file(file);
     return std::move(buffer);
 }
 
