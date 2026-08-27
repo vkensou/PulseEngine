@@ -28,18 +28,21 @@ int main(void)
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+    PulsePackageLoaderId loader = pulse_package_loader_create(app);
+    assert(loader != nullptr);
+
     PulsePackageListEntry entries[] = {
         { "pulse_asset", nullptr },
         { "pulse_daslang", nullptr },
         { "pkg_das_test", nullptr },
     };
     const char* search_paths[] = { "src", "tests/daslang" };
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, 2, search_paths, 3, entries);
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, 2, search_paths, 3, entries);
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK)
     {
         printf("Package load failed: %s (result=%d)\n", pulse_app_last_error(app), (int)load_result);
         pulse_destroy_app(app);
-        pulse_package_loader_cleanup(app);
+        pulse_package_loader_cleanup(loader);
         return -1;
     }
 
@@ -61,7 +64,7 @@ int main(void)
     assert(second_id != 0);
 
     pulse_destroy_app(app);
-    pulse_package_loader_cleanup(app);
+    pulse_package_loader_cleanup(loader);
     printf("Daslang package test passed!\n");
     return 0;
 }

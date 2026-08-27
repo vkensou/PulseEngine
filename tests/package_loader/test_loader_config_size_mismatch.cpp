@@ -10,6 +10,9 @@ int main() {
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+    PulsePackageLoaderId loader = pulse_package_loader_create(app);
+    assert(loader != nullptr);
+
     // pulse_input does not accept a config; passing any non-null
     // PulseConfig should make register fail and loader report failure.
     PulseConfig* cfg = pulse_config_create();
@@ -19,10 +22,10 @@ int main() {
     };
 
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
+    assert(pulse_package_loader_load_packages(loader, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
 
     pulse_config_release(cfg);
     pulse_destroy_app(app);
-    pulse_package_loader_cleanup(app);
+    pulse_package_loader_cleanup(loader);
     return 0;
 }

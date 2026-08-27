@@ -20,12 +20,15 @@ int main() {
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+    PulsePackageLoaderId loader = pulse_package_loader_create(app);
+    assert(loader != nullptr);
+
     PulsePackageListEntry entries[] = {
         { "pkg_assets", nullptr },
         { "pkg_custom_entry", nullptr },
     };
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(app, 2, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    assert(pulse_package_loader_load_packages(loader, 2, search_paths, 2, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "AssetsEntryPlugin"));
     assert(pulse_app_has_plugin(app, "CustomEntryPlugin"));
 
@@ -40,7 +43,7 @@ int main() {
     assert(!pulse_vfs_exists("no_such_package_file.dat"));
 
     pulse_destroy_app(app);
-    pulse_package_loader_cleanup(app);
+    pulse_package_loader_cleanup(loader);
     printf("Package loader assets test passed!\n");
     return 0;
 }

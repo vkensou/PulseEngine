@@ -326,9 +326,12 @@ for (size_t i = 0; i < count; ++i) {
 
 // 包搜索路径：按数组顺序依次搜索，靠前的优先级更高
 const char* search_paths[] = { "packages" };
-EPulsePackageLoadResult r = pulse_package_loader_load_packages(app, 1, search_paths, count, entries);
+PulsePackageLoaderId loader = pulse_package_loader_create(app);
+EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, 1, search_paths, count, entries);
 // load 返回后 entries 可释放，root 可释放
 pulse_config_release(root);
+// 不再需要加载的库时
+pulse_package_loader_cleanup(loader);
 ```
 
 ### 7.3 插件侧集成（以 window 为例）

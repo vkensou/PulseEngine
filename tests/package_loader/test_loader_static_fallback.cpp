@@ -20,13 +20,16 @@ int main() {
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    pulse_package_loader_register_static_package(app, "StaticFake", fake_static_register);
+    PulsePackageLoaderId loader = pulse_package_loader_create(app);
+    assert(loader != nullptr);
+
+    pulse_package_loader_register_static_package(loader, "StaticFake", fake_static_register);
     PulsePackageListEntry entry = { "StaticFake", nullptr };
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(app, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    assert(pulse_package_loader_load_packages(loader, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "StaticFakePlugin"));
 
     pulse_destroy_app(app);
-    pulse_package_loader_cleanup(app);
+    pulse_package_loader_cleanup(loader);
     return 0;
 }

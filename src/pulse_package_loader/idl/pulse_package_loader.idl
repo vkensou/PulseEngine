@@ -25,6 +25,8 @@ typedef "PulseAppId"
 --- Opaque config tree from pulse_config.h
 struct.Config()
 
+id "PackageLoaderId"
+
 enum.PackageLoadResult { underscore, comment = "Pulse package loader result:" }
     .Ok
     .ErrorInvalidArgument
@@ -48,20 +50,28 @@ struct.PackageListEntry
     .name           "cstring"
     .config         "?*Config"
 
+func.PackageLoaderCreate
+    "?PackageLoaderId"
+    .app        "PulseAppId"
+    ()
+
 func.PackageLoaderLoadPackages
     "PackageLoadResult::Enum"
-    .app                "PulseAppId"
+    .loader             "PackageLoaderId"
     .searchPathCount    "uint32_t"
     .pSearchPaths       "[*]cstring"
     .entryCount         "uint32_t"
     .pEntries           "*const PackageListEntry"
+    ()
 
 func.PackageLoaderRegisterStaticPackage
     "void"
-    .app        "PulseAppId"
+    .loader     "PackageLoaderId"
     .name       "cstring"
     .registerFn "PackageRegisterFn"
+    ()
 
 func.PackageLoaderCleanup
     "void"
-    .app        "PulseAppId"
+    .loader     "PackageLoaderId"
+    ()

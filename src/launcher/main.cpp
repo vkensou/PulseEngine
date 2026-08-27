@@ -57,11 +57,14 @@ int main(int argc, char** argv)
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+    PulsePackageLoaderId loader = pulse_package_loader_create(app);
+    assert(loader != nullptr);
+
     PulseConfig* root = pulse_config_create_from_json_file("launcher.manifest.json");
     if (!root) {
         fprintf(stderr, "bad launcher.manifest.json: %s\n", pulse_config_last_error());
         pulse_destroy_app(app);
-        pulse_package_loader_cleanup(app);
+        pulse_package_loader_cleanup(loader);
         return 1;
     }
 
@@ -70,7 +73,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "bad launcher.manifest.json: missing 'packages' array\n");
         pulse_config_release(root);
         pulse_destroy_app(app);
-        pulse_package_loader_cleanup(app);
+        pulse_package_loader_cleanup(loader);
         return 1;
     }
 
@@ -84,7 +87,7 @@ int main(int argc, char** argv)
             fprintf(stderr, "bad launcher.manifest.json: null package at index %zu\n", i);
             pulse_config_release(root);
             pulse_destroy_app(app);
-            pulse_package_loader_cleanup(app);
+            pulse_package_loader_cleanup(loader);
             return 1;
         }
 
@@ -94,19 +97,19 @@ int main(int argc, char** argv)
             fprintf(stderr, "bad launcher.manifest.json: missing 'name' at index %zu\n", i);
             pulse_config_release(root);
             pulse_destroy_app(app);
-            pulse_package_loader_cleanup(app);
+            pulse_package_loader_cleanup(loader);
             return 1;
         }
         entry.config = pulse_config_get_obj(pkg, "config");
         entries.push_back(entry);
     }
 
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(app, (uint32_t)search_paths.size(), search_paths.data(), (uint32_t)entries.size(), entries.data());
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, (uint32_t)search_paths.size(), search_paths.data(), (uint32_t)entries.size(), entries.data());
 
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK) {
         fprintf(stderr, "failed to load packages, result=%d\n", (int)load_result);
         pulse_destroy_app(app);
-        pulse_package_loader_cleanup(app);
+        pulse_package_loader_cleanup(loader);
         pulse_config_release(root);
         return 1;
     }
@@ -114,7 +117,7 @@ int main(int argc, char** argv)
     pulse_app_run(app);
 
     pulse_destroy_app(app);
-    pulse_package_loader_cleanup(app);
+    pulse_package_loader_cleanup(loader);
     pulse_config_release(root);
     printf("Pulse launcher exited.\n");
     return 0;

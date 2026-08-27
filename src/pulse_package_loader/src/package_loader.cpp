@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <new>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,6 +21,14 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 #endif
+
+struct PulsePackageLoader {
+    PulseAppId app = nullptr;
+    std::vector<void*> library_handles;
+    std::unordered_map<std::string, PulseProcPackageRegisterFn> static_packages;
+    std::unordered_map<std::string, const PulseScriptRuntimeDesc*> script_runtimes;
+    std::unordered_map<std::string, const PulseScriptRuntimeDesc*> script_extensions;
+};
 
 namespace {
 
@@ -42,26 +51,6 @@ struct LocatedPackage {
     std::string host_dir;
     bool found = false;
 };
-
-std::unordered_map<PulseAppId, std::vector<void*>>& package_library_handles() {
-    static std::unordered_map<PulseAppId, std::vector<void*>> handles;
-    return handles;
-}
-
-std::unordered_map<PulseAppId, std::unordered_map<std::string, PulseProcPackageRegisterFn>>& static_package_registry() {
-    static std::unordered_map<PulseAppId, std::unordered_map<std::string, PulseProcPackageRegisterFn>> registry;
-    return registry;
-}
-
-std::unordered_map<std::string, const PulseScriptRuntimeDesc*>& script_runtime_registry() {
-    static std::unordered_map<std::string, const PulseScriptRuntimeDesc*> registry;
-    return registry;
-}
-
-std::unordered_map<std::string, const PulseScriptRuntimeDesc*>& script_extension_registry() {
-    static std::unordered_map<std::string, const PulseScriptRuntimeDesc*> registry;
-    return registry;
-}
 
 void close_package_library(void* handle) {
 #ifdef _WIN32
@@ -326,7 +315,7 @@ std::vector<std::string> parse_extensions(const char* extensions) {
     return result;
 }
 
-void register_script_runtimes(void* lib) {
+void register_script_runtimes(PulsePackageLoader* loader, void* lib) {
     void* symbol = find_package_register(lib, PULSE_PACKAGE_GET_RUNTIMES_SYMBOL);
     if (!symbol) return;
 
@@ -335,8 +324,8 @@ void register_script_runtimes(void* lib) {
     const uint32_t count = get_runtimes(&runtimes);
     if (!runtimes) return;
 
-    auto& registry = script_runtime_registry();
-    auto& ext_registry = script_extension_registry();
+    auto& registry = loader->script_runtimes;
+    auto& ext_registry = loader->script_extensions;
     for (uint32_t i = 0; i < count; ++i) {
         const PulseScriptRuntimeDesc& desc = runtimes[i];
         if (!desc.type || !desc.type[0] || !desc.load || !desc.load_package) continue;
@@ -420,11 +409,11 @@ std::string extension_of(const std::string& path) {
     return path.substr(dot + 1);
 }
 
-EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector<ScriptPackageEntry>& script_packages) {
+EPulsePackageLoadResult inject_script_snapshot(PulsePackageLoader* loader, const std::vector<ScriptPackageEntry>& script_packages) {
     if (script_packages.empty()) return PULSE_PACKAGE_LOAD_RESULT_OK;
 
     std::unordered_set<std::string> files = collect_union_files();
-    const auto& ext_registry = script_extension_registry();
+    const auto& ext_registry = loader->script_extensions;
     for (const std::string& path : files) {
         std::string ext = extension_of(path);
         if (ext.empty()) continue;
@@ -436,7 +425,7 @@ EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector
             fprintf(stderr, "package loader: failed to read script '%s' via vfs\n", path.c_str());
             return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
         }
-        EPulseResult r = rt->second->load(app, path.c_str(), text.data(), static_cast<uint64_t>(text.size()));
+        EPulseResult r = rt->second->load(loader->app, path.c_str(), text.data(), static_cast<uint64_t>(text.size()));
         if (r != PULSE_RESULT_OK) {
             fprintf(stderr, "package loader: script runtime failed to inject '%s'\n", path.c_str());
             return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
@@ -444,7 +433,7 @@ EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector
     }
 
     for (const auto& pkg : script_packages) {
-        if (pkg.runtime->load_package(app, pkg.script_file.c_str()) != PULSE_RESULT_OK) {
+        if (pkg.runtime->load_package(loader->app, pkg.script_file.c_str()) != PULSE_RESULT_OK) {
             fprintf(stderr, "package loader: script runtime failed to register entry for package '%s' ('%s')\n",
                 pkg.name.c_str(), pkg.script_file.c_str());
             return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
@@ -454,7 +443,8 @@ EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector
     return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
 
-EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_count, const char** search_paths, const PulsePackageListEntry* entries, uint32_t count) {
+EPulsePackageLoadResult load_packages_impl(PulsePackageLoader* loader, uint32_t search_path_count, const char** search_paths, const PulsePackageListEntry* entries, uint32_t count) {
+    PulseAppId app = loader->app;
     if (!app || (!entries && count != 0)) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
     if (search_paths == nullptr && search_path_count != 0) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
     if (count == 0) return PULSE_PACKAGE_LOAD_RESULT_OK;
@@ -483,7 +473,7 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
     std::vector<LocatedPackage> located(count);
     locate_packages(entries, count, search_path_roots, located);
 
-    auto& static_packages = static_package_registry()[app];
+    auto& static_packages = loader->static_packages;
     std::vector<PendingEntry> pending;
     pending.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
@@ -558,13 +548,12 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
         return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_CIRCULAR_DEPENDENCY);
     }
 
-    auto& handles = package_library_handles();
     std::vector<ScriptPackageEntry> script_packages;
     for (size_t idx : order) {
         const auto& pe = pending[idx];
 
         if (pe.resolved.type != "native") {
-            auto& registry = script_runtime_registry();
+            auto& registry = loader->script_runtimes;
             auto runtime = registry.find(pe.resolved.type);
             if (runtime == registry.end()) {
                 fprintf(stderr, "package '%s': no script runtime registered for type '%s'\n", pe.entry->name, pe.resolved.type.c_str());
@@ -610,12 +599,12 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
             return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
         }
         if (lib) {
-            register_script_runtimes(lib);
-            handles[app].push_back(lib);
+            register_script_runtimes(loader, lib);
+            loader->library_handles.push_back(lib);
         }
     }
 
-    EPulsePackageLoadResult inject_result = inject_script_snapshot(app, script_packages);
+    EPulsePackageLoadResult inject_result = inject_script_snapshot(loader, script_packages);
     if (inject_result != PULSE_PACKAGE_LOAD_RESULT_OK)
         return fail(inject_result);
 
@@ -628,31 +617,26 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
 
 extern "C" {
 
-PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(
-    PulseAppId app, uint32_t search_path_count, const char** search_paths,
+PULSE_PACKAGE_LOADER_API PulsePackageLoaderId pulse_package_loader_create(PulseAppId app) {
+    if (!app) return nullptr;
+    return new (std::nothrow) PulsePackageLoader{ app };
+}
+
+PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulsePackageLoaderId loader, uint32_t search_path_count, const char** search_paths,
     uint32_t count, const PulsePackageListEntry* entries) {
-    return load_packages_impl(app, search_path_count, search_paths, entries, count);
+    if (!loader) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
+    return load_packages_impl(loader, search_path_count, search_paths, entries, count);
 }
 
-PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(
-    PulseAppId app, const char* name, PulseProcPackageRegisterFn register_fn) {
-    if (app && name && name[0] && register_fn) static_package_registry()[app][name] = register_fn;
+PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(PulsePackageLoaderId loader, const char* name, PulseProcPackageRegisterFn register_fn) {
+    if (loader && name && name[0] && register_fn) loader->static_packages[name] = register_fn;
 }
 
-PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulseAppId app) {
-    if (!app) return;
-    auto& handles = package_library_handles();
-    auto it = handles.find(app);
-    if (it != handles.end()) {
-        for (void* handle : it->second) close_package_library(handle);
-        handles.erase(it);
-    }
-    auto& static_packages = static_package_registry();
-    auto sm_it = static_packages.find(app);
-    if (sm_it != static_packages.end()) static_packages.erase(sm_it);
-
-    script_runtime_registry().clear();
-    script_extension_registry().clear();
+PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulsePackageLoaderId loader) {
+    if (!loader) return;
+    for (void* handle : loader->library_handles) close_package_library(handle);
+    loader->library_handles.clear();
+    delete loader;
 }
 
 } // extern "C"

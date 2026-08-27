@@ -18,15 +18,18 @@ int main() {
         PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
         assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+        PulsePackageLoaderId loader = pulse_package_loader_create(app);
+        assert(loader != nullptr);
+
         PulsePackageListEntry entries[] = {
             { "pkg_unknown_runtime", nullptr },
         };
         const char* search_paths[] = { "tests/package_loader" };
-        EPulsePackageLoadResult r = pulse_package_loader_load_packages(app, 1, search_paths, 1, entries);
+        EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, 1, search_paths, 1, entries);
         assert(r == PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME);
 
         pulse_destroy_app(app);
-        pulse_package_loader_cleanup(app);
+        pulse_package_loader_cleanup(loader);
     }
 
     // Provider + script package: the handler validates every info field and
@@ -38,6 +41,9 @@ int main() {
         PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
         assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+        PulsePackageLoaderId loader = pulse_package_loader_create(app);
+        assert(loader != nullptr);
+
         PulseConfig* cfg = pulse_config_create();
         pulse_config_set_string(cfg, "greeting", "hello");
 
@@ -46,7 +52,7 @@ int main() {
             { "pkg_mockscript", cfg },
         };
         const char* search_paths[] = { "tests/package_loader" };
-        EPulsePackageLoadResult r = pulse_package_loader_load_packages(app, 2, search_paths, 2, entries);
+        EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, 2, search_paths, 2, entries);
         pulse_config_release(cfg);
         assert(r == PULSE_PACKAGE_LOAD_RESULT_OK);
 
@@ -56,7 +62,7 @@ int main() {
         assert(pulse_vfs_exists("assets/mock_marker.dat"));
 
         pulse_destroy_app(app);
-        pulse_package_loader_cleanup(app);
+        pulse_package_loader_cleanup(loader);
     }
 
     printf("Package loader script runtime test passed!\n");
