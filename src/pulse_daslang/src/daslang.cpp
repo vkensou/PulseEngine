@@ -5,22 +5,16 @@
 
 #include "daslang_internal.h"
 
-#include <format>
 #include <vector>
 #include <memory>
 #include <stdio.h>
-#include <string.h>
 
 #include "daScript/daScript.h"
 #include "daScript/simulate/fs_file_info.h"
 
-#include "das_cgpu.h"
 #include "das_flecs.h"
-#include "das_pulse.h"
 
 #include "pulse_app.h"
-#include "pulse_vfs.h"
-#include "pulse_asset.h"
 #include "pulse_imgui.h"
 
 ECS_COMPONENT_DECLARE(pulse_daslang_state_resource);
@@ -80,151 +74,106 @@ namespace pulse_daslang_internal
         module_group = das::ModuleGroup();
     }
 
-    // ── 脚本资源（纯文本）的 asset type / loader ──────────────────────────────
-    // 脚本作为纯文本由 pulse_asset 加载（异步），loader 只负责把文件字节拷贝
-    // 进 asset 载荷；编译与执行在 pulse_daslang 内部完成（PostBuild 或运行时
-    // 每帧处理系统），编译产物直接引用驻留缓存的文本 asset。
-
-    void destroy_script_text(void* ptr, void* user_data)
+    std::string normalize_cache_key(std::string_view path)
     {
-        (void)user_data;
-        if (ptr)
-            static_cast<DaslangScriptText*>(ptr)->~DaslangScriptText();
+        std::string_view p = path;
+        while (!p.empty() && (p.front() == '/' || p.front() == '\\'))
+            p.remove_prefix(1);
+        while (p.size() >= 2 && p[0] == '.' && p[1] == '/')
+            p.remove_prefix(2);
+        return std::string(p);
     }
 
-    EPulseAssetLoaderStatus step_script_text(void* state, const PulseAssetLoadTask* ctx, const char** out_error)
-    {
-        (void)state;
-        (void)out_error;
-        // out_asset 是池分配且不保证清零的内存，必须 placement-new。
-        DaslangScriptText* text = new (ctx->out_asset) DaslangScriptText();
-        if (ctx->bytes && ctx->byte_size > 0)
-            text->text.assign(reinterpret_cast<const char*>(ctx->bytes), static_cast<size_t>(ctx->byte_size));
-        return PULSE_ASSET_LOADER_STATUS_DONE;
-    }
-
-    void register_script_asset_type_and_loader(pulse_daslang_state* state)
-    {
-        PulseAssetSystemId as = state->asset_system;
-        if (!as)
-            return;
-
-        PulseAssetTypeDesc type_desc = {};
-        type_desc.struct_size = sizeof(PulseAssetTypeDesc);
-        type_desc.version = PULSE_ASSET_TYPE_DESC_VERSION;
-        type_desc.type_id = PULSE_TYPE_DASLANG_SCRIPT;
-        type_desc.size = sizeof(DaslangScriptText);
-        type_desc.align = alignof(DaslangScriptText);
-        type_desc.destroy = destroy_script_text;
-        type_desc.user_data = nullptr;
-        pulse_asset_system_register_type(as, &type_desc);
-
-        PulseAssetLoaderDesc loader_desc = {};
-        loader_desc.struct_size = sizeof(PulseAssetLoaderDesc);
-        loader_desc.version = PULSE_ASSET_LOADER_DESC_VERSION;
-        loader_desc.type_id = PULSE_TYPE_DASLANG_SCRIPT;
-        loader_desc.extensions = "das";
-        loader_desc.loader_identifier = nullptr;
-        loader_desc.ctor = nullptr;
-        loader_desc.dtor = nullptr;
-        loader_desc.step = step_script_text;
-        loader_desc.loader_size = 0;
-        loader_desc.loader_align = 0;
-        loader_desc.settings_size = 0;
-        loader_desc.settings_align = 0;
-        loader_desc.settings_size_fn = nullptr;
-        loader_desc.settings_copy_fn = nullptr;
-        loader_desc.user_data = nullptr;
-        pulse_asset_system_register_loader(as, &loader_desc);
-    }
-
-    PulseAssetRequest request_script_asset(PulseAssetSystemId as, std::string_view path) {
-        PulseAssetLoadDesc desc = {};
-        desc.struct_size = sizeof(PulseAssetLoadDesc);
-        desc.version = PULSE_ASSET_LOAD_DESC_VERSION;
-        desc.type_id = PULSE_TYPE_DASLANG_SCRIPT;
-        desc.path = path.data();
-        desc.flags = PULSE_ASSET_LOAD_DEFAULT;
-        desc.dependencies = nullptr;
-        desc.dependency_count = 0;
-        desc.settings = nullptr;
-        return pulse_asset_system_load(as, &desc);
-    };
-
-    // ── 编译 + 执行 ───────────────────────────────────────────────────────────
-
-    // 编译期需要读取的所有文件（builtin.das、require daslib/*、require pulse/*
-    // 等标准库文件）都经本文件系统走 pulse_asset。加载是异步的：标准库文件在
-    // 插件 build 阶段就被统一预请求（preload_stdlib_scripts），pulse_asset 的
-    // PostBuild drain 会把它们全部加载完成并驻留缓存，因此编译发生时（PostBuild
-    // 或运行时每帧处理系统）这些文件一定已经在缓存里，这里只做缓存读取：
-    // 内容拷贝成 TextFileInfo(owner=true)（由 FileAccess 持有，与编译产物同
-    // 生命周期），asset 本身不释放，供后续编译复用。
-    class DasAssetFileSystem : public das::AnyFileSystem
+    class DasCacheFileAccess : public das::FsFileAccess
     {
     public:
-        explicit DasAssetFileSystem(pulse_daslang_state* state)
+        explicit DasCacheFileAccess(pulse_daslang_state* state)
             : state_(state)
         {
         }
 
-        das::FileInfo* tryOpenFile(const das::string& fileName) override
+        das::FileInfo* getNewFileInfo(const das::string& fileName) override
         {
-            PulseAssetSystemId as = state_ ? state_->asset_system : nullptr;
-            if (!as || fileName.empty())
+            if (locked) return nullptr;
+            if (!state_ || fileName.empty())
                 return nullptr;
 
-            // 命中已预加载的标准库缓存；未预加载的文件会新排队，但编译是同步
-            // 过程等不了异步加载，直接视为缺失。
-            PulseAssetRequest request = request_script_asset(as, fileName.c_str());
-            if (!pulse_asset_request_is_valid(request) || !pulse_asset_system_is_ready(as, request))
+            const std::string* text = lookup_script(fileName);
+            if (!text)
             {
-                const char* error = pulse_asset_system_get_error(as, request);
-                fprintf(stderr, "daslang: cannot open '%s' via pulse_asset: %s\n",
-                    fileName.c_str(),
-                    pulse_asset_request_is_valid(request) && error ? error : "not preloaded (async load pending)");
+                fprintf(stderr, "daslang: script '%s' not in injected cache (compile-time miss)\n", fileName.c_str());
                 return nullptr;
             }
 
-            PulseAssetHandle handle = pulse_asset_system_get_handle(as, request);
-            void* ptr = nullptr;
-            if (!pulse_asset_system_borrow(as, handle, &ptr, nullptr) || !ptr)
+            if (text->size() > static_cast<size_t>(UINT32_MAX))
                 return nullptr;
 
-            const DaslangScriptText* text = static_cast<const DaslangScriptText*>(ptr);
-            if (text->text.size() > static_cast<size_t>(UINT32_MAX))
-                return nullptr;
-
-            // 文本 asset 驻留缓存、从不 release，引用稳定：TextFileInfo(owner=false)
-            // 直接引用 asset 内的文本，零拷贝。首个编译打开后会被缓存进共享 access
-            // 的 files map，后续编译直接 map 命中复用。
-            return new das::TextFileInfo(text->text.data(), static_cast<uint32_t>(text->text.size()), false);
+            das::FileInfoPtr info = das::make_unique<das::TextFileInfo>(text->data(), static_cast<uint32_t>(text->size()), false);
+            return setFileInfo(fileName, das::move(info));
         }
 
     private:
+        const std::string* lookup_script(const std::string& name) const
+        {
+            auto find = [&](const std::string& key) -> const std::string* {
+                auto it = state_->script_cache.find(key);
+                return it == state_->script_cache.end() ? nullptr : &it->second;
+            };
+
+            if (const std::string* hit = find(name)) return hit;
+
+            std::string bare = normalize_cache_key(name);
+            if (bare != name) {
+                if (const std::string* hit = find(bare)) return hit;
+            }
+
+            std::string with_ext = bare;
+            if (with_ext.size() < 4 || with_ext.compare(with_ext.size() - 4, 4, ".das") != 0)
+                with_ext += ".das";
+            if (with_ext != bare) {
+                if (const std::string* hit = find(with_ext)) return hit;
+            }
+
+            if (!state_->das_root.empty())
+            {
+                std::string rooted = state_->das_root + "/" + bare;
+                if (rooted != bare) {
+                    if (const std::string* hit = find(rooted)) return hit;
+                }
+                if (!with_ext.empty() && with_ext != rooted)
+                {
+                    std::string rooted_ext = state_->das_root + "/" + with_ext;
+                    if (rooted_ext != with_ext) {
+                        if (const std::string* hit = find(rooted_ext)) return hit;
+                    }
+                }
+            }
+            return nullptr;
+        }
+
         pulse_daslang_state* state_;
     };
 
-    // 把 pulse_asset 加载到的脚本文本编译为 Module，使用 state 的共享 FileAccess
-    //（标准库 FileInfo 首编译打开一次后跨编译 map 命中复用）。主脚本的 FileInfo
-    // 直接引用文本 asset 的文本（asset 驻留缓存不 release，引用稳定），编译完成
-    // 后从共享 map 移出、由模块持有。
-    bool compile_script_into(pulse_daslang_state* state, const std::string& script_path, const DaslangScriptText* script_text, Module& out_module)
+    bool compile_script_into(pulse_daslang_state* state, const std::string& script_key, Module& out_module)
     {
         DaslangTextPrinter printer;
-        if (!state->access || !script_text)
+        if (!state->access)
             return false;
 
-        if (script_text->text.size() > static_cast<size_t>(UINT32_MAX))
+        auto it = state->script_cache.find(script_key);
+        if (it == state->script_cache.end())
+            return false;
+        const std::string& text = it->second;
+        if (text.size() > static_cast<size_t>(UINT32_MAX))
         {
-            printer << "Daslang script too large: " << script_path << "\n";
+            printer << "Daslang script too large: " << script_key << "\n";
             return false;
         }
-        das::FileInfoPtr file_info = das::make_unique<das::TextFileInfo>(script_text->text.data(), static_cast<uint32_t>(script_text->text.size()), false);
-        state->access->setFileInfo(script_path, std::move(file_info));
+        das::FileInfoPtr file_info = das::make_unique<das::TextFileInfo>(text.data(), static_cast<uint32_t>(text.size()), false);
+        state->access->setFileInfo(script_key, std::move(file_info));
 
         das::ModuleGroup module_group;
-        auto program = das::compileDaScript(script_path, state->access, printer, module_group);
+        auto program = das::compileDaScript(script_key, state->access, printer, module_group);
         if (!program || program->failed()) {
             report_program_errors(program, printer);
             return false;
@@ -241,10 +190,8 @@ namespace pulse_daslang_internal
             return false;
         }
 
-        // 主脚本 FileInfo 从共享 map 移出、交模块持有：留在共享 access 里的话，
-        // 同路径重编译时 setFileInfo 覆盖会销毁它，导致已编译模块悬垂。
-        das::FileInfoPtr main_file_info = state->access->letGoOfFileInfo(script_path);
-        out_module = Module(script_path, script_text, std::move(main_file_info), std::move(module_group), program, std::move(context));
+        das::FileInfoPtr main_file_info = state->access->letGoOfFileInfo(script_key);
+        out_module = Module(script_key, std::move(main_file_info), std::move(module_group), program, std::move(context));
         return true;
     }
 
@@ -295,135 +242,88 @@ namespace pulse_daslang_internal
         return true;
     }
 
-    // 异步预加载 das 标准库的全部 .das 文件为文本 asset（走 pulse_asset）：
-    // 这些请求在 pulse_asset 的 PostBuild drain 时统一完成并驻留缓存，
-    // 编译期（PostBuild / 运行时）由 DasAssetFileSystem 从缓存同步读取。
-    // 枚举只用来拿文件名清单（经 VFS 解析出目录），文件内容加载全走 pulse_asset。
-    void preload_stdlib_scripts(pulse_daslang_state* state)
+    bool compile_entry_from_cache(pulse_daslang_state* state, const std::string& key)
     {
-        PulseAssetSystemId as = state->asset_system;
-        if (!as || state->das_root.empty())
-            return;
-
-        const char* stdlib_dirs[][2] = {
-            { "daslib", "builtin.das" },      // daslib/ 以 builtin.das 为标定文件
-            { "pulse", "flecs_boost.das" },   // pulse/  以 flecs_boost.das 为标定文件
-        };
-        for (const auto& dir : stdlib_dirs)
-        {
-            std::string marker = std::format("{}/{}/{}", state->das_root, dir[0], dir[1]);
-            std::string dir_path = std::format("{}/{}", state->das_root, dir[0]);
-
-            std::vector<std::string> names;
-            auto collect_das = [](void* data, const char* /*orig_dir*/, const char* fname) -> EPulseVfsEnumerateResult {
-                auto* out = static_cast<std::vector<std::string>*>(data);
-                if (fname) {
-                    const size_t name_len = std::strlen(fname);
-                    if (name_len >= 4 && std::strcmp(fname + name_len - 4, ".das") == 0) {
-                        out->emplace_back(fname);
-                    }
-                }
-                return PULSE_VFS_ENUMERATE_RESULT_OK;
-            };
-            if (!pulse_vfs_enumerate(dir_path.c_str(), collect_das, &names)) {
-                if (!pulse_vfs_exists(marker.c_str())) {
-                    fprintf(stderr,
-                        "daslang: cannot resolve '%s' (pulse_daslang das root not registered as a vfs content root?)\n",
-                        marker.c_str());
-                }
-                continue;
-            }
-            for (const std::string& name : names) {
-                std::string rel = std::format("{}/{}/{}", state->das_root, dir[0], name);
-                request_script_asset(as, rel);
-            }
-        }
-    }
-
-    // ── 加载请求 ──────────────────────────────────────────────────────────────
-
-    bool request_script_load(PulseAppId app, pulse_daslang_state* state, const char* script_path)
-    {
-        if (!state || !script_path || !script_path[0])
+        if (!state || !state->app || key.empty())
             return false;
 
-        PulseAssetSystemId as = state->asset_system;
-        if (!as)
+        Module module;
+        if (!compile_script_into(state, key, module))
             return false;
-
-        // 同一路径只提交一次（asset 缓存命中同一条请求，重复登记会重复处理）。
-        for (const auto& pending : state->pending_scripts)
-        {
-            if (pending.path == script_path)
-                return true;
-        }
-
-        PulseAssetRequest request = request_script_asset(as, script_path);
-        if (!pulse_asset_request_is_valid(request))
+        if (!run_module_import(state->app, state, module))
             return false;
-
-        state->pending_scripts.push_back({ script_path, request });
+        state->modules.push_back(std::move(module));
         return true;
     }
 
-    // ── 处理已加载脚本（PostBuild 与运行时系统共用） ───────────────────────────
+    EPulseResult daslang_script_load(PulseAppId app, const char* path, const char* text, uint64_t text_size)
+    {
+        if (!app || !path || !path[0] || (!text && text_size > 0))
+            return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+
+        auto* state = state_from_app(app);
+        if (!state)
+            return PULSE_RESULT_ERROR_INTERNAL;
+        if (state->post_build_done)
+        {
+            fprintf(stderr, "daslang: script injection rejected after PostBuild: %s\n", path);
+            return PULSE_RESULT_ERROR_INVALID_STATE;
+        }
+
+        std::string key = normalize_cache_key(path);
+        if (key.empty())
+            return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        state->script_cache[key].assign(text ? text : "", static_cast<size_t>(text_size));
+        return PULSE_RESULT_OK;
+    }
+
+    EPulseResult daslang_script_package_load(PulseAppId app, const char* script_file)
+    {
+        if (!app || !script_file || !script_file[0])
+            return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+
+        auto* state = state_from_app(app);
+        if (!state)
+            return PULSE_RESULT_ERROR_INTERNAL;
+        if (state->post_build_done)
+        {
+            fprintf(stderr, "daslang: entry registration rejected after PostBuild: %s\n", script_file);
+            return PULSE_RESULT_ERROR_INVALID_STATE;
+        }
+
+        std::string key = normalize_cache_key(script_file);
+        if (key.empty())
+            return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+        if (state->script_cache.find(key) == state->script_cache.end())
+        {
+            fprintf(stderr, "daslang: entry '%s' not injected before package load, cannot queue for compile\n", key.c_str());
+            return PULSE_RESULT_ERROR_INTERNAL;
+        }
+        for (const auto& pending : state->pending_scripts)
+        {
+            if (pending == key)
+                return PULSE_RESULT_OK;
+        }
+        state->pending_scripts.push_back(std::move(key));
+        return PULSE_RESULT_OK;
+    }
 
     void process_pending_scripts(pulse_daslang_state* state)
     {
         if (!state || !state->app)
             return;
-        PulseAssetSystemId as = state->asset_system;
-        if (!as)
-            return;
 
         for (auto it = state->pending_scripts.begin(); it != state->pending_scripts.end(); )
         {
-            EPulseAssetState asset_state = pulse_asset_system_get_state(as, it->request);
-
-            if (asset_state == PULSE_ASSET_STATE_LOADED)
-            {
-                PulseAssetHandle handle = pulse_asset_system_get_handle(as, it->request);
-                void* ptr = nullptr;
-                bool borrowed = pulse_asset_system_borrow(as, handle, &ptr, nullptr);
-                if (borrowed && ptr)
-                {
-                    const DaslangScriptText* text = static_cast<const DaslangScriptText*>(ptr);
-                    Module module;
-                    if (compile_script_into(state, it->path, text, module) &&
-                        run_module_import(state->app, state, module))
-                    {
-                        state->modules.push_back(std::move(module));
-                    }
-                }
-                else
-                {
-                    fprintf(stderr, "daslang: failed to borrow script asset '%s'\n", it->path.c_str());
-                }
-                // 文本 asset 驻留缓存、不 release：编译产物直接引用其文本
-                // （Module::script_text / FileInfo），引用在模块生命周期内稳定。
+            if (compile_entry_from_cache(state, *it))
                 it = state->pending_scripts.erase(it);
-            }
-            else if (asset_state == PULSE_ASSET_STATE_FAILED)
-            {
-                const char* error = pulse_asset_system_get_error(as, it->request);
-                fprintf(stderr, "daslang: script '%s' failed to load: %s\n",
-                    it->path.c_str(), error ? error : "unknown error");
-                it = state->pending_scripts.erase(it);
-            }
-            else if (asset_state == PULSE_ASSET_STATE_EMPTY)
-            {
-                // 请求已失效（例如被取消），直接丢弃。
-                it = state->pending_scripts.erase(it);
-            }
             else
             {
-                // 仍在加载中（运行时加载路径），等下一帧处理。
-                ++it;
+                fprintf(stderr, "daslang: entry '%s' failed to compile, dropping it\n", it->c_str());
+                it = state->pending_scripts.erase(it);
             }
         }
     }
-
-    // ── 插件生命周期 ──────────────────────────────────────────────────────────
 
     static void process_pending_scripts_callback(ecs_iter_t* it)
     {
@@ -455,9 +355,6 @@ namespace pulse_daslang_internal
             return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 
         state->app = app;
-        state->asset_system = pulse_get_asset_system(app);
-        if (!state->asset_system)
-            return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 
         ecs_world_t* world = pulse_app_world(app);
         if (!world)
@@ -472,29 +369,13 @@ namespace pulse_daslang_internal
         pulse_daslang_state_resource resource{ state };
         ecs_singleton_set_ptr(world, pulse_daslang_state_resource, &resource);
 
-        // Event systems broadcast through the SingleHolder entity carrying
-        // pulse::EventTag, mirroring the C++ module host setup.
         dasPulseECS::ensure_event_tag(world);
 
-        // das 标准库根目录：pulse_daslang 包内相对路径 "das"（daslib/、pulse/）。
-        // 文件读取本身走 pulse_asset（DasAssetFileSystem），这里只提供
-        // 模块解析（getModuleInfo）用的路径前缀。
         state->das_root = "das";
         das::setDasRoot(state->das_root.c_str());
 
-        // 共享编译 FileAccess：所有编译共用（标准库文件首编译打开一次后
-        // map 命中复用），DasAssetFileSystem 使文件内容全部经 pulse_asset。
-        state->access = das::make_smart<das::FsFileAccess>();
-        state->access->addFileSystem(new DasAssetFileSystem(state), true, false);
+        state->access = das::make_smart<DasCacheFileAccess>(state);
         state->access->addFsRoot("pulse", state->das_root + "/pulse");
-
-        // 脚本以纯文本形式走 pulse_asset 加载。
-        register_script_asset_type_and_loader(state);
-
-        // 异步预加载 das 标准库（daslib/、pulse/），PostBuild drain 后驻留缓存。
-        preload_stdlib_scripts(state);
-
-        // prepare 之后提交的脚本请求由该系统在每帧加载完成后接管编译执行。
         install_script_process_system(world, state);
 
         return PULSE_PLUGIN_BUILD_RESULT_OK;
@@ -507,53 +388,26 @@ namespace pulse_daslang_internal
         if (!state)
             return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 
-        // pulse_asset 的 post_build（drain 所有加载任务）先于本插件执行
-        //（插件按依赖序排列），因此这里能拿到所有在 build 阶段请求加载的脚本。
         process_pending_scripts(state);
+        state->post_build_done = true;
         return PULSE_PLUGIN_BUILD_RESULT_OK;
     }
 
     void daslang_plugin_shutdown(PulseAppId app, void* ctx)
     {
-        ecs_world_t* world = pulse_app_world(app);
+        (void)app;
         auto* state = static_cast<pulse_daslang_state*>(ctx);
         if (!state)
             return;
 
-        if (world && state->process_system && ecs_is_alive(world, state->process_system))
-        {
-            ecs_delete(world, state->process_system);
-        }
-        state->process_system = 0;
-
         state->pending_scripts.clear();
         state->modules.clear();
-
-        // 文本 asset（含驻留缓存的标准库文件）在 asset 插件 shutdown 时也会被
-        // 销毁；这里显式卸载，保证在 asset 关闭前清理干净（与 graphics 一致）。
-        if (state->asset_system)
-            pulse_asset_system_force_unload_assets(state->asset_system, PULSE_TYPE_DASLANG_SCRIPT);
+        state->script_cache.clear();
 
         delete state;
     }
 
-    // 包脚本运行时：package_loader 在包的加载流程里调用本 handler，把脚本
-    // 路径作为异步加载请求提交给 pulse_asset，编译执行发生在 PostBuild。
-    EPulseResult daslang_script_package_load(PulseAppId app, const PulsePackageScriptInfo* info)
-    {
-        if (!app || !info || !info->script_file || !info->script_file[0] || !info->package_dir || !info->package_dir[0])
-            return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
-
-        auto* state = state_from_app(app);
-        if (!state)
-            return PULSE_RESULT_ERROR_INTERNAL;
-
-        if (!request_script_load(app, state, info->script_file))
-            return PULSE_RESULT_ERROR_INTERNAL;
-        return PULSE_RESULT_OK;
-    }
-
-}
+} // namespace
 
 extern "C" {
 
@@ -578,9 +432,6 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
 
     auto* state = new pulse_daslang_internal::pulse_daslang_state();
 
-    const char* daslang_dependencies[] = {
-        "pulse_asset",
-    };
     PulsePluginDesc plugin_desc = {
         .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,
@@ -590,8 +441,8 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
         .build = pulse_daslang_internal::daslang_plugin_build,
         .post_build = pulse_daslang_internal::daslang_plugin_post_build,
         .shutdown = pulse_daslang_internal::daslang_plugin_shutdown,
-        .dependency_count = 1,
-        .dependencies = daslang_dependencies,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -600,20 +451,36 @@ EPulseAppAddPluginResult pulse_add_daslang_plugin(PulseAppId app, const PulseDas
     return result;
 }
 
-// 异步提交脚本加载请求（走 pulse_asset）。脚本在 app 的 PostBuild（build 阶段
-// 请求的）或运行时加载完成（每帧处理系统）后编译并执行 importModule。
 bool pulse_load_module(PulseAppId app, const char* script_path)
 {
     auto state = pulse_daslang_internal::state_from_app(app);
     if (!state)
         return false;
-    return pulse_daslang_internal::request_script_load(app, state, script_path);
+    if (!script_path || !script_path[0])
+        return false;
+
+    std::string key = pulse_daslang_internal::normalize_cache_key(script_path);
+    if (key.empty())
+        return false;
+
+    if (state->script_cache.find(key) == state->script_cache.end())
+    {
+        fprintf(stderr, "daslang: script '%s' not injected before PostBuild, cannot queue for compile\n", key.c_str());
+        return false;
+    }
+    for (const auto& pending : state->pending_scripts)
+    {
+        if (pending == key)
+            return true;
+    }
+    state->pending_scripts.push_back(std::move(key));
+    return true;
 }
 
 PULSE_DASLANG_API uint32_t pulse_package_get_runtimes(const PulseScriptRuntimeDesc** out_runtimes)
 {
     static const PulseScriptRuntimeDesc runtimes[] = {
-        { "daslang", pulse_daslang_internal::daslang_script_package_load },
+        { "daslang", "das", pulse_daslang_internal::daslang_script_load, pulse_daslang_internal::daslang_script_package_load },
     };
     if (!out_runtimes)
         return 0;

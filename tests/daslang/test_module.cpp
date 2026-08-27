@@ -1,7 +1,9 @@
 // ============================================================
 // PulseDaslang 模块测试：
-//   1. das 脚本能被编译、模拟并执行 importModule；
-//   2. importModule 创建的 DasTestMarker 组件确实写入了值。
+//   1. das 脚本能通过公开注入通道（runtime load 回调）进入缓存；
+//   2. prepare 前 pulse_load_module 标记入口，PostBuild 统一编译，
+//      importModule 创建的 DasTestMarker 组件写入了值。
+// 手动模式（不经 package_loader）：自行 mount 包目录 + 枚举注入。
 // ============================================================
 
 #include <assert.h>
@@ -14,6 +16,8 @@
 #include "pulse_vfs.h"
 #include "pulse_daslang.h"
 
+#include "daslang_inject_helper.h"
+
 int main(void)
 {
     PulseAppDesc app_desc = {
@@ -24,23 +28,24 @@ int main(void)
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     assert(pulse_vfs_mount("src/pulse_daslang", "/", false));
     assert(pulse_vfs_mount("tests/daslang/pkg_das_test", "/", false));
-    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
- 
-    // ---- daslang 插件 ----
+
     auto daslang_desc = pulse_daslang_plugin_desc_default();
-    // 脚本随后在下方通过 pulse_load_module 动态加载。
     EPulseAppAddPluginResult daslang_result = pulse_add_daslang_plugin(app, &daslang_desc);
     if (daslang_result != PULSE_APP_ADD_PLUGIN_RESULT_OK)
     {
         pulse_destroy_app(app);
         return -1;
     }
-
     assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
+    // 通过对外注入通道（pulse_package_get_runtimes 的 load 回调）
+    // 注入全部 .das（daslang 自带 stdlib + pkg_das_test 脚本）。
+    int injected = daslang_inject_helper::inject_all_das(app);
+    assert(injected > 0);
+
+    // prepare 之前提交：进 pending，PostBuild 统一编译执行。
     assert(pulse_load_module(app, "das_test.das"));
 
     assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);

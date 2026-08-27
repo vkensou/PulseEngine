@@ -57,6 +57,7 @@ target("pulse_app")
     add_files("src/pulse_app/src/*.c")
     add_files("src/pulse_app/src/*.cpp")
     add_files("src/pulse_app/src/*.cppm", {public = true})
+    add_rules("pulse.copy_package_runtime", {packages = {"libsdl3", "imgui"}})
 
 target("pulse_vfs")
     set_kind("shared")

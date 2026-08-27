@@ -7,6 +7,7 @@
 #include <cstring>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -46,8 +47,13 @@ std::unordered_map<PulseAppId, std::unordered_map<std::string, PulseProcPackageR
     return registry;
 }
 
-std::unordered_map<std::string, PulseProcScriptPackageLoadFn>& script_runtime_registry() {
-    static std::unordered_map<std::string, PulseProcScriptPackageLoadFn> registry;
+std::unordered_map<std::string, const PulseScriptRuntimeDesc*>& script_runtime_registry() {
+    static std::unordered_map<std::string, const PulseScriptRuntimeDesc*> registry;
+    return registry;
+}
+
+std::unordered_map<std::string, const PulseScriptRuntimeDesc*>& script_extension_registry() {
+    static std::unordered_map<std::string, const PulseScriptRuntimeDesc*> registry;
     return registry;
 }
 
@@ -285,6 +291,19 @@ void* find_package_register(void* handle, const char* entry_symbol) {
 #endif
 }
 
+std::vector<std::string> parse_extensions(const char* extensions) {
+    std::vector<std::string> result;
+    if (!extensions || !extensions[0]) return result;
+    const char* it = extensions;
+    while (*it) {
+        while (*it == ',' || *it == ' ' || *it == '.') ++it;
+        const char* start = it;
+        while (*it && *it != ',') ++it;
+        if (it > start) result.emplace_back(start, it);
+    }
+    return result;
+}
+
 void register_script_runtimes(void* lib) {
     void* symbol = find_package_register(lib, PULSE_PACKAGE_GET_RUNTIMES_SYMBOL);
     if (!symbol) return;
@@ -295,13 +314,24 @@ void register_script_runtimes(void* lib) {
     if (!runtimes) return;
 
     auto& registry = script_runtime_registry();
+    auto& ext_registry = script_extension_registry();
     for (uint32_t i = 0; i < count; ++i) {
         const PulseScriptRuntimeDesc& desc = runtimes[i];
-        if (!desc.type || !desc.type[0] || !desc.load) continue;
-        if (registry.emplace(desc.type, desc.load).second) {
-            printf("script runtime registered: %s\n", desc.type);
-        } else {
-            printf("warning: script runtime '%s' already registered, keeping the first one\n", desc.type);
+        if (!desc.type || !desc.type[0] || !desc.load || !desc.load_package) continue;
+
+        // type 分发：后注册覆盖（G5.3）。
+        auto [it, inserted] = registry.insert_or_assign(desc.type, &desc);
+        if (!inserted)
+            printf("script runtime '%s' re-registered, overriding the previous one\n", desc.type);
+
+        // 扩展名路由：first-claim-lock（G6.2），防劫持。
+        for (const auto& ext : parse_extensions(desc.extensions)) {
+            if (ext.empty()) continue;
+            if (!ext_registry.emplace(ext, &desc).second)
+                printf("warning: extension '%s' already claimed by a runtime, '%s' keeps it\n",
+                    ext.c_str(), ext_registry[ext]->type);
+            else
+                printf("script runtime registered: %s (.%s)\n", desc.type, ext.c_str());
         }
     }
 }
@@ -315,6 +345,116 @@ bool package_name_loaded(PulseAppId app, const std::string& name,
     for (const auto& item : loaded)
         if (iequals(item, name)) return true;
     return false;
+}
+
+struct ScriptPackageEntry {
+    std::string name;
+    std::string package_dir;
+    std::string script_file;
+    PulseConfig* config = nullptr;
+    const PulseScriptRuntimeDesc* runtime = nullptr;
+};
+
+struct EnumerateCtx {
+    std::unordered_set<std::string> files;
+};
+
+std::string normalize_vfs_path(std::string path) {
+    while (!path.empty() && (path.front() == '/' || path.front() == '\\'))
+        path.erase(path.begin());
+    return path;
+}
+
+EPulseVfsEnumerateResult collect_files_cb(void* data, const char* orig_dir, const char* fname) {
+    auto* ctx = static_cast<EnumerateCtx*>(data);
+    if (!fname || !fname[0] || std::strcmp(fname, ".") == 0 || std::strcmp(fname, "..") == 0)
+        return PULSE_VFS_ENUMERATE_RESULT_OK;
+
+    std::string full = normalize_vfs_path(join_path(orig_dir ? orig_dir : "", fname));
+    if (full.empty()) return PULSE_VFS_ENUMERATE_RESULT_OK;
+
+    PulseVfsStat st{};
+    if (!pulse_vfs_stat(full.c_str(), &st))
+        return PULSE_VFS_ENUMERATE_RESULT_OK;
+
+    if (st.file_type == PULSE_VFS_FILE_TYPE_DIRECTORY) {
+        pulse_vfs_enumerate(full.c_str(), collect_files_cb, ctx);
+        return PULSE_VFS_ENUMERATE_RESULT_OK;
+    }
+    if (st.file_type == PULSE_VFS_FILE_TYPE_REGULAR)
+        ctx->files.insert(std::move(full));
+    return PULSE_VFS_ENUMERATE_RESULT_OK;
+}
+
+std::unordered_set<std::string> collect_union_files() {
+    EnumerateCtx ctx;
+    pulse_vfs_enumerate("/", collect_files_cb, &ctx);
+    return std::move(ctx.files);
+}
+
+std::string extension_of(const std::string& path) {
+    auto dot = path.find_last_of('.');
+    auto slash = path.find_last_of("/\\");
+    if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
+        return {};
+    return path.substr(dot + 1);
+}
+
+bool read_vfs_file(const std::string& path, std::string& out) {
+    PulseVfsFileId file = pulse_vfs_open_read(path.c_str());
+    if (!file) return false;
+    int64_t length = pulse_vfs_file_length(file);
+    if (length < 0) {
+        pulse_vfs_close(file);
+        return false;
+    }
+    out.resize(static_cast<size_t>(length));
+    if (length > 0) {
+        int64_t got = pulse_vfs_read_bytes(file, out.data(), static_cast<uint64_t>(length));
+        if (got != length) {
+            pulse_vfs_close(file);
+            return false;
+        }
+    }
+    pulse_vfs_close(file);
+    return true;
+}
+
+EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector<ScriptPackageEntry>& script_packages, const std::vector<std::string>& script_only_mounts) {
+    if (script_packages.empty()) return PULSE_PACKAGE_LOAD_RESULT_OK;
+
+    std::unordered_set<std::string> files = collect_union_files();
+    const auto& ext_registry = script_extension_registry();
+    for (const std::string& path : files) {
+        std::string ext = extension_of(path);
+        if (ext.empty()) continue;
+        auto rt = ext_registry.find(ext);
+        if (rt == ext_registry.end()) continue;
+
+        std::string text;
+        if (!read_vfs_file(path, text)) {
+            fprintf(stderr, "package loader: failed to read script '%s' via vfs\n", path.c_str());
+            return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
+        }
+        EPulseResult r = rt->second->load(app, path.c_str(), text.data(), static_cast<uint64_t>(text.size()));
+        if (r != PULSE_RESULT_OK) {
+            fprintf(stderr, "package loader: script runtime failed to inject '%s'\n", path.c_str());
+            return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
+        }
+    }
+
+    for (const auto& pkg : script_packages) {
+        if (pkg.runtime->load_package(app, pkg.script_file.c_str()) != PULSE_RESULT_OK) {
+            fprintf(stderr, "package loader: script runtime failed to register entry for package '%s' ('%s')\n",
+                pkg.name.c_str(), pkg.script_file.c_str());
+            return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
+        }
+    }
+
+    for (const std::string& dir : script_only_mounts)
+        pulse_vfs_unmount(dir.c_str());
+
+    return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
 
 EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_count, const char** search_paths, const PulsePackageListEntry* entries, uint32_t count) {
@@ -408,6 +548,8 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
     }
 
     auto& handles = package_library_handles();
+    std::vector<ScriptPackageEntry> script_packages;
+    std::vector<std::string> script_only_mounts;
     for (size_t idx : order) {
         const auto& pe = pending[idx];
 
@@ -424,15 +566,16 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
                 return PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME;
             }
 
-            PulsePackageScriptInfo info = {
-                pe.entry->name,
-                pe.resolved.package_dir.c_str(),
-                pe.resolved.script_file.c_str(),
+            ScriptPackageEntry entry = {
+                pe.entry->name ? pe.entry->name : "",
+                pe.resolved.package_dir,
+                pe.resolved.script_file,
                 pe.entry->config,
+                runtime->second,
             };
-            if (runtime->second(app, &info) != PULSE_RESULT_OK) {
-                return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
-            }
+            script_packages.push_back(std::move(entry));
+            if (!pe.resolved.has_assets && !pe.resolved.package_dir.empty())
+                script_only_mounts.push_back(pe.resolved.package_dir);
             continue;
         }
 
@@ -468,6 +611,11 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
             handles[app].push_back(lib);
         }
     }
+
+    EPulsePackageLoadResult inject_result = inject_script_snapshot(app, script_packages, script_only_mounts);
+    if (inject_result != PULSE_PACKAGE_LOAD_RESULT_OK)
+        return inject_result;
+
     return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
 
@@ -499,6 +647,7 @@ PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulseAppId app) {
     if (sm_it != static_packages.end()) static_packages.erase(sm_it);
 
     script_runtime_registry().clear();
+    script_extension_registry().clear();
 }
 
 } // extern "C"

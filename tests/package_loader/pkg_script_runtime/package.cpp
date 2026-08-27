@@ -2,7 +2,9 @@
 //
 // Provides a mock script runtime ("mockscript") through the
 // pulse_package_get_runtimes protocol so the loader can dispatch script
-// packages to it.
+// packages to it. Under the injection protocol the runtime exposes:
+//   load         - 阶段二单文件注入回调（记录注入计数）
+//   load_package - 包入口标记回调（校验 loader 传参并注册插件）
 #include <string.h>
 
 #include "pulse_app.h"
@@ -11,24 +13,21 @@
 
 namespace {
 
-EPulseResult mockscript_load(PulseAppId app, const PulsePackageScriptInfo* info) {
-    if (!app || !info) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+int g_injected_files = 0;
+
+EPulseResult mockscript_load(PulseAppId app, const char* path, const char* text, uint64_t text_size) {
+    if (!app || !path || !path[0] || (!text && text_size > 0)) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    if (text_size == 0) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    ++g_injected_files;
+    return PULSE_RESULT_OK;
+}
+
+EPulseResult mockscript_load_package(PulseAppId app, const char* script_file) {
+    if (!app || !script_file) return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
 
     // Validate every field the loader promised to hand over. Any mismatch
     // fails the load with ErrorRegisterFailed, which fails the test.
-    if (!info->name || strcmp(info->name, "pkg_mockscript") != 0) return PULSE_RESULT_ERROR_INTERNAL;
-    if (!info->script_file || strcmp(info->script_file, "main.mock") != 0) return PULSE_RESULT_ERROR_INTERNAL;
-    if (!info->package_dir) return PULSE_RESULT_ERROR_INTERNAL;
-
-    const size_t len = strlen(info->package_dir);
-    const char* suffix = "pkg_mockscript";
-    const size_t suffix_len = strlen(suffix);
-    if (len < suffix_len || strcmp(info->package_dir + len - suffix_len, suffix) != 0)
-        return PULSE_RESULT_ERROR_INTERNAL;
-
-    if (!info->config) return PULSE_RESULT_ERROR_INTERNAL;
-    if (strcmp(pulse_config_get_string(info->config, "greeting", ""), "hello") != 0)
-        return PULSE_RESULT_ERROR_INTERNAL;
+    if (!script_file || strcmp(script_file, "main.mock") != 0) return PULSE_RESULT_ERROR_INTERNAL;
 
     PulsePluginDesc desc = {};
     desc.struct_size = sizeof(PulsePluginDesc);
@@ -49,7 +48,7 @@ extern "C" PULSE_EXPORT EPulseResult pulse_package_register(PulseAppId app, Puls
 
 extern "C" PULSE_EXPORT uint32_t pulse_package_get_runtimes(const PulseScriptRuntimeDesc** out_runtimes) {
     static const PulseScriptRuntimeDesc runtimes[] = {
-        { "mockscript", mockscript_load },
+        { "mockscript", "mock", mockscript_load, mockscript_load_package },
     };
     if (!out_runtimes) return 0;
     *out_runtimes = runtimes;
