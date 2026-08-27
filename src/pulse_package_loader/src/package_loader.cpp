@@ -18,13 +18,14 @@
 #include <windows.h>
 #else
 #include <dlfcn.h>
-#include <dirent.h>
 #include <sys/stat.h>
 #endif
 
 namespace {
 
 using PulsePackageRegisterFn = EPulseResult (*)(PulseAppId, PulseConfig*);
+
+constexpr const char* kManifestPoint = "/.pkg-manifest";
 
 struct ResolvedPackage {
     std::string manifest_name;
@@ -35,6 +36,11 @@ struct ResolvedPackage {
     std::string script_file;
     bool has_assets = false;
     std::vector<std::string> dependencies;
+};
+
+struct LocatedPackage {
+    std::string host_dir;
+    bool found = false;
 };
 
 std::unordered_map<PulseAppId, std::vector<void*>>& package_library_handles() {
@@ -96,6 +102,26 @@ bool file_exists(const std::string& path) {
 #endif
 }
 
+bool read_vfs_file(const std::string& path, std::string& out) {
+    PulseVfsFileId file = pulse_vfs_open_read(path.c_str());
+    if (!file) return false;
+    int64_t length = pulse_vfs_file_length(file);
+    if (length < 0) {
+        pulse_vfs_close(file);
+        return false;
+    }
+    out.resize(static_cast<size_t>(length));
+    if (length > 0) {
+        int64_t got = pulse_vfs_read_bytes(file, out.data(), static_cast<uint64_t>(length));
+        if (got != length) {
+            pulse_vfs_close(file);
+            return false;
+        }
+    }
+    pulse_vfs_close(file);
+    return true;
+}
+
 std::string module_directory() {
 #ifdef _WIN32
     HMODULE mod = nullptr;
@@ -123,69 +149,68 @@ std::string module_directory() {
 #endif
 }
 
-std::vector<std::string> list_subdirectories(const std::string& path) {
-    std::vector<std::string> result;
-#ifdef _WIN32
-    WIN32_FIND_DATAA fd;
-    HANDLE h = FindFirstFileA((path + "\\*").c_str(), &fd);
-    if (h == INVALID_HANDLE_VALUE) return result;
-    do {
-        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-            std::strcmp(fd.cFileName, ".") != 0 && std::strcmp(fd.cFileName, "..") != 0)
-            result.emplace_back(fd.cFileName);
-    } while (FindNextFileA(h, &fd));
-    FindClose(h);
-#else
-    DIR* dir = opendir(path.c_str());
-    if (!dir) return result;
-    while (struct dirent* ent = readdir(dir))
-        if (ent->d_type == DT_DIR && std::strcmp(ent->d_name, ".") != 0 && std::strcmp(ent->d_name, "..") != 0)
-            result.emplace_back(ent->d_name);
-    closedir(dir);
-#endif
-    return result;
-}
+void locate_packages(const PulsePackageListEntry* entries, uint32_t count,
+                     const std::vector<std::string>& search_roots,
+                     std::vector<LocatedPackage>& out) {
+    for (const auto& root : search_roots) {
+        if (root.empty()) continue;
 
-std::string find_in_packages_root(const std::string& packages_root, const std::string& package_name) {
-    std::string direct = join_path(join_path(packages_root, package_name), "package.json");
-    if (file_exists(direct)) return direct;
+        if (!pulse_vfs_mount(root.c_str(), "/", false)) {
+            fprintf(stderr, "package loader: cannot mount search root '%s': %s\n",
+                    root.c_str(), pulse_vfs_get_error_by_code(pulse_vfs_get_last_error_code()));
+            continue;
+        }
 
-    for (const auto& dir : list_subdirectories(packages_root)) {
-        std::string candidate = join_path(join_path(packages_root, dir), "package.json");
-        if (!file_exists(candidate)) continue;
+        for (uint32_t i = 0; i < count; ++i) {
+            if (out[i].found || !entries[i].name || !entries[i].name[0]) continue;
+            const std::string name = entries[i].name;
 
-        PulseConfig* cfg = pulse_config_create_from_json_file(candidate.c_str());
-        if (!cfg) continue;
-        const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
-        bool match = manifest_name && manifest_name[0] && iequals(manifest_name, package_name);
-        pulse_config_release(cfg);
-        if (match || iequals(dir, package_name)) return candidate;
+            PulseVfsStat st{};
+            if (pulse_vfs_stat(name.c_str(), &st) && st.file_type == PULSE_VFS_FILE_TYPE_DIRECTORY) {
+                out[i].found = true;
+                out[i].host_dir = join_path(root, name);
+                continue;
+            }
+
+            const std::string archive = name + ".zip";
+            if (pulse_vfs_stat(archive.c_str(), &st) && st.file_type == PULSE_VFS_FILE_TYPE_REGULAR) {
+                out[i].found = true;
+                out[i].host_dir = join_path(root, archive);
+            }
+        }
+
+        pulse_vfs_unmount(root.c_str());
     }
-    return {};
 }
 
-std::string find_package_json(const std::string& package_name,
-                              const std::vector<std::string>& search_paths) {
-    for (const auto& sp : search_paths) {
-        if (sp.empty()) continue;
-        std::string found = find_in_packages_root(sp, package_name);
-        if (!found.empty()) return found;
-    }
-    return {};
-}
-
-bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::vector<std::string>& search_paths) {
+bool resolve_package(const char* entry_name, const std::string& host_dir, ResolvedPackage& out) {
     if (!entry_name || !entry_name[0]) return false;
+    out.package_dir = host_dir;
 
-    std::string manifest_path = find_package_json(entry_name, search_paths);
-    if (manifest_path.empty()) return false;
+    if (!pulse_vfs_mount(host_dir.c_str(), kManifestPoint, false)) {
+        fprintf(stderr, "package loader: cannot mount package dir '%s': %s\n",
+                host_dir.c_str(), pulse_vfs_get_error_by_code(pulse_vfs_get_last_error_code()));
+        return false;
+    }
+    std::string manifest_text;
+    const bool manifest_ok = read_vfs_file(join_path(kManifestPoint, "package.json"), manifest_text);
+    pulse_vfs_unmount(host_dir.c_str());
+    if (!manifest_ok) {
+        fprintf(stderr, "package loader: no package.json found in '%s'\n", host_dir.c_str());
+        return false;
+    }
 
-    PulseConfig* cfg = pulse_config_create_from_json_file(manifest_path.c_str());
-    if (!cfg) return false;
+    PulseConfig* cfg = pulse_config_create_from_json(manifest_text.data(), manifest_text.size());
+    if (!cfg) {
+        fprintf(stderr, "package loader: failed to parse '%s/package.json': %s\n", host_dir.c_str(), pulse_config_last_error());
+        pulse_vfs_unmount(host_dir.c_str());
+        return false;
+    }
 
-    auto slash = manifest_path.find_last_of("/\\");
-    std::string package_dir = slash == std::string::npos ? std::string() : manifest_path.substr(0, slash);
-    out.package_dir = package_dir;
+    if (!pulse_vfs_mount(host_dir.c_str(), "/", false)) {
+        fprintf(stderr, "package loader: cannot mount package dir '%s': %s\n", host_dir.c_str(), pulse_vfs_get_error_by_code(pulse_vfs_get_last_error_code()));
+        return false;
+    }
 
     const char* manifest_name = pulse_config_get_string(cfg, "name", nullptr);
     out.manifest_name = (manifest_name && manifest_name[0]) ? manifest_name : entry_name;
@@ -199,27 +224,24 @@ bool resolve_package(const char* entry_name, ResolvedPackage& out, const std::ve
     if (script_file && script_file[0]) out.script_file = script_file;
 
     if (out.type == "native") {
-        // Optional DLL entry symbol; fall back to the default register function.
         const char* entry_symbol = pulse_config_get_string(cfg, "entry", nullptr);
         if (entry_symbol && entry_symbol[0]) out.entry_symbol = entry_symbol;
 
         const char* library = pulse_config_get_string(cfg, "library", nullptr);
         const bool library_absolute = library && library[0] && (library[0] == '/' || library[0] == '\\' || library[1] == ':');
         if (library && library[0]) {
-            out.library_path = library_absolute
-                                   ? library
-                                   : join_path(package_dir, library);
+            out.library_path = library_absolute ? library : join_path(host_dir, library);
         } else {
-            std::string base = package_dir;
+            std::string base = host_dir;
             auto last = base.find_last_of("/\\");
             base = (last == std::string::npos) ? base : base.substr(last + 1);
             if (base.empty()) base = entry_name;
 #ifdef _WIN32
-            out.library_path = join_path(package_dir, base + ".dll");
+            out.library_path = join_path(host_dir, base + ".dll");
 #elif defined(__APPLE__)
-            out.library_path = join_path(package_dir, "lib" + base + ".dylib");
+            out.library_path = join_path(host_dir, "lib" + base + ".dylib");
 #else
-            out.library_path = join_path(package_dir, "lib" + base + ".so");
+            out.library_path = join_path(host_dir, "lib" + base + ".so");
 #endif
         }
 
@@ -319,12 +341,10 @@ void register_script_runtimes(void* lib) {
         const PulseScriptRuntimeDesc& desc = runtimes[i];
         if (!desc.type || !desc.type[0] || !desc.load || !desc.load_package) continue;
 
-        // type 分发：后注册覆盖（G5.3）。
         auto [it, inserted] = registry.insert_or_assign(desc.type, &desc);
         if (!inserted)
             printf("script runtime '%s' re-registered, overriding the previous one\n", desc.type);
 
-        // 扩展名路由：first-claim-lock（G6.2），防劫持。
         for (const auto& ext : parse_extensions(desc.extensions)) {
             if (ext.empty()) continue;
             if (!ext_registry.emplace(ext, &desc).second)
@@ -400,27 +420,7 @@ std::string extension_of(const std::string& path) {
     return path.substr(dot + 1);
 }
 
-bool read_vfs_file(const std::string& path, std::string& out) {
-    PulseVfsFileId file = pulse_vfs_open_read(path.c_str());
-    if (!file) return false;
-    int64_t length = pulse_vfs_file_length(file);
-    if (length < 0) {
-        pulse_vfs_close(file);
-        return false;
-    }
-    out.resize(static_cast<size_t>(length));
-    if (length > 0) {
-        int64_t got = pulse_vfs_read_bytes(file, out.data(), static_cast<uint64_t>(length));
-        if (got != length) {
-            pulse_vfs_close(file);
-            return false;
-        }
-    }
-    pulse_vfs_close(file);
-    return true;
-}
-
-EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector<ScriptPackageEntry>& script_packages, const std::vector<std::string>& script_only_mounts) {
+EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector<ScriptPackageEntry>& script_packages) {
     if (script_packages.empty()) return PULSE_PACKAGE_LOAD_RESULT_OK;
 
     std::unordered_set<std::string> files = collect_union_files();
@@ -451,9 +451,6 @@ EPulsePackageLoadResult inject_script_snapshot(PulseAppId app, const std::vector
         }
     }
 
-    for (const std::string& dir : script_only_mounts)
-        pulse_vfs_unmount(dir.c_str());
-
     return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
 
@@ -461,6 +458,11 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
     if (!app || (!entries && count != 0)) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
     if (search_paths == nullptr && search_path_count != 0) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
     if (count == 0) return PULSE_PACKAGE_LOAD_RESULT_OK;
+
+    if (!pulse_app_has_plugin(app, "pulse_vfs")) {
+        fprintf(stderr, "package loader: pulse_vfs plugin not found; call pulse_add_vfs_plugin() before loading packages\n");
+        return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_STATE;
+    }
 
     struct PendingEntry {
         const PulsePackageListEntry* entry;
@@ -472,29 +474,38 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
     for (uint32_t i = 0; i < search_path_count; ++i)
         if (search_paths[i]) search_path_roots.emplace_back(search_paths[i]);
 
+    std::vector<std::pair<std::string, bool>> mounted_dirs;
+    auto fail = [&mounted_dirs](EPulsePackageLoadResult r) -> EPulsePackageLoadResult {
+        for (const auto& [dir, is_assets] : mounted_dirs) pulse_vfs_unmount(dir.c_str());
+        return r;
+    };
+
+    std::vector<LocatedPackage> located(count);
+    locate_packages(entries, count, search_path_roots, located);
+
     auto& static_packages = static_package_registry()[app];
     std::vector<PendingEntry> pending;
     pending.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
-        if (!entries[i].name || !entries[i].name[0]) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
+        if (!entries[i].name || !entries[i].name[0]) return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT);
 
         PendingEntry pe{&entries[i], {}};
-        if (!resolve_package(entries[i].name, pe.resolved, search_path_roots)) {
-            // No manifest found: allowed only for static packages.
+        if (!located[i].found ||
+            !resolve_package(entries[i].name, located[i].host_dir, pe.resolved)) {
             if (static_packages.find(entries[i].name) == static_packages.end()) {
                 fprintf(stderr, "package '%s': no manifest found in any search path (and not registered as a static package)\n",
                         entries[i].name);
-                return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
+                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
             }
+        } else {
+            mounted_dirs.emplace_back(pe.resolved.package_dir, pe.resolved.has_assets);
         }
         if (pe.resolved.type != "native" && pe.resolved.script_file.empty()) {
-            fprintf(stderr, "package '%s': type '%s' requires 'script_file' in package.json\n",
-                    entries[i].name, pe.resolved.type.c_str());
-            return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
+            fprintf(stderr, "package '%s': type '%s' requires 'script_file' in package.json\n", entries[i].name, pe.resolved.type.c_str());
+            return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT);
         }
-        if (pulse_app_has_plugin(app, entries[i].name) ||
-            (!pe.resolved.manifest_name.empty() && pulse_app_has_plugin(app, pe.resolved.manifest_name.c_str())))
-            return PULSE_PACKAGE_LOAD_RESULT_ERROR_DUPLICATE_PACKAGE;
+        if (pulse_app_has_plugin(app, entries[i].name) || (!pe.resolved.manifest_name.empty() && pulse_app_has_plugin(app, pe.resolved.manifest_name.c_str())))
+            return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_DUPLICATE_PACKAGE);
         pending.push_back(std::move(pe));
     }
 
@@ -541,29 +552,23 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
                         in_pending = true;
                         break;
                     }
-                if (!in_pending) return PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY;
+                if (!in_pending) return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);
             }
         }
-        return PULSE_PACKAGE_LOAD_RESULT_ERROR_CIRCULAR_DEPENDENCY;
+        return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_CIRCULAR_DEPENDENCY);
     }
 
     auto& handles = package_library_handles();
     std::vector<ScriptPackageEntry> script_packages;
-    std::vector<std::string> script_only_mounts;
     for (size_t idx : order) {
         const auto& pe = pending[idx];
-
-        if ((pe.resolved.has_assets || pe.resolved.type != "native") && !pe.resolved.package_dir.empty()) {
-            pulse_vfs_mount(pe.resolved.package_dir.c_str(), "/", false);
-        }
 
         if (pe.resolved.type != "native") {
             auto& registry = script_runtime_registry();
             auto runtime = registry.find(pe.resolved.type);
             if (runtime == registry.end()) {
-                fprintf(stderr, "package '%s': no script runtime registered for type '%s'\n",
-                        pe.entry->name, pe.resolved.type.c_str());
-                return PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME;
+                fprintf(stderr, "package '%s': no script runtime registered for type '%s'\n", pe.entry->name, pe.resolved.type.c_str());
+                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME);
             }
 
             ScriptPackageEntry entry = {
@@ -574,8 +579,6 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
                 runtime->second,
             };
             script_packages.push_back(std::move(entry));
-            if (!pe.resolved.has_assets && !pe.resolved.package_dir.empty())
-                script_only_mounts.push_back(pe.resolved.package_dir);
             continue;
         }
 
@@ -588,23 +591,23 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
 #ifdef _WIN32
                 printf("Load library %s failed: %d\n", pe.resolved.library_path.c_str(), GetLastError());
 #endif
-                return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
+                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
             }
             void* symbol = find_package_register(lib, pe.resolved.entry_symbol.c_str());
             if (!symbol) {
                 close_package_library(lib);
-                return PULSE_PACKAGE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND;
+                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND);
             }
             fn = reinterpret_cast<PulsePackageRegisterFn>(symbol);
         } else {
             auto it = static_packages.find(pe.entry->name ? pe.entry->name : "");
-            if (it == static_packages.end()) return PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND;
+            if (it == static_packages.end()) return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
             fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
         }
 
         if (fn(app, pe.entry->config) != PULSE_RESULT_OK) {
             if (lib) close_package_library(lib);
-            return PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED;
+            return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
         }
         if (lib) {
             register_script_runtimes(lib);
@@ -612,10 +615,12 @@ EPulsePackageLoadResult load_packages_impl(PulseAppId app, uint32_t search_path_
         }
     }
 
-    EPulsePackageLoadResult inject_result = inject_script_snapshot(app, script_packages, script_only_mounts);
+    EPulsePackageLoadResult inject_result = inject_script_snapshot(app, script_packages);
     if (inject_result != PULSE_PACKAGE_LOAD_RESULT_OK)
-        return inject_result;
+        return fail(inject_result);
 
+    for (const auto& [dir, is_assets] : mounted_dirs)
+        if (!is_assets) pulse_vfs_unmount(dir.c_str());
     return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
 

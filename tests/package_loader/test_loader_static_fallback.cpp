@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "pulse_package_loader.h"
+#include "pulse_vfs.h"
 
 static EPulseResult fake_static_register(PulseAppId app, PulseConfig*) {
     PulsePluginDesc desc = {};
@@ -15,6 +16,9 @@ int main() {
     PulseAppDesc app_desc = { .name = "loader-static" };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     pulse_package_loader_register_static_package(app, "StaticFake", fake_static_register);
     PulsePackageListEntry entry = { "StaticFake", nullptr };

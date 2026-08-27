@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include "pulse_package_loader.h"
+#include "pulse_vfs.h"
 
 int main() {
     PulseAppDesc app_desc = { .name = "loader-missing-lib" };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // No package.json for this name in any search path and it is not registered
     // as a static package, so the loader cannot locate a loadable library.
