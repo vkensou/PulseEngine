@@ -2,6 +2,16 @@
 
 #ifndef PULSE_IMGUI_API_HEADER_GUARD
 #define PULSE_IMGUI_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,11 +76,18 @@ PULSE_IMGUI_API extern ECS_COMPONENT_DECLARE(PulseImguiContext);
 
 PULSE_IMGUI_API PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void);
 PULSE_IMGUI_API EPulseAppAddPluginResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);
-PULSE_IMGUI_API ImGuiContext* pulse_imgui_get_context(PulseAppId app);
+PULSE_IMGUI_API [[pulse::optional]] ImGuiContext* pulse_imgui_get_context(PulseAppId app);
 PULSE_IMGUI_API ecs_entity_t pulse_imgui_get_phase(PulseAppId app);
 
 #ifdef __cplusplus
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_IMGUI_API_HEADER_GUARD

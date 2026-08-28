@@ -8,15 +8,15 @@ static EPulseAssetLoaderStatus step_shader_library_load(
 {
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
     if (!device) { *out_error = "shader library: no device"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
-    if (ctx->byte_size == 0 || !ctx->bytes) {
+    if (ctx->bytes_size == 0 || !ctx->p_bytes) {
         *out_error = "shader library: no data";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
     CGPUShaderLibraryDescriptor desc = {};
     desc.name = ctx->path;
-    desc.code_size = ctx->byte_size;
-    desc.p_codes = ctx->bytes;
+    desc.code_size = static_cast<uint32_t>(ctx->bytes_size);
+    desc.p_codes = static_cast<const uint8_t*>(ctx->p_bytes);
     auto* lib = cgpu_device_create_shader_library(device, &desc);
     if (!lib) { *out_error = "shader library: create failed"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 

@@ -166,15 +166,15 @@ bool create_or_resize_swapchain(
     }
 
     const uint32_t count = swapchain->swapchain->back_buffer_count;
-    swapchain->backbuffer_count = count;
-    swapchain->backbuffer_views = new (std::nothrow) CGPUTextureViewId[count]{};
-    swapchain->framebuffers = new (std::nothrow) CGPUFramebufferId[count]{};
-    swapchain->image_available_semaphores = new (std::nothrow) CGPUSemaphoreId[count]{};
-    swapchain->render_finished_semaphores = new (std::nothrow) CGPUSemaphoreId[count]{};
-    if (!swapchain->backbuffer_views ||
-        !swapchain->framebuffers ||
-        !swapchain->image_available_semaphores ||
-        !swapchain->render_finished_semaphores) {
+    swapchain->backbuffer_views_count = count;
+    swapchain->p_backbuffer_views = new (std::nothrow) CGPUTextureViewId[count]{};
+    swapchain->p_framebuffers = new (std::nothrow) CGPUFramebufferId[count]{};
+    swapchain->p_image_available_semaphores = new (std::nothrow) CGPUSemaphoreId[count]{};
+    swapchain->p_render_finished_semaphores = new (std::nothrow) CGPUSemaphoreId[count]{};
+    if (!swapchain->p_backbuffer_views ||
+        !swapchain->p_framebuffers ||
+        !swapchain->p_image_available_semaphores ||
+        !swapchain->p_render_finished_semaphores) {
         return false;
     }
 
@@ -189,42 +189,42 @@ bool create_or_resize_swapchain(
         view_desc.dims = CGPU_TEXTURE_DIMENSION_2D;
         view_desc.array_layer_count = 1;
         view_desc.mip_level_count = 1;
-        swapchain->backbuffer_views[i] =
+        swapchain->p_backbuffer_views[i] =
             cgpu_device_create_texture_view(renderer.device, &view_desc);
-        if (!swapchain->backbuffer_views[i]) {
+        if (!swapchain->p_backbuffer_views[i]) {
             return false;
         }
 
         CGPUFramebufferDescriptor framebuffer_desc{};
         framebuffer_desc.renderpass = renderer.render_pass;
         framebuffer_desc.attachment_count = 1;
-        framebuffer_desc.p_attachments[0] = swapchain->backbuffer_views[i];
+        framebuffer_desc.p_attachments[0] = swapchain->p_backbuffer_views[i];
         framebuffer_desc.width = width;
         framebuffer_desc.height = height;
         framebuffer_desc.layers = 1;
-        swapchain->framebuffers[i] =
+        swapchain->p_framebuffers[i] =
             cgpu_device_create_framebuffer(renderer.device, &framebuffer_desc);
-        if (!swapchain->framebuffers[i]) {
+        if (!swapchain->p_framebuffers[i]) {
             return false;
         }
 
-        swapchain->image_available_semaphores[i] =
+        swapchain->p_image_available_semaphores[i] =
             cgpu_device_create_semaphore(renderer.device);
-        swapchain->render_finished_semaphores[i] =
+        swapchain->p_render_finished_semaphores[i] =
             cgpu_device_create_semaphore(renderer.device);
-        if (!swapchain->image_available_semaphores[i] ||
-            !swapchain->render_finished_semaphores[i]) {
+        if (!swapchain->p_image_available_semaphores[i] ||
+            !swapchain->p_render_finished_semaphores[i]) {
             return false;
         }
     }
 
-    swapchain->backbuffers = new (std::nothrow) pulse_backbuffer_data_t[count]{};
-    if (!swapchain->backbuffers) {
+    swapchain->p_backbuffers = new (std::nothrow) pulse_backbuffer_data_t[count]{};
+    if (!swapchain->p_backbuffers) {
         return false;
     }
     for (uint32_t i = 0; i < count; ++i) {
         HGEGraphics::init_backbuffer(
-            &static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers)[i],
+            &static_cast<pulse_backbuffer_data_t*>(swapchain->p_backbuffers)[i],
             swapchain->swapchain,
             static_cast<int>(i)
         );
@@ -400,12 +400,12 @@ bool acquire_window_image(
     uint32_t frame_index
 ) {
     swapchain->current_backbuffer_index = UINT32_MAX;
-    if (!swapchain->swapchain || swapchain->backbuffer_count == 0) {
+    if (!swapchain->swapchain || swapchain->backbuffer_views_count == 0) {
         return false;
     }
 
     CGPUSemaphoreId signal =
-        swapchain->image_available_semaphores[frame_index % swapchain->backbuffer_count];
+        swapchain->p_image_available_semaphores[frame_index % swapchain->backbuffer_views_count];
     CGPUAcquireNextDescriptor acquire_desc{};
     acquire_desc.signal_semaphore = signal;
 
@@ -420,7 +420,7 @@ bool acquire_window_image(
         return false;
     }
 
-    return swapchain->current_backbuffer_index < swapchain->backbuffer_count;
+    return swapchain->current_backbuffer_index < swapchain->backbuffer_views_count;
 }
 
 } // namespace pulse_graphics_internal

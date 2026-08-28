@@ -114,20 +114,20 @@ func.InputMouseButtonJustReleased
 func.InputGetMousePosition
     "void"
     .app   "PulseAppId"
-    .outX  "*float"
-    .outY  "*float"
+    .outX  "float" { out = true }
+    .outY  "float" { out = true }
     ()
 
 func.InputGetMouseDelta
     "void"
     .app   "PulseAppId"
-    .outDx "*float"
-    .outDy "*float"
+    .outDx "float" { out = true }
+    .outDy "float" { out = true }
     ()
 
 func.InputGetMouseScroll
     "void"
     .app   "PulseAppId"
-    .outX  "*float"
-    .outY  "*float"
+    .outX  "float" { out = true }
+    .outY  "float" { out = true }
     ()

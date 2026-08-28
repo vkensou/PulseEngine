@@ -112,15 +112,15 @@ ECS_MOVE(PulseSwapchain, dst, src, {
 void reset_swapchain_handles(PulseSwapchain* swapchain) {
     swapchain->device = CGPU_NULLPTR;
     swapchain->swapchain = CGPU_NULLPTR;
-    swapchain->backbuffer_views = nullptr;
-    swapchain->framebuffers = nullptr;
-    swapchain->image_available_semaphores = nullptr;
-    swapchain->render_finished_semaphores = nullptr;
-    swapchain->backbuffer_count = 0;
+    swapchain->p_backbuffer_views = nullptr;
+    swapchain->p_framebuffers = nullptr;
+    swapchain->p_image_available_semaphores = nullptr;
+    swapchain->p_render_finished_semaphores = nullptr;
+    swapchain->backbuffer_views_count = 0;
     swapchain->width = 0;
     swapchain->height = 0;
     swapchain->current_backbuffer_index = 0;
-    swapchain->backbuffers = nullptr;
+    swapchain->p_backbuffers = nullptr;
     swapchain->current_backbuffer = nullptr;
 }
 
@@ -131,25 +131,25 @@ void release_swapchain_resources(PulseSwapchain* swapchain) {
 
     CGPUDeviceId device = swapchain->device;
     if (device) {
-        for (uint32_t i = 0; i < swapchain->backbuffer_count; ++i) {
-            if (swapchain->framebuffers && swapchain->framebuffers[i]) {
-                cgpu_device_free_framebuffer(device, swapchain->framebuffers[i]);
+        for (uint32_t i = 0; i < swapchain->backbuffer_views_count; ++i) {
+            if (swapchain->p_framebuffers && swapchain->p_framebuffers[i]) {
+                cgpu_device_free_framebuffer(device, swapchain->p_framebuffers[i]);
             }
-            if (swapchain->backbuffer_views && swapchain->backbuffer_views[i]) {
-                cgpu_device_free_texture_view(device, swapchain->backbuffer_views[i]);
+            if (swapchain->p_backbuffer_views && swapchain->p_backbuffer_views[i]) {
+                cgpu_device_free_texture_view(device, swapchain->p_backbuffer_views[i]);
             }
-            if (swapchain->image_available_semaphores &&
-                swapchain->image_available_semaphores[i]) {
+            if (swapchain->p_image_available_semaphores &&
+                swapchain->p_image_available_semaphores[i]) {
                 cgpu_device_free_semaphore(
                     device,
-                    swapchain->image_available_semaphores[i]
+                    swapchain->p_image_available_semaphores[i]
                 );
             }
-            if (swapchain->render_finished_semaphores &&
-                swapchain->render_finished_semaphores[i]) {
+            if (swapchain->p_render_finished_semaphores &&
+                swapchain->p_render_finished_semaphores[i]) {
                 cgpu_device_free_semaphore(
                     device,
-                    swapchain->render_finished_semaphores[i]
+                    swapchain->p_render_finished_semaphores[i]
                 );
             }
         }
@@ -159,12 +159,12 @@ void release_swapchain_resources(PulseSwapchain* swapchain) {
         }
     }
 
-    delete[] swapchain->backbuffer_views;
-    delete[] swapchain->framebuffers;
-    delete[] swapchain->image_available_semaphores;
-    delete[] swapchain->render_finished_semaphores;
-    delete[] static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers);
-    swapchain->backbuffers = nullptr;
+    delete[] swapchain->p_backbuffer_views;
+    delete[] swapchain->p_framebuffers;
+    delete[] swapchain->p_image_available_semaphores;
+    delete[] swapchain->p_render_finished_semaphores;
+    delete[] static_cast<pulse_backbuffer_data_t*>(swapchain->p_backbuffers);
+    swapchain->p_backbuffers = nullptr;
 
     reset_swapchain_handles(swapchain);
 }

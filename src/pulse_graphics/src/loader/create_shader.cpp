@@ -310,7 +310,7 @@ static EPulseAssetLoaderStatus step_shader_from_deps(
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
     if (!device) { *out_error = "shader loader: no device"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
-    auto vsRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[0].dep_ref);
+    auto vsRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->p_dependencies[0].dep_ref);
     if (!s->vsPrepared) {
         auto vsState = pulse_asset_system_get_state(ctx->asset_system, vsRequest);
         if (vsState == PULSE_ASSET_STATE_LOADED)
@@ -323,7 +323,7 @@ static EPulseAssetLoaderStatus step_shader_from_deps(
             s->vsPrepared = false;
     }
 
-    auto psRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[1].dep_ref);
+    auto psRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->p_dependencies[1].dep_ref);
     if (!s->psPrepared) {
         auto psState = pulse_asset_system_get_state(ctx->asset_system, psRequest);
         if (psState == PULSE_ASSET_STATE_LOADED)
@@ -444,15 +444,15 @@ PulseShaderHandle pulse_create_shader_from_binary(
     PulseAppId app,
     const PulseShaderCreateFromBinaryDesc* desc)
 {
-    if (!desc || !desc->vs_data || !desc->vs_size || !desc->fs_data || !desc->fs_size) return {};
+    if (!desc || !desc->p_vs_data || !desc->vs_data_size || !desc->p_fs_data || !desc->fs_data_size) return {};
 
     PulseShaderLibraryCreateDesc vs_desc = {
-        desc->vs_data,
-        desc->vs_size
+        desc->p_vs_data,
+        desc->vs_data_size
     };
     PulseShaderLibraryCreateDesc fs_desc = {
-        desc->fs_data,
-        desc->fs_size
+        desc->p_fs_data,
+        desc->fs_data_size
     };
 
     PulseAssetSystemId as = asset_system_from_app(app);
@@ -472,7 +472,7 @@ PulseShaderHandle pulse_create_shader_from_binary(
         .blend_desc = desc->blend_desc,
         .depth_desc = desc->depth_desc,
         .rasterizer_state = desc->rasterizer_state,
-        .property_count = desc->property_count,
+        .property_count = (uint32_t)desc->properties_count,
         .p_properties = desc->p_properties,
     };
 
@@ -515,7 +515,7 @@ PulseShaderRequest pulse_create_shader_from_file(
         .blend_desc = desc->blend_desc,
         .depth_desc = desc->depth_desc,
         .rasterizer_state = desc->rasterizer_state,
-        .property_count = desc->property_count,
+        .property_count = (uint32_t)desc->properties_count,
         .p_properties = desc->p_properties,
     };
 

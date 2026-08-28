@@ -187,8 +187,8 @@ inline PulseAssetRequest asset_build(
     desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
     desc.type_id = type_id;
     desc.name = name;
-    desc.dependencies = dependencies;
-    desc.dependency_count = dependency_count;
+    desc.p_dependencies = dependencies;
+    desc.dependencies_count = dependency_count;
     desc.settings = settings;
     return pulse_asset_system_build(asset_system, &desc);
 }
@@ -208,8 +208,8 @@ inline PulseAssetHandle asset_build_sync(
     desc.type_id = type_id;
     desc.loader_identifier = loader_identifier;
     desc.name = name;
-    desc.dependencies = dependencies;
-    desc.dependency_count = dependency_count;
+    desc.p_dependencies = dependencies;
+    desc.dependencies_count = dependency_count;
     desc.settings = settings;
     return pulse_asset_system_build_sync(asset_system, &desc);
 }

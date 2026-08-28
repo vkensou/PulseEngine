@@ -443,7 +443,7 @@ EPulsePackageLoadResult inject_script_snapshot(PulsePackageLoader* loader, const
     return PULSE_PACKAGE_LOAD_RESULT_OK;
 }
 
-EPulsePackageLoadResult load_packages_impl(PulsePackageLoader* loader, uint32_t search_path_count, const char** search_paths, const PulsePackageListEntry* entries, uint32_t count) {
+EPulsePackageLoadResult load_packages_impl(PulsePackageLoader* loader, const char** search_paths, size_t search_path_count, const PulsePackageListEntry* entries, size_t count) {
     PulseAppId app = loader->app;
     if (!app || (!entries && count != 0)) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
     if (search_paths == nullptr && search_path_count != 0) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
@@ -622,10 +622,10 @@ PULSE_PACKAGE_LOADER_API PulsePackageLoaderId pulse_package_loader_create(PulseA
     return new (std::nothrow) PulsePackageLoader{ app };
 }
 
-PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulsePackageLoaderId loader, uint32_t search_path_count, const char** search_paths,
-    uint32_t count, const PulsePackageListEntry* entries) {
+PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulsePackageLoaderId loader, const char** search_paths, size_t search_path_count,
+    const PulsePackageListEntry* entries, size_t count) {
     if (!loader) return PULSE_PACKAGE_LOAD_RESULT_ERROR_INVALID_ARGUMENT;
-    return load_packages_impl(loader, search_path_count, search_paths, entries, count);
+    return load_packages_impl(loader, search_paths, search_path_count, entries, count);
 }
 
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(PulsePackageLoaderId loader, const char* name, PulseProcPackageRegisterFn register_fn) {

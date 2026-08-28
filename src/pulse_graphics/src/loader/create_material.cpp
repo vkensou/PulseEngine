@@ -16,7 +16,7 @@ EPulseAssetLoaderStatus step_material_create(
     auto* s = static_cast<MaterialLoaderState*>(state);
 
     auto shader_request = pulse_asset_system_to_asset_request_from_dep_ref(
-        ctx->asset_system, ctx->dependencies[0].dep_ref);
+        ctx->asset_system, ctx->p_dependencies[0].dep_ref);
     if (!s->shader_done) {
         if (!pulse_asset_system_is_ready(ctx->asset_system, shader_request)) {
             return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;

@@ -24,6 +24,41 @@ end
 local DEFAULT_NAME_ALIGN = 20
 local DEFINE_NAME_ALIGN  = 41
 
+local function has_optional(arg)
+	if arg.optional then
+		return true
+	end
+	local t = arg.fulltype
+	while type(t) == "table" do
+		if t.optional then
+			return true
+		end
+		t = t.fulltype
+	end
+	return false
+end
+
+local function annotations(arg)
+	local a = {}
+	if has_optional(arg) then
+		a[#a+1] = "[[pulse::optional]]"
+	end
+	local ann = arg.ret or arg
+	if ann.owner then
+		a[#a+1] = "[[pulse::owner]]"
+	end
+	if ann.retain then
+		a[#a+1] = "[[pulse::retain]]"
+	end
+	if arg.out then
+		a[#a+1] = "[[pulse::out]]"
+	end
+	if #a == 0 then
+		return ""
+	end
+	return table.concat(a, " ") .. " "
+end
+
 local function namealign(name, align)
 	align = align or DEFAULT_NAME_ALIGN
 	return string.rep(" ", align - #name)
@@ -104,7 +139,7 @@ local function match_arg(all_types, namespace, _fulltype)
 		arg.array = array
 		local number = array:match "%[(%d+)%]"
 		local enum, value = array:match "%[%s*([%a%d]+)::([%a%d]+)%]"
-		local const_value = array:match "%[(%s*[%d%a_:]*)%]"
+		local const_value = array:match "%[(%s*[%d%a_:]+)%]"
 		local indefinite = array:match "%[(%*)%]"
 		if number then
 			arg.array_at = { number = number }
@@ -121,6 +156,8 @@ local function match_arg(all_types, namespace, _fulltype)
 			arg.carray = "[" .. typedef.cname .. "]"
 		elseif indefinite then
 			arg.array_at = { indefinite = true }
+		else
+			arg.slice = true
 		end
 		arg.fulltype = match_arg(all_types, namespace, array_fulltype)
 		return arg
@@ -159,7 +196,11 @@ local function to_ctype(all_types, namespace, arg)
 			return to_ctype(all_types, namespace, arg.fulltype) .. "*"
 		end
 	elseif arg.const then
-		return "const " .. to_ctype(all_types, namespace, arg.fulltype)
+		local inner = to_ctype(all_types, namespace, arg.fulltype)
+		if inner:sub(1, 6) == "const " then
+			return inner
+		end
+		return "const " .. inner
 	else
 		local fulltype
 		if type(arg.fulltype) == "string" then
@@ -192,6 +233,24 @@ local function to_ctype(all_types, namespace, arg)
 	end
 end
 
+local function lift_slice(all_types, arg, namespace)
+	local t = arg
+	while type(t.fulltype) == "table" do
+		t = t.fulltype
+		if t.slice then
+			arg.slice = true
+			arg.array = t.array
+			arg.elem_ctype = to_ctype(all_types, namespace, t.fulltype)
+			local base = t.fulltype
+			while type(base) == "table" do
+				base = base.fulltype
+			end
+			arg.is_blob = base == "anyopaque"
+			return
+		end
+	end
+end
+
 local function convert_arg(all_types, arg, namespace)
 	local marg = match_arg(all_types, namespace, arg.fulltype)
 	if type(marg) == "table" then
@@ -204,6 +263,18 @@ local function convert_arg(all_types, arg, namespace)
 
 	arg.type = get_arg_type(arg)
 	arg.ctype = to_ctype(all_types, namespace, arg)
+	if arg.slice then
+		arg.elem_ctype = to_ctype(all_types, namespace, arg.fulltype)
+		local base = arg.fulltype
+		while type(base) == "table" do
+			base = base.fulltype
+		end
+		arg.is_blob = base == "anyopaque"
+	end
+	lift_slice(all_types, arg, namespace)
+	if arg.out then
+		arg.ctype = arg.ctype .. "*"
+	end
 	arg.cpptype = arg.ctype
 end
 
@@ -560,7 +631,8 @@ function codegen.nameconversion(all_types, all_funcs)
 		local namespace = v.class
 		if namespace then
 			local classname = namespace
-			if v.const then
+			local is_const = v.const or not v.mut
+			if is_const then
 				classname = "const " .. classname
 			end
 			local classtype = { fulltype = "*" .. classname }
@@ -572,8 +644,8 @@ function codegen.nameconversion(all_types, all_funcs)
 			local class_id = all_types[namespace .. "Id"]
 			if class_id ~= nil then
 				local id_name = class_id.cname
-				if v.const then
-					id_name = "const " .. id_name
+				if is_const then
+					id_name = "Const_" .. id_name
 				end
 				v.this_id = id_name
 			end
@@ -632,9 +704,19 @@ local function codetemp(func)
 	for _, arg in ipairs(func.args) do
 		conversion[#conversion+1] = arg.conversion
 		conversion_c2cpp[#conversion_c2cpp+1] = arg.conversion_back
-		local cname = arg.ctype .. " " .. (arg.cname or arg.name)
-		if arg.array then
-			cname = cname .. (arg.carray or "")
+		local cname
+		local ann = annotations(arg)
+		if arg.slice then
+			if arg.is_blob then
+				cname = ann .. "Pulse_Blob_Param(" .. (arg.cname or arg.name) .. ")"
+			else
+				cname = ann .. "Pulse_Array_Param(" .. arg.elem_ctype .. ", " .. (arg.cname or arg.name) .. ")"
+			end
+		else
+			cname = ann .. arg.ctype .. " " .. (arg.cname or arg.name)
+			if arg.array then
+				cname = cname .. (arg.carray or "")
+			end
 		end
 		local name = arg.ctype .. " " .. arg.name
 		if arg.array then
@@ -698,6 +780,7 @@ local function codetemp(func)
 
 	return {
 		RET = func.ret.ctype,
+		RETANN = annotations(func.ret),
 		CRET = func.ret.ctype,
 		CFUNCNAME = func.cname,
 		CFUNCNAMEUPPER = func.cname:upper(),
@@ -1119,8 +1202,22 @@ typedef ]] .. typedef_name .. [[ $NAME;
 end
 
 local function text_with_comments(items, item, cstyle, is_classmember)
+	if cstyle and item.slice then
+		local ann = annotations(item)
+		if ann ~= "" then
+			items[#items+1] = ann:gsub("[ \t]+$", "")
+		end
+		local text
+		if item.is_blob then
+			text = "Pulse_Blob(" .. item.cname .. ");"
+		else
+			text = "Pulse_Array(" .. item.elem_ctype .. ", " .. item.cname .. ");"
+		end
+		items[#items+1] = text
+		return
+	end
 	local name = item.cname
-	if item.array and not item.array_at.indefinite then
+	if item.array and not item.slice and not item.array_at.indefinite then
 		if cstyle then
 			name = name .. (item.carray or item.array)
 		else
@@ -1137,6 +1234,12 @@ local function text_with_comments(items, item, cstyle, is_classmember)
 		name = "m_" .. name
 	end
 	local text = string.format("%s%s %s;", typename, namealign(typename), name)
+	if cstyle then
+		local ann = annotations(item)
+		if ann ~= "" then
+			items[#items+1] = ann:gsub("[ \t]+$", "")
+		end
+	end
 	if item.comment then
 		if #item.comment > 1 then
 			table.insert(items, "")

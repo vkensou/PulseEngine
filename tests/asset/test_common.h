@@ -69,8 +69,8 @@ static PulseAssetRequest load_asset_memory_with_deps(
     desc.path = path;
     desc.data = data;
     desc.size = size;
-    desc.dependencies = dependencies;
-    desc.dependency_count = dependency_count;
+    desc.p_dependencies = dependencies;
+    desc.dependencies_count = dependency_count;
     desc.settings = settings;
     return pulse_asset_system_load_from_memory(assetSystem, &desc);
 }

@@ -152,6 +152,7 @@ namespace HGEGraphics
 	};
 
 	inline pulse_rendergraph_impl_t* to_impl(PulseRenderGraphId h) { return (pulse_rendergraph_impl_t*)h; }
+	inline const pulse_rendergraph_impl_t* to_impl(Const_PulseRenderGraphId h) { return (const pulse_rendergraph_impl_t*)h; }
 	inline PulseRenderGraphId from_impl(pulse_rendergraph_impl_t* impl) { return (PulseRenderGraphId)impl; }
 
 }

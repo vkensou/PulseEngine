@@ -16,7 +16,7 @@ static EPulseAssetLoaderStatus step_compute_shader_from_deps(
     CGPUDeviceId device = static_cast<CGPUDeviceId>(ctx->user_data);
     if (!device) { *out_error = "shader loader: no device"; return PULSE_ASSET_LOADER_STATUS_FAILED; }
 
-    auto csRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[0].dep_ref);
+    auto csRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->p_dependencies[0].dep_ref);
     if (!s->csPrepared) {
         auto csState = pulse_asset_system_get_state(ctx->asset_system, csRequest);
         if (csState == PULSE_ASSET_STATE_LOADED)
@@ -87,11 +87,11 @@ PulseComputeShaderHandle pulse_create_compute_shader_from_binary(
     PulseAppId app,
     const PulseComputeShaderCreateFromBinaryDesc* desc)
 {
-    if (!desc || !desc->cs_data || !desc->cs_size) return {};
+    if (!desc || !desc->p_cs_data || !desc->cs_data_size) return {};
 
     PulseShaderLibraryCreateDesc cs_desc = {
-        desc->cs_data,
-        desc->cs_size
+        desc->p_cs_data,
+        desc->cs_data_size
     };
 
     PulseAssetSystemId as = asset_system_from_app(app);

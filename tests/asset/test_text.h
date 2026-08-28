@@ -27,10 +27,10 @@ static EPulseAssetLoaderStatus step_test_text(
     (void)state;
     (void)out_error;
     test_text_asset* asset = (test_text_asset*)ctx->out_asset;
-    asset->size = ctx->byte_size;
-    uint64_t copy_size = ctx->byte_size < 63 ? ctx->byte_size : 63;
+    asset->size = ctx->bytes_size;
+    uint64_t copy_size = ctx->bytes_size < 63 ? ctx->bytes_size : 63;
     for (uint64_t i = 0; i < copy_size; ++i) {
-        asset->text[i] = (char)ctx->bytes[i];
+        asset->text[i] = ((const char*)ctx->p_bytes)[i];
     }
     asset->text[copy_size] = '\0';
     return PULSE_ASSET_LOADER_STATUS_DONE;

@@ -17,7 +17,6 @@ extern "C" {
         desc.enable_debug_layer = pulse_config_get_bool(config, "enable_debug_layer", desc.enable_debug_layer);
         desc.enable_gpu_based_validation = pulse_config_get_bool(config, "enable_gpu_based_validation", desc.enable_gpu_based_validation);
         desc.enable_vsync = pulse_config_get_bool(config, "enable_vsync", desc.enable_vsync);
-        desc.per_draw_shader_property_count = (uint32_t)pulse_config_get_int(config, "per_draw_shader_property_count", desc.per_draw_shader_property_count);
     }
     EPulseAppAddPluginResult r = pulse_add_graphics_plugin(app, &desc);
     switch (r) {

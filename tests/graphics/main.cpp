@@ -177,8 +177,8 @@ static void test_graphics_load_system(ecs_iter_t* it) {
                     .cull_mode = CGPU_CULL_MODE_BACK,
                     .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
                 },
-                .property_count = 3,
                 .p_properties = shader_props,
+                .properties_count = 3,
             };
             PulseShaderRequest shader = pulse_create_shader_from_file(m.app, &shader_desc);
 
@@ -203,8 +203,8 @@ static void test_graphics_load_system(ecs_iter_t* it) {
                     .mip_levels = 1,
                     .descriptors = CGPU_RESOURCE_TYPE_TEXTURE,
                 },
+                .p_pixel_data = pixels.data(),
                 .pixel_data_size = sizeof(uint32_t),
-                .pixel_data = pixels.data(),
             };
 
             PulseTextureRequest texture2 = pulse_create_texture(
@@ -364,8 +364,8 @@ int main(void) {
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    graphic_desc.per_draw_shader_property_count = sizeof(per_draw_shader_properties) / sizeof(const char*);
     graphic_desc.p_per_draw_shader_properties = per_draw_shader_properties;
+    graphic_desc.per_draw_shader_properties_count = sizeof(per_draw_shader_properties) / sizeof(const char*);
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_has_plugin(app, "pulse_graphics"));
 
@@ -383,7 +383,7 @@ int main(void) {
     cb_desc.priority = 0;
     pulse_add_render_record_callback(app, &cb_desc);
 
-    
+
     test_graphics_load_machine test_graphics_load;
     test_graphics_load.app = app;
     test_graphics_load.render = &render_state;

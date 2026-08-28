@@ -46,7 +46,7 @@ local function Set(list)
     return set
 end
 
-local keywords = Set {"error", "opaque", "export"}
+local keywords = Set {"error", "opaque", "export", "align", "union"}
 
 local function handle_embed_keyword(name)
     if keywords[name] or name:match("^%d") then
@@ -150,10 +150,34 @@ local function return0(r0, ...)
 end
 
 local function convert_type(arg)
-	if arg.optional then
+	if arg.out then
+		local inner = {}
+		for k, v in pairs(arg) do
+			if k ~= "out" then
+				inner[k] = v
+			end
+		end
+		return return0("*" .. convert_type(inner))
+	elseif arg.optional then
 		return return0("?" .. convert_type(arg.fulltype)), "null"
 	elseif arg.ptr then
 		return return0("*" .. convert_type(arg.fulltype))
+	elseif arg.slice then
+		local base = arg.fulltype
+		while type(base) == "table" do
+			base = base.fulltype
+		end
+		local inner
+		if base == "anyopaque" then
+			local const_prefix = ""
+			if type(arg.fulltype) == "table" and arg.fulltype.const then
+				const_prefix = "const "
+			end
+			inner = const_prefix .. "u8"
+		else
+			inner = convert_type(arg.fulltype)
+		end
+		return return0("[]" .. inner)
 	elseif arg.array then
 		if arg.array_at then
 			if arg.array_at.number then
@@ -370,7 +394,7 @@ local function convert_member_name(name)
 	if name == "type" then 
 		return "_type"
 	end
-	return lowerCamelcase_to_underscorecase(name)
+	return handle_embed_keyword(lowerCamelcase_to_underscorecase(name))
 end
 
 local function convert_struct_member(member, union)
@@ -389,13 +413,27 @@ local namespace = ""
 function converter.types(params)
 	local typ = params.obj
 	local funcs = params.funcs
-	if typ.handle then
+	if typ.name == "cstring" or typ.name == "anyopaque" or typ.name:match("^[ui]nt%d+_t$") or typ.name == "size_t" or typ.name == "char" or typ.name == "bool" or typ.name == "float" or typ.name == "double" or typ.name == "va_list" or typ.name == "void" or typ.name == "uintptr_t" then
+		return
+	elseif typ.handle then
 		yield("pub const " .. typ.name .. " = extern struct {")
 		yield("    idx: c_ushort,")
 		yield("};")
 	elseif typ.id then
 		local t = typ.name:match "([%u%l%d]*)Id"
+		local defined = false
+		for _, o in ipairs(idl.types) do
+			if o.name == t and (o.struct ~= nil or o.handle) then
+				defined = true
+				break
+			end
+		end
+		if not defined then
+			yield("pub const " .. t .. " = opaque {};")
+		end
 		yield("pub const " .. typ.name .. " = *" .. t .. ";")
+	elseif typ.cname and not typ.enum and not typ.flag and not typ.struct and not typ.args and not typ.const_value and not typ.cases and not typ.id and not typ.handle then
+		yield("pub const " .. typ.name .. " = extern struct {};")
 	elseif hasSuffix(typ.name, "::Enum") then
 		local has_value = false
 		for _, enum in ipairs(typ.enum) do
@@ -509,7 +547,8 @@ function converter.types(params)
 				";")
 		end
 	elseif typ.const_value then
-		yield("pub const " .. typ.name .. ": u32 = " .. tostring(typ.value) .. ";")
+		local value = tostring(typ.value):gsub("([%d]+)u$", "%1"):gsub("([%d]+)U$", "%1"):gsub("UINT64_C%((.*)%)", "%1"):gsub("UINT32_C%((.*)%)", "%1"):gsub("UINT64_MAX", "std.math.maxInt(u64)"):gsub("UINT%d+_MAX", "std.math.maxInt(u32)")
+		yield("pub const " .. typ.name .. ": u32 = " .. value .. ";")
 	elseif typ.cases then
 		local func_indent = "    "
 		yield(string.format("pub fn %s(arg: %s) %s {", typ.name, convert_type(typ.arg), convert_type(typ.ret)))
@@ -566,7 +605,7 @@ function converter.funcs(params)
 			ptr = "*"
 		end
 		-- print("Function " .. func.name .. " has this: " .. func.this_type.type)
-		if func.const ~= nil then
+		if func.mut == nil then
 			ptr = ptr .. "const "
 		end
 

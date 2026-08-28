@@ -26,7 +26,7 @@ int main() {
     pulse_package_loader_register_static_package(loader, "StaticFake", fake_static_register);
     PulsePackageListEntry entry = { "StaticFake", nullptr };
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(loader, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    assert(pulse_package_loader_load_packages(loader, search_paths, 1, &entry, 1) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "StaticFakePlugin"));
 
     pulse_destroy_app(app);

@@ -2,6 +2,16 @@
 
 #ifndef PULSE_WINDOW_API_HEADER_GUARD
 #define PULSE_WINDOW_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -126,10 +136,17 @@ PULSE_WINDOW_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
 PULSE_WINDOW_API EPulseAppAddPluginResult pulse_add_window_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
 PULSE_WINDOW_API ecs_entity_t pulse_window_get_primary(PulseAppId app);
 PULSE_WINDOW_API EPulseResult pulse_window_set_title(PulseAppId app, ecs_entity_t entity, const char* title);
-PULSE_WINDOW_API void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
+PULSE_WINDOW_API [[pulse::optional]] void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
 
 #ifdef __cplusplus
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_WINDOW_API_HEADER_GUARD

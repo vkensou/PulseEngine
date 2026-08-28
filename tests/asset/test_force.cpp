@@ -56,7 +56,7 @@ static EPulseAssetLoaderStatus step_force_asset(
     }
 
     force_asset* asset = (force_asset*)ctx->out_asset;
-    asset->value = (int)ctx->byte_size;
+    asset->value = (int)ctx->bytes_size;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 

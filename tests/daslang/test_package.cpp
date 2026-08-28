@@ -37,7 +37,7 @@ int main(void)
         { "pkg_das_test", nullptr },
     };
     const char* search_paths[] = { "src", "tests/daslang" };
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, 2, search_paths, 3, entries);
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, search_paths, 2, entries, 3);
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK)
     {
         printf("Package load failed: %s (result=%d)\n", pulse_app_last_error(app), (int)load_result);

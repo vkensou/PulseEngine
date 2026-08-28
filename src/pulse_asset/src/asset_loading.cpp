@@ -59,8 +59,8 @@ EPulseResult LoadJob::add_dependency(PulseAssetHandle dependency, EPulseLoadDepe
         dependencies.push_back({dep_ref, flags});
     }
 
-    ctx.dependencies = dependencies.data();
-    ctx.dependency_count = static_cast<uint32_t>(dependencies.size());
+    ctx.p_dependencies = dependencies.data();
+    ctx.dependencies_count = static_cast<uint32_t>(dependencies.size());
     return PULSE_RESULT_OK;
 }
 
@@ -70,10 +70,10 @@ void LoadContext::refresh(AssetSystem& system, LoadJob& job, AssetSlot& slot) {
     job.ctx.type_id = job.handle.type_id;
     job.ctx.loader_identifier = job.loader->desc.loader_identifier;
     job.ctx.path = slot.path.c_str();
-    job.ctx.bytes = job.bytes.empty() ? nullptr : job.bytes.data();
-    job.ctx.byte_size = static_cast<uint64_t>(job.bytes.size());
-    job.ctx.dependencies = job.dependencies.empty() ? nullptr : job.dependencies.data();
-    job.ctx.dependency_count = static_cast<uint32_t>(job.dependencies.size());
+    job.ctx.p_bytes = job.bytes.empty() ? nullptr : job.bytes.data();
+    job.ctx.bytes_size = static_cast<size_t>(job.bytes.size());
+    job.ctx.p_dependencies = job.dependencies.empty() ? nullptr : job.dependencies.data();
+    job.ctx.dependencies_count = static_cast<uint32_t>(job.dependencies.size());
     job.ctx.request = handle_to_request(job.handle);
     job.ctx.user_data = job.loader ? job.loader->desc.user_data : nullptr;
     job.ctx.out_asset = slot.data.data;

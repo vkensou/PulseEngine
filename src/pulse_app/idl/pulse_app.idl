@@ -160,7 +160,7 @@ struct.PluginDesc
     .version        "uint32_t"
     .pluginVersion  "uint32_t"
     .name           "cstring"
-    .ctx            "?*anyopaque"
+    .ctx            "?*anyopaque" { retain = true }
     .build          "PluginBuildFn"
     .postBuild      "PluginBuildFn"
     .shutdown       "PluginShutdownFn"
@@ -179,48 +179,50 @@ struct.Timer
     ()
 
 func.CreateApp
-    "?AppId"
+    "?AppId" { ret = { owner = true } }
     .desc "*const AppDesc"
 
 func.DestroyApp
     "void"
-    .app "AppId"
+    .app "AppId" { owner = true }
 
-func.App.Run
+func.App.Run { mut }
     "AppRunResult::Enum"
 
-func.App.Prepare
+func.App.Prepare { mut }
     "AppPrepareResult::Enum"
 
-func.App.Update
+func.App.Update { mut }
     "AppUpdateResult::Enum"
 
-func.App.Teardown
+func.App.Teardown { mut }
     "void"
 
-func.App.Finish
+func.App.Finish { mut }
     "void"
 
 func.App.ShouldQuit
     "bool"
 
-func.App.SetRunner "AppSetRunnerResult::Enum"
+func.App.SetRunner { mut }
+    "AppSetRunnerResult::Enum"
     .runner     "RunnerFn"
-    .ctx        "?*anyopaque"
+    .ctx        "?*anyopaque" { retain = true }
 
-func.App.AddPlugin "AppAddPluginResult::Enum"
+func.App.AddPlugin { mut }
+    "AppAddPluginResult::Enum"
     .desc "*const PluginDesc"
 
 func.App.HasPlugin "bool"
     .name       "cstring"
 
-func.App.World
+func.App.World { mut }
     "*ecs_world_t"
 
 func.App.LastError
     "cstring"
 
-func.App.InsertSubapp
+func.App.InsertSubapp { mut }
     "AppInsertSubappResult::Enum"
     .name       "cstring"
     .subapp     "AppId"
@@ -229,16 +231,16 @@ func.App.GetSubapp
     "AppId"
     .name       "cstring"
 
-func.App.RemoveSubapp
-    "AppId"
+func.App.RemoveSubapp { mut }
+    "AppId" { ret = { owner = true } }
     .name       "cstring"
 
-func.App.SetSubappExtract
+func.App.SetSubappExtract { mut }
     "AppSetSubappExtractResult::Enum"
     .name       "cstring"
     .extract    "SubappExtractFn"
-    .ctx        "?*anyopaque"
+    .ctx        "?*anyopaque" { retain = true }
 
-func.GetAppFromWorld
+func.GetAppFromWorld { mut }
     "AppId"
     .world      "*ecs_world_t"

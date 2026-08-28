@@ -260,15 +260,15 @@ EPulseResult imgui_render_init(PulseAppId app, pulse_imgui_plugin_state* state) 
         .size = 0,
     };
     PulseShaderCreateFromBinaryDesc shader_desc = {};
-    shader_desc.vs_data = imgui_vert_spv;
-    shader_desc.vs_size = sizeof(imgui_vert_spv);
-    shader_desc.fs_data = imgui_frag_spv;
-    shader_desc.fs_size = sizeof(imgui_frag_spv);
+    shader_desc.p_vs_data = imgui_vert_spv;
+    shader_desc.vs_data_size = sizeof(imgui_vert_spv);
+    shader_desc.p_fs_data = imgui_frag_spv;
+    shader_desc.fs_data_size = sizeof(imgui_frag_spv);
     shader_desc.blend_desc = blend_desc;
     shader_desc.depth_desc = depth_desc;
     shader_desc.rasterizer_state = rasterizer_state;
-    shader_desc.property_count = 1;
     shader_desc.p_properties = &global_property;
+    shader_desc.properties_count = 1;
 
     state->shader = pulse_create_shader_from_binary(app, &shader_desc);
     if (!pulse_asset_handle_is_valid(pulse_shader_to_handle(state->shader))) {
@@ -321,7 +321,7 @@ EPulseResult imgui_render_init(PulseAppId app, pulse_imgui_plugin_state* state) 
     tex_desc.desc.owner_queue = renderer->graphics_queue;
     tex_desc.desc.start_state = CGPU_RESOURCE_STATE_COPY_DEST;
     tex_desc.desc.descriptors = CGPU_RESOURCE_TYPE_TEXTURE;
-    tex_desc.pixel_data = pixels;
+    tex_desc.p_pixel_data = pixels;
     tex_desc.pixel_data_size = (uint64_t)font_width * font_height * 4;
     tex_desc.generate_mipmaps = false;
 

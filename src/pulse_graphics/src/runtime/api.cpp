@@ -50,11 +50,11 @@ const PulseRenderer* pulse_get_renderer(PulseAppId app) {
     return ecs_singleton_get(world, PulseRenderer);
 }
 
-void pulse_set_per_draw_shader_properties(PulseAppId app, uint32_t per_draw_shader_property_count, const char** p_per_draw_shader_properties) {
+void pulse_set_per_draw_shader_properties(PulseAppId app, const char** per_draw_shader_properties, size_t per_draw_shader_properties_count) {
     pulse_graphics_state* state = pulse_graphics_internal::state_from_app(app);
     state->per_draw_shader_properties.clear();
-    for (size_t i = 0; i < per_draw_shader_property_count; ++i) {
-        state->per_draw_shader_properties.emplace_back(p_per_draw_shader_properties[i]);
+    for (size_t i = 0; i < per_draw_shader_properties_count; ++i) {
+        state->per_draw_shader_properties.emplace_back(per_draw_shader_properties[i]);
     }
 }
 

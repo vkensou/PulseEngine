@@ -2,6 +2,16 @@
 
 #ifndef PULSE_APP_API_HEADER_GUARD
 #define PULSE_APP_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -186,13 +196,14 @@ DEFINE_PULSE_OBJECT(PulseApp)
 
 typedef struct PulsePluginDesc PulsePluginDesc;
 
-typedef EPulseRunnerResult (*PulseProcRunnerFn)(PulseAppId app, void* ctx);
-typedef EPulseSubappExtractResult (*PulseProcSubappExtractFn)(PulseAppId app, PulseAppId subapp, void* ctx);
-typedef EPulsePluginBuildResult (*PulseProcPluginBuildFn)(PulseAppId app, void* ctx);
-typedef void (*PulseProcPluginShutdownFn)(PulseAppId app, void* ctx);
+typedef EPulseRunnerResult (*PulseProcRunnerFn)(PulseAppId app, [[pulse::optional]] void* ctx);
+typedef EPulseSubappExtractResult (*PulseProcSubappExtractFn)(PulseAppId app, PulseAppId subapp, [[pulse::optional]] void* ctx);
+typedef EPulsePluginBuildResult (*PulseProcPluginBuildFn)(PulseAppId app, [[pulse::optional]] void* ctx);
+typedef void (*PulseProcPluginShutdownFn)(PulseAppId app, [[pulse::optional]] void* ctx);
 
 typedef struct PulseAppDesc
 {
+    [[pulse::optional]]
     const char*          name;
     bool                 enable_restapi;
 
@@ -204,6 +215,7 @@ typedef struct PulsePluginDesc
     uint32_t             version;
     uint32_t             plugin_version;
     const char*          name;
+    [[pulse::optional]] [[pulse::retain]]
     void*                ctx;
     PulseProcPluginBuildFn build;
     PulseProcPluginBuildFn post_build;
@@ -233,27 +245,34 @@ typedef struct PulseTimer
 
 PULSE_APP_API extern ECS_COMPONENT_DECLARE(PulseTimer);
 
-PULSE_APP_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
-PULSE_APP_API void pulse_destroy_app(PulseAppId app);
+PULSE_APP_API [[pulse::optional]] [[pulse::owner]] PulseAppId pulse_create_app(const PulseAppDesc* desc);
+PULSE_APP_API void pulse_destroy_app([[pulse::owner]] PulseAppId app);
 PULSE_APP_API EPulseAppRunResult pulse_app_run(PulseAppId _this);
 PULSE_APP_API EPulseAppPrepareResult pulse_app_prepare(PulseAppId _this);
 PULSE_APP_API EPulseAppUpdateResult pulse_app_update(PulseAppId _this);
 PULSE_APP_API void pulse_app_teardown(PulseAppId _this);
 PULSE_APP_API void pulse_app_finish(PulseAppId _this);
-PULSE_APP_API bool pulse_app_should_quit(PulseAppId _this);
-PULSE_APP_API EPulseAppSetRunnerResult pulse_app_set_runner(PulseAppId _this, PulseProcRunnerFn runner, void* ctx);
+PULSE_APP_API bool pulse_app_should_quit(Const_PulseAppId _this);
+PULSE_APP_API EPulseAppSetRunnerResult pulse_app_set_runner(PulseAppId _this, PulseProcRunnerFn runner, [[pulse::optional]] [[pulse::retain]] void* ctx);
 PULSE_APP_API EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId _this, const PulsePluginDesc* desc);
-PULSE_APP_API bool pulse_app_has_plugin(PulseAppId _this, const char* name);
+PULSE_APP_API bool pulse_app_has_plugin(Const_PulseAppId _this, const char* name);
 PULSE_APP_API ecs_world_t* pulse_app_world(PulseAppId _this);
-PULSE_APP_API const char* pulse_app_last_error(PulseAppId _this);
+PULSE_APP_API const char* pulse_app_last_error(Const_PulseAppId _this);
 PULSE_APP_API EPulseAppInsertSubappResult pulse_app_insert_subapp(PulseAppId _this, const char* name, PulseAppId subapp);
-PULSE_APP_API PulseAppId pulse_app_get_subapp(PulseAppId _this, const char* name);
-PULSE_APP_API PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
-PULSE_APP_API EPulseAppSetSubappExtractResult pulse_app_set_subapp_extract(PulseAppId _this, const char* name, PulseProcSubappExtractFn extract, void* ctx);
+PULSE_APP_API PulseAppId pulse_app_get_subapp(Const_PulseAppId _this, const char* name);
+PULSE_APP_API [[pulse::owner]] PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
+PULSE_APP_API EPulseAppSetSubappExtractResult pulse_app_set_subapp_extract(PulseAppId _this, const char* name, PulseProcSubappExtractFn extract, [[pulse::optional]] [[pulse::retain]] void* ctx);
 PULSE_APP_API PulseAppId pulse_get_app_from_world(ecs_world_t* world);
 
 #ifdef __cplusplus
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_APP_API_HEADER_GUARD

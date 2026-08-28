@@ -245,7 +245,7 @@ local function codes(idl, naming)
 	end
 
 	-- Build c99decl template from naming
-	local c99decl_template = naming.api_macro .. " $CRET " .. naming.L_ .. "$CFUNCNAME($CARGS);"
+	local c99decl_template = naming.api_macro .. " $RETANN$CRET " .. naming.L_ .. "$CFUNCNAME($CARGS);"
 
 	-- call actions with func
 	for _, f in ipairs(idl.funcs) do
