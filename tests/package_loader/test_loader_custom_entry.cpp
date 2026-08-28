@@ -20,7 +20,7 @@ int main() {
         { "pkg_custom_entry", nullptr },
     };
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(loader, 2, search_paths, 1, entries) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    assert(pulse_package_loader_load_packages(loader, search_paths, 2, entries, 1) == PULSE_PACKAGE_LOAD_RESULT_OK);
     // The custom "entry" symbol from package.json was used to register this plugin.
     assert(pulse_app_has_plugin(app, "CustomEntryPlugin"));
 

@@ -71,7 +71,7 @@ static EPulseAssetLoaderStatus step_builder_wait_asset(
     builder_wait_step_count += 1;
     assert(ctx->source == PULSE_ASSET_LOAD_SOURCE_BUILDER);
     builder_asset* asset = (builder_asset*)ctx->out_asset;
-    asset->value = (int)ctx->dependency_count;
+    asset->value = (int)ctx->dependencies_count;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
@@ -113,7 +113,7 @@ static EPulseAssetLoaderStatus step_builder_dynamic_asset(
         return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;
     }
     builder_asset* asset = (builder_asset*)ctx->out_asset;
-    asset->value = (int)ctx->dependency_count;
+    asset->value = (int)ctx->dependencies_count;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
@@ -287,8 +287,8 @@ int main(void) {
     invalid_builder_wait_desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
     invalid_builder_wait_desc.type_id = builder_wait_type;
     invalid_builder_wait_desc.name = "invalid-wait-builder";
-    invalid_builder_wait_desc.dependencies = invalid_builder_static_deps;
-    invalid_builder_wait_desc.dependency_count = 1;
+    invalid_builder_wait_desc.p_dependencies = invalid_builder_static_deps;
+    invalid_builder_wait_desc.dependencies_count = 1;
     PulseAssetRequest invalid_builder_wait_handle = pulse_asset_system_build(assetSystem, &invalid_builder_wait_desc);
     assert(!pulse_asset_request_is_valid(invalid_builder_wait_handle));
     assert(builder_wait_step_count == 0);
@@ -301,8 +301,8 @@ int main(void) {
     builder_wait_desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
     builder_wait_desc.type_id = builder_wait_type;
     builder_wait_desc.name = "wait-builder";
-    builder_wait_desc.dependencies = builder_static_deps;
-    builder_wait_desc.dependency_count = 1;
+    builder_wait_desc.p_dependencies = builder_static_deps;
+    builder_wait_desc.dependencies_count = 1;
     PulseAssetRequest builder_wait_handle = pulse_asset_system_build(assetSystem, &builder_wait_desc);
     assert(pulse_asset_system_get_state(assetSystem, builder_wait_handle) == PULSE_ASSET_STATE_WAITING_DEPENDENCIES);
     assert(builder_wait_step_count == 0);

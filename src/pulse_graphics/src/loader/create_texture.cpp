@@ -19,7 +19,7 @@ static uint64_t texture_settings_size_fn(const void* settings, void* user_data) 
     if (s->desc.name) {
         total += strlen(s->desc.name) + 1;
     }
-    if (s->pixel_data && s->pixel_data_size > 0) {
+    if (s->p_pixel_data && s->pixel_data_size > 0) {
         total += s->pixel_data_size;
     }
     return total;
@@ -42,15 +42,15 @@ static bool texture_settings_copy_fn(void* dst, const void* src, uint64_t byte_s
     } else {
         d->desc.name = nullptr;
     }
-    if (s->pixel_data && s->pixel_data_size > 0) {
+    if (s->p_pixel_data && s->pixel_data_size > 0) {
         if (cursor + s->pixel_data_size > end) {
             return false;
         }
-        memcpy(cursor, s->pixel_data, s->pixel_data_size);
-        d->pixel_data = cursor;
+        memcpy(cursor, s->p_pixel_data, s->pixel_data_size);
+        d->p_pixel_data = cursor;
         cursor += s->pixel_data_size;
     } else {
-        d->pixel_data = nullptr;
+        d->p_pixel_data = nullptr;
     }
     return true;
 }
@@ -69,7 +69,7 @@ EPulseAssetLoaderStatus step_texture_create(
 
         HGEGraphics::init_texture(texture, device, create_desc->desc);
 
-		if (create_desc->pixel_data && create_desc->pixel_data_size > 0) {
+		if (create_desc->p_pixel_data && create_desc->pixel_data_size > 0) {
 			auto* gstate = state_from_app(ctx->app);
 			if (gstate) {
                 uint64_t staging_size = 0;
@@ -79,7 +79,7 @@ EPulseAssetLoaderStatus step_texture_create(
 					*out_error = "texture loader: pixel data size exceeds staging buffer size";
 					return PULSE_ASSET_LOADER_STATUS_FAILED;
 				}
-				memcpy(staging, create_desc->pixel_data, create_desc->pixel_data_size);
+				memcpy(staging, create_desc->p_pixel_data, create_desc->pixel_data_size);
 			}
 			else {
 				return PULSE_ASSET_LOADER_STATUS_FAILED;

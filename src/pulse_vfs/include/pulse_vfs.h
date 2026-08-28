@@ -2,6 +2,16 @@
 
 #ifndef PULSE_VFS_API_HEADER_GUARD
 #define PULSE_VFS_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,7 +112,7 @@ DEFINE_PULSE_OBJECT(PulseVfsFile)
  * @param[in] fname
  *
  */
-typedef EPulseVfsEnumerateResult (*PulseProcVfsEnumerateCallback)(void* data, const char* orig_dir, const char* fname);
+typedef EPulseVfsEnumerateResult (*PulseProcVfsEnumerateCallback)([[pulse::optional]] void* data, const char* orig_dir, const char* fname);
 
 /**
  * Metadata for a file or directory, aligned with PHYSFS_Stat.
@@ -133,15 +143,15 @@ typedef struct PulseVfsPluginDesc
 
 PULSE_VFS_API PulseVfsPluginDesc pulse_vfs_plugin_desc_default(void);
 PULSE_VFS_API EPulseAppAddPluginResult pulse_add_vfs_plugin(PulseAppId app, const PulseVfsPluginDesc* desc);
-PULSE_VFS_API bool pulse_vfs_mount(const char* new_dir, const char* mount_point, bool append_to_path);
+PULSE_VFS_API bool pulse_vfs_mount(const char* new_dir, [[pulse::optional]] const char* mount_point, bool append_to_path);
 PULSE_VFS_API bool pulse_vfs_unmount(const char* old_dir);
-PULSE_VFS_API const char* pulse_vfs_get_write_dir(void);
-PULSE_VFS_API bool pulse_vfs_set_write_dir(const char* new_dir);
+PULSE_VFS_API [[pulse::optional]] const char* pulse_vfs_get_write_dir(void);
+PULSE_VFS_API bool pulse_vfs_set_write_dir([[pulse::optional]] const char* new_dir);
 PULSE_VFS_API bool pulse_vfs_exists(const char* fname);
 PULSE_VFS_API bool pulse_vfs_stat(const char* fname, PulseVfsStat* stat);
-PULSE_VFS_API PulseVfsFileId pulse_vfs_open_read(const char* filename);
-PULSE_VFS_API PulseVfsFileId pulse_vfs_open_write(const char* filename);
-PULSE_VFS_API PulseVfsFileId pulse_vfs_open_append(const char* filename);
+PULSE_VFS_API [[pulse::optional]] PulseVfsFileId pulse_vfs_open_read(const char* filename);
+PULSE_VFS_API [[pulse::optional]] PulseVfsFileId pulse_vfs_open_write(const char* filename);
+PULSE_VFS_API [[pulse::optional]] PulseVfsFileId pulse_vfs_open_append(const char* filename);
 PULSE_VFS_API bool pulse_vfs_close(PulseVfsFileId file);
 PULSE_VFS_API int64_t pulse_vfs_read_bytes(PulseVfsFileId file, void* buffer, uint64_t len);
 PULSE_VFS_API int64_t pulse_vfs_write_bytes(PulseVfsFileId file, const void* buffer, uint64_t len);
@@ -149,12 +159,19 @@ PULSE_VFS_API bool pulse_vfs_eof(PulseVfsFileId file);
 PULSE_VFS_API int64_t pulse_vfs_tell(PulseVfsFileId file);
 PULSE_VFS_API bool pulse_vfs_seek(PulseVfsFileId file, uint64_t pos);
 PULSE_VFS_API int64_t pulse_vfs_file_length(PulseVfsFileId file);
-PULSE_VFS_API bool pulse_vfs_enumerate(const char* dir, PulseProcVfsEnumerateCallback callback, void* user_data);
+PULSE_VFS_API bool pulse_vfs_enumerate(const char* dir, PulseProcVfsEnumerateCallback callback, [[pulse::optional]] void* user_data);
 PULSE_VFS_API EPulseVfsErrorCode pulse_vfs_get_last_error_code(void);
-PULSE_VFS_API const char* pulse_vfs_get_error_by_code(EPulseVfsErrorCode code);
+PULSE_VFS_API [[pulse::optional]] const char* pulse_vfs_get_error_by_code(EPulseVfsErrorCode code);
 
 #ifdef __cplusplus
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_VFS_API_HEADER_GUARD

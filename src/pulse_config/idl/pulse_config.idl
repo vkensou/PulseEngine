@@ -33,155 +33,155 @@ enum.ConfigType { underscore, comment = "PulseConfig node type:" }
     ()
 
 func.ConfigCreate
-    "?*Config"
+    "*Config"
     ()
 
 func.ConfigCreateFromJson
-    "?*Config"
-    .json "?cstring"
+    "*Config"
+    .json "cstring"
     .len  "size_t"
     ()
 
 func.ConfigCreateFromJsonFile
-    "?*Config"
-    .path "?cstring"
+    "*Config"
+    .path "cstring"
     ()
 
 func.ConfigAddref
     "void"
-    .cfg "?*Config"
+    .cfg "*Config"
     ()
 
 func.ConfigRelease
     "void"
-    .cfg "?*Config"
+    .cfg "*Config" { owned = true }
     ()
 
 func.ConfigFreeString
     "void"
-    .str "*char"
+    .str "*char" { owned = true }
     ()
 
 func.ConfigHas
     "bool"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     ()
 
 func.ConfigGetType
     "ConfigType::Enum"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     ()
 
 func.ConfigGetBool
     "bool"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     .defaultValue "bool"
     ()
 
 func.ConfigGetInt
     "int64_t"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     .defaultValue "int64_t"
     ()
 
 func.ConfigGetDouble
     "double"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     .defaultValue "double"
     ()
 
 func.ConfigGetString
     "?cstring"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     .defaultValue "?cstring"
     ()
 
 func.ConfigGetObj
     "?*Config"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     ()
 
 func.ConfigGetArray
     "?*ConfigArray"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .key "?cstring"
     ()
 
 func.ConfigArrayCount
     "size_t"
-    .arr "?*const ConfigArray"
+    .arr "*const ConfigArray"
     ()
 
 func.ConfigArrayGet
     "?*Config"
-    .arr "?*const ConfigArray"
+    .arr "*const ConfigArray"
     .index "size_t"
     ()
 
 func.ConfigSetBool
     "void"
-    .cfg "?*Config"
-    .key "?cstring"
+    .cfg "*Config"
+    .key "cstring"
     .value "bool"
     ()
 
 func.ConfigSetInt
     "void"
-    .cfg "?*Config"
-    .key "?cstring"
+    .cfg "*Config"
+    .key "cstring"
     .value "int64_t"
     ()
 
 func.ConfigSetDouble
     "void"
-    .cfg "?*Config"
-    .key "?cstring"
+    .cfg "*Config"
+    .key "cstring"
     .value "double"
     ()
 
 func.ConfigSetString
     "void"
-    .cfg "?*Config"
-    .key "?cstring"
+    .cfg "*Config"
+    .key "cstring"
     .value "?cstring"
     ()
 
 func.ConfigSetObj
     "void"
-    .cfg "?*Config"
-    .key "?cstring"
+    .cfg "*Config"
+    .key "cstring"
     .value "?*Config"
     ()
 
 func.ConfigSetArray
     "void"
-    .cfg "?*Config"
-    .key "?cstring"
+    .cfg "*Config"
+    .key "cstring"
     .value "?*ConfigArray"
     ()
 
 func.ConfigRemove
     "bool"
-    .cfg "?*Config"
+    .cfg "*Config"
     .key "?cstring"
     ()
 
 func.ConfigToJson
     "?*char"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .outLen "?*size_t"
     ()
 
 func.ConfigToJsonPretty
     "?*char"
-    .cfg "?*const Config"
+    .cfg "*const Config"
     .outLen "?*size_t"
     ()
 

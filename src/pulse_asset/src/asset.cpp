@@ -51,8 +51,8 @@ PulseAssetHandle AssetSystem::load(const PulseAssetLoadDesc* desc) {
     request.path_or_name = desc->path;
     request.settings = desc->settings;
     request.flags = desc->flags;
-    request.dependencies = desc->dependencies;
-    request.dependency_count = desc->dependency_count;
+    request.dependencies = desc->p_dependencies;
+    request.dependency_count = desc->dependencies_count;
     return load_impl(request);
 }
 
@@ -71,8 +71,8 @@ PulseAssetHandle AssetSystem::load_from_memory(const PulseAssetMemoryLoadDesc* d
     request.flags = desc->flags;
     request.data = desc->data;
     request.size = desc->size;
-    request.dependencies = desc->dependencies;
-    request.dependency_count = desc->dependency_count;
+    request.dependencies = desc->p_dependencies;
+    request.dependency_count = desc->dependencies_count;
     return load_impl(request);
 }
 
@@ -88,8 +88,8 @@ PulseAssetHandle AssetSystem::build_asset(const PulseAssetBuildDesc* desc) {
     request.loader_identifier = desc->loader_identifier;
     request.path_or_name = desc->name;
     request.settings = desc->settings;
-    request.dependencies = desc->dependencies;
-    request.dependency_count = desc->dependency_count;
+    request.dependencies = desc->p_dependencies;
+    request.dependency_count = desc->dependencies_count;
     return load_impl(request);
 }
 

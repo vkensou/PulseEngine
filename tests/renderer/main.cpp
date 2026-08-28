@@ -140,8 +140,8 @@ static void test_renderer_load_system(ecs_iter_t* it) {
                     .cull_mode = CGPU_CULL_MODE_BACK,
                     .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
                 },
-                .property_count = 3,
                 .p_properties = shader_props,
+                .properties_count = 3,
             };
             m.shader = pulse_create_shader_from_file(m.app, &shader_desc);
             m.mesh = pulse_load_mesh(m.app, "Quad.obj");

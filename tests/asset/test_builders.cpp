@@ -15,8 +15,8 @@ static EPulseAssetLoaderStatus step_builder_asset(
     (void)out_error;
     builder_step_count += 1;
     assert(ctx->source == PULSE_ASSET_LOAD_SOURCE_BUILDER);
-    assert(ctx->bytes == nullptr);
-    assert(ctx->byte_size == 0);
+    assert(ctx->p_bytes == nullptr);
+    assert(ctx->bytes_size == 0);
     assert(strcmp(ctx->path, "runtime-builder") == 0);
     const builder_settings* settings = (const builder_settings*)ctx->settings;
     builder_asset* asset = (builder_asset*)ctx->out_asset;

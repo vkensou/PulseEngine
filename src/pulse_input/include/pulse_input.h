@@ -2,6 +2,16 @@
 
 #ifndef PULSE_INPUT_API_HEADER_GUARD
 #define PULSE_INPUT_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,12 +122,19 @@ PULSE_INPUT_API bool pulse_input_key_just_released(PulseAppId app, int32_t scanc
 PULSE_INPUT_API bool pulse_input_is_mouse_button_down(PulseAppId app, uint8_t button);
 PULSE_INPUT_API bool pulse_input_mouse_button_just_pressed(PulseAppId app, uint8_t button);
 PULSE_INPUT_API bool pulse_input_mouse_button_just_released(PulseAppId app, uint8_t button);
-PULSE_INPUT_API void pulse_input_get_mouse_position(PulseAppId app, float* out_x, float* out_y);
-PULSE_INPUT_API void pulse_input_get_mouse_delta(PulseAppId app, float* out_dx, float* out_dy);
-PULSE_INPUT_API void pulse_input_get_mouse_scroll(PulseAppId app, float* out_x, float* out_y);
+PULSE_INPUT_API void pulse_input_get_mouse_position(PulseAppId app, [[pulse::out]] float* out_x, [[pulse::out]] float* out_y);
+PULSE_INPUT_API void pulse_input_get_mouse_delta(PulseAppId app, [[pulse::out]] float* out_dx, [[pulse::out]] float* out_dy);
+PULSE_INPUT_API void pulse_input_get_mouse_scroll(PulseAppId app, [[pulse::out]] float* out_x, [[pulse::out]] float* out_y);
 
 #ifdef __cplusplus
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_INPUT_API_HEADER_GUARD

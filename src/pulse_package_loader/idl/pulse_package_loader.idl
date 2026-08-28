@@ -58,10 +58,8 @@ func.PackageLoaderCreate
 func.PackageLoaderLoadPackages
     "PackageLoadResult::Enum"
     .loader             "PackageLoaderId"
-    .searchPathCount    "uint32_t"
-    .pSearchPaths       "[*]cstring"
-    .entryCount         "uint32_t"
-    .pEntries           "*const PackageListEntry"
+    .searchPaths        "[]cstring"
+    .entries            "[]const PackageListEntry"
     ()
 
 func.PackageLoaderRegisterStaticPackage

@@ -25,7 +25,7 @@ int main() {
             { "pkg_unknown_runtime", nullptr },
         };
         const char* search_paths[] = { "tests/package_loader" };
-        EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, 1, search_paths, 1, entries);
+        EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, search_paths, 1, entries, 1);
         assert(r == PULSE_PACKAGE_LOAD_RESULT_ERROR_UNKNOWN_RUNTIME);
 
         pulse_destroy_app(app);
@@ -52,7 +52,7 @@ int main() {
             { "pkg_mockscript", cfg },
         };
         const char* search_paths[] = { "tests/package_loader" };
-        EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, 2, search_paths, 2, entries);
+        EPulsePackageLoadResult r = pulse_package_loader_load_packages(loader, search_paths, 2, entries, 2);
         pulse_config_release(cfg);
         assert(r == PULSE_PACKAGE_LOAD_RESULT_OK);
 

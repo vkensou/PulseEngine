@@ -19,7 +19,7 @@ static uint64_t buffer_settings_size_fn(const void* settings, void* user_data) {
     if (s->desc.name) {
         total += strlen(s->desc.name) + 1;
     }
-    if (s->data && s->data_size > 0) {
+    if (s->p_data && s->data_size > 0) {
         total += s->data_size;
     }
     return total;
@@ -42,15 +42,15 @@ static bool buffer_settings_copy_fn(void* dst, const void* src, uint64_t byte_si
     } else {
         d->desc.name = nullptr;
     }
-    if (s->data && s->data_size > 0) {
+    if (s->p_data && s->data_size > 0) {
         if (cursor + s->data_size > end) {
             return false;
         }
-        memcpy(cursor, s->data, s->data_size);
-        d->data = cursor;
+        memcpy(cursor, s->p_data, s->data_size);
+        d->p_data = cursor;
         cursor += s->data_size;
     } else {
-        d->data = nullptr;
+        d->p_data = nullptr;
     }
     return true;
 }
@@ -76,12 +76,12 @@ EPulseAssetLoaderStatus step_buffer_create(
         buf->cur_state = CGPU_RESOURCE_STATE_UNDEFINED;
         buf->dynamic_handle = {};
 
-        if (create_desc->data && create_desc->data_size > 0) {
+        if (create_desc->p_data && create_desc->data_size > 0) {
             auto* gstate = state_from_app(ctx->app);
             if (gstate) {
                 PulseGraphicsBufferHandle handle = { ctx->request.index, ctx->request.generation };
                 auto* staging = queue_staging_buffer_full(gstate, handle, buf, create_desc->data_size, &s->upload_completed);
-                memcpy(staging, create_desc->data, create_desc->data_size);
+                memcpy(staging, create_desc->p_data, create_desc->data_size);
             }
             else {
                 return PULSE_ASSET_LOADER_STATUS_FAILED;

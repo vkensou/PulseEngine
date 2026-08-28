@@ -26,6 +26,11 @@ static bool is_valid_dynamic_texture_handle(std::pmr::vector<ResourceNode>& reso
 	return pulse_rgtexture_handle_is_valid(handle) && handle.index < resources.size();
 }
 
+static bool is_valid_dynamic_texture_handle(const std::pmr::vector<ResourceNode>& resources, PulseRGTextureHandle handle)
+{
+	return pulse_rgtexture_handle_is_valid(handle) && handle.index < resources.size();
+}
+
 static bool is_valid_dynamic_buffer_handle(std::pmr::vector<ResourceNode>& resources, PulseRGBufferHandle handle)
 {
 	return pulse_rgbuffer_handle_is_valid(handle) && handle.index < resources.size();
@@ -393,7 +398,7 @@ void pulse_render_graph_texture_set_depth_format(PulseRenderGraphId self, PulseR
 		resourceNode.format = CGPU_TEXTURE_FORMAT_UNDEFINED;
 }
 
-uint32_t pulse_render_graph_texture_get_width(PulseRenderGraphId self, PulseRGTextureHandle texture)
+uint32_t pulse_render_graph_texture_get_width(Const_PulseRenderGraphId self, PulseRGTextureHandle texture)
 {
 	auto* impl = to_impl(self);
 	assert(is_valid_dynamic_texture_handle(impl->resources, texture));
@@ -402,7 +407,7 @@ uint32_t pulse_render_graph_texture_get_width(PulseRenderGraphId self, PulseRGTe
 	return resourceNode.width;
 }
 
-uint32_t pulse_render_graph_texture_get_height(PulseRenderGraphId self, PulseRGTextureHandle texture)
+uint32_t pulse_render_graph_texture_get_height(Const_PulseRenderGraphId self, PulseRGTextureHandle texture)
 {
 	auto* impl = to_impl(self);
 	assert(is_valid_dynamic_texture_handle(impl->resources, texture));
@@ -411,7 +416,7 @@ uint32_t pulse_render_graph_texture_get_height(PulseRenderGraphId self, PulseRGT
 	return resourceNode.height;
 }
 
-uint32_t pulse_render_graph_texture_get_depth(PulseRenderGraphId self, PulseRGTextureHandle texture)
+uint32_t pulse_render_graph_texture_get_depth(Const_PulseRenderGraphId self, PulseRGTextureHandle texture)
 {
 	auto* impl = to_impl(self);
 	assert(is_valid_dynamic_texture_handle(impl->resources, texture));
@@ -420,7 +425,7 @@ uint32_t pulse_render_graph_texture_get_depth(PulseRenderGraphId self, PulseRGTe
 	return resourceNode.depth;
 }
 
-ECGPUTextureFormat pulse_render_graph_texture_get_format(PulseRenderGraphId self, PulseRGTextureHandle texture)
+ECGPUTextureFormat pulse_render_graph_texture_get_format(Const_PulseRenderGraphId self, PulseRGTextureHandle texture)
 {
 	auto* impl = to_impl(self);
 	assert(is_valid_dynamic_texture_handle(impl->resources, texture));

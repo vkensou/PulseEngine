@@ -348,8 +348,8 @@ struct PulseShaderCreateFromFileDescAnnotation final : das::ManagedStructureAnno
 		addField<DAS_BIND_MANAGED_FIELD(blend_desc)>("blend_desc");
 		addField<DAS_BIND_MANAGED_FIELD(depth_desc)>("depth_desc");
 		addField<DAS_BIND_MANAGED_FIELD(rasterizer_state)>("rasterizer_state");
-		addField<DAS_BIND_MANAGED_FIELD(property_count)>("property_count");
 		addField<DAS_BIND_MANAGED_FIELD(p_properties)>("p_properties");
+		addField<DAS_BIND_MANAGED_FIELD(properties_count)>("properties_count");
 	}
 };
 

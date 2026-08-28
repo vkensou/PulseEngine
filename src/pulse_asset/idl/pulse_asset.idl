@@ -114,7 +114,7 @@ funcptr.AssetLoaderStepFn
     "AssetLoaderStatus::Enum"
     .state      "?*anyopaque"
     .ctx        "*const AssetLoadTask"
-    .outError   "*cstring"
+    .outError   "cstring" { out = true }
 
 --- Function pointer: settings size query (optional, paired with settingsCopy)
 --- Returns the total byte size needed to deep-copy the settings, including all nested data.
@@ -189,10 +189,8 @@ struct.AssetLoadTask
     .typeId             "uint64_t"
     .loaderIdentifier   "?cstring"
     .path               "?cstring"
-    .bytes              "?*const uint8_t"
-    .byteSize           "uint64_t"
-    .dependencies       "?*const AssetDependency"
-    .dependencyCount    "uint32_t"
+    .bytes              "[]const anyopaque"
+    .dependencies       "[]const AssetDependency"
     .request            "AssetRequest"
     .userData           "?*anyopaque"
     .outAsset           "*anyopaque"
@@ -226,8 +224,7 @@ struct.AssetLoadDesc
     .version            "uint32_t"
     .typeId             "uint64_t"
     .path               "cstring"
-    .dependencies       "?*const AssetDependency"
-    .dependencyCount    "uint32_t"
+    .dependencies       "[]const AssetDependency"
     .settings           "?*const anyopaque"
     .flags              "AssetLoad"
     ()
@@ -240,8 +237,7 @@ struct.AssetMemoryLoadDesc
     .path               "cstring"
     .data               "*const anyopaque"
     .size               "uint64_t"
-    .dependencies       "?*const AssetDependency"
-    .dependencyCount    "uint32_t"
+    .dependencies       "[]const AssetDependency"
     .settings           "?*const anyopaque"
     .flags              "AssetLoad"
     ()
@@ -253,8 +249,7 @@ struct.AssetBuildDesc
     .typeId             "uint64_t"
     .loaderIdentifier   "?cstring"
     .name               "?cstring"
-    .dependencies       "?*const AssetDependency"
-    .dependencyCount    "uint32_t"
+    .dependencies       "[]const AssetDependency"
     .settings           "?*const anyopaque"
     ()
 
@@ -276,32 +271,32 @@ func.GetAssetSystem
     "?AssetSystemId"
     .app   "PulseAppId"
 
-func.AssetSystem.RegisterType
+func.AssetSystem.RegisterType { mut }
     "EPulseResult"
     .desc           "*const AssetTypeDesc"
     ()
 
-func.AssetSystem.RegisterLoader
+func.AssetSystem.RegisterLoader { mut }
     "EPulseResult"
     .desc           "*const AssetLoaderDesc"
     ()
 
-func.AssetSystem.Load
+func.AssetSystem.Load { mut }
     "AssetRequest"
     .desc  "*const AssetLoadDesc"
     ()
 
-func.AssetSystem.LoadFromMemory
+func.AssetSystem.LoadFromMemory { mut }
     "AssetRequest"
     .desc  "*const AssetMemoryLoadDesc"
     ()
 
-func.AssetSystem.Build
+func.AssetSystem.Build { mut }
     "AssetRequest"
     .desc  "*const AssetBuildDesc"
     ()
 
-func.AssetSystem.BuildSync
+func.AssetSystem.BuildSync { mut }
     "AssetHandle"
     .desc  "*const AssetBuildDesc"
     ()
@@ -331,36 +326,36 @@ func.AssetSystem.GetHandle
     .request "AssetRequest"
     ()
 
-func.AssetSystem.Cancel
+func.AssetSystem.Cancel { mut }
     "void"
     .request "AssetRequest"
     ()
 
-func.AssetSystem.Retain
+func.AssetSystem.Retain { mut }
     "bool"
     .handle     "AssetHandle"
-    .outError   "*RetainErrorCode::Enum"
+    .outError   "RetainErrorCode::Enum" { out = true }
     ()
 
-func.AssetSystem.Release
+func.AssetSystem.Release { mut }
     "bool"
     .handle     "AssetHandle"
-    .outError   "*ReleaseErrorCode::Enum"
+    .outError   "ReleaseErrorCode::Enum" { out = true }
     ()
 
-func.AssetSystem.Borrow
+func.AssetSystem.Borrow { mut }
     "bool"
     .handle     "AssetHandle"
-    .outRef     "*?*anyopaque"
-    .outError   "*BorrowErrorCode::Enum"
+    .outRef     "?*anyopaque" { out = true }
+    .outError   "BorrowErrorCode::Enum" { out = true }
     ()
 
-func.AssetSystem.MarkModified
+func.AssetSystem.MarkModified { mut }
     "void"
     .handle "AssetHandle"
     ()
 
-func.AssetSystem.ForceUnloadAssets
+func.AssetSystem.ForceUnloadAssets { mut }
     "void"
     .typeId "uint64_t"
     ()

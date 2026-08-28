@@ -215,17 +215,17 @@ void render_prepare_windows_system_run(ecs_iter_t* it) {
 
         if (acquire_window_image(swapchain, frame.frame_index)) {
             swapchain->current_backbuffer =
-                &static_cast<pulse_backbuffer_data_t*>(swapchain->backbuffers)[
+                &static_cast<pulse_backbuffer_data_t*>(swapchain->p_backbuffers)[
                     swapchain->current_backbuffer_index];
 
             frame.prepared_entities.push_back(entity);
             frame.wait_semaphores.push_back(
-                swapchain->image_available_semaphores[
-                    frame.frame_index % swapchain->backbuffer_count
+                swapchain->p_image_available_semaphores[
+                    frame.frame_index % swapchain->backbuffer_views_count
                 ]
             );
             frame.signal_semaphores.push_back(
-                swapchain->render_finished_semaphores[
+                swapchain->p_render_finished_semaphores[
                     swapchain->current_backbuffer_index
                 ]
             );
@@ -362,7 +362,7 @@ void render_present_system_run(ecs_iter_t* it) {
             }
 
             CGPUSemaphoreId wait =
-                swapchain->render_finished_semaphores[
+                swapchain->p_render_finished_semaphores[
                     swapchain->current_backbuffer_index
                 ];
             CGPUQueuePresentDescriptor present_desc{};

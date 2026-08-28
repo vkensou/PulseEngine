@@ -93,10 +93,10 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
     };
 
     PulseShaderCreateFromBinaryDesc blit_shader_desc = {
-        .vs_data = blit_vert_spv,
-        .vs_size = sizeof(blit_vert_spv),
-        .fs_data = blit_frag_spv,
-        .fs_size = sizeof(blit_frag_spv),
+        .p_vs_data = blit_vert_spv,
+        .vs_data_size = sizeof(blit_vert_spv),
+        .p_fs_data = blit_frag_spv,
+        .fs_data_size = sizeof(blit_frag_spv),
         .blend_desc = {
             .attachment_count = 1,
             .p_attachments = &blit_blend_attachments,
@@ -111,8 +111,8 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
         .rasterizer_state = {
             .cull_mode = CGPU_CULL_MODE_NONE,
         },
-        .property_count = 2,
         .p_properties = shader_props,
+        .properties_count = 2,
     };
 
     state->blit_shader.handle = pulse_create_shader_from_binary(app, &blit_shader_desc);
@@ -261,10 +261,10 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
     pulse_graphics_state* state = new (std::nothrow) pulse_graphics_state();
     if (!state) return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     state->desc = normalize_plugin_desc(desc);
-    state->desc.per_draw_shader_property_count = 0;
     state->desc.p_per_draw_shader_properties = nullptr;
-    const size_t per_draw_shader_property_count = desc ? desc->per_draw_shader_property_count : 0;
-    for (size_t i = 0; i < per_draw_shader_property_count; ++i) {
+    state->desc.per_draw_shader_properties_count = 0;
+    const size_t per_draw_shader_properties_count = desc ? desc->per_draw_shader_properties_count : 0;
+    for (size_t i = 0; i < per_draw_shader_properties_count; ++i) {
         state->per_draw_shader_properties.emplace_back(desc->p_per_draw_shader_properties[i]);
     }
 

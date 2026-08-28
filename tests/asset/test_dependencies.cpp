@@ -34,7 +34,7 @@ static EPulseAssetLoaderStatus step_parent_asset(
     (void)out_error;
     parent_step_count += 1;
     parent_asset* asset = (parent_asset*)ctx->out_asset;
-    asset->value = (int)ctx->dependency_count;
+    asset->value = (int)ctx->dependencies_count;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
@@ -85,7 +85,7 @@ static EPulseAssetLoaderStatus step_dynamic_parent_asset(
     }
 
     dynamic_parent_asset* asset = (dynamic_parent_asset*)ctx->out_asset;
-    asset->value = (int)ctx->dependency_count;
+    asset->value = (int)ctx->dependencies_count;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 

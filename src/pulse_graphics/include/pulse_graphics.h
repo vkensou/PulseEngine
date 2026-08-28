@@ -2,6 +2,16 @@
 
 #ifndef PULSE_GRAPHICS_API_HEADER_GUARD
 #define PULSE_GRAPHICS_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
@@ -105,8 +115,8 @@ typedef struct PulseUploadPassEncoder PulseUploadPassEncoder;
  * @param[in] userdata
  *
  */
-typedef void (*PulseProcRenderPassExecutable)(PulseRenderPassEncoder* encoder, void* userdata);
-typedef void (*PulseProcUploadpassExecutable)(PulseUploadPassEncoder* encoder, void* userdata);
+typedef void (*PulseProcRenderPassExecutable)(PulseRenderPassEncoder* encoder, [[pulse::optional]] void* userdata);
+typedef void (*PulseProcUploadpassExecutable)(PulseUploadPassEncoder* encoder, [[pulse::optional]] void* userdata);
 /**
  * Function pointer: render record callback
  *
@@ -115,7 +125,7 @@ typedef void (*PulseProcUploadpassExecutable)(PulseUploadPassEncoder* encoder, v
  * @param[in] userData
  *
  */
-typedef void (*PulseProcRenderRecordCallback)(PulseAppId app, PulseRenderGraphId graph, void* user_data);
+typedef void (*PulseProcRenderRecordCallback)(PulseAppId app, PulseRenderGraphId graph, [[pulse::optional]] void* user_data);
 
 struct PulseRenderGraph;
 typedef struct PulseRenderGraph PulseRenderGraph;
@@ -313,9 +323,9 @@ typedef struct PulseGraphicsPluginDesc
     bool                 enable_gpu_based_validation;
     bool                 enable_vsync;
     PulseProcRenderRecordCallback record_callback;
+    [[pulse::optional]]
     void*                record_user_data;
-    uint32_t             per_draw_shader_property_count;
-    const char**         p_per_draw_shader_properties;
+    Pulse_Array(const char*, per_draw_shader_properties);
 
 } PulseGraphicsPluginDesc;
 
@@ -357,15 +367,14 @@ typedef struct PulseSwapchain
 {
     CGPUDeviceId         device;
     CGPUSwapChainId      swapchain;
-    CGPUTextureViewId*   backbuffer_views;
-    CGPUFramebufferId*   framebuffers;
-    CGPUSemaphoreId*     image_available_semaphores;
-    CGPUSemaphoreId*     render_finished_semaphores;
-    uint32_t             backbuffer_count;
+    Pulse_Array(CGPUTextureViewId, backbuffer_views);
+    Pulse_Array(CGPUFramebufferId, framebuffers);
+    Pulse_Array(CGPUSemaphoreId, image_available_semaphores);
+    Pulse_Array(CGPUSemaphoreId, render_finished_semaphores);
     uint32_t             width;
     uint32_t             height;
     uint32_t             current_backbuffer_index;
-    pulse_backbuffer_data_t* backbuffers;
+    Pulse_Array(pulse_backbuffer_data_t, backbuffers);
     pulse_backbuffer_data_t* current_backbuffer;
 
 } PulseSwapchain;
@@ -377,6 +386,7 @@ typedef struct PulseSwapchain
 typedef struct PulseRenderRecordCallbackDesc
 {
     PulseProcRenderRecordCallback callback;
+    [[pulse::optional]]
     void*                user_data;
     int32_t              priority;
 
@@ -388,8 +398,7 @@ typedef struct PulseRenderRecordCallbackDesc
  */
 typedef struct PulseShaderLibraryCreateDesc
 {
-    const void*          code;
-    uint32_t             code_size;
+    Pulse_Blob(code);
 
 } PulseShaderLibraryCreateDesc;
 
@@ -409,15 +418,12 @@ typedef struct PulseShaderLibraryLoadDesc
  */
 typedef struct PulseShaderCreateFromBinaryDesc
 {
-    const void*          vs_data;
-    uint32_t             vs_size;
-    const void*          fs_data;
-    uint32_t             fs_size;
+    Pulse_Blob(vs_data);
+    Pulse_Blob(fs_data);
     CGPUBlendStateDescriptor blend_desc;
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
-    uint32_t             property_count;
-    const PulseShaderProperty* p_properties;
+    Pulse_Array(const PulseShaderProperty, properties);
 
 } PulseShaderCreateFromBinaryDesc;
 
@@ -432,8 +438,7 @@ typedef struct PulseShaderCreateFromFileDesc
     CGPUBlendStateDescriptor blend_desc;
     CGPUDepthStateDescriptor depth_desc;
     CGPURasterizerStateDescriptor rasterizer_state;
-    uint32_t             property_count;
-    const PulseShaderProperty* p_properties;
+    Pulse_Array(const PulseShaderProperty, properties);
 
 } PulseShaderCreateFromFileDesc;
 
@@ -443,8 +448,7 @@ typedef struct PulseShaderCreateFromFileDesc
  */
 typedef struct PulseComputeShaderCreateFromBinaryDesc
 {
-    const void*          cs_data;
-    uint32_t             cs_size;
+    Pulse_Blob(cs_data);
 
 } PulseComputeShaderCreateFromBinaryDesc;
 
@@ -465,8 +469,7 @@ typedef struct PulseComputeShaderCreateFromFileDesc
 typedef struct PulseGraphicsBufferCreateDesc
 {
     CGPUBufferDescriptor desc;
-    uint64_t             data_size;
-    const void*          data;
+    Pulse_Blob(data);
 
 } PulseGraphicsBufferCreateDesc;
 
@@ -487,8 +490,7 @@ typedef struct PulseSamplerCreateDesc
 typedef struct PulseTextureCreateDesc
 {
     CGPUTextureDescriptor desc;
-    uint64_t             pixel_data_size;
-    const void*          pixel_data;
+    Pulse_Blob(pixel_data);
     bool                 generate_mipmaps;
 
 } PulseTextureCreateDesc;
@@ -652,19 +654,18 @@ PULSE_GRAPHICS_API EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId
  * @param[in] app
  *
  */
-PULSE_GRAPHICS_API const PulseRenderer* pulse_get_renderer(PulseAppId app);
+PULSE_GRAPHICS_API [[pulse::optional]] const PulseRenderer* pulse_get_renderer(PulseAppId app);
 
 /**
  * Do not affect loaded shaders
  *
  * @param[in] app
- * @param[in] perDrawShaderPropertyCount
- * @param[in] pPerDrawShaderProperties
+ * @param[in] perDrawShaderProperties
  *
  */
-PULSE_GRAPHICS_API void pulse_set_per_draw_shader_properties(PulseAppId app, uint32_t per_draw_shader_property_count, const char** p_per_draw_shader_properties);
-PULSE_GRAPHICS_API const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
-PULSE_GRAPHICS_API const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
+PULSE_GRAPHICS_API void pulse_set_per_draw_shader_properties(PulseAppId app, Pulse_Array_Param(const char*, per_draw_shader_properties));
+PULSE_GRAPHICS_API [[pulse::optional]] const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
+PULSE_GRAPHICS_API [[pulse::optional]] const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
 
 /**
  * Render record callbacks
@@ -795,7 +796,7 @@ PULSE_GRAPHICS_API void pulse_material_set_property_float4(PulseAppId app, Pulse
 PULSE_GRAPHICS_API void pulse_material_set_property_mat4(PulseAppId app, PulseMaterialHandle self, const char* name, HMM_Mat4 value);
 PULSE_GRAPHICS_API void pulse_material_set_property_texture(PulseAppId app, PulseMaterialHandle self, const char* name, PulseTextureHandle texture);
 PULSE_GRAPHICS_API void pulse_material_set_property_sampler(PulseAppId app, PulseMaterialHandle self, const char* name, PulseSamplerHandle sampler);
-PULSE_GRAPHICS_API const uint8_t* pulse_material_get_ubo_column(PulseAppId app, PulseMaterialHandle self, uint32_t index);
+PULSE_GRAPHICS_API [[pulse::optional]] const uint8_t* pulse_material_get_ubo_column(PulseAppId app, PulseMaterialHandle self, uint32_t index);
 PULSE_GRAPHICS_API uint32_t pulse_shader_get_shader_property_count(PulseAppId app, PulseShaderHandle self);
 PULSE_GRAPHICS_API PulseShaderProperty pulse_shader_get_shader_property(PulseAppId app, PulseShaderHandle self, uint32_t index);
 PULSE_GRAPHICS_API uint32_t pulse_shader_get_ubo_info_count(PulseAppId app, PulseShaderHandle self);
@@ -813,8 +814,8 @@ PULSE_GRAPHICS_API PulseUboInfo pulse_shader_get_ubo_info(PulseAppId app, PulseS
  * @param[in] blitSampler
  *
  */
-PULSE_GRAPHICS_API PulseRenderGraphId pulse_create_render_graph(PulseAssetSystemId asset_system, uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
-PULSE_GRAPHICS_API void pulse_destroy_render_graph(PulseRenderGraphId render_graph);
+PULSE_GRAPHICS_API [[pulse::owner]] PulseRenderGraphId pulse_create_render_graph(PulseAssetSystemId asset_system, uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
+PULSE_GRAPHICS_API void pulse_destroy_render_graph([[pulse::owner]] PulseRenderGraphId render_graph);
 PULSE_GRAPHICS_API void pulse_render_graph_reset(PulseRenderGraphId _this);
 
 /**
@@ -853,10 +854,10 @@ PULSE_GRAPHICS_API PulseRGTextureHandle pulse_render_graph_declare_texture_subre
 PULSE_GRAPHICS_API void pulse_render_graph_texture_set_extent(PulseRenderGraphId _this, PulseRGTextureHandle texture, uint32_t width, uint32_t height, uint32_t depth);
 PULSE_GRAPHICS_API void pulse_render_graph_texture_set_format(PulseRenderGraphId _this, PulseRGTextureHandle texture, ECGPUTextureFormat format);
 PULSE_GRAPHICS_API void pulse_render_graph_texture_set_depth_format(PulseRenderGraphId _this, PulseRGTextureHandle texture, EPulseDepthBits depth_bits, bool need_stencil);
-PULSE_GRAPHICS_API uint32_t pulse_render_graph_texture_get_width(PulseRenderGraphId _this, PulseRGTextureHandle texture);
-PULSE_GRAPHICS_API uint32_t pulse_render_graph_texture_get_height(PulseRenderGraphId _this, PulseRGTextureHandle texture);
-PULSE_GRAPHICS_API uint32_t pulse_render_graph_texture_get_depth(PulseRenderGraphId _this, PulseRGTextureHandle texture);
-PULSE_GRAPHICS_API ECGPUTextureFormat pulse_render_graph_texture_get_format(PulseRenderGraphId _this, PulseRGTextureHandle texture);
+PULSE_GRAPHICS_API uint32_t pulse_render_graph_texture_get_width(Const_PulseRenderGraphId _this, PulseRGTextureHandle texture);
+PULSE_GRAPHICS_API uint32_t pulse_render_graph_texture_get_height(Const_PulseRenderGraphId _this, PulseRGTextureHandle texture);
+PULSE_GRAPHICS_API uint32_t pulse_render_graph_texture_get_depth(Const_PulseRenderGraphId _this, PulseRGTextureHandle texture);
+PULSE_GRAPHICS_API ECGPUTextureFormat pulse_render_graph_texture_get_format(Const_PulseRenderGraphId _this, PulseRGTextureHandle texture);
 
 /**
  * Rendergraph buffer properties
@@ -879,10 +880,10 @@ PULSE_GRAPHICS_API void pulse_render_graph_buffer_set_hold_on_last(PulseRenderGr
 PULSE_GRAPHICS_API PulseRenderPassBuilder pulse_render_graph_add_render_pass(PulseRenderGraphId _this, const char* name);
 PULSE_GRAPHICS_API PulseComputePassBuilder pulse_render_graph_add_compute_pass(PulseRenderGraphId _this, const char* name);
 PULSE_GRAPHICS_API PulseRenderPassBuilder pulse_render_graph_add_holdpass(PulseRenderGraphId _this, const char* name);
-PULSE_GRAPHICS_API void pulse_render_graph_add_uploadtexturepass(PulseRenderGraphId _this, const char* name, PulseRGTextureHandle texture, uint8_t mip_level, uint8_t slice, PulseProcUploadpassExecutable executable, uint32_t passdata_size, void** out_passdata);
-PULSE_GRAPHICS_API void pulse_render_graph_add_uploadtexturepass_ex(PulseRenderGraphId _this, const char* name, PulseRGTextureHandle texture, uint8_t mip_level, uint8_t slice, uint64_t size, uint64_t offset, void* data, PulseProcUploadpassExecutable executable, uint32_t passdata_size, void** out_passdata);
-PULSE_GRAPHICS_API void pulse_render_graph_add_uploadbufferpass(PulseRenderGraphId _this, const char* name, PulseRGBufferHandle buffer, PulseProcUploadpassExecutable executable, uint32_t passdata_size, void** out_passdata);
-PULSE_GRAPHICS_API void pulse_render_graph_add_uploadbufferpass_ex(PulseRenderGraphId _this, const char* name, PulseRGBufferHandle buffer, uint64_t size, uint64_t offset, void* data, PulseProcUploadpassExecutable executable, uint32_t passdata_size, void** out_passdata);
+PULSE_GRAPHICS_API void pulse_render_graph_add_uploadtexturepass(PulseRenderGraphId _this, const char* name, PulseRGTextureHandle texture, uint8_t mip_level, uint8_t slice, PulseProcUploadpassExecutable executable, uint32_t passdata_size, [[pulse::out]] void** out_passdata);
+PULSE_GRAPHICS_API void pulse_render_graph_add_uploadtexturepass_ex(PulseRenderGraphId _this, const char* name, PulseRGTextureHandle texture, uint8_t mip_level, uint8_t slice, uint64_t size, uint64_t offset, [[pulse::retain]] void* data, [[pulse::retain]] PulseProcUploadpassExecutable executable, uint32_t passdata_size, [[pulse::out]] void** out_passdata);
+PULSE_GRAPHICS_API void pulse_render_graph_add_uploadbufferpass(PulseRenderGraphId _this, const char* name, PulseRGBufferHandle buffer, PulseProcUploadpassExecutable executable, uint32_t passdata_size, [[pulse::out]] void** out_passdata);
+PULSE_GRAPHICS_API void pulse_render_graph_add_uploadbufferpass_ex(PulseRenderGraphId _this, const char* name, PulseRGBufferHandle buffer, uint64_t size, uint64_t offset, [[pulse::retain]] void* data, [[pulse::retain]] PulseProcUploadpassExecutable executable, uint32_t passdata_size, [[pulse::out]] void** out_passdata);
 PULSE_GRAPHICS_API void pulse_render_graph_add_generate_mipmap(PulseRenderGraphId _this, PulseRGTextureHandle texture, uint8_t from_mip_level);
 PULSE_GRAPHICS_API void pulse_render_graph_present(PulseRenderGraphId _this, PulseRGTextureHandle texture);
 PULSE_GRAPHICS_API uint32_t pulse_render_graph_add_edge(PulseRenderGraphId _this, uint32_t from, uint32_t to, ECGPUResourceStateFlags usage);
@@ -901,7 +902,7 @@ PULSE_GRAPHICS_API void pulse_render_pass_builder_add_depth_attachment(PulseRend
 PULSE_GRAPHICS_API void pulse_render_pass_builder_sample(PulseRenderPassBuilder* _this, PulseRGTextureHandle texture);
 PULSE_GRAPHICS_API void pulse_render_pass_builder_use_buffer(PulseRenderPassBuilder* _this, PulseRGBufferHandle buffer);
 PULSE_GRAPHICS_API void pulse_render_pass_builder_use_buffer_as(PulseRenderPassBuilder* _this, PulseRGBufferHandle buffer, ECGPUResourceStateFlags state);
-PULSE_GRAPHICS_API void pulse_render_pass_builder_set_executable(PulseRenderPassBuilder* _this, PulseProcRenderPassExecutable executable, uint32_t passdata_size, void** out_passdata);
+PULSE_GRAPHICS_API void pulse_render_pass_builder_set_executable(PulseRenderPassBuilder* _this, [[pulse::retain]] PulseProcRenderPassExecutable executable, uint32_t passdata_size, [[pulse::out]] void** out_passdata);
 
 /**
  * ComputePass builder
@@ -914,7 +915,7 @@ PULSE_GRAPHICS_API void pulse_compute_pass_builder_use_buffer(PulseComputePassBu
 PULSE_GRAPHICS_API void pulse_compute_pass_builder_use_buffer_as(PulseComputePassBuilder* _this, PulseRGBufferHandle buffer, ECGPUResourceStateFlags state);
 PULSE_GRAPHICS_API void pulse_compute_pass_builder_readwrite_texture(PulseComputePassBuilder* _this, PulseRGTextureHandle texture);
 PULSE_GRAPHICS_API void pulse_compute_pass_builder_readwrite_buffer(PulseComputePassBuilder* _this, PulseRGBufferHandle buffer);
-PULSE_GRAPHICS_API void pulse_compute_pass_builder_set_executable(PulseComputePassBuilder* _this, PulseProcRenderPassExecutable executable, uint32_t passdata_size, void** out_passdata);
+PULSE_GRAPHICS_API void pulse_compute_pass_builder_set_executable(PulseComputePassBuilder* _this, [[pulse::retain]] PulseProcRenderPassExecutable executable, uint32_t passdata_size, [[pulse::out]] void** out_passdata);
 
 /**
  * Encoder
@@ -958,4 +959,11 @@ static PULSE_FORCEINLINE bool ShaderPropertyIsUniform(EPulseShaderPropertyType c
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_GRAPHICS_API_HEADER_GUARD

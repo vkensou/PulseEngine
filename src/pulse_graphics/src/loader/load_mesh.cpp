@@ -119,7 +119,7 @@ EPulseAssetLoaderStatus step_mesh_load(
 
         std::vector<MeshTexturedVertex> verts;
         std::vector<uint32_t> indices;
-        if (!parse_obj_mesh(ctx->bytes, ctx->byte_size, verts, indices)) {
+        if (!parse_obj_mesh(static_cast<const uint8_t*>(ctx->p_bytes), static_cast<size_t>(ctx->bytes_size), verts, indices)) {
             *out_error = "mesh loader: OBJ parse failed";
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
@@ -155,7 +155,7 @@ EPulseAssetLoaderStatus step_mesh_load(
         vb_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
         vb_desc.size = verts.size() * vstride;
 
-        PulseGraphicsBufferCreateDesc vb_create_desc = { vb_desc, vb_desc.size, verts.data() };
+        PulseGraphicsBufferCreateDesc vb_create_desc = { vb_desc, verts.data(), vb_desc.size };
         s->vb_request = pulse_create_graphics_buffer(ctx->app, &vb_create_desc);
         pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_asset_system_to_asset_dep_ref_from_request(ctx->asset_system, pulse_graphics_buffer_request_to_asset_request(s->vb_request)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 
@@ -168,7 +168,7 @@ EPulseAssetLoaderStatus step_mesh_load(
         ib_desc.memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY;
         ib_desc.size = ib_bytes;
 
-        PulseGraphicsBufferCreateDesc ib_create_desc = { ib_desc, ib_bytes, indices.data() };
+        PulseGraphicsBufferCreateDesc ib_create_desc = { ib_desc, indices.data(), ib_bytes };
         s->ib_request = pulse_create_graphics_buffer(ctx->app, &ib_create_desc);
         pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_asset_system_to_asset_dep_ref_from_request(ctx->asset_system, pulse_graphics_buffer_request_to_asset_request(s->ib_request)), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
 

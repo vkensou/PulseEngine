@@ -22,7 +22,7 @@ int main() {
     };
 
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(loader, 1, search_paths, 1, &entry) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
+    assert(pulse_package_loader_load_packages(loader, search_paths, 1, &entry, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
 
     pulse_config_release(cfg);
     pulse_destroy_app(app);

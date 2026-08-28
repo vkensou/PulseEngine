@@ -524,7 +524,7 @@ EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
     const char *per_draw_shader_properties[] = {
         "wMatrix",
     };
-    pulse_set_per_draw_shader_properties(app, sizeof(per_draw_shader_properties) / sizeof(const char*), per_draw_shader_properties);
+    pulse_set_per_draw_shader_properties(app, per_draw_shader_properties, sizeof(per_draw_shader_properties) / sizeof(const char*));
 
     return PULSE_PLUGIN_BUILD_RESULT_OK;
 }

@@ -25,7 +25,7 @@ EPulseAssetLoaderStatus step_texture_stb(
         auto load_desc = static_cast<const PulseTextureLoadDesc*>(ctx->settings);
 
         int w = 0, h = 0, comp = 0;
-        auto* pixels = stbi_load_from_memory(ctx->bytes, ctx->byte_size, &w, &h, &comp, 4);
+        auto* pixels = stbi_load_from_memory(static_cast<const stbi_uc*>(ctx->p_bytes), static_cast<int>(ctx->bytes_size), &w, &h, &comp, 4);
         if (!pixels) {
             *out_error = "texture stb loader: texture parse failed";
             return PULSE_ASSET_LOADER_STATUS_FAILED;
@@ -117,7 +117,7 @@ EPulseAssetLoaderStatus step_texture_ktx(
 
         ktxResult result = KTX_SUCCESS;
         ktxTexture* ktxTexture;
-        result = ktxTexture_CreateFromMemory(ctx->bytes, ctx->byte_size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
+        result = ktxTexture_CreateFromMemory(static_cast<const ktx_uint8_t*>(ctx->p_bytes), static_cast<ktx_size_t>(ctx->bytes_size), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
         if (result != KTX_SUCCESS)
         {
             *out_error = "texture ktx loader: texture parse failed";

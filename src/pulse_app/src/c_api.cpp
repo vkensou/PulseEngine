@@ -18,6 +18,10 @@ pulse::App* to_app(PulseAppId handle) {
     return reinterpret_cast<pulse::App*>(handle);
 }
 
+const pulse::App* to_const_app(Const_PulseAppId handle) {
+    return reinterpret_cast<const pulse::App*>(handle);
+}
+
 PulseAppId to_handle(pulse::App* app) {
     return reinterpret_cast<PulseAppId>(app);
 }
@@ -206,8 +210,8 @@ void pulse_app_finish(PulseAppId app) {
     impl->finish();
 }
 
-bool pulse_app_should_quit(PulseAppId app) {
-    pulse::App* impl = to_app(app);
+bool pulse_app_should_quit(Const_PulseAppId app) {
+    const pulse::App* impl = to_const_app(app);
     return impl ? impl->should_quit() : true;
 }
 
@@ -277,8 +281,8 @@ EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId app, const PulsePluginD
     return to_add_plugin_c(impl->add_plugin(std::move(plugin)));
 }
 
-bool pulse_app_has_plugin(PulseAppId app, const char* name) {
-    pulse::App* impl = to_app(app);
+bool pulse_app_has_plugin(Const_PulseAppId app, const char* name) {
+    const pulse::App* impl = to_const_app(app);
     return impl ? impl->has_plugin(name ? name : "") : false;
 }
 
@@ -287,8 +291,8 @@ ecs_world_t* pulse_app_world(PulseAppId app) {
     return impl ? impl->world() : nullptr;
 }
 
-const char* pulse_app_last_error(PulseAppId app) {
-    pulse::App* impl = to_app(app);
+const char* pulse_app_last_error(Const_PulseAppId app) {
+    const pulse::App* impl = to_const_app(app);
     return impl ? impl->last_error().data() : "invalid app";
 }
 
@@ -307,8 +311,8 @@ EPulseAppInsertSubappResult pulse_app_insert_subapp(PulseAppId app, const char* 
     return to_insert_subapp_c(result);
 }
 
-PulseAppId pulse_app_get_subapp(PulseAppId app, const char* name) {
-    pulse::App* impl = to_app(app);
+PulseAppId pulse_app_get_subapp(Const_PulseAppId app, const char* name) {
+    const pulse::App* impl = to_const_app(app);
     if (!impl) {
         return nullptr;
     }

@@ -104,7 +104,7 @@ int main(int argc, char** argv)
         entries.push_back(entry);
     }
 
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, (uint32_t)search_paths.size(), search_paths.data(), (uint32_t)entries.size(), entries.data());
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, search_paths.data(), search_paths.size(), entries.data(), entries.size());
 
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK) {
         fprintf(stderr, "failed to load packages, result=%d\n", (int)load_result);

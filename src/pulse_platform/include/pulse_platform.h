@@ -3,6 +3,8 @@
 #ifndef PULSE_PLATFORM_HEADER_GUARD
 #define PULSE_PLATFORM_HEADER_GUARD
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,6 +45,11 @@ extern "C" {
 #endif
 #endif
 
-#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id;
+#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id; typedef const struct name* Const_##name##Id;
+
+#define Pulse_Array(T, field) T* p_##field; size_t field##_count
+#define Pulse_Array_Param(T, param) T* p_##param, size_t param##_count
+#define Pulse_Blob(field) const void* p_##field; size_t field##_size
+#define Pulse_Blob_Param(param) const void* p_##param, size_t param##_size
 
 #endif

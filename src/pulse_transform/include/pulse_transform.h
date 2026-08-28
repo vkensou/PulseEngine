@@ -2,6 +2,16 @@
 
 #ifndef PULSE_TRANSFORM_API_HEADER_GUARD
 #define PULSE_TRANSFORM_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #include <stdint.h>
 #include "pulse_platform.h"
@@ -65,4 +75,11 @@ PULSE_TRANSFORM_API ecs_entity_t pulse_get_parent(PulseAppId app, ecs_entity_t c
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_TRANSFORM_API_HEADER_GUARD

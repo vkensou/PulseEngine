@@ -317,8 +317,8 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 				.cull_mode = CGPU_CULL_MODE_BACK,
 				.front_face = CGPU_FRONT_FACE_CLOCK_WISE,
 			},
-			.property_count = 3,
 			.p_properties = shader_props,
+			.properties_count = 3,
 		};
 
 		// ---- shader / mesh（异步，不等待）----

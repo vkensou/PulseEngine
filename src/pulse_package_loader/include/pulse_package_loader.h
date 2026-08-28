@@ -2,6 +2,16 @@
 
 #ifndef PULSE_PACKAGE_LOADER_API_HEADER_GUARD
 #define PULSE_PACKAGE_LOADER_API_HEADER_GUARD
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,7 +55,7 @@ typedef enum EPulsePackageLoadResult
 
 DEFINE_PULSE_OBJECT(PulsePackageLoader)
 
-typedef EPulseResult (*PulseProcPackageRegisterFn)(PulseAppId app, PulseConfig* config);
+typedef EPulseResult (*PulseProcPackageRegisterFn)(PulseAppId app, [[pulse::optional]] PulseConfig* config);
 
 /**
  * Opaque config tree from pulse_config.h
@@ -57,13 +67,14 @@ typedef struct PulseConfig PulseConfig;
 typedef struct PulsePackageListEntry
 {
     const char*          name;
+    [[pulse::optional]]
     PulseConfig*         config;
 
 } PulsePackageListEntry;
 
 
-PULSE_PACKAGE_LOADER_API PulsePackageLoaderId pulse_package_loader_create(PulseAppId app);
-PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulsePackageLoaderId loader, uint32_t search_path_count, const char** p_search_paths, uint32_t entry_count, const PulsePackageListEntry* p_entries);
+PULSE_PACKAGE_LOADER_API [[pulse::optional]] PulsePackageLoaderId pulse_package_loader_create(PulseAppId app);
+PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulsePackageLoaderId loader, Pulse_Array_Param(const char*, search_paths), Pulse_Array_Param(const PulsePackageListEntry, entries));
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(PulsePackageLoaderId loader, const char* name, PulseProcPackageRegisterFn register_fn);
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulsePackageLoaderId loader);
 
@@ -71,4 +82,11 @@ PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulsePackageLoaderId 
 }
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 #endif // PULSE_PACKAGE_LOADER_API_HEADER_GUARD

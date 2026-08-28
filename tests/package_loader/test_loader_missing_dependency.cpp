@@ -21,7 +21,7 @@ int main() {
     };
 
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(loader, 1, search_paths, 1, entries) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);
+    assert(pulse_package_loader_load_packages(loader, search_paths, 1, entries, 1) == PULSE_PACKAGE_LOAD_RESULT_ERROR_MISSING_DEPENDENCY);
 
     pulse_destroy_app(app);
     pulse_package_loader_cleanup(loader);

@@ -102,7 +102,7 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
 {
     auto* s = static_cast<MeshCreateFromDataState*>(state);
 
-    auto vertexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[0].dep_ref);
+    auto vertexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->p_dependencies[0].dep_ref);
     if (!s->vertexBufferPrepared) {
         auto vbState = pulse_asset_system_get_state(ctx->asset_system, vertexBufferRequest);
         if (vbState == PULSE_ASSET_STATE_LOADED)
@@ -114,12 +114,12 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
             s->vertexBufferPrepared = false;
     }
 
-    bool hasIndexBuffer = pulse_asset_dep_ref_is_valid(ctx->dependencies[1].dep_ref);
+    bool hasIndexBuffer = pulse_asset_dep_ref_is_valid(ctx->p_dependencies[1].dep_ref);
     if (!s->indexBufferPrepared) {
         if (!hasIndexBuffer)
             s->indexBufferPrepared = true;
         else {
-            auto indexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[1].dep_ref);
+            auto indexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->p_dependencies[1].dep_ref);
             auto ibState = pulse_asset_system_get_state(ctx->asset_system, indexBufferRequest);
             if (ibState == PULSE_ASSET_STATE_LOADED)
                 s->indexBufferPrepared = true;
@@ -138,7 +138,7 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
     auto* mesh = static_cast<PulseMeshData*>(ctx->out_asset);
     auto* desc = static_cast<const PulseMeshCreateFromDataDesc*>(ctx->settings);
 
-    if (ctx->dependency_count < 2) {
+    if (ctx->dependencies_count < 2) {
         *out_error = "mesh create loader: missing buffer dependencies";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
@@ -153,7 +153,7 @@ EPulseAssetLoaderStatus step_mesh_create_from_data(
     PulseGraphicsBufferData* ib_data = nullptr;
     PulseGraphicsBufferHandle indexBuffer = {};
     if (hasIndexBuffer) {
-        auto indexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->dependencies[1].dep_ref);
+        auto indexBufferRequest = pulse_asset_system_to_asset_request_from_dep_ref(ctx->asset_system, ctx->p_dependencies[1].dep_ref);
         indexBuffer = pulse_graphics_buffer_get_handle(ctx->app, { indexBufferRequest.index, indexBufferRequest.generation });
         ib_data = internal_borrow_buffer(ctx->asset_system, indexBuffer);
         if (!ib_data) {
@@ -260,8 +260,8 @@ PulseMeshRequest pulse_create_mesh_from_data(
             .memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY,
             .flags = CGPU_BUFFER_CREATION_USAGE_PERSISTENT_MAP,
         },
+        .p_data = desc->vertex_data,
         .data_size = desc->vertex_count * desc->vertex_stride,
-        .data = desc->vertex_data,
     };
     auto vertex_buffer = pulse_create_graphics_buffer(app, &vertex_buffer_desc);
 
@@ -276,8 +276,8 @@ PulseMeshRequest pulse_create_mesh_from_data(
                 .memory_usage = CGPU_MEMORY_USAGE_GPU_ONLY,
                 .flags = CGPU_BUFFER_CREATION_USAGE_PERSISTENT_MAP,
             },
+            .p_data = desc->index_data,
             .data_size = desc->index_count * desc->index_stride,
-            .data = desc->index_data,
         };
         index_buffer = pulse_create_graphics_buffer(app, &index_buffer_desc);
     }
