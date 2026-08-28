@@ -193,10 +193,10 @@ typedef void (*PulseProcAssetLoaderDtorFn)(void* loader, const PulseAssetLoadTas
  *
  * @param[in] state
  * @param[in] ctx
- * @param[in] outError
+ * @param[out] outError
  *
  */
-typedef EPulseAssetLoaderStatus (*PulseProcAssetLoaderStepFn)([[pulse::optional]] void* state, const PulseAssetLoadTask* ctx, const char** out_error);
+typedef EPulseAssetLoaderStatus (*PulseProcAssetLoaderStepFn)([[pulse::optional]] void* state, const PulseAssetLoadTask* ctx, [[pulse::out]] const char** out_error);
 /**
  * Function pointer: settings size query (optional, paired with settingsCopy)
  * Returns the total byte size needed to deep-copy the settings, including all nested data.
@@ -311,7 +311,6 @@ typedef struct PulseAssetLoadTask
     const char*          loader_identifier;
     [[pulse::optional]]
     const char*          path;
-    [[pulse::optional]]
     Pulse_Blob(bytes);
     Pulse_Array(const PulseAssetDependency, dependencies);
     PulseAssetRequest    request;

@@ -138,8 +138,8 @@ id "AppId"
 
 编译结果：
 ```c
-#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id;
-DEFINE_PULSE_OBJECT(PulseApp)  /* → typedef struct PulseApp* PulseAppId; */
+#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id; typedef const struct name* Const_##name##Id;
+DEFINE_PULSE_OBJECT(PulseApp)  /* → typedef struct PulseApp* PulseAppId; typedef const struct PulseApp* Const_PulseAppId; */
 ```
 
 ### 结构体
@@ -215,15 +215,131 @@ void pulse_destroy_app(PulseAppId app);
 ```lua
 struct.App()
 
-func.App.Run
+func.App.GetState
+    "State::Enum"
+    ()
+
+func.App.Run { mut }
     "Result::Enum"
     ()
 ```
 
-生成的第一个参数是 `_this` 句柄：
+生成的第一个参数是 `_this` 句柄。成员函数默认是`const`，类似c++的`const`成员函数。如果想修改`_this`，需要设置`mut`属性。
 
 ```c
+EPulseState pulse_app_get_state(Const_PulseAppId _this);
 EPulseResult pulse_app_run(PulseAppId _this);
+```
+
+---
+
+## 语义注解
+
+IDL 支持在参数、返回值、结构体字段上声明 C 无法表达的语义如生命周期。生成的 C 头文件会以 C23 属性 `[[pulse::*]]` 形式输出，**纯注解，不影响编译与运行时**。
+
+| 注解 | 语义 | 生成的 C 属性 |
+|------|------|---------------|
+| `?` | 可空 | `[[pulse::optional]]` |
+| `retain` | 被调方在调用返回后仍引用该参数，调用方须确保其存活到文档规定的时点 | `[[pulse::retain]]` |
+| `owner` | 所有权转移：被调方接管并负责释放，或调用方获得返回值所有权 | `[[pulse::owner]]` |
+| `out` | 输出参数，被调方写入；类型自动加一层指针 | `[[pulse::out]]` |
+
+### 举例
+
+```lua
+func.Func1
+    "?AppId" { ret = { owner = true } }
+    .desc  "*const PluginDesc"
+    .ctx   "?*anyopaque" { retain = true }
+    .outError   "cstring" { out = true }
+    ()
+
+struct.Test
+    .field1           "*int32_t"
+    .field2           "?*int32_t"
+    .field3           "*int32_t" { owner = true }
+    .field4           "*int32_t" { retain = true }
+    ()
+```
+
+生成的c代码：
+
+```c
+[[pulse::optional]] [[pulse::owner]] PulseAppId pulse_func1(const PluginDesc* desc,  [[pulse::optional]] [[pulse::retain]] void* ctx, [[pulse::out]] const char** out_error);
+
+typedef struct PulseTest
+{
+    int32_t*             field1;
+    [[pulse::optional]]
+    int32_t*             field2;
+    [[pulse::owner]]
+    int32_t*             field3;
+    [[pulse::retain]]
+    int32_t*             field4;
+
+} PulseTest;
+```
+
+注解顺序固定为：`optional → owner → retain → out`。默认语义（无注解时）：**借用、非空、仅输入**。
+
+建议：生成模板最好在开头/结尾带如下代码，用于减少编译器的警告/报错：
+
+```c
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-attributes"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
+#elif defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable:5030)
+#endif
+```
+
+```c
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
+```
+
+## 数组 / 字节块（Pulse_Array / Pulse_Blob）
+
+IDL 写 slice（Zig 风格）`[]const T` / `[]T`，生成器按上下文自动选择宏：
+
+| IDL | struct 字段 | 函数参数 |
+|-----|-------------|----------|
+| `[]const T` | `Pulse_Array(const T, name)` | `Pulse_Array_Param(const T, name)` |
+| `[]anyopaque`（字节块） | `Pulse_Blob(name)` | `Pulse_Blob_Param(name)` |
+
+```lua
+struct.ShaderCreateFromBinaryDesc
+    .vsData  "[]const anyopaque"
+    .fsData  "[]const anyopaque"
+    .properties "[]const ShaderProperty"
+    ()
+```
+
+```c
+typedef struct PulseShaderCreateFromBinaryDesc
+{
+    Pulse_Blob(vs_data);
+    Pulse_Blob(fs_data);
+    Pulse_Array(const PulseShaderProperty, properties);
+} PulseShaderCreateFromBinaryDesc;
+```
+
+宏定义位于 `pulse_platform.h`：
+
+```c
+#define Pulse_Array(T, field) T* p_##field; size_t field##_count
+#define Pulse_Array_Param(T, param) T* p_##param, size_t param##_count
+#define Pulse_Blob(field) const void* p_##field; size_t field##_size
+#define Pulse_Blob_Param(param) const void* p_##param, size_t param##_size
 ```
 
 ---
@@ -253,7 +369,7 @@ EPulseResult pulse_app_run(PulseAppId _this);
 extern "C" {
 #endif
 
-#define DEFINE_PULSE_OBJECT(name) typedef const struct name* name##Id;
+#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id; typedef const struct name* Const_##name##Id;
 
 $cconsts
 $cenums
@@ -266,112 +382,6 @@ $c99decl
 }
 #endif
 ```
-
----
-
-## 语义注解（v0.2 引入）
-
-IDL 支持在参数、返回值、结构体字段上声明 C 无法表达的语义。生成的 C 头文件会以 C23 属性 `[[pulse::*]]` 形式输出，**纯注解，不影响编译与运行时**。
-
-### 参数/字段/返回值注解表
-
-直接跟一条"类型串 + 注解表"：
-
-```lua
-func.AddPlugin
-    "Result::Enum"
-    .ctx   "?*anyopaque" { retain = true }
-    .desc  "*const PluginDesc"
-    ()
-```
-
-| 注解 | 语义 | 生成的 C 属性 |
-|------|------|---------------|
-| `retain` | 被调方在调用返回后仍引用该参数，调用方须确保其存活到文档规定的时点 | `[[pulse::retain]]` |
-| `owner` | 所有权转移：被调方接管并负责释放，或调用方获得返回值所有权 | `[[pulse::owner]]` |
-| `out` | 输出参数，被调方写入；类型自动加一层指针 | `[[pulse::out]]` |
-
-默认语义（无注解时）：**借用、非空、仅输入**。
-
-### `?` → 可空
-
-`?` 前缀自动生成 `[[pulse::optional]]`，参数、返回值、字段、funcptr 参数均生效，无需写表。
-
-### `{ mut }` 成员函数
-
-成员函数（`func.X.Y`）默认 const `_this`；会修改对象的成员函数加 `{ mut }` 标记：
-
-```lua
-func.App.Run { mut }
-    "AppRunResult::Enum"
-    ()
-
-func.App.ShouldQuit
-    "bool"
-    ()
-```
-
-```c
-EPulseAppRunResult pulse_app_run(PulseAppId _this);
-bool pulse_app_should_quit(Const_PulseAppId _this);
-```
-
-opaque 句柄（`id`）有 const 变体：`DEFINE_PULSE_OBJECT` 同时生成 `XxxId` 与 `Const_XxxId`，后者为 `const struct Xxx*`。
-
-### 返回值注解
-
-返回值语义写在返回类型字符串之后的表中（键为 `ret`）：
-
-```lua
-func.CreateApp
-    "?AppId" { ret = { owner = true } }
-    ()
-```
-
-```c
-[[pulse::optional]] [[pulse::owner]] PulseAppId pulse_create_app(void);
-```
-
-发出顺序固定：`optional → owner → retain → out`。
-
-### 切片 / 定长数组（Pulse_Array / Pulse_Blob）
-
-IDL 写 slice（Zig 风格）`[]const T` / `[]T`，生成器按上下文自动选择宏：
-
-| IDL | struct 字段 | 函数参数 |
-|-----|-------------|----------|
-| `[]const T` | `Pulse_Array(const T, name)` | `Pulse_Array_Param(const T, name)` |
-| `[]anyopaque`（字节块） | `Pulse_Blob(name)` | `Pulse_Blob_Param(name)` |
-
-```lua
-struct.ShaderCreateFromBinaryDesc
-    .vsData  "[]const anyopaque"
-    .fsData  "[]const anyopaque"
-    .properties "[]const ShaderProperty"
-    ()
-```
-
-```c
-typedef struct PulseShaderCreateFromBinaryDesc
-{
-    [[pulse::optional]]
-    const void*          vs_data;
-    size_t               vs_data_count;
-    ...
-    Pulse_Array(const PulseShaderProperty, properties);
-} PulseShaderCreateFromBinaryDesc;
-```
-
-宏定义位于 `pulse_platform.h`：
-
-```c
-#define Pulse_Array(T, field) T* field; size_t field##_count
-#define Pulse_Array_Param(T, param) T* param, size_t param##_count
-#define Pulse_Blob(field) const void* field; size_t field##_size
-#define Pulse_Blob_Param(param) const void* param, size_t param##_size
-```
-
-生成的头文件在开头/结尾带 pragma push/pop，压制编译器对未知属性 `[[pulse::*]]` 的警告（clang `-Wunknown-attributes`、gcc `-Wattributes`、MSVC C5030）。生成头要求 C23 或 C++ 消费（属性是 C23 特性）。
 
 ---
 

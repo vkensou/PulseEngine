@@ -114,7 +114,7 @@ funcptr.AssetLoaderStepFn
     "AssetLoaderStatus::Enum"
     .state      "?*anyopaque"
     .ctx        "*const AssetLoadTask"
-    .outError   "*cstring"
+    .outError   "cstring" { out = true }
 
 --- Function pointer: settings size query (optional, paired with settingsCopy)
 --- Returns the total byte size needed to deep-copy the settings, including all nested data.
@@ -189,7 +189,7 @@ struct.AssetLoadTask
     .typeId             "uint64_t"
     .loaderIdentifier   "?cstring"
     .path               "?cstring"
-    .bytes              "?[]const anyopaque"
+    .bytes              "[]const anyopaque"
     .dependencies       "[]const AssetDependency"
     .request            "AssetRequest"
     .userData           "?*anyopaque"
