@@ -122,7 +122,7 @@ typedef struct PulseWindowMouseHoverEvent
 // ECS declarations
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindow);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindowEntity);
 PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResized);
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
@@ -136,7 +136,7 @@ PULSE_WINDOW_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
 PULSE_WINDOW_API EPulseAppAddPluginResult pulse_add_window_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
 PULSE_WINDOW_API ecs_entity_t pulse_window_get_primary(PulseAppId app);
 PULSE_WINDOW_API EPulseResult pulse_window_set_title(PulseAppId app, ecs_entity_t entity, const char* title);
-PULSE_WINDOW_API [[pulse::optional]] void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
+[[pulse::optional]] PULSE_WINDOW_API void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
 
 #ifdef __cplusplus
 }

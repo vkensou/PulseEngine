@@ -192,6 +192,10 @@ namespace das {
 #include <cstring>
 #include <unistd.h>
 #include <utility>
+#if defined(__ANDROID__)
+#include <dlfcn.h>
+#include <unwind.h>
+#endif
 
 namespace das {
     static const char * signal_to_string(int sig) {
@@ -235,6 +239,21 @@ namespace das {
         return nullptr;
     }
 
+#if defined(__ANDROID__)
+    struct unw_trace_state { void **pcs; int count; int max; };
+    static _Unwind_Reason_Code unw_trace_cb(struct _Unwind_Context *ctx, void *arg) {
+        unw_trace_state *st = (unw_trace_state *)arg;
+        if (st->count >= st->max) return _URC_END_OF_STACK;
+        st->pcs[st->count++] = (void *)_Unwind_GetIP(ctx);
+        return _URC_NO_REASON;
+    }
+    static int collect_backtrace_pcs(void **pcs, int max) {
+        unw_trace_state st = {pcs, 0, max};
+        _Unwind_Backtrace(unw_trace_cb, &st);
+        return st.count;
+    }
+#endif
+
     static std::pair<uintptr_t, uintptr_t> get_fp_sp(void *ucontext_ptr) {
         uintptr_t fp = 0, sp = 0;
         if (!ucontext_ptr) return {fp, sp};
@@ -264,6 +283,7 @@ namespace das {
         CrashFrame collectedFrames[DAS_CRASH_HANDLER_MAX_STACK_FRAMES];
         int frameCount = 0;
         fprintf(stderr, "Stack trace:\n");
+#if !defined(__ANDROID__)
         char **symbols = backtrace_symbols(pcs, nframes);
         if (symbols) {
             for (int i = 0; i < nframes; i++) {
@@ -280,6 +300,20 @@ namespace das {
         } else {
             backtrace_symbols_fd(pcs, nframes, STDERR_FILENO);
         }
+#else
+        for (int i = 0; i < nframes; i++) {
+            Dl_info info;
+            if (dladdr(pcs[i], &info) && info.dli_fname) {
+                int status = -1;
+                char *demangled = info.dli_sname ? abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status) : nullptr;
+                const char *sym = (status == 0 && demangled) ? demangled : (info.dli_sname ? info.dli_sname : "?");
+                fprintf(stderr, "  [%2d] %p %s+0x%08llx (%s)\n", i, pcs[i], sym, (unsigned long long)((uintptr_t)pcs[i] - (uintptr_t)info.dli_fbase), info.dli_fname);
+                free(demangled);
+            } else {
+                fprintf(stderr, "  [%2d] %p\n", i, pcs[i]);
+            }
+        }
+#endif
         fflush(stderr);
         if (g_crash_handler_extra_info && frameCount > 0) {
             g_crash_handler_extra_info(collectedFrames, frameCount);
@@ -295,6 +329,9 @@ namespace das {
         void *fpPCs[DAS_CRASH_HANDLER_MAX_STACK_FRAMES];
         CrashFrame fpFrames[DAS_CRASH_HANDLER_MAX_STACK_FRAMES];
         int fpCount = 0;
+#if defined(__ANDROID__)
+        fpCount = collect_backtrace_pcs(fpPCs, DAS_CRASH_HANDLER_MAX_STACK_FRAMES);
+#else
         {
             auto [fp, sp] = get_fp_sp(ucontext_ptr);
             for (int i = 0; i < DAS_CRASH_HANDLER_MAX_STACK_FRAMES && fp != 0; i++) {
@@ -311,6 +348,7 @@ namespace das {
                 fp = saved_fp;
             }
         }
+#endif
 
         print_backtrace_frames(fpPCs, fpFrames, fpCount);
 
@@ -341,6 +379,9 @@ namespace das {
         void *pcs[DAS_CRASH_HANDLER_MAX_STACK_FRAMES];
         CrashFrame frameInfo[DAS_CRASH_HANDLER_MAX_STACK_FRAMES];
         int nframes = 0;
+#if defined(__ANDROID__)
+        nframes = collect_backtrace_pcs(pcs, DAS_CRASH_HANDLER_MAX_STACK_FRAMES);
+#else
         uintptr_t fp = (uintptr_t)__builtin_frame_address(0);
         uintptr_t sp = (uintptr_t)&fp;
         for (int i = 0; i < DAS_CRASH_HANDLER_MAX_STACK_FRAMES && fp != 0; i++) {
@@ -356,6 +397,7 @@ namespace das {
             sp = fp + 2 * sizeof(uintptr_t);
             fp = saved_fp;
         }
+#endif
         print_backtrace_frames(pcs, frameInfo, nframes);
     }
 }

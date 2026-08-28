@@ -654,7 +654,7 @@ PULSE_GRAPHICS_API EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId
  * @param[in] app
  *
  */
-PULSE_GRAPHICS_API [[pulse::optional]] const PulseRenderer* pulse_get_renderer(PulseAppId app);
+[[pulse::optional]] PULSE_GRAPHICS_API const PulseRenderer* pulse_get_renderer(PulseAppId app);
 
 /**
  * Do not affect loaded shaders
@@ -665,7 +665,7 @@ PULSE_GRAPHICS_API [[pulse::optional]] const PulseRenderer* pulse_get_renderer(P
  */
 PULSE_GRAPHICS_API void pulse_set_per_draw_shader_properties(PulseAppId app, Pulse_Array_Param(const char*, per_draw_shader_properties));
 PULSE_GRAPHICS_API [[pulse::optional]] const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
-PULSE_GRAPHICS_API [[pulse::optional]] const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
+[[pulse::optional]] PULSE_GRAPHICS_API const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
 
 /**
  * Render record callbacks
@@ -796,7 +796,7 @@ PULSE_GRAPHICS_API void pulse_material_set_property_float4(PulseAppId app, Pulse
 PULSE_GRAPHICS_API void pulse_material_set_property_mat4(PulseAppId app, PulseMaterialHandle self, const char* name, HMM_Mat4 value);
 PULSE_GRAPHICS_API void pulse_material_set_property_texture(PulseAppId app, PulseMaterialHandle self, const char* name, PulseTextureHandle texture);
 PULSE_GRAPHICS_API void pulse_material_set_property_sampler(PulseAppId app, PulseMaterialHandle self, const char* name, PulseSamplerHandle sampler);
-PULSE_GRAPHICS_API [[pulse::optional]] const uint8_t* pulse_material_get_ubo_column(PulseAppId app, PulseMaterialHandle self, uint32_t index);
+[[pulse::optional]] PULSE_GRAPHICS_API const uint8_t* pulse_material_get_ubo_column(PulseAppId app, PulseMaterialHandle self, uint32_t index);
 PULSE_GRAPHICS_API uint32_t pulse_shader_get_shader_property_count(PulseAppId app, PulseShaderHandle self);
 PULSE_GRAPHICS_API PulseShaderProperty pulse_shader_get_shader_property(PulseAppId app, PulseShaderHandle self, uint32_t index);
 PULSE_GRAPHICS_API uint32_t pulse_shader_get_ubo_info_count(PulseAppId app, PulseShaderHandle self);
@@ -814,7 +814,7 @@ PULSE_GRAPHICS_API PulseUboInfo pulse_shader_get_ubo_info(PulseAppId app, PulseS
  * @param[in] blitSampler
  *
  */
-PULSE_GRAPHICS_API [[pulse::owner]] PulseRenderGraphId pulse_create_render_graph(PulseAssetSystemId asset_system, uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
+[[pulse::owner]] PULSE_GRAPHICS_API PulseRenderGraphId pulse_create_render_graph(PulseAssetSystemId asset_system, uint32_t estimate_resource_count, uint32_t estimate_pass_count, uint32_t estimate_edge_count, void* blit_shader, CGPUSamplerId blit_sampler);
 PULSE_GRAPHICS_API void pulse_destroy_render_graph([[pulse::owner]] PulseRenderGraphId render_graph);
 PULSE_GRAPHICS_API void pulse_render_graph_reset(PulseRenderGraphId _this);
 

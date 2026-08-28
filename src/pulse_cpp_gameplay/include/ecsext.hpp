@@ -89,7 +89,7 @@ namespace pulse
 		void send(flecs::entity entity)
 		{
 			world.event<T>()
-				.id<C...>()
+				.template id<C...>()
 				.entity(entity)
 				.enqueue();
 		}
@@ -98,7 +98,7 @@ namespace pulse
 		void send(flecs::entity entity, const T& payload)
 		{
 			world.event<T>()
-				.id<C...>()
+				.template id<C...>()
 				.entity(entity)
 				.ctx(payload)
 				.enqueue();
@@ -107,7 +107,7 @@ namespace pulse
 		void send(flecs::entity entity)
 		{
 			world.event<T>()
-				.id<EventTag>()
+				.template id<EventTag>()
 				.entity(entity)
 				.enqueue();
 		}
@@ -115,7 +115,7 @@ namespace pulse
 		void send(flecs::entity entity, const T& payload)
 		{
 			world.event<T>()
-				.id<EventTag>()
+				.template id<EventTag>()
 				.entity(entity)
 				.ctx(payload)
 				.enqueue();
@@ -124,7 +124,7 @@ namespace pulse
 		void broadcast()
 		{
 			world.event<T>()
-				.id<EventTag>()
+				.template id<EventTag>()
 				.entity(world.singleton<pulse::SingleHolder>())
 				.enqueue();
 		}
@@ -132,7 +132,7 @@ namespace pulse
 		void broadcast(const T& payload)
 		{
 			world.event<T>()
-				.id<EventTag>()
+				.template id<EventTag>()
 				.entity(world.singleton<pulse::SingleHolder>())
 				.ctx(payload)
 				.enqueue();
@@ -255,7 +255,7 @@ namespace pulse
 		flecs::observer observe(flecs::world& world)
 		{
 			return world.observer<EventTag>()
-				.event<T>()
+				.template event<T>()
 				.ctx(this)
 				.each([](flecs::iter& it, size_t i, EventTag)
 					{
@@ -303,7 +303,7 @@ namespace pulse
 		flecs::observer observe(flecs::world& world)
 		{
 			return world.observer<C...>()
-				.event<T>()
+				.template event<T>()
 				.ctx(this)
 				.each([](flecs::iter& it, size_t i, C&...c)
 					{

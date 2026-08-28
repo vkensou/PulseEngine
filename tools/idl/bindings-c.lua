@@ -245,7 +245,7 @@ local function codes(idl, naming)
 	end
 
 	-- Build c99decl template from naming
-	local c99decl_template = naming.api_macro .. " $RETANN$CRET " .. naming.L_ .. "$CFUNCNAME($CARGS);"
+	local c99decl_template = naming.api_macro .. " $CRET " .. naming.L_ .. "$CFUNCNAME($CARGS);"
 
 	-- call actions with func
 	for _, f in ipairs(idl.funcs) do
@@ -257,7 +257,7 @@ local function codes(idl, naming)
 		if doc then
 			doc = codegen.doxygen_ctype(doc, f)
 		end
-		local funcdecl = codegen.apply_functemp(f, c99decl_template)
+		local funcdecl = codegen.ret_annotations(f) .. codegen.apply_functemp(f, c99decl_template)
 		local decl
 		if doc then
 			decl = "\n" .. doc .. "\n" .. funcdecl

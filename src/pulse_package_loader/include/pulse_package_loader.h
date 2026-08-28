@@ -73,7 +73,7 @@ typedef struct PulsePackageListEntry
 } PulsePackageListEntry;
 
 
-PULSE_PACKAGE_LOADER_API [[pulse::optional]] PulsePackageLoaderId pulse_package_loader_create(PulseAppId app);
+[[pulse::optional]] PULSE_PACKAGE_LOADER_API PulsePackageLoaderId pulse_package_loader_create(PulseAppId app);
 PULSE_PACKAGE_LOADER_API EPulsePackageLoadResult pulse_package_loader_load_packages(PulsePackageLoaderId loader, Pulse_Array_Param(const char*, search_paths), Pulse_Array_Param(const PulsePackageListEntry, entries));
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_register_static_package(PulsePackageLoaderId loader, const char* name, PulseProcPackageRegisterFn register_fn);
 PULSE_PACKAGE_LOADER_API void pulse_package_loader_cleanup(PulsePackageLoaderId loader);

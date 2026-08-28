@@ -3,7 +3,7 @@
 
 ECS_COMPONENT_DECLARE(PulseWindow);
 ECS_COMPONENT_DECLARE(PulseSdlWindow);
-ECS_TAG_DECLARE(PulsePrimaryWindow);
+ECS_TAG_DECLARE(PulsePrimaryWindowEntity);
 ECS_TAG_DECLARE(PulseWindowCloseRequested);
 ECS_TAG_DECLARE(PulseWindowResized);
 ECS_COMPONENT_DECLARE(PulseTextInputEvent);
@@ -201,7 +201,7 @@ void register_components(ecs_world_t* world) {
     };
     ecs_set_hooks_id(world, ecs_id(PulseWindow), &pulse_window_hooks);
 
-    ECS_TAG_DEFINE(world, PulsePrimaryWindow);
+    ECS_TAG_DEFINE(world, PulsePrimaryWindowEntity);
     ECS_TAG_DEFINE(world, PulseWindowCloseRequested);
     ECS_TAG_DEFINE(world, PulseWindowResized);
 
@@ -209,7 +209,7 @@ void register_components(ecs_world_t* world) {
     flecs::world world_view(world);
     world_view.component<PulseWindow>("PulseWindow", true, ecs_id(PulseWindow));
     world_view.component<PulseSdlWindow>("PulseSdlWindow", true, ecs_id(PulseSdlWindow));
-    world_view.component<PulsePrimaryWindow>("PulsePrimaryWindow", true, ecs_id(PulsePrimaryWindow));
+    world_view.component<struct PulsePrimaryWindow>("PulsePrimaryWindow", true, ecs_id(PulsePrimaryWindowEntity));
 }
 
 pulse_window_plugin_state* state_from_world(ecs_world_t* world) {

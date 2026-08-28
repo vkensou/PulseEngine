@@ -7,8 +7,8 @@ if is_plat("windows") then
     add_ldflags("-subsystem:console")
 elseif is_plat("android") then
     add_cxflags("-fPIC")
-    includes("androidcpp")
-    set_runtimes("c++_static")
+    -- includes("androidcpp")
+    set_runtimes("c++_shared")
 end
 
 add_cxxflags("/Zc:__cplusplus", "/Zc:preprocessor", {tools = "cl", force = true})

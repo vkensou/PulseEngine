@@ -245,7 +245,7 @@ typedef struct PulseTimer
 
 PULSE_APP_API extern ECS_COMPONENT_DECLARE(PulseTimer);
 
-PULSE_APP_API [[pulse::optional]] [[pulse::owner]] PulseAppId pulse_create_app(const PulseAppDesc* desc);
+[[pulse::optional]] [[pulse::owner]] PULSE_APP_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
 PULSE_APP_API void pulse_destroy_app([[pulse::owner]] PulseAppId app);
 PULSE_APP_API EPulseAppRunResult pulse_app_run(PulseAppId _this);
 PULSE_APP_API EPulseAppPrepareResult pulse_app_prepare(PulseAppId _this);
@@ -260,7 +260,7 @@ PULSE_APP_API ecs_world_t* pulse_app_world(PulseAppId _this);
 PULSE_APP_API const char* pulse_app_last_error(Const_PulseAppId _this);
 PULSE_APP_API EPulseAppInsertSubappResult pulse_app_insert_subapp(PulseAppId _this, const char* name, PulseAppId subapp);
 PULSE_APP_API PulseAppId pulse_app_get_subapp(Const_PulseAppId _this, const char* name);
-PULSE_APP_API [[pulse::owner]] PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
+[[pulse::owner]] PULSE_APP_API PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
 PULSE_APP_API EPulseAppSetSubappExtractResult pulse_app_set_subapp_extract(PulseAppId _this, const char* name, PulseProcSubappExtractFn extract, [[pulse::optional]] [[pulse::retain]] void* ctx);
 PULSE_APP_API PulseAppId pulse_get_app_from_world(ecs_world_t* world);
 

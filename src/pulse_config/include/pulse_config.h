@@ -73,11 +73,11 @@ PULSE_CONFIG_API EPulseConfigType pulse_config_get_type(const PulseConfig* cfg, 
 PULSE_CONFIG_API bool pulse_config_get_bool(const PulseConfig* cfg, [[pulse::optional]] const char* key, bool default_value);
 PULSE_CONFIG_API int64_t pulse_config_get_int(const PulseConfig* cfg, [[pulse::optional]] const char* key, int64_t default_value);
 PULSE_CONFIG_API double pulse_config_get_double(const PulseConfig* cfg, [[pulse::optional]] const char* key, double default_value);
-PULSE_CONFIG_API [[pulse::optional]] const char* pulse_config_get_string(const PulseConfig* cfg, [[pulse::optional]] const char* key, [[pulse::optional]] const char* default_value);
-PULSE_CONFIG_API [[pulse::optional]] PulseConfig* pulse_config_get_obj(const PulseConfig* cfg, [[pulse::optional]] const char* key);
-PULSE_CONFIG_API [[pulse::optional]] PulseConfigArray* pulse_config_get_array(const PulseConfig* cfg, [[pulse::optional]] const char* key);
+[[pulse::optional]] PULSE_CONFIG_API const char* pulse_config_get_string(const PulseConfig* cfg, [[pulse::optional]] const char* key, [[pulse::optional]] const char* default_value);
+[[pulse::optional]] PULSE_CONFIG_API PulseConfig* pulse_config_get_obj(const PulseConfig* cfg, [[pulse::optional]] const char* key);
+[[pulse::optional]] PULSE_CONFIG_API PulseConfigArray* pulse_config_get_array(const PulseConfig* cfg, [[pulse::optional]] const char* key);
 PULSE_CONFIG_API size_t pulse_config_array_count(const PulseConfigArray* arr);
-PULSE_CONFIG_API [[pulse::optional]] PulseConfig* pulse_config_array_get(const PulseConfigArray* arr, size_t index);
+[[pulse::optional]] PULSE_CONFIG_API PulseConfig* pulse_config_array_get(const PulseConfigArray* arr, size_t index);
 PULSE_CONFIG_API void pulse_config_set_bool(PulseConfig* cfg, const char* key, bool value);
 PULSE_CONFIG_API void pulse_config_set_int(PulseConfig* cfg, const char* key, int64_t value);
 PULSE_CONFIG_API void pulse_config_set_double(PulseConfig* cfg, const char* key, double value);
@@ -85,10 +85,10 @@ PULSE_CONFIG_API void pulse_config_set_string(PulseConfig* cfg, const char* key,
 PULSE_CONFIG_API void pulse_config_set_obj(PulseConfig* cfg, const char* key, [[pulse::optional]] PulseConfig* value);
 PULSE_CONFIG_API void pulse_config_set_array(PulseConfig* cfg, const char* key, [[pulse::optional]] PulseConfigArray* value);
 PULSE_CONFIG_API bool pulse_config_remove(PulseConfig* cfg, [[pulse::optional]] const char* key);
-PULSE_CONFIG_API [[pulse::optional]] char* pulse_config_to_json(const PulseConfig* cfg, [[pulse::optional]] size_t* out_len);
-PULSE_CONFIG_API [[pulse::optional]] char* pulse_config_to_json_pretty(const PulseConfig* cfg, [[pulse::optional]] size_t* out_len);
-PULSE_CONFIG_API [[pulse::optional]] PulseConfig* pulse_config_merge([[pulse::optional]] const PulseConfig* defaults, [[pulse::optional]] const PulseConfig* overrides);
-PULSE_CONFIG_API [[pulse::optional]] const char* pulse_config_last_error(void);
+[[pulse::optional]] PULSE_CONFIG_API char* pulse_config_to_json(const PulseConfig* cfg, [[pulse::optional]] size_t* out_len);
+[[pulse::optional]] PULSE_CONFIG_API char* pulse_config_to_json_pretty(const PulseConfig* cfg, [[pulse::optional]] size_t* out_len);
+[[pulse::optional]] PULSE_CONFIG_API PulseConfig* pulse_config_merge([[pulse::optional]] const PulseConfig* defaults, [[pulse::optional]] const PulseConfig* overrides);
+[[pulse::optional]] PULSE_CONFIG_API const char* pulse_config_last_error(void);
 
 #ifdef __cplusplus
 }

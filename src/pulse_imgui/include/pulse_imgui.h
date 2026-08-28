@@ -76,7 +76,7 @@ PULSE_IMGUI_API extern ECS_COMPONENT_DECLARE(PulseImguiContext);
 
 PULSE_IMGUI_API PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void);
 PULSE_IMGUI_API EPulseAppAddPluginResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);
-PULSE_IMGUI_API [[pulse::optional]] ImGuiContext* pulse_imgui_get_context(PulseAppId app);
+[[pulse::optional]] PULSE_IMGUI_API ImGuiContext* pulse_imgui_get_context(PulseAppId app);
 PULSE_IMGUI_API ecs_entity_t pulse_imgui_get_phase(PulseAppId app);
 
 #ifdef __cplusplus

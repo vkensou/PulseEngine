@@ -117,7 +117,7 @@ export enum class State {
     Shutdown,
 };
 
-class App;
+export class App;
 
 export struct AppDesc {
     std::string name;

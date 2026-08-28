@@ -64,6 +64,10 @@ local function namealign(name, align)
 	return string.rep(" ", align - #name)
 end
 
+function codegen.ret_annotations(func)
+	return annotations(func.ret)
+end
+
 local function camelcase_to_underscorecase(name)
 	local tmp = {}
 	for v in name:gmatch "[%u%d]+[%l%d]*" do

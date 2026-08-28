@@ -48,7 +48,7 @@ $cstructs
 // ECS declarations
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindow);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindowEntity);
 PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
 PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResized);
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
