@@ -120,6 +120,41 @@ void LoadQueue::process(AssetSystem& system) {
     }
 }
 
+bool LoadQueue::drain_pass(AssetSystem& system) {
+    const size_t jobs_before = jobs_.size();
+    size_t jobs_to_process = jobs_before;
+    bool made_progress = false;
+
+    auto job_it = jobs_.begin();
+    while (jobs_to_process-- > 0 && job_it != jobs_.end()) {
+        LoadJob& job = *job_it;
+
+        bool was_terminal = job.is_terminal();
+        LoadJobPhase phase_before = job.phase;
+        process_job(system, job);
+        if (!was_terminal && (job.is_terminal() || job.phase != phase_before)) {
+            made_progress = true;
+        }
+
+        if (job.is_terminal()) {
+            auto current = job_it++;
+            retire_and_erase(system, current);
+            continue;
+        }
+
+        if (job.phase == LoadJobPhase::WaitingDependencies) {
+            auto current = job_it++;
+            jobs_.splice(jobs_.end(), jobs_, current);
+            continue;
+        }
+
+        ++job_it;
+    }
+    // Jobs enqueued while stepping (e.g. loaders requesting new loads) must
+    // still be visited by a following pass.
+    return made_progress || jobs_.size() > jobs_before;
+}
+
 LoadJobOutcome LoadQueue::process_immediate_builder(AssetSystem& system, JobIterator job_it) {
     process_job(system, *job_it);
     LoadJobOutcome outcome = job_it->outcome;
@@ -237,8 +272,7 @@ void LoadQueue::process_pending_read(AssetSystem& system, LoadJob& job, AssetSlo
     if (job.source.kind == PULSE_ASSET_LOAD_SOURCE_MEMORY) {
         job.bytes = std::move(job.source.memory_data);
     } else if (job.source.kind == PULSE_ASSET_LOAD_SOURCE_FILE) {
-        std::pmr::string full_path = AssetIo::join_path(system.root_path(), slot.path, system.resource());
-        auto file_bytes = AssetIo::read_file(full_path.c_str(), system.resource());
+        auto file_bytes = AssetIo::read_file(slot.path.c_str(), system.resource());
         if (!file_bytes.has_value()) {
             job.finish(&slot, LoadJobOutcome::Failed, "failed to read asset file");
             return;

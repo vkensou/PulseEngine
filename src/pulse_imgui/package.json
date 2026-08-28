@@ -1,0 +1,12 @@
+{
+  "name": "pulse_imgui",
+  "version": "1.0.0",
+  "library": "pulse_imgui.dll",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "pulse_window",
+    "pulse_input",
+    "pulse_asset",
+    "pulse_graphics"
+  ]
+}

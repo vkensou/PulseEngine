@@ -1,0 +1,10 @@
+{
+  "name": "pulse_graphics",
+  "version": "1.0.0",
+  "library": "pulse_graphics.dll",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "pulse_window",
+    "pulse_asset"
+  ]
+}

@@ -8,7 +8,7 @@
 namespace pulse_graphics_internal {
 
 constexpr uint32_t kDefaultImageCount = 3;
-const char* kPluginName = "PulseGraphicPlugin";
+const char* kPluginName = "pulse_graphics";
 ECS_COMPONENT_DECLARE(pulse_graphics_state_resource);
 
 void pulse_graphics_state::sort_record_callbacks() {
@@ -263,18 +263,23 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
     state->desc = normalize_plugin_desc(desc);
     state->desc.per_draw_shader_property_count = 0;
     state->desc.p_per_draw_shader_properties = nullptr;
-    for (size_t i = 0; i < desc->per_draw_shader_property_count; ++i) {
+    const size_t per_draw_shader_property_count = desc ? desc->per_draw_shader_property_count : 0;
+    for (size_t i = 0; i < per_draw_shader_property_count; ++i) {
         state->per_draw_shader_properties.emplace_back(desc->p_per_draw_shader_properties[i]);
     }
 
+    const char* graphics_dependencies[] = { "pulse_window", "pulse_asset" };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        graphic_plugin_build,
-        nullptr,
-        graphic_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_GRAPHICS_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = graphic_plugin_build,
+        .post_build = nullptr,
+        .shutdown = graphic_plugin_shutdown,
+        .dependency_count = 2,
+        .dependencies = graphics_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

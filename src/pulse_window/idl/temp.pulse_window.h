@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_WINDOW_MODULE_BUILD)
+#  define PULSE_WINDOW_API PULSE_EXPORT
+#else
+#  define PULSE_WINDOW_API PULSE_IMPORT
 #endif
 
 $cconsts
@@ -33,14 +36,14 @@ $cfuncptrs
 $cstructs
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseWindow);
-extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
-extern ECS_TAG_DECLARE(PulsePrimaryWindow);
-extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
-extern ECS_TAG_DECLARE(PulseWindowResized);
-extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
-extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
-extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindow);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResized);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
 
 struct PulsePrimaryWindow{};
 

@@ -5,6 +5,7 @@
 
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_vfs.h"
 #include "pulse_input.h"
 #include "pulse_window.h"
 #include "pulse_graphics.h"
@@ -19,14 +20,15 @@
 // Simple helper to create a transform entity
 static ecs_entity_t create_transform_entity(
     ecs_world_t* world,
-    float x, float y, float z)
+    float x, float y, float z,
+    float scale = 1.0f)
 {
     ecs_entity_t entity = ecs_new(world);
 
     PulseLocalTransform local = {};
     local.translation = HMM_Vec3{ x, y, z };
     local.rotation = HMM_Quat{ 0, 0, 0, 1 };
-    local.scale = HMM_Vec3{ 1, 1, 1 };
+    local.scale = HMM_Vec3{ scale, scale, scale };
     ecs_set_ptr(world, entity, PulseLocalTransform, &local);
 
     // Also explicitly initialize WorldTransform to identity,
@@ -71,7 +73,7 @@ static void create_renderer_scene(
 
     {
         // Create a renderable entity
-        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0);
+        ecs_entity_t renderable_entity = create_transform_entity(world, 10, 0, 0, 6.0f);
         PulseRenderable renderable = {};
         renderable.mesh = m.mesh_handle;
         renderable.material = m.material;
@@ -80,7 +82,7 @@ static void create_renderer_scene(
 
     {
         // Create a renderable entity
-        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0);
+        ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0, 6.0f);
         PulseRenderable renderable = {};
         renderable.mesh = m.mesh_handle;
         renderable.material = m.material;
@@ -189,6 +191,8 @@ int main(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // ---- Add plugins ----
     // input plugin (required by window)
@@ -200,10 +204,9 @@ int main(void) {
     window_desc.primary_window.height = 600;
     assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    // asset plugin
+    // asset plugin (test data from graphics test)
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
-    // Use test data from graphics test
-    asset_desc.root_path = "tests/graphics/data";
+    assert(pulse_vfs_mount("tests/graphics/data", "/", false));
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // transform plugin
@@ -214,11 +217,11 @@ int main(void) {
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseGraphicPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_graphics"));
 
     // ---- Add renderer plugin ----
     assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseRendererPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_renderer"));
 
     // ---- Find the primary window (created during window plugin build) ----
     ecs_world_t* world = pulse_app_world(app);

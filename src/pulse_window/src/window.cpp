@@ -8,7 +8,7 @@
 
 namespace pulse_window_internal {
 
-constexpr const char* kPluginName = "PulseWindowPlugin";
+constexpr const char* kPluginName = "pulse_window";
 
 namespace {
 
@@ -537,6 +537,11 @@ void window_plugin_shutdown(PulseAppId app, void* ctx) {
         state->initialized_sdl_flags = 0;
     }
 
+    if (state->owned_title) {
+        ecs_os_free(state->owned_title);
+        state->owned_title = nullptr;
+    }
+
     delete state;
 }
 
@@ -581,15 +586,23 @@ EPulseAppAddPluginResult pulse_add_window_plugin(
 
     pulse_window_plugin_state* state = new pulse_window_plugin_state();
     state->desc = normalize_plugin_desc(desc);
+    if (state->desc.primary_window.title) {
+        state->owned_title = ecs_os_strdup(state->desc.primary_window.title);
+        state->desc.primary_window.title = state->owned_title;
+    }
 
+    const char* window_dependencies[] = { "pulse_input" };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        window_plugin_build,
-        window_plugin_post_build,
-        window_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_WINDOW_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = window_plugin_build,
+        .post_build = window_plugin_post_build,
+        .shutdown = window_plugin_shutdown,
+        .dependency_count = 1,
+        .dependencies = window_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

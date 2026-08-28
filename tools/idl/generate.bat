@@ -1,9 +1,12 @@
-.\lua54.exe generate-binding.lua ..\..\src\pulse_app\idl\pulse_app.idl ..\..\src\pulse_app\idl\temp.pulse_app.h c ..\..\src\pulse_app\include\pulse_app.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_window\idl\pulse_window.idl ..\..\src\pulse_window\idl\temp.pulse_window.h c ..\..\src\pulse_window\include\pulse_window.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_input\idl\pulse_input.idl ..\..\src\pulse_input\idl\temp.pulse_input.h c ..\..\src\pulse_input\include\pulse_input.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_asset\idl\pulse_asset.idl ..\..\src\pulse_asset\idl\temp.pulse_asset.h c ..\..\src\pulse_asset\include\pulse_asset.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_graphics\idl\pulse_graphics.idl ..\..\src\pulse_graphics\idl\temp.pulse_graphics.h c ..\..\src\pulse_graphics\include\pulse_graphics.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl ..\..\src\pulse_transform\idl\temp.pulse_transform.h c ..\..\src\pulse_transform\include\pulse_transform.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl ..\..\src\pulse_renderer\idl\temp.pulse_renderer.h c ..\..\src\pulse_renderer\include\pulse_renderer.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_imgui\idl\pulse_imgui.idl ..\..\src\pulse_imgui\idl\temp.pulse_imgui.h c ..\..\src\pulse_imgui\include\pulse_imgui.h Pulse "    "
-.\lua54.exe generate-binding.lua ..\..\src\pulse_daslang\idl\pulse_daslang.idl ..\..\src\pulse_daslang\idl\temp.pulse_daslang.h c ..\..\src\pulse_daslang\include\pulse_daslang.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_app\idl\pulse_app.idl ..\..\src\pulse_app\idl\temp.pulse_app.h c ..\..\src\pulse_app\include\pulse_app.h Pulse "    " PULSE_APP_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_config\idl\pulse_config.idl ..\..\src\pulse_config\idl\temp.pulse_config.h c ..\..\src\pulse_config\include\pulse_config.h Pulse "    " PULSE_CONFIG_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_vfs\idl\pulse_vfs.idl ..\..\src\pulse_vfs\idl\temp.pulse_vfs.h c ..\..\src\pulse_vfs\include\pulse_vfs.h Pulse "    " PULSE_VFS_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_package_loader\idl\pulse_package_loader.idl ..\..\src\pulse_package_loader\idl\temp.pulse_package_loader.h c ..\..\src\pulse_package_loader\include\pulse_package_loader.h Pulse "    " PULSE_PACKAGE_LOADER_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_window\idl\pulse_window.idl ..\..\src\pulse_window\idl\temp.pulse_window.h c ..\..\src\pulse_window\include\pulse_window.h Pulse "    " PULSE_WINDOW_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_input\idl\pulse_input.idl ..\..\src\pulse_input\idl\temp.pulse_input.h c ..\..\src\pulse_input\include\pulse_input.h Pulse "    " PULSE_INPUT_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_asset\idl\pulse_asset.idl ..\..\src\pulse_asset\idl\temp.pulse_asset.h c ..\..\src\pulse_asset\include\pulse_asset.h Pulse "    " PULSE_ASSET_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_graphics\idl\pulse_graphics.idl ..\..\src\pulse_graphics\idl\temp.pulse_graphics.h c ..\..\src\pulse_graphics\include\pulse_graphics.h Pulse "    " PULSE_GRAPHICS_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl ..\..\src\pulse_transform\idl\temp.pulse_transform.h c ..\..\src\pulse_transform\include\pulse_transform.h Pulse "    " PULSE_TRANSFORM_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl ..\..\src\pulse_renderer\idl\temp.pulse_renderer.h c ..\..\src\pulse_renderer\include\pulse_renderer.h Pulse "    " PULSE_RENDERER_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_imgui\idl\pulse_imgui.idl ..\..\src\pulse_imgui\idl\temp.pulse_imgui.h c ..\..\src\pulse_imgui\include\pulse_imgui.h Pulse "    " PULSE_IMGUI_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_daslang\idl\pulse_daslang.idl ..\..\src\pulse_daslang\idl\temp.pulse_daslang.h c ..\..\src\pulse_daslang\include\pulse_daslang.h Pulse "    " PULSE_DASLANG_API

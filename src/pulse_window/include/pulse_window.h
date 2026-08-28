@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_WINDOW_MODULE_BUILD)
+#  define PULSE_WINDOW_API PULSE_EXPORT
+#else
+#  define PULSE_WINDOW_API PULSE_IMPORT
 #endif
 
 #define PULSE_WINDOW_PLUGIN_DESC_VERSION 1u
@@ -107,23 +110,23 @@ typedef struct PulseWindowMouseHoverEvent
 
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseWindow);
-extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
-extern ECS_TAG_DECLARE(PulsePrimaryWindow);
-extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
-extern ECS_TAG_DECLARE(PulseWindowResized);
-extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
-extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
-extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindow);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResized);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
 
 struct PulsePrimaryWindow{};
 
-PULSE_API PulseWindowDesc pulse_window_desc_default(void);
-PULSE_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
-PULSE_API EPulseAppAddPluginResult pulse_add_window_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
-PULSE_API ecs_entity_t pulse_window_get_primary(PulseAppId app);
-PULSE_API EPulseResult pulse_window_set_title(PulseAppId app, ecs_entity_t entity, const char* title);
-PULSE_API void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
+PULSE_WINDOW_API PulseWindowDesc pulse_window_desc_default(void);
+PULSE_WINDOW_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);
+PULSE_WINDOW_API EPulseAppAddPluginResult pulse_add_window_plugin(PulseAppId app, const PulseWindowPluginDesc* desc);
+PULSE_WINDOW_API ecs_entity_t pulse_window_get_primary(PulseAppId app);
+PULSE_WINDOW_API EPulseResult pulse_window_set_title(PulseAppId app, ecs_entity_t entity, const char* title);
+PULSE_WINDOW_API void* pulse_window_get_native_view(PulseAppId app, ecs_entity_t entity);
 
 #ifdef __cplusplus
 }

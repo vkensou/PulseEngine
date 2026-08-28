@@ -362,8 +362,8 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
             set = 2u, binding = 0u, offset = 0u, size = 64u)
 
         let shader_desc = PulseShaderCreateFromFileDesc(
-            vert_path = "color.vert.spv",
-            frag_path = "color.frag.spv",
+            vert_path = "assets/color.vert.spv",
+            frag_path = "assets/color.frag.spv",
             blend_desc = blend_desc,
             depth_desc = depth_desc,
             rasterizer_state = rasterizer_state,
@@ -371,7 +371,7 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
             p_properties = unsafe(addr(shader_props[0])))
 
         assets.get().shader = pulse_create_shader_from_file(app, unsafe(addr(shader_desc)))
-        assets.get().mesh = pulse_load_mesh(app, "Quad.obj")
+        assets.get().mesh = pulse_load_mesh(app, "assets/Quad.obj")
         state.to(SnakeGameState.Loading)
         return
     }

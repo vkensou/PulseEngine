@@ -9,6 +9,7 @@
 #include "pulse_input.h"
 #include "pulse_window.h"
 #include "pulse_asset.h"
+#include "pulse_vfs.h"
 #include "pulse_graphics.h"
 #include "pulse_imgui.h"
 
@@ -19,13 +20,16 @@ static void test_missing_graphics(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto window_desc = pulse_window_plugin_desc_default();
     assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
-    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE);
+    assert(pulse_add_imgui_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY);
 
     pulse_destroy_app(app);
 }
@@ -38,6 +42,8 @@ int main(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     assert(pulse_add_input_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
@@ -48,7 +54,7 @@ int main(void) {
     assert(pulse_add_window_plugin(app, &window_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
-    asset_desc.root_path = "examples/snake/assets";
+    assert(pulse_vfs_mount("examples/snake/assets", "/", false));
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     auto graphics_desc = pulse_graphics_plugin_desc_default();
@@ -68,6 +74,9 @@ int main(void) {
     ImGui::SetCurrentContext(imgui_ctx);
     {
         ImGuiIO& io = ImGui::GetIO();
+        // 截图测试不能依赖仓库根目录的 imgui.ini：显式禁用 Ini 文件的读写，
+        // 窗口位置/尺寸由下方 SetNextWindowPos/SetNextWindowSize 固定。
+        io.IniFilename = nullptr;
         assert(io.BackendPlatformUserData != nullptr);
         assert((io.BackendFlags & ImGuiBackendFlags_HasMouseCursors) != 0);
         assert((io.BackendFlags & ImGuiBackendFlags_HasSetMousePos) != 0);
@@ -88,6 +97,9 @@ int main(void) {
     world.system("imgui_test_ui_onupdate")
         .kind(flecs::PostUpdate)
         .run([&show_demo_window](flecs::iter& it) {
+            // 固定窗口位置和尺寸，避免受 imgui.ini 影响。
+            ImGui::SetNextWindowPos(ImVec2(38, 99), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(380, 194), ImGuiCond_Always);
             ImGui::Begin("imgui test (OnUpdate)");
             ImGui::Text("Hello, PulseEngine imgui!");
             ImGui::End();
@@ -96,6 +108,9 @@ int main(void) {
     world.system("imgui_test_ui_phase")
         .kind(phase)
         .run([](flecs::iter& it) {
+            // 固定窗口位置和尺寸，避免受 imgui.ini 影响。
+            ImGui::SetNextWindowPos(ImVec2(150, 183), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(419, 238), ImGuiCond_Always);
             ImGui::Begin("imgui test (phase)");
             ImGui::Text("Drawn after game logic.");
             ImGui::End();

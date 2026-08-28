@@ -6,9 +6,11 @@ int main(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
-    desc.root_path = "tests/asset/data";
+    asset_test_add_root("tests/asset/data");
     assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
@@ -44,10 +46,16 @@ int main(void) {
     };
     assert(pulse_asset_system_register_loader(assetSystem, &slow_loader_desc) == PULSE_RESULT_OK);
 
+    PulseAssetRequest pre_prepare_request = load_asset_memory(assetSystem, slow_type, "slow_pre_prepare.txt", hello_bytes, 11, nullptr);
+    assert(pulse_asset_system_get_state(assetSystem, pre_prepare_request) == PULSE_ASSET_STATE_WAITING_LOAD);
+
+    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
+    assert(pulse_asset_system_get_state(assetSystem, pre_prepare_request) == PULSE_ASSET_STATE_LOADED);
+
+    // Loads issued after prepare still advance one step per update.
     PulseAssetRequest slow_request = load_asset_memory(assetSystem, slow_type, "slow.txt", hello_bytes, 11, nullptr);
     assert(pulse_asset_system_get_state(assetSystem, slow_request) == PULSE_ASSET_STATE_WAITING_LOAD);
 
-    assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
     assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
     assert(pulse_asset_system_get_state(assetSystem, slow_request) == PULSE_ASSET_STATE_PROCESSING);
 

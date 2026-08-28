@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // int32_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_INPUT_MODULE_BUILD)
+#  define PULSE_INPUT_API PULSE_EXPORT
+#else
+#  define PULSE_INPUT_API PULSE_IMPORT
 #endif
 
 #define PULSE_SCANCODE_COUNT 512
@@ -94,24 +97,24 @@ typedef struct PulseMouseScrollEvent
 
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
-extern ECS_COMPONENT_DECLARE(PulseMouseInput);
-extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
-extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
-extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
-extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
-extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseInput);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
 
-PULSE_API EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app);
-PULSE_API bool pulse_input_is_key_down(PulseAppId app, int32_t scancode);
-PULSE_API bool pulse_input_key_just_pressed(PulseAppId app, int32_t scancode);
-PULSE_API bool pulse_input_key_just_released(PulseAppId app, int32_t scancode);
-PULSE_API bool pulse_input_is_mouse_button_down(PulseAppId app, uint8_t button);
-PULSE_API bool pulse_input_mouse_button_just_pressed(PulseAppId app, uint8_t button);
-PULSE_API bool pulse_input_mouse_button_just_released(PulseAppId app, uint8_t button);
-PULSE_API void pulse_input_get_mouse_position(PulseAppId app, float* out_x, float* out_y);
-PULSE_API void pulse_input_get_mouse_delta(PulseAppId app, float* out_dx, float* out_dy);
-PULSE_API void pulse_input_get_mouse_scroll(PulseAppId app, float* out_x, float* out_y);
+PULSE_INPUT_API EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app);
+PULSE_INPUT_API bool pulse_input_is_key_down(PulseAppId app, int32_t scancode);
+PULSE_INPUT_API bool pulse_input_key_just_pressed(PulseAppId app, int32_t scancode);
+PULSE_INPUT_API bool pulse_input_key_just_released(PulseAppId app, int32_t scancode);
+PULSE_INPUT_API bool pulse_input_is_mouse_button_down(PulseAppId app, uint8_t button);
+PULSE_INPUT_API bool pulse_input_mouse_button_just_pressed(PulseAppId app, uint8_t button);
+PULSE_INPUT_API bool pulse_input_mouse_button_just_released(PulseAppId app, uint8_t button);
+PULSE_INPUT_API void pulse_input_get_mouse_position(PulseAppId app, float* out_x, float* out_y);
+PULSE_INPUT_API void pulse_input_get_mouse_delta(PulseAppId app, float* out_dx, float* out_dy);
+PULSE_INPUT_API void pulse_input_get_mouse_scroll(PulseAppId app, float* out_x, float* out_y);
 
 #ifdef __cplusplus
 }

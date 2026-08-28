@@ -5,7 +5,7 @@
 
 namespace pulse_input_internal {
 
-constexpr const char* kPluginName = "PulseInputPlugin";
+constexpr const char* kPluginName = "pulse_input";
 
 // ============================================================
 // Plugin lifecycle
@@ -101,13 +101,16 @@ EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app) {
     auto* state = new pulse_input_plugin_state();
 
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        input_plugin_build,
-        input_plugin_post_build,
-        input_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_INPUT_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = input_plugin_build,
+        .post_build = input_plugin_post_build,
+        .shutdown = input_plugin_shutdown,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

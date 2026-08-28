@@ -4,16 +4,19 @@
 #define PULSE_RENDERER_API_HEADER_GUARD
 
 #include <stdint.h>
+#include "pulse_platform.h"
 #include "pulse_app.h"
 #include "pulse_math.h"
 #include "pulse_graphics.h"
 
-#ifdef __cplusplus
-extern "C" {
+#if defined(PULSE_RENDERER_MODULE_BUILD)
+#  define PULSE_RENDERER_API PULSE_EXPORT
+#else
+#  define PULSE_RENDERER_API PULSE_IMPORT
 #endif
 
-#ifndef PULSE_API
-#define PULSE_API
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /**
@@ -71,9 +74,9 @@ typedef struct PulseRenderable
 
 
 // ECS component declarations
-extern ECS_COMPONENT_DECLARE(PulseCamera);
-extern ECS_COMPONENT_DECLARE(PulseLight);
-extern ECS_COMPONENT_DECLARE(PulseRenderable);
+PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseCamera);
+PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseLight);
+PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseRenderable);
 
 
 /**
@@ -82,8 +85,8 @@ extern ECS_COMPONENT_DECLARE(PulseRenderable);
  * @param[in] app
  *
  */
-PULSE_API EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app);
-PULSE_API void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropertyType type, const char* name);
+PULSE_RENDERER_API EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app);
+PULSE_RENDERER_API void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropertyType type, const char* name);
 
 #ifdef __cplusplus
 }

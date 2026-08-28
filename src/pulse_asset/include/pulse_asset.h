@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t, uint64_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_ASSET_MODULE_BUILD)
+#  define PULSE_ASSET_API PULSE_EXPORT
+#else
+#  define PULSE_ASSET_API PULSE_IMPORT
 #endif
 
 /**
@@ -261,7 +264,6 @@ typedef struct PulseAssetPluginDesc
 {
     uint32_t             struct_size;
     uint32_t             version;
-    const char*          root_path;
     uint32_t             max_requests_per_update;
 
 } PulseAssetPluginDesc;
@@ -446,30 +448,30 @@ static inline bool pulse_asset_dep_ref_equals(PulseAssetDepRef a, PulseAssetDepR
  * Functions
  *
  */
-PULSE_API PulseAssetPluginDesc pulse_asset_plugin_desc_default(void);
-PULSE_API EPulseAppAddPluginResult pulse_add_asset_plugin(PulseAppId app, const PulseAssetPluginDesc* desc);
-PULSE_API PulseAssetSystemId pulse_get_asset_system(PulseAppId app);
-PULSE_API EPulseResult pulse_asset_system_register_type(PulseAssetSystemId _this, const PulseAssetTypeDesc* desc);
-PULSE_API EPulseResult pulse_asset_system_register_loader(PulseAssetSystemId _this, const PulseAssetLoaderDesc* desc);
-PULSE_API PulseAssetRequest pulse_asset_system_load(PulseAssetSystemId _this, const PulseAssetLoadDesc* desc);
-PULSE_API PulseAssetRequest pulse_asset_system_load_from_memory(PulseAssetSystemId _this, const PulseAssetMemoryLoadDesc* desc);
-PULSE_API PulseAssetRequest pulse_asset_system_build(PulseAssetSystemId _this, const PulseAssetBuildDesc* desc);
-PULSE_API PulseAssetHandle pulse_asset_system_build_sync(PulseAssetSystemId _this, const PulseAssetBuildDesc* desc);
-PULSE_API EPulseAssetState pulse_asset_system_get_state(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API bool pulse_asset_system_is_alive(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API bool pulse_asset_system_is_ready(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API const char* pulse_asset_system_get_error(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API PulseAssetHandle pulse_asset_system_get_handle(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API void pulse_asset_system_cancel(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API bool pulse_asset_system_retain(PulseAssetSystemId _this, PulseAssetHandle handle, EPulseRetainErrorCode* out_error);
-PULSE_API bool pulse_asset_system_release(PulseAssetSystemId _this, PulseAssetHandle handle, EPulseReleaseErrorCode* out_error);
-PULSE_API bool pulse_asset_system_borrow(PulseAssetSystemId _this, PulseAssetHandle handle, void** out_ref, EPulseBorrowErrorCode* out_error);
-PULSE_API void pulse_asset_system_mark_modified(PulseAssetSystemId _this, PulseAssetHandle handle);
-PULSE_API void pulse_asset_system_force_unload_assets(PulseAssetSystemId _this, uint64_t type_id);
-PULSE_API EPulseResult pulse_asset_load_task_add_dependency(PulseAssetLoadDependencyHint* dependency_hint, PulseAssetDepRef dependency, EPulseLoadDependencyRequirement requirement);
-PULSE_API PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_handle(PulseAssetSystemId _this, PulseAssetHandle handle);
-PULSE_API PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_request(PulseAssetSystemId _this, PulseAssetRequest request);
-PULSE_API PulseAssetRequest pulse_asset_system_to_asset_request_from_dep_ref(PulseAssetSystemId _this, PulseAssetDepRef dep_ref);
+PULSE_ASSET_API PulseAssetPluginDesc pulse_asset_plugin_desc_default(void);
+PULSE_ASSET_API EPulseAppAddPluginResult pulse_add_asset_plugin(PulseAppId app, const PulseAssetPluginDesc* desc);
+PULSE_ASSET_API PulseAssetSystemId pulse_get_asset_system(PulseAppId app);
+PULSE_ASSET_API EPulseResult pulse_asset_system_register_type(PulseAssetSystemId _this, const PulseAssetTypeDesc* desc);
+PULSE_ASSET_API EPulseResult pulse_asset_system_register_loader(PulseAssetSystemId _this, const PulseAssetLoaderDesc* desc);
+PULSE_ASSET_API PulseAssetRequest pulse_asset_system_load(PulseAssetSystemId _this, const PulseAssetLoadDesc* desc);
+PULSE_ASSET_API PulseAssetRequest pulse_asset_system_load_from_memory(PulseAssetSystemId _this, const PulseAssetMemoryLoadDesc* desc);
+PULSE_ASSET_API PulseAssetRequest pulse_asset_system_build(PulseAssetSystemId _this, const PulseAssetBuildDesc* desc);
+PULSE_ASSET_API PulseAssetHandle pulse_asset_system_build_sync(PulseAssetSystemId _this, const PulseAssetBuildDesc* desc);
+PULSE_ASSET_API EPulseAssetState pulse_asset_system_get_state(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API bool pulse_asset_system_is_alive(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API bool pulse_asset_system_is_ready(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API const char* pulse_asset_system_get_error(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API PulseAssetHandle pulse_asset_system_get_handle(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API void pulse_asset_system_cancel(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API bool pulse_asset_system_retain(PulseAssetSystemId _this, PulseAssetHandle handle, EPulseRetainErrorCode* out_error);
+PULSE_ASSET_API bool pulse_asset_system_release(PulseAssetSystemId _this, PulseAssetHandle handle, EPulseReleaseErrorCode* out_error);
+PULSE_ASSET_API bool pulse_asset_system_borrow(PulseAssetSystemId _this, PulseAssetHandle handle, void** out_ref, EPulseBorrowErrorCode* out_error);
+PULSE_ASSET_API void pulse_asset_system_mark_modified(PulseAssetSystemId _this, PulseAssetHandle handle);
+PULSE_ASSET_API void pulse_asset_system_force_unload_assets(PulseAssetSystemId _this, uint64_t type_id);
+PULSE_ASSET_API EPulseResult pulse_asset_load_task_add_dependency(PulseAssetLoadDependencyHint* dependency_hint, PulseAssetDepRef dependency, EPulseLoadDependencyRequirement requirement);
+PULSE_ASSET_API PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_handle(PulseAssetSystemId _this, PulseAssetHandle handle);
+PULSE_ASSET_API PulseAssetDepRef pulse_asset_system_to_asset_dep_ref_from_request(PulseAssetSystemId _this, PulseAssetRequest request);
+PULSE_ASSET_API PulseAssetRequest pulse_asset_system_to_asset_request_from_dep_ref(PulseAssetSystemId _this, PulseAssetDepRef dep_ref);
 
 #ifdef __cplusplus
 }

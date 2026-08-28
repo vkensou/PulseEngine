@@ -2,7 +2,7 @@
 
 namespace pulse_transform_internal {
 
-constexpr const char* kPluginName = "PulseTransformPlugin";
+constexpr const char* kPluginName = "pulse_transform";
 
 // ============================================================
 // Plugin lifecycle
@@ -65,13 +65,16 @@ EPulseAppAddPluginResult pulse_add_transform_plugin(PulseAppId app) {
     auto* state = new pulse_transform_plugin_state();
 
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        transform_plugin_build,
-        transform_plugin_post_build,
-        transform_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_TRANSFORM_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = transform_plugin_build,
+        .post_build = transform_plugin_post_build,
+        .shutdown = transform_plugin_shutdown,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

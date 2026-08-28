@@ -4,7 +4,6 @@ int main(void) {
     PulseAssetPluginDesc default_desc = pulse_asset_plugin_desc_default();
     assert(default_desc.struct_size == sizeof(PulseAssetPluginDesc));
     assert(default_desc.version == PULSE_ASSET_PLUGIN_DESC_VERSION);
-    assert(default_desc.root_path != nullptr);
     assert(default_desc.max_requests_per_update == 8);
 
     PulseAppDesc app_desc = {
@@ -12,11 +11,13 @@ int main(void) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app != nullptr);
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulseAssetPluginDesc desc = pulse_asset_plugin_desc_default();
-    desc.root_path = "tests/asset/data";
+    asset_test_add_root("tests/asset/data");
     assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_app_has_plugin(app, "PulseAssetPlugin"));
+    assert(pulse_app_has_plugin(app, "pulse_asset"));
     assert(pulse_add_asset_plugin(app, &desc) == PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN);
 
     PulseAssetSystemId assetSystem = pulse_get_asset_system(app);

@@ -10,26 +10,19 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
+#include "pulse_platform.h"
 
 #define FLECS_NO_CPP
 #include <flecs.h>
 
-#ifndef PULSE_API
-#define PULSE_API
-#endif
-
-#ifndef PULSE_FORCEINLINE
-#if defined(_MSC_VER) && !defined(__clang__)
-#define PULSE_FORCEINLINE __forceinline
+#if defined(PULSE_APP_MODULE_BUILD)
+#  define PULSE_APP_API PULSE_EXPORT
 #else
-#define PULSE_FORCEINLINE inline __attribute__((always_inline))
+#  define PULSE_APP_API PULSE_IMPORT
 #endif
-#endif
 
-#define PULSE_PLUGIN_DESC_VERSION 1u
+#define PULSE_PLUGIN_DESC_VERSION 2u
 
-
-#define DEFINE_PULSE_OBJECT(name) typedef struct name* name##Id;
 
 typedef uint32_t EPulseFlags;
 typedef uint64_t EPulseFlags64;
@@ -43,7 +36,9 @@ typedef enum EPulseResult
     PULSE_RESULT_ERROR_DUPLICATE_PLUGIN,      /** ( 3)                                */
     PULSE_RESULT_ERROR_DUPLICATE_SUBAPP,      /** ( 4)                                */
     PULSE_RESULT_ERROR_NOT_FOUND,             /** ( 5)                                */
-    PULSE_RESULT_ERROR_INTERNAL,              /** ( 6)                                */
+    PULSE_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY, /** ( 6)                                */
+    PULSE_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY, /** ( 7)                                */
+    PULSE_RESULT_ERROR_INTERNAL,              /** ( 8)                                */
 
     PULSE_RESULT_COUNT
 
@@ -55,12 +50,14 @@ typedef enum EPulseAppRunResult
     PULSE_APP_RUN_RESULT_ERROR_INVALID_ARGUMENT, /** ( 1)                                */
     PULSE_APP_RUN_RESULT_ERROR_INVALID_STATE, /** ( 2)                                */
     PULSE_APP_RUN_RESULT_ERROR_PLUGIN_BUILD_FAILED, /** ( 3)                                */
-    PULSE_APP_RUN_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED, /** ( 4)                                */
-    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED, /** ( 5)                                */
-    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_PREPARE_FAILED, /** ( 6)                                */
-    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_EXTRACT_FAILED, /** ( 7)                                */
-    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_UPDATE_FAILED, /** ( 8)                                */
-    PULSE_APP_RUN_RESULT_ERROR_INTERNAL,      /** ( 9)                                */
+    PULSE_APP_RUN_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY, /** ( 4)                                */
+    PULSE_APP_RUN_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY, /** ( 5)                                */
+    PULSE_APP_RUN_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED, /** ( 6)                                */
+    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED, /** ( 7)                                */
+    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_PREPARE_FAILED, /** ( 8)                                */
+    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_EXTRACT_FAILED, /** ( 9)                                */
+    PULSE_APP_RUN_RESULT_ERROR_SUBAPP_UPDATE_FAILED, /** (10)                                */
+    PULSE_APP_RUN_RESULT_ERROR_INTERNAL,      /** (11)                                */
 
     PULSE_APP_RUN_RESULT_COUNT
 
@@ -72,10 +69,12 @@ typedef enum EPulseAppPrepareResult
     PULSE_APP_PREPARE_RESULT_ERROR_INVALID_ARGUMENT, /** ( 1)                                */
     PULSE_APP_PREPARE_RESULT_ERROR_INVALID_STATE, /** ( 2)                                */
     PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_BUILD_FAILED, /** ( 3)                                */
-    PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED, /** ( 4)                                */
-    PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED, /** ( 5)                                */
-    PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_PREPARE_FAILED, /** ( 6)                                */
-    PULSE_APP_PREPARE_RESULT_ERROR_INTERNAL,  /** ( 7)                                */
+    PULSE_APP_PREPARE_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY, /** ( 4)                                */
+    PULSE_APP_PREPARE_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY, /** ( 5)                                */
+    PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED, /** ( 6)                                */
+    PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED, /** ( 7)                                */
+    PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_PREPARE_FAILED, /** ( 8)                                */
+    PULSE_APP_PREPARE_RESULT_ERROR_INTERNAL,  /** ( 9)                                */
 
     PULSE_APP_PREPARE_RESULT_COUNT
 
@@ -112,7 +111,9 @@ typedef enum EPulseAppAddPluginResult
     PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE, /** ( 2)                                */
     PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN, /** ( 3)                                */
     PULSE_APP_ADD_PLUGIN_RESULT_ERROR_PLUGIN_BUILD_FAILED, /** ( 4)                                */
-    PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL, /** ( 5)                                */
+    PULSE_APP_ADD_PLUGIN_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY, /** ( 5)                                */
+    PULSE_APP_ADD_PLUGIN_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY, /** ( 6)                                */
+    PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL, /** ( 7)                                */
 
     PULSE_APP_ADD_PLUGIN_RESULT_COUNT
 
@@ -201,11 +202,14 @@ typedef struct PulsePluginDesc
 {
     uint32_t             struct_size;
     uint32_t             version;
+    uint32_t             plugin_version;
     const char*          name;
     void*                ctx;
     PulseProcPluginBuildFn build;
     PulseProcPluginBuildFn post_build;
     PulseProcPluginShutdownFn shutdown;
+    uint32_t             dependency_count;
+    const char**         dependencies;
 
 } PulsePluginDesc;
 
@@ -227,26 +231,26 @@ typedef struct PulseTimer
 } PulseTimer;
 
 
-extern ECS_COMPONENT_DECLARE(PulseTimer);
+PULSE_APP_API extern ECS_COMPONENT_DECLARE(PulseTimer);
 
-PULSE_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
-PULSE_API void pulse_destroy_app(PulseAppId app);
-PULSE_API EPulseAppRunResult pulse_app_run(PulseAppId _this);
-PULSE_API EPulseAppPrepareResult pulse_app_prepare(PulseAppId _this);
-PULSE_API EPulseAppUpdateResult pulse_app_update(PulseAppId _this);
-PULSE_API void pulse_app_teardown(PulseAppId _this);
-PULSE_API void pulse_app_finish(PulseAppId _this);
-PULSE_API bool pulse_app_should_quit(PulseAppId _this);
-PULSE_API EPulseAppSetRunnerResult pulse_app_set_runner(PulseAppId _this, PulseProcRunnerFn runner, void* ctx);
-PULSE_API EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId _this, const PulsePluginDesc* desc);
-PULSE_API bool pulse_app_has_plugin(PulseAppId _this, const char* name);
-PULSE_API ecs_world_t* pulse_app_world(PulseAppId _this);
-PULSE_API const char* pulse_app_last_error(PulseAppId _this);
-PULSE_API EPulseAppInsertSubappResult pulse_app_insert_subapp(PulseAppId _this, const char* name, PulseAppId subapp);
-PULSE_API PulseAppId pulse_app_get_subapp(PulseAppId _this, const char* name);
-PULSE_API PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
-PULSE_API EPulseAppSetSubappExtractResult pulse_app_set_subapp_extract(PulseAppId _this, const char* name, PulseProcSubappExtractFn extract, void* ctx);
-PULSE_API PulseAppId pulse_get_app_from_world(ecs_world_t* world);
+PULSE_APP_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
+PULSE_APP_API void pulse_destroy_app(PulseAppId app);
+PULSE_APP_API EPulseAppRunResult pulse_app_run(PulseAppId _this);
+PULSE_APP_API EPulseAppPrepareResult pulse_app_prepare(PulseAppId _this);
+PULSE_APP_API EPulseAppUpdateResult pulse_app_update(PulseAppId _this);
+PULSE_APP_API void pulse_app_teardown(PulseAppId _this);
+PULSE_APP_API void pulse_app_finish(PulseAppId _this);
+PULSE_APP_API bool pulse_app_should_quit(PulseAppId _this);
+PULSE_APP_API EPulseAppSetRunnerResult pulse_app_set_runner(PulseAppId _this, PulseProcRunnerFn runner, void* ctx);
+PULSE_APP_API EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId _this, const PulsePluginDesc* desc);
+PULSE_APP_API bool pulse_app_has_plugin(PulseAppId _this, const char* name);
+PULSE_APP_API ecs_world_t* pulse_app_world(PulseAppId _this);
+PULSE_APP_API const char* pulse_app_last_error(PulseAppId _this);
+PULSE_APP_API EPulseAppInsertSubappResult pulse_app_insert_subapp(PulseAppId _this, const char* name, PulseAppId subapp);
+PULSE_APP_API PulseAppId pulse_app_get_subapp(PulseAppId _this, const char* name);
+PULSE_APP_API PulseAppId pulse_app_remove_subapp(PulseAppId _this, const char* name);
+PULSE_APP_API EPulseAppSetSubappExtractResult pulse_app_set_subapp_extract(PulseAppId _this, const char* name, PulseProcSubappExtractFn extract, void* ctx);
+PULSE_APP_API PulseAppId pulse_get_app_from_world(ecs_world_t* world);
 
 #ifdef __cplusplus
 }

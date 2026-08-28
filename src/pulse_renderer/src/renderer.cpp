@@ -9,7 +9,7 @@
 
 namespace pulse_renderer_internal {
 
-constexpr const char* kPluginName = "PulseRendererPlugin";
+constexpr const char* kPluginName = "pulse_renderer";
 
 // ============================================================
 // Math helpers
@@ -617,14 +617,22 @@ EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app) {
     state->property_names[PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX] = "vpMatrix";
     state->property_names[PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX] = "wMatrix";
 
+    const char* renderer_dependencies[] = {
+        "pulse_window",
+        "pulse_graphics",
+        "pulse_transform"
+    };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        renderer_plugin_build,
-        renderer_plugin_post_build,
-        renderer_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_RENDERER_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = renderer_plugin_build,
+        .post_build = renderer_plugin_post_build,
+        .shutdown = renderer_plugin_shutdown,
+        .dependency_count = 3,
+        .dependencies = renderer_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

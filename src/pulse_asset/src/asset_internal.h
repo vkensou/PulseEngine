@@ -23,7 +23,7 @@ class AssetStorage;
 class AssetSlot;
 class LoadJob;
 
-constexpr const char* kPluginName = "PulseAssetPlugin";
+constexpr const char* kPluginName = "pulse_asset";
 
 PulseAssetHandle invalid_handle();
 bool is_invalid_handle(PulseAssetHandle handle);
@@ -94,7 +94,6 @@ public:
     static std::pmr::string normalize_extension(const char* extension, std::pmr::memory_resource* resource);
     static std::pmr::vector<std::pmr::string> parse_extensions(const char* extensions, std::pmr::memory_resource* resource);
     static std::pmr::string extension_from_path(const std::pmr::string& path, std::pmr::memory_resource* resource);
-    static std::pmr::string join_path(const std::pmr::string& root_path, const std::pmr::string& path, std::pmr::memory_resource* resource);
     static std::optional<std::pmr::vector<uint8_t>> read_file(const char* filename, std::pmr::memory_resource* resource);
 };
 
@@ -333,6 +332,7 @@ public:
 
     JobIterator enqueue(LoadJob&& job);
     void process(AssetSystem& system);
+    bool drain_pass(AssetSystem& system);
     LoadJobOutcome process_immediate_builder(AssetSystem& system, JobIterator job_it);
     void cancel_all(AssetSystem& system);
     void cancel_type(AssetSystem& system, uint64_t type_id);
@@ -350,6 +350,7 @@ private:
 };
 
 EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx);
+EPulsePluginBuildResult asset_plugin_post_build_callback(PulseAppId app, void* ctx);
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx);
 
 class AssetSystem final {
@@ -363,6 +364,7 @@ public:
     EPulseResult build(PulseAppId app, ecs_world_t* world);
     void shutdown(PulseAppId app);
     void process_load_requests();
+    void drain_loads();
 
     EPulseResult register_type(const PulseAssetTypeDesc* desc);
     EPulseResult register_loader(const PulseAssetLoaderDesc* desc);
@@ -379,7 +381,6 @@ public:
 
     PulseAppId app() const { return app_; }
     uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }
-    const std::pmr::string& root_path() const { return root_path_; }
     std::pmr::memory_resource* resource() { return &memory_pool_; }
     AssetRegistry& registry() { return registry_; }
     const AssetRegistry& registry() const { return registry_; }
@@ -391,7 +392,6 @@ private:
     PulseAppId app_ = nullptr;
     PulseAssetPluginDesc desc_{};
     std::pmr::unsynchronized_pool_resource memory_pool_;
-    std::pmr::string root_path_;
     ecs_entity_t process_system_ = 0;
     AssetRegistry registry_;
     AssetStorage storage_;

@@ -2,8 +2,6 @@
 
 #include <functional>
 #include <memory>
-#include <string>
-#include <string_view>
 #include <utility>
 
 #include "pulse_app.h"
@@ -63,6 +61,8 @@ EPulseAppRunResult to_run_c(pulse::RunResult result) {
         case pulse::RunResult::InvalidArgument: return PULSE_APP_RUN_RESULT_ERROR_INVALID_ARGUMENT;
         case pulse::RunResult::InvalidState: return PULSE_APP_RUN_RESULT_ERROR_INVALID_STATE;
         case pulse::RunResult::PluginBuildFailed: return PULSE_APP_RUN_RESULT_ERROR_PLUGIN_BUILD_FAILED;
+        case pulse::RunResult::MissingPluginDependency: return PULSE_APP_RUN_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY;
+        case pulse::RunResult::CircularPluginDependency: return PULSE_APP_RUN_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY;
         case pulse::RunResult::PluginPostBuildFailed: return PULSE_APP_RUN_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED;
         case pulse::RunResult::SubappPostBuildFailed: return PULSE_APP_RUN_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED;
         case pulse::RunResult::SubappPrepareFailed: return PULSE_APP_RUN_RESULT_ERROR_SUBAPP_PREPARE_FAILED;
@@ -78,6 +78,8 @@ EPulseAppPrepareResult to_prepare_c(pulse::PrepareResult result) {
         case pulse::PrepareResult::InvalidArgument: return PULSE_APP_PREPARE_RESULT_ERROR_INVALID_ARGUMENT;
         case pulse::PrepareResult::InvalidState: return PULSE_APP_PREPARE_RESULT_ERROR_INVALID_STATE;
         case pulse::PrepareResult::PluginBuildFailed: return PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_BUILD_FAILED;
+        case pulse::PrepareResult::MissingPluginDependency: return PULSE_APP_PREPARE_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY;
+        case pulse::PrepareResult::CircularPluginDependency: return PULSE_APP_PREPARE_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY;
         case pulse::PrepareResult::PluginPostBuildFailed: return PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED;
         case pulse::PrepareResult::SubappPostBuildFailed: return PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED;
         case pulse::PrepareResult::SubappPrepareFailed: return PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_PREPARE_FAILED;
@@ -112,6 +114,8 @@ EPulseAppAddPluginResult to_add_plugin_c(pulse::AddPluginResult result) {
         case pulse::AddPluginResult::InvalidState: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE;
         case pulse::AddPluginResult::DuplicatePlugin: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN;
         case pulse::AddPluginResult::PluginBuildFailed: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_PLUGIN_BUILD_FAILED;
+        case pulse::AddPluginResult::MissingPluginDependency: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY;
+        case pulse::AddPluginResult::CircularPluginDependency: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY;
         default: return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     }
 }
@@ -239,9 +243,21 @@ EPulseAppAddPluginResult pulse_app_add_plugin(PulseAppId app, const PulsePluginD
     PulseProcPluginBuildFn post_build = desc->post_build;
     PulseProcPluginShutdownFn shutdown = desc->shutdown;
 
+    if (desc->dependency_count > 0 && !desc->dependencies) {
+        return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
     pulse::Plugin plugin;
     plugin.name = desc->name ? desc->name : "";
+    plugin.plugin_version = desc->plugin_version;
     plugin.ctx = desc->ctx;
+    plugin.dependencies.reserve(desc->dependency_count);
+    for (uint32_t i = 0; i < desc->dependency_count; ++i) {
+        if (!desc->dependencies[i]) {
+            return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_ARGUMENT;
+        }
+        plugin.dependencies.emplace_back(desc->dependencies[i]);
+    }
     if (build) {
         plugin.build = [app, build](pulse::App&, void* c) {
             return to_plugin_build_result(build(app, c));

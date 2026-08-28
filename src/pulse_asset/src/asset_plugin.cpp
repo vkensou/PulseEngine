@@ -21,7 +21,6 @@ PulseAssetPluginDesc default_plugin_desc() {
     PulseAssetPluginDesc desc{};
     desc.struct_size = sizeof(PulseAssetPluginDesc);
     desc.version = PULSE_ASSET_PLUGIN_DESC_VERSION;
-    desc.root_path = "assets";
     desc.max_requests_per_update = 8;
     return desc;
 }
@@ -33,9 +32,6 @@ PulseAssetPluginDesc normalize_plugin_desc(const PulseAssetPluginDesc* desc) {
     }
     normalized.struct_size = sizeof(PulseAssetPluginDesc);
     normalized.version = PULSE_ASSET_PLUGIN_DESC_VERSION;
-    if (!normalized.root_path || !normalized.root_path[0]) {
-        normalized.root_path = ".";
-    }
     if (normalized.max_requests_per_update == 0) {
         normalized.max_requests_per_update = 8;
     }
@@ -128,6 +124,19 @@ EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx) {
     return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
 }
 
+EPulsePluginBuildResult asset_plugin_post_build_callback(PulseAppId app, void* ctx) {
+    (void)app;
+    PulseAssetSystem* system = static_cast<PulseAssetSystem*>(ctx);
+    if (!system) {
+        return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    // All build callbacks have run; drain every load task queued so far so
+    // assets requested at build time are ready before the app starts running.
+    system->impl.drain_loads();
+    return PULSE_PLUGIN_BUILD_RESULT_OK;
+}
+
 void asset_plugin_shutdown_callback(PulseAppId app, void* ctx) {
     AssetSystem* system = static_cast<AssetSystem*>(ctx);
     if (!system) {
@@ -167,13 +176,16 @@ EPulseAppAddPluginResult pulse_add_asset_plugin(
     }
 
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        pulse::asset::kPluginName,
-        system,
-        pulse::asset::asset_plugin_build_callback,
-        nullptr,
-        pulse::asset::asset_plugin_shutdown_callback,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_ASSET_PLUGIN_DESC_VERSION,
+        .name = pulse::asset::kPluginName,
+        .ctx = system,
+        .build = pulse::asset::asset_plugin_build_callback,
+        .post_build = pulse::asset::asset_plugin_post_build_callback,
+        .shutdown = pulse::asset::asset_plugin_shutdown_callback,
+        .dependency_count = 0,
+        .dependencies = nullptr,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);
@@ -183,7 +195,7 @@ EPulseAppAddPluginResult pulse_add_asset_plugin(
     return result;
 }
 
-PULSE_API PulseAssetSystemId pulse_get_asset_system(
+PulseAssetSystemId pulse_get_asset_system(
     PulseAppId app
 ) {
     return pulse::asset::system_from_app(app);

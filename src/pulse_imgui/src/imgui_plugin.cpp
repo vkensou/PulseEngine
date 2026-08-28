@@ -8,7 +8,7 @@ namespace pulse_imgui_internal {
 
 ECS_COMPONENT_DECLARE(pulse_imgui_state_resource);
 
-constexpr const char* kPluginName = "PulseImguiPlugin";
+constexpr const char* kPluginName = "pulse_imgui";
 
 namespace {
 
@@ -57,10 +57,6 @@ EPulsePluginBuildResult imgui_plugin_build(PulseAppId app, void* ctx) {
     ecs_entity_t window_entity = imgui_get_window_entity(world, state);
     if (!window_entity) {
         return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;
-    }
-
-    if (state->desc.ini_filename) {
-        state->ini_filename = ecs_os_strdup(state->desc.ini_filename);
     }
 
     // 创建 ImGui context（插件生命周期内唯一）。
@@ -190,15 +186,28 @@ EPulseAppAddPluginResult pulse_add_imgui_plugin(
 
     pulse_imgui_plugin_state* state = new pulse_imgui_plugin_state();
     state->desc = normalize_plugin_desc(desc);
+    if (state->desc.ini_filename) {
+        state->ini_filename = ecs_os_strdup(state->desc.ini_filename);
+        state->desc.ini_filename = nullptr;
+    }
 
+    const char* imgui_dependencies[] = {
+        "pulse_window",
+        "pulse_input",
+        "pulse_asset",
+        "pulse_graphics"
+    };
     PulsePluginDesc plugin_desc = {
-        sizeof(PulsePluginDesc),
-        PULSE_PLUGIN_DESC_VERSION,
-        kPluginName,
-        state,
-        imgui_plugin_build,
-        imgui_plugin_post_build,
-        imgui_plugin_shutdown,
+        .struct_size = sizeof(PulsePluginDesc),
+        .version = PULSE_PLUGIN_DESC_VERSION,
+        .plugin_version = PULSE_IMGUI_PLUGIN_DESC_VERSION,
+        .name = kPluginName,
+        .ctx = state,
+        .build = imgui_plugin_build,
+        .post_build = imgui_plugin_post_build,
+        .shutdown = imgui_plugin_shutdown,
+        .dependency_count = 4,
+        .dependencies = imgui_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

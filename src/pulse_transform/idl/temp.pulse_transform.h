@@ -4,16 +4,19 @@
 #define PULSE_TRANSFORM_API_HEADER_GUARD
 
 #include <stdint.h>
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
 #include "pulse_math.h"
 
-#ifdef __cplusplus
-extern "C" {
+#if defined(PULSE_TRANSFORM_MODULE_BUILD)
+#  define PULSE_TRANSFORM_API PULSE_EXPORT
+#else
+#  define PULSE_TRANSFORM_API PULSE_IMPORT
 #endif
 
-#ifndef PULSE_API
-#define PULSE_API
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 $cconsts
@@ -29,9 +32,9 @@ $cfuncptrs
 $cstructs
 
 // ECS declarations
-extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
-extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
-extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
+PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
+PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
+PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
 
 $c99decl
 

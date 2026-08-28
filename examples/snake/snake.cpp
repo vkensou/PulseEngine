@@ -299,8 +299,8 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 			{ .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
 		};
 		PulseShaderCreateFromFileDesc shader_desc = {
-			.vert_path = "color.vert.spv",
-			.frag_path = "color.frag.spv",
+			.vert_path = "assets/color.vert.spv",
+			.frag_path = "assets/color.frag.spv",
 			.blend_desc = {
 				.attachment_count = 1,
 				.p_attachments = &blend_attachments,
@@ -323,7 +323,7 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 
 		// ---- shader / mesh（异步，不等待）----
 		as.shader = pulse_create_shader_from_file(app, &shader_desc);
-		as.mesh = pulse_load_mesh(app, "Quad.obj");
+		as.mesh = pulse_load_mesh(app, "assets/Quad.obj");
 		state.to(SnakeGameState::Loading);
 		return;
 	}

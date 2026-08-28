@@ -49,6 +49,8 @@ RunResult to_run_result(PrepareResult result) {
         case PrepareResult::InvalidArgument: return RunResult::InvalidArgument;
         case PrepareResult::InvalidState: return RunResult::InvalidState;
         case PrepareResult::PluginBuildFailed: return RunResult::PluginBuildFailed;
+        case PrepareResult::MissingPluginDependency: return RunResult::MissingPluginDependency;
+        case PrepareResult::CircularPluginDependency: return RunResult::CircularPluginDependency;
         case PrepareResult::PluginPostBuildFailed: return RunResult::PluginPostBuildFailed;
         case PrepareResult::SubappPostBuildFailed: return RunResult::SubappPostBuildFailed;
         case PrepareResult::SubappPrepareFailed: return RunResult::SubappPrepareFailed;
@@ -124,6 +126,36 @@ bool App::has_plugin(std::string_view name) const {
     return false;
 }
 
+bool App::plugin_dependencies_satisfied(const Plugin& plugin) const {
+    // A plugin is ready to build only when every dependency has already been
+    // built.  Pending dependencies are not sufficient; they merely mean the
+    // dependency exists somewhere in the queue.
+    for (const auto& dependency : plugin.dependencies) {
+        if (!has_plugin(dependency)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool App::plugin_dependencies_registered(const Plugin& plugin) const {
+    for (const auto& dependency : plugin.dependencies) {
+        if (!has_plugin(dependency) && !has_pending_plugin(dependency)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool App::pending_plugins_satisfiable() const {
+    for (const auto& entry : pending_plugins_) {
+        if (!plugin_dependencies_registered(entry.plugin)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 AddPluginResult App::add_plugin(Plugin plugin) {
     if (state_ != State::Created && state_ != State::Building) {
         set_error(std::format("add_plugin: plugins can only be added before post-build (current state: {})", state_name(state_)));
@@ -136,14 +168,21 @@ AddPluginResult App::add_plugin(Plugin plugin) {
     }
 
     RegisteredPlugin entry;
-    entry.plugin = plugin;
+    entry.plugin = std::move(plugin);
     pending_plugins_.push_back(std::move(entry));
 
     if (state_ == State::Building) {
         return AddPluginResult::Ok;
     }
 
-    return drain_pending_plugins();
+    // Keep the old eager-build behavior for the normal case: as soon as the
+    // pending set is satisfiable, drain it.  If a dependency has not been
+    // registered yet, stay in pending so callers can register in any order.
+    if (pending_plugins_satisfiable()) {
+        return drain_pending_plugins();
+    }
+
+    return AddPluginResult::Ok;
 }
 
 RunResult App::run() {
@@ -344,13 +383,57 @@ AddPluginResult App::drain_pending_plugins() {
     state_ = State::Building;
 
     while (!pending_plugins_.empty()) {
-        RegisteredPlugin entry = std::move(pending_plugins_.front());
-        pending_plugins_.pop_front();
+        // Collect every currently satisfiable plugin without building yet.
+        // Nested add_plugin calls during build can safely append to the deque
+        // because we no longer hold iterators into it at that point.
+        std::vector<RegisteredPlugin> ready;
+        ready.reserve(pending_plugins_.size());
+        for (auto it = pending_plugins_.begin(); it != pending_plugins_.end(); ) {
+            if (!plugin_dependencies_satisfied(it->plugin)) {
+                ++it;
+                continue;
+            }
 
-        if (entry.plugin.build) {
-            PluginBuildResult result = entry.plugin.build(*this, entry.plugin.ctx);
+            ready.push_back(std::move(*it));
+            it = pending_plugins_.erase(it);
+        }
+
+        if (ready.empty()) {
+            // Nothing could be built.  Distinguish a missing dependency from a cycle.
+            for (const auto& pending : pending_plugins_) {
+                for (const auto& dependency : pending.plugin.dependencies) {
+                    if (!has_plugin(dependency) && !has_pending_plugin(dependency)) {
+                        set_error(std::format(
+                            "plugin '{}' depends on missing plugin '{}'",
+                            pending.plugin.name, dependency));
+                        state_ = State::Created;
+                        return AddPluginResult::MissingPluginDependency;
+                    }
+                }
+            }
+
+            const std::string cycle = find_circular_dependency();
+            set_error(cycle.empty()
+                ? "circular plugin dependency detected"
+                : std::format("circular plugin dependency detected: {}", cycle));
+            state_ = State::Created;
+            return AddPluginResult::CircularPluginDependency;
+        }
+
+        for (auto& entry : ready) {
+            // Insert before build so plugins added from inside this build can
+            // declare a dependency on the plugin currently being built.
+            plugins_.push_back(std::move(entry));
+            auto& built = plugins_.back();
+
+            PluginBuildResult result = PluginBuildResult::Ok;
+            if (built.plugin.build) {
+                result = built.plugin.build(*this, built.plugin.ctx);
+            }
+
             if (result != PluginBuildResult::Ok) {
-                set_error(std::format("plugin build failed: {}", entry.plugin.name));
+                set_error(std::format("plugin build failed: {}", built.plugin.name));
+                plugins_.pop_back();
                 state_ = State::Created;
                 switch (result) {
                     case PluginBuildResult::InvalidArgument: return AddPluginResult::InvalidArgument;
@@ -361,8 +444,6 @@ AddPluginResult App::drain_pending_plugins() {
                 }
             }
         }
-
-        plugins_.push_back(std::move(entry));
     }
 
     state_ = State::Created;
@@ -378,6 +459,59 @@ bool App::has_pending_plugin(std::string_view name) const {
     return false;
 }
 
+std::string App::find_circular_dependency() const {
+    const auto index_of = [this](std::string_view name) -> int {
+        int i = 0;
+        for (const auto& entry : pending_plugins_) {
+            if (entry.plugin.name == name) {
+                return i;
+            }
+            ++i;
+        }
+        return -1;
+    };
+
+    const int count = static_cast<int>(pending_plugins_.size());
+    std::vector<int> visit_state(count, 0);
+    std::vector<int> parent(count, -1);
+    std::string result;
+
+    std::function<bool(int)> dfs = [&](int index) -> bool {
+        visit_state[index] = 1;
+        for (const auto& dependency : pending_plugins_[index].plugin.dependencies) {
+            int next = index_of(dependency);
+            if (next < 0) {
+                continue;
+            }
+            if (visit_state[next] == 1) {
+                result = pending_plugins_[next].plugin.name;
+                int current = index;
+                while (current != next) {
+                    result = pending_plugins_[current].plugin.name + " -> " + result;
+                    current = parent[current];
+                }
+                result = pending_plugins_[next].plugin.name + " -> " + result;
+                return true;
+            }
+            if (visit_state[next] == 0) {
+                parent[next] = index;
+                if (dfs(next)) {
+                    return true;
+                }
+            }
+        }
+        visit_state[index] = 2;
+        return false;
+    };
+
+    for (int i = 0; i < count; ++i) {
+        if (visit_state[i] == 0 && dfs(i)) {
+            return result;
+        }
+    }
+    return {};
+}
+
 PrepareResult App::prepare() {
     if (state_ != State::Created) {
         set_error(std::format("prepare: app can only be prepared once (current state: {})", state_name(state_)));
@@ -391,6 +525,8 @@ PrepareResult App::prepare() {
             case AddPluginResult::InvalidState: return PrepareResult::InvalidState;
             case AddPluginResult::DuplicatePlugin: return PrepareResult::PluginBuildFailed;
             case AddPluginResult::PluginBuildFailed: return PrepareResult::PluginBuildFailed;
+            case AddPluginResult::MissingPluginDependency: return PrepareResult::MissingPluginDependency;
+            case AddPluginResult::CircularPluginDependency: return PrepareResult::CircularPluginDependency;
             case AddPluginResult::Internal: return PrepareResult::Internal;
             default: return PrepareResult::Internal;
         }

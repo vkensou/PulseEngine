@@ -9,10 +9,13 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_DASLANG_MODULE_BUILD)
+#  define PULSE_DASLANG_API PULSE_EXPORT
+#else
+#  define PULSE_DASLANG_API PULSE_IMPORT
 #endif
 
 $cconsts

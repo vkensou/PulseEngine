@@ -6,18 +6,21 @@
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t, uint64_t
+#include "pulse_platform.h"
 
 #include "cgpu/api.h"
 #include "pulse_app.h"
 #include "pulse_asset.h"
 #include "pulse_math.h"
 
-#ifdef __cplusplus
-extern "C" {
+#if defined(PULSE_GRAPHICS_MODULE_BUILD)
+#  define PULSE_GRAPHICS_API PULSE_EXPORT
+#else
+#  define PULSE_GRAPHICS_API PULSE_IMPORT
 #endif
 
-#ifndef PULSE_API
-#define PULSE_API
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 typedef struct pulse_backbuffer_data_t pulse_backbuffer_data_t;
@@ -38,9 +41,9 @@ $cfuncptrs
 $cstructs
 
 // ECS component declarations
-extern ECS_COMPONENT_DECLARE(PulseRenderer);
-extern ECS_COMPONENT_DECLARE(PulseSurface);
-extern ECS_COMPONENT_DECLARE(PulseSwapchain);
+PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseRenderer);
+PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseSurface);
+PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseSwapchain);
 
 // ---- inline helpers for asset handle types ----
 

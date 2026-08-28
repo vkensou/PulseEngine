@@ -10,10 +10,13 @@ extern "C" {
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t, uint64_t
+#include "pulse_platform.h"
 #include "pulse_app.h"
 
-#ifndef PULSE_API
-#define PULSE_API
+#if defined(PULSE_ASSET_MODULE_BUILD)
+#  define PULSE_ASSET_API PULSE_EXPORT
+#else
+#  define PULSE_ASSET_API PULSE_IMPORT
 #endif
 
 $cconsts

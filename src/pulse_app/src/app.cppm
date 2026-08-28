@@ -19,6 +19,8 @@ export enum class RunResult {
     InvalidArgument = PULSE_APP_RUN_RESULT_ERROR_INVALID_ARGUMENT,
     InvalidState = PULSE_APP_RUN_RESULT_ERROR_INVALID_STATE,
     PluginBuildFailed = PULSE_APP_RUN_RESULT_ERROR_PLUGIN_BUILD_FAILED,
+    MissingPluginDependency = PULSE_APP_RUN_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY,
+    CircularPluginDependency = PULSE_APP_RUN_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY,
     PluginPostBuildFailed = PULSE_APP_RUN_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED,
     SubappPostBuildFailed = PULSE_APP_RUN_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED,
     SubappPrepareFailed = PULSE_APP_RUN_RESULT_ERROR_SUBAPP_PREPARE_FAILED,
@@ -32,6 +34,8 @@ export enum class PrepareResult {
     InvalidArgument = PULSE_APP_PREPARE_RESULT_ERROR_INVALID_ARGUMENT,
     InvalidState = PULSE_APP_PREPARE_RESULT_ERROR_INVALID_STATE,
     PluginBuildFailed = PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_BUILD_FAILED,
+    MissingPluginDependency = PULSE_APP_PREPARE_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY,
+    CircularPluginDependency = PULSE_APP_PREPARE_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY,
     PluginPostBuildFailed = PULSE_APP_PREPARE_RESULT_ERROR_PLUGIN_POST_BUILD_FAILED,
     SubappPostBuildFailed = PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_POST_BUILD_FAILED,
     SubappPrepareFailed = PULSE_APP_PREPARE_RESULT_ERROR_SUBAPP_PREPARE_FAILED,
@@ -60,6 +64,8 @@ export enum class AddPluginResult {
     InvalidState = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INVALID_STATE,
     DuplicatePlugin = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_DUPLICATE_PLUGIN,
     PluginBuildFailed = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_PLUGIN_BUILD_FAILED,
+    MissingPluginDependency = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_MISSING_PLUGIN_DEPENDENCY,
+    CircularPluginDependency = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_CIRCULAR_PLUGIN_DEPENDENCY,
     Internal = PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL,
 };
 
@@ -120,10 +126,12 @@ export struct AppDesc {
 
 export struct Plugin {
     std::string name;
+    uint32_t plugin_version = 0;
     void* ctx = nullptr;
     std::function<PluginBuildResult(App&, void*)> build;
     std::function<PluginBuildResult(App&, void*)> post_build;
     std::function<void(App&, void*)> shutdown;
+    std::vector<std::string> dependencies;
 };
 
 export using Runner = std::function<RunnerResult(App&, void*)>;
@@ -191,6 +199,10 @@ private:
     AddPluginResult drain_pending_plugins();
     AddPluginResult validate_plugin(const Plugin& plugin);
     bool has_pending_plugin(std::string_view name) const;
+    bool plugin_dependencies_satisfied(const Plugin& plugin) const;
+    bool plugin_dependencies_registered(const Plugin& plugin) const;
+    bool pending_plugins_satisfiable() const;
+    std::string find_circular_dependency() const;
     void set_error(std::string_view message);
 };
 
