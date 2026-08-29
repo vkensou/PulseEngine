@@ -9,7 +9,6 @@ module;
 #include <vector>
 #include <format>
 
-#include <flecs.h>
 #include "pulse_app.h"
 #include "app_internal.h"
 

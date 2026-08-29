@@ -7,7 +7,6 @@ module;
 #include <string_view>
 #include <vector>
 
-#include <flecs.h>
 #include "pulse_app.h"
 
 export module pulse_app;

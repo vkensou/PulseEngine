@@ -1,5 +1,3 @@
-#include <flecs.h>
-
 #include "pulse_app.h"
 #include "pulse_input.h"
 #include "pulse_window.h"

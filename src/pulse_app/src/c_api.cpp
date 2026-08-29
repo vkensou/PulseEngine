@@ -1,5 +1,3 @@
-#include <flecs.h>
-
 #include <functional>
 #include <memory>
 #include <utility>

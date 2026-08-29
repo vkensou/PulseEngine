@@ -6,8 +6,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include <flecs.h> // C++ API - must be included before pulse headers
-
 #include "pulse_app.h"
 #include "pulse_asset.h"
 #include "pulse_daslang.h"

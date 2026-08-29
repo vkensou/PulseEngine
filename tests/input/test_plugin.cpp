@@ -1,8 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include <flecs.h>
-
 #include "pulse_app.h"
 #include "pulse_input.h"
 

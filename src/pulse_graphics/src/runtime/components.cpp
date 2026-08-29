@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "internal.h"
 
 ECS_COMPONENT_DECLARE(PulseRenderer);

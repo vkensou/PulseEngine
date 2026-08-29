@@ -13,10 +13,6 @@
 #  pragma warning(disable:5030)
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint64_t
@@ -27,6 +23,10 @@ extern "C" {
 #  define PULSE_VFS_API PULSE_EXPORT
 #else
 #  define PULSE_VFS_API PULSE_IMPORT
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 $cconsts

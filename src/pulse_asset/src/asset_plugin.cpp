@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "asset_internal.h"
 
 struct PulseAssetSystem {

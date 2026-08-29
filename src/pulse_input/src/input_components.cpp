@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "input_internal.h"
 
 #include <algorithm>

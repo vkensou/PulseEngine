@@ -1,8 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include <flecs.h>
-
 #include <imgui.h>
 
 #include "pulse_app.h"

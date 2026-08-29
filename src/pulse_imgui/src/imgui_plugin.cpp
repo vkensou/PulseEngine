@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "imgui_internal.h"
 
 #include <cstring>

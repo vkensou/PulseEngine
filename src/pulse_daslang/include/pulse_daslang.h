@@ -13,10 +13,6 @@
 #  pragma warning(disable:5030)
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <stdint.h>
 #include "pulse_platform.h"
@@ -26,6 +22,10 @@ extern "C" {
 #  define PULSE_DASLANG_API PULSE_EXPORT
 #else
 #  define PULSE_DASLANG_API PULSE_IMPORT
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /**

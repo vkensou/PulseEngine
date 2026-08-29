@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "window_internal.h"
 
 ECS_COMPONENT_DECLARE(PulseWindow);

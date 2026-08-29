@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "graphics_internal.h"
 
 #include <algorithm>

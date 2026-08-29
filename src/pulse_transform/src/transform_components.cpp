@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "transform_internal.h"
 
 #include <assert.h>

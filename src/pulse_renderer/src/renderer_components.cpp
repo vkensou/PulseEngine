@@ -1,4 +1,3 @@
-#include <flecs.h>
 #include "renderer_internal.h"
 
 #include <string.h>

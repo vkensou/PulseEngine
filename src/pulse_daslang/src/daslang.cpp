@@ -1,5 +1,3 @@
-#include <flecs.h> // C++ API - must be included before pulse headers
-
 #include "pulse_daslang.h"
 #include "pulse_script_register.h"
 

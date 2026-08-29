@@ -11,8 +11,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include <flecs.h> // C++ API - must be included before pulse headers
-
 #include "pulse_app.h"
 #include "pulse_daslang.h"
 #include "pulse_package_loader.h"

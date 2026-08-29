@@ -13,6 +13,8 @@
 #  pragma warning(disable:5030)
 #endif
 
+#include <flecs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,9 +23,6 @@ extern "C" {
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint32_t
 #include "pulse_platform.h"
-
-#define FLECS_NO_CPP
-#include <flecs.h>
 
 #if defined(PULSE_APP_MODULE_BUILD)
 #  define PULSE_APP_API PULSE_EXPORT
