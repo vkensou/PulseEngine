@@ -144,3 +144,28 @@ rule("pulse.package_install")
             end
         end
     end)
+
+rule("pulse.copy_libc++shared")
+    after_install(function (target)
+        if not is_plat("android") then return end
+        if not target:libdir() then return end
+        local ndk = target:toolchain("ndk")
+        if not ndk then return end
+        local triples = {["arm64-v8a"] = "aarch64-linux-android", ["armeabi-v7a"] = "arm-linux-androideabi", x86 = "i686-linux-android", ["x86_64"] = "x86_64-linux-android", ["riscv64"] = "riscv64-linux-android"}
+        local source
+        local sysroot = ndk:config("ndk_sysroot")
+        local triple = triples[target:arch()]
+        if sysroot and triple then
+            source = path.join(sysroot, "usr", "lib", triple, "libc++_shared.so")
+        end
+        if not (source and os.isfile(source)) then
+            local ndkroot = ndk:config("ndk")
+            if ndkroot then
+                local legacy = path.join(ndkroot, "sources", "cxx-stl", "llvm-libc++", "libs", target:arch(), "libc++_shared.so")
+                if os.isfile(legacy) then source = legacy end
+            end
+        end
+        if source and os.isfile(source) then
+            os.cp(source, path.join(target:libdir(), "libc++_shared.so"))
+        end
+    end)

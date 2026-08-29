@@ -269,6 +269,7 @@ target("launcher")
     add_files("src/launcher/main.cpp")
     set_runargs(path.absolute("src"), path.absolute("examples"))
     add_rules("pulse.copy_manifest", {manifest = "src/launcher/launcher.manifest.json"})
+    add_rules("pulse.copy_libc++shared")
 
 for _, test_file in ipairs(os.files("tests/app/test_*.cpp")) do
     local test_name = "test-app-" .. path.basename(test_file):gsub("^test_", "")
