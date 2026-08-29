@@ -44,7 +44,7 @@ struct.ImguiPluginDesc
     .iniFilename   "cstring"       --- NULL -> default "imgui.ini"
     ()
 
-struct.ImguiContext
+component.ImguiContext
     .context "*ImGuiContext"
     ()
 

@@ -49,7 +49,7 @@ $cfuncptrs
 
 $cstructs
 
-PULSE_APP_API extern ECS_COMPONENT_DECLARE(PulseTimer);
+$ccomponents
 
 $c99decl
 

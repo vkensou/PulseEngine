@@ -170,16 +170,10 @@ void release_swapchain_resources(PulseSwapchain* swapchain) {
 }
 
 void register_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, PulseRenderer);
-    ECS_COMPONENT_DEFINE(world, PulseSurface);
-    ECS_COMPONENT_DEFINE(world, PulseSwapchain);
-    ECS_COMPONENT_DEFINE(world, pulse_graphics_state_resource);
-
-    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
-    flecs::world world_view(world);
-    world_view.component<PulseRenderer>("PulseRenderer", true, ecs_id(PulseRenderer));
-    world_view.component<PulseSurface>("PulseSurface", true, ecs_id(PulseSurface));
-    world_view.component<PulseSwapchain>("PulseSwapchain", true, ecs_id(PulseSwapchain));
+    ecs_id(PulseRenderer) = flecs::_::type<PulseRenderer>::id(world);
+    ecs_id(PulseSurface) = flecs::_::type<PulseSurface>::id(world);
+    ecs_id(PulseSwapchain) = flecs::_::type<PulseSwapchain>::id(world);
+    ecs_id(pulse_graphics_state_resource) = flecs::_::type<pulse_graphics_state_resource>::id(world);
 
     pulse_graphics_render_begin_frame_phase =
         create_phase(world, "PulseCgpuRenderBeginFrame", EcsOnStore);

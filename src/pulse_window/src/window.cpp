@@ -178,17 +178,17 @@ void remove_window_components(pulse_window_plugin_state* state) {
 
     remove_id_from_all_entities(world, ecs_id(PulseSdlWindow));
     remove_id_from_all_entities(world, ecs_id(PulseWindow));
-    remove_id_from_all_entities(world, PulseWindowCloseRequested);
-    remove_id_from_all_entities(world, PulseWindowResized);
-    remove_id_from_all_entities(world, PulsePrimaryWindowEntity);
+    remove_id_from_all_entities(world, PulseWindowCloseRequestedId);
+    remove_id_from_all_entities(world, PulseWindowResizedId);
+    remove_id_from_all_entities(world, PulsePrimaryWindowId);
 }
 
 void delete_window_components(ecs_world_t* world) {
     delete_entity_if_alive(world, ecs_id(PulseSdlWindow));
     delete_entity_if_alive(world, ecs_id(PulseWindow));
-    delete_registered_tag(world, PulseWindowCloseRequested, ecs_id(PulseWindowCloseRequested));
-    delete_registered_tag(world, PulseWindowResized, ecs_id(PulseWindowResized));
-    delete_registered_tag(world, PulsePrimaryWindowEntity, ecs_id(PulsePrimaryWindowEntity));
+    delete_registered_tag(world, PulseWindowCloseRequestedId, ecs_id(PulseWindowCloseRequestedId));
+    delete_registered_tag(world, PulseWindowResizedId, ecs_id(PulseWindowResizedId));
+    delete_registered_tag(world, PulsePrimaryWindowId, ecs_id(PulsePrimaryWindowId));
     delete_registered_entity(world, ecs_id(PulseTextInputEvent));
     delete_registered_entity(world, ecs_id(PulseWindowFocusEvent));
     delete_registered_entity(world, ecs_id(PulseWindowMouseHoverEvent));
@@ -207,11 +207,11 @@ void mark_window_close_requested(
     ecs_entity_t entity
 ) {
     if (ecs_has_id(world, entity, ecs_id(PulseWindow))) {
-        ecs_add_id(world, entity, PulseWindowCloseRequested);
+        ecs_add_id(world, entity, PulseWindowCloseRequestedId);
     }
 
     if ((state->desc.flags & PULSE_WINDOW_PLUGIN_EXIT_ON_PRIMARY_CLOSE) &&
-        ecs_has_id(world, entity, PulsePrimaryWindowEntity)) {
+        ecs_has_id(world, entity, PulsePrimaryWindowId)) {
         pulse_app_finish(state->app);
     }
 }
@@ -229,7 +229,7 @@ void mark_window_resized(
 
     window->width = width;
     window->height = height;
-    ecs_add_id(world, entity, PulseWindowResized);
+    ecs_add_id(world, entity, PulseWindowResizedId);
     ecs_modified(world, entity, PulseWindow);
 }
 
@@ -485,7 +485,7 @@ EPulsePluginBuildResult window_plugin_build(PulseAppId app, void* ctx) {
                     ? PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE
                     : PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
         }
-        ecs_add_id(world, primary, PulsePrimaryWindowEntity);
+        ecs_add_id(world, primary, PulsePrimaryWindowId);
     }
 
     return PULSE_PLUGIN_BUILD_RESULT_OK;
@@ -620,7 +620,7 @@ ecs_entity_t pulse_window_get_primary(PulseAppId app) {
 
     ecs_query_desc_t primary_window_query_desc = {
         .terms = {
-            {.id = ecs_id(PulsePrimaryWindowEntity) }
+            {.id = ecs_id(PulsePrimaryWindowId) }
         },
         .cache_kind = EcsQueryCacheAuto
     };

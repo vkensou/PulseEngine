@@ -45,17 +45,9 @@ $cfuncptrs
 
 $cstructs
 
-// ECS declarations
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindowEntity);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResized);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
+$ccomponents
 
-struct PulsePrimaryWindow{};
+$ctags
 
 $c99decl
 

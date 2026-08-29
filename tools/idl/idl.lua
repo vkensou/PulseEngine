@@ -120,9 +120,12 @@ end
 idl.enum = enumdef "enum"
 idl.flag = enumdef "flag"
 
-local function structdef(_, typename)
+local function structdef(_, typename, kind)
 	local t = new_type(typename)
 	t.struct = {}
+	if kind then
+		t[kind] = true
+	end
 
 	local function struct_attrib(obj, attribs)
 		copy_attribs(t, attribs)
@@ -152,6 +155,16 @@ local function structdef(_, typename)
 end
 
 idl.struct = setmetatable({}, { __index = structdef , __call = structdef })
+
+local function kinddef(kind)
+	return setmetatable({}, {
+		__index = function(_, typename) return structdef(nil, typename, kind) end,
+		__call  = function(_, typename) return structdef(nil, typename, kind) end,
+	})
+end
+
+idl.component = kinddef "component"
+idl.tag = kinddef "tag"
 
 local function handledef(_, typename)
 	local t = new_type(typename)

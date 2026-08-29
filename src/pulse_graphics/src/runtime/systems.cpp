@@ -444,7 +444,7 @@ ecs_entity_t install_prepare_windows_system(
     system_desc.query.terms[0].id = ecs_id(PulseWindow);
     system_desc.query.terms[1].id = ecs_id(PulseSurface);
     system_desc.query.terms[2].id = ecs_id(PulseSwapchain);
-    system_desc.query.terms[3].id = ecs_id(PulseWindowCloseRequested);
+    system_desc.query.terms[3].id = ecs_id(PulseWindowCloseRequestedId);
     system_desc.query.terms[3].oper = EcsNot;
     system_desc.query.cache_kind = EcsQueryCacheAuto;
     system_desc.callback = render_prepare_windows_system_run;

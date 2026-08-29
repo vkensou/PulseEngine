@@ -364,7 +364,7 @@ namespace pulse_daslang_internal
         if (env_result != PULSE_RESULT_OK)
             return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 
-        ECS_COMPONENT_DEFINE(world, pulse_daslang_state_resource);
+        ecs_id(pulse_daslang_state_resource) = flecs::_::type<pulse_daslang_state_resource>::id(world);
 
         pulse_daslang_state_resource resource{ state };
         ecs_singleton_set_ptr(world, pulse_daslang_state_resource, &resource);

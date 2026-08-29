@@ -21,31 +21,31 @@ typedef "ecs_entity_t" { cname = "ecs_entity_t" }
 
 const_value.InputPluginDescVersion { value = "1u" }
 
-struct.KeyboardInput
+component.KeyboardInput
     .pressed      "[512] bool"
     .justPressed  "[512] bool"
     .justReleased "[512] bool"
     ()
 
-struct.MouseInput
+component.MouseInput
     .state        "uint8_t"
     .justPressed  "uint8_t"
     .justReleased "uint8_t"
     ()
 
-struct.MouseMotion
+component.MouseMotion
     .deltaX "float"
     .deltaY "float"
     .x      "float"
     .y      "float"
     ()
 
-struct.MouseScroll
+component.MouseScroll
     .x "float"
     .y "float"
     ()
 
-struct.KeyEvent
+component.KeyEvent
     .scancode "int32_t"
     .keycode  "int32_t"
     .mod      "uint16_t"
@@ -54,7 +54,7 @@ struct.KeyEvent
     .window   "ecs_entity_t"
     ()
 
-struct.MouseButtonEvent
+component.MouseButtonEvent
     .button  "uint8_t"
     .pressed "bool"
     .x       "float"
@@ -63,7 +63,7 @@ struct.MouseButtonEvent
     .window  "ecs_entity_t"
     ()
 
-struct.MouseScrollEvent
+component.MouseScrollEvent
     .x       "float"
     .y       "float"
     .isTouch "bool"

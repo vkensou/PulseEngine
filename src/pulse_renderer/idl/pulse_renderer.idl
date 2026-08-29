@@ -32,18 +32,18 @@ enum.RendererPropertyType { underscore }
     ()
 
 --- ECS Components
-struct.Camera
+component.Camera
     .windowEntity "ecs_entity_t"
     .fov          "float"
     .nearPlane    "float"
     .farPlane     "float"
     ()
 
-struct.Light
+component.Light
     .color "HMM_Vec4"
     ()
 
-struct.Renderable
+component.Renderable
     .mesh     "PulseMeshHandle"
     .material "PulseMaterialHandle"
     ()

@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "asset_internal.h"
 
 struct PulseAssetSystem {
@@ -115,7 +116,7 @@ EPulsePluginBuildResult asset_plugin_build_callback(PulseAppId app, void* ctx) {
         if (build_result != PULSE_RESULT_OK)
             return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
 
-        ECS_COMPONENT_DEFINE(world, pulse_asset_state_resource);
+        ecs_id(pulse_asset_state_resource) = flecs::_::type<pulse_asset_state_resource>::id(world);
         pulse_asset_state_resource resource{};
         resource.system = system;
         ecs_singleton_set_ptr(world, pulse_asset_state_resource, &resource);

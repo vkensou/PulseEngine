@@ -57,7 +57,7 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
     PulseWindow* windows = ecs_field(it, PulseWindow, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        if (ecs_has_id(it->world, entity, PulseWindowCloseRequested)) {
+        if (ecs_has_id(it->world, entity, PulseWindowCloseRequestedId)) {
             continue;
         }
 
@@ -74,7 +74,7 @@ void on_window_set_for_swapchain(ecs_iter_t* it) {
         }
 
         const bool window_resized =
-            ecs_has_id(it->world, entity, PulseWindowResized);
+            ecs_has_id(it->world, entity, PulseWindowResizedId);
         const bool needs_resize =
             swapchain->width != static_cast<uint32_t>(windows[i].width) ||
             swapchain->height != static_cast<uint32_t>(windows[i].height) ||
@@ -370,7 +370,7 @@ bool ensure_cgpu_swapchain(
         swapchain->swapchain == CGPU_NULLPTR ||
         swapchain->width != static_cast<uint32_t>(window.width) ||
         swapchain->height != static_cast<uint32_t>(window.height) ||
-        ecs_has_id(world, entity, PulseWindowResized);
+        ecs_has_id(world, entity, PulseWindowResizedId);
 
     if (needs_swapchain) {
         if (state->renderer.graphics_queue) {

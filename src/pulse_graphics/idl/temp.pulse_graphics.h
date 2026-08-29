@@ -50,10 +50,7 @@ $cfuncptrs
 
 $cstructs
 
-// ECS component declarations
-PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseRenderer);
-PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseSurface);
-PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseSwapchain);
+$ccomponents
 
 // ---- inline helpers for asset handle types ----
 

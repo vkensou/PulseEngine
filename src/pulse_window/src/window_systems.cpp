@@ -34,8 +34,8 @@ void window_post_frame_system_run(ecs_iter_t* it) {
             }
         }
 
-        if (ecs_has_id(it->world, entity, PulseWindowResized)) {
-            ecs_remove_id(it->world, entity, PulseWindowResized);
+        if (ecs_has_id(it->world, entity, PulseWindowResizedId)) {
+            ecs_remove_id(it->world, entity, PulseWindowResizedId);
         }
     }
 }

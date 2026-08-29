@@ -176,6 +176,42 @@ struct PulseApp;
 typedef struct PulseApp PulseApp;
 ```
 
+### ECS Component
+
+组件是可注册到 ECS 的结构体，语法与 `struct` 相同：
+
+```lua
+component.Window
+    .structSize "uint32_t"
+    .title      "cstring"
+    ()
+```
+
+除结构体 typedef 外，额外生成组件实体声明：
+
+```c
+typedef struct PulseWindow
+{
+    uint32_t             struct_size;
+    const char*          title;
+
+} PulseWindow;
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
+```
+
+### ECS Tag
+
+标签是空结构体（不允许有字段），实体符号统一带 `Id` 后缀：
+
+```lua
+tag.PrimaryWindow()
+```
+
+```c
+typedef struct PulsePrimaryWindow{} PulsePrimaryWindow;
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindowId);
+```
+
 ### 函数指针
 
 ```lua
@@ -356,6 +392,8 @@ typedef struct PulseShaderCreateFromBinaryDesc
 | `$cids` | opaque 句柄 |
 | `$cfuncptrs` | 函数指针 typedef |
 | `$cstructs` | 结构体 typedef |
+| `$ccomponents` | component：结构体 typedef + ECS_COMPONENT_DECLARE |
+| `$ctags` | tag：空结构体 typedef + ECS_TAG_DECLARE（`Pulse<Name>Id`） |
 | `$c99decl` | C 函数声明 |
 
 模板示例：
@@ -376,6 +414,8 @@ $cenums
 $cids
 $cfuncptrs
 $cstructs
+$ccomponents
+$ctags
 $c99decl
 
 #ifdef __cplusplus

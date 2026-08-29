@@ -236,7 +236,7 @@ struct.GraphicsPluginDesc
     ()
 
 --- Renderer state (opaque at C API level)
-struct.Renderer
+component.Renderer
     .instance   "CGPUInstanceId"
     .adapter    "CGPUAdapterId"
     .device     "CGPUDeviceId"
@@ -250,13 +250,13 @@ struct.Renderer
     ()
 
 --- Window surface
-struct.Surface
+component.Surface
     .instance "CGPUInstanceId"
     .surface  "CGPUSurfaceId"
     ()
 
 --- Window swapchain
-struct.Swapchain
+component.Swapchain
     .device                   "CGPUDeviceId"
     .swapchain                "CGPUSwapChainId"
     .backbufferViews          "[]CGPUTextureViewId"

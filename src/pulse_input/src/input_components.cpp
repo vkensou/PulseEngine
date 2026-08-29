@@ -139,24 +139,14 @@ void post_frame_clear_system_run(ecs_iter_t* it) {
 } // namespace
 
 void register_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, PulseKeyboardInput);
-    ECS_COMPONENT_DEFINE(world, PulseMouseInput);
-    ECS_COMPONENT_DEFINE(world, PulseMouseMotion);
-    ECS_COMPONENT_DEFINE(world, PulseMouseScroll);
-    ECS_COMPONENT_DEFINE(world, PulseKeyEvent);
-    ECS_COMPONENT_DEFINE(world, PulseMouseButtonEvent);
-    ECS_COMPONENT_DEFINE(world, PulseMouseScrollEvent);
-    ECS_COMPONENT_DEFINE(world, pulse_input_state_resource);
-
-    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
-    flecs::world world_view(world);
-    world_view.component<PulseKeyboardInput>("PulseKeyboardInput", true, ecs_id(PulseKeyboardInput));
-    world_view.component<PulseMouseInput>("PulseMouseInput", true, ecs_id(PulseMouseInput));
-    world_view.component<PulseMouseMotion>("PulseMouseMotion", true, ecs_id(PulseMouseMotion));
-    world_view.component<PulseMouseScroll>("PulseMouseScroll", true, ecs_id(PulseMouseScroll));
-    world_view.component<PulseKeyEvent>("PulseKeyEvent", true, ecs_id(PulseKeyEvent));
-    world_view.component<PulseMouseButtonEvent>("PulseMouseButtonEvent", true, ecs_id(PulseMouseButtonEvent));
-    world_view.component<PulseMouseScrollEvent>("PulseMouseScrollEvent", true, ecs_id(PulseMouseScrollEvent));
+    ecs_id(PulseKeyboardInput) = flecs::_::type<PulseKeyboardInput>::id(world);
+    ecs_id(PulseMouseInput) = flecs::_::type<PulseMouseInput>::id(world);
+    ecs_id(PulseMouseMotion) = flecs::_::type<PulseMouseMotion>::id(world);
+    ecs_id(PulseMouseScroll) = flecs::_::type<PulseMouseScroll>::id(world);
+    ecs_id(PulseKeyEvent) = flecs::_::type<PulseKeyEvent>::id(world);
+    ecs_id(PulseMouseButtonEvent) = flecs::_::type<PulseMouseButtonEvent>::id(world);
+    ecs_id(PulseMouseScrollEvent) = flecs::_::type<PulseMouseScrollEvent>::id(world);
+    ecs_id(pulse_input_state_resource) = flecs::_::type<pulse_input_state_resource>::id(world);
 }
 
 pulse_input_plugin_state* state_from_world(ecs_world_t* world) {

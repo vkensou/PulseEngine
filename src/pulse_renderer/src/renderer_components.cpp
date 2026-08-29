@@ -11,16 +11,10 @@ ECS_COMPONENT_DECLARE(pulse_renderer_state_resource);
 namespace pulse_renderer_internal {
 
 void register_renderer_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, PulseCamera);
-    ECS_COMPONENT_DEFINE(world, PulseLight);
-    ECS_COMPONENT_DEFINE(world, PulseRenderable);
-    ECS_COMPONENT_DEFINE(world, pulse_renderer_state_resource);
-
-    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
-    flecs::world world_view(world);
-    world_view.component<PulseCamera>("PulseCamera", true, ecs_id(PulseCamera));
-    world_view.component<PulseLight>("PulseLight", true, ecs_id(PulseLight));
-    world_view.component<PulseRenderable>("PulseRenderable", true, ecs_id(PulseRenderable));
+    ecs_id(PulseCamera) = flecs::_::type<PulseCamera>::id(world);
+    ecs_id(PulseLight) = flecs::_::type<PulseLight>::id(world);
+    ecs_id(PulseRenderable) = flecs::_::type<PulseRenderable>::id(world);
+    ecs_id(pulse_renderer_state_resource) = flecs::_::type<pulse_renderer_state_resource>::id(world);
 }
 
 pulse_renderer_state* state_from_app(PulseAppId app) {

@@ -23,17 +23,17 @@ typedef "ecs_entity_t" { cname = "ecs_entity_t" }
 
 const_value.TransformPluginDescVersion { value = "1u" }
 
-struct.LocalTransform
+component.LocalTransform
     .translation "HMM_Vec3"
     .rotation    "HMM_Quat"
     .scale       "HMM_Vec3"
     ()
 
-struct.WorldTransform
+component.WorldTransform
     .value "HMM_Mat4"
     ()
 
-struct.ShowMatrix
+component.ShowMatrix
     .model "HMM_Mat4"
     ()
 

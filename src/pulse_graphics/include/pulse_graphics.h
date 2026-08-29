@@ -330,56 +330,6 @@ typedef struct PulseGraphicsPluginDesc
 } PulseGraphicsPluginDesc;
 
 /**
- * Renderer state (opaque at C API level)
- *
- */
-typedef struct PulseRenderer
-{
-    CGPUInstanceId       instance;
-    CGPUAdapterId        adapter;
-    CGPUDeviceId         device;
-    CGPUQueueId          graphics_queue;
-    CGPUQueueId          present_queue;
-    CGPURenderPassId     render_pass;
-    ECGPUBackend         backend;
-    ECGPUTextureFormat   swapchain_format;
-    uint32_t             image_count;
-    uint64_t             frame_index;
-
-} PulseRenderer;
-
-/**
- * Window surface
- *
- */
-typedef struct PulseSurface
-{
-    CGPUInstanceId       instance;
-    CGPUSurfaceId        surface;
-
-} PulseSurface;
-
-/**
- * Window swapchain
- *
- */
-typedef struct PulseSwapchain
-{
-    CGPUDeviceId         device;
-    CGPUSwapChainId      swapchain;
-    Pulse_Array(CGPUTextureViewId, backbuffer_views);
-    Pulse_Array(CGPUFramebufferId, framebuffers);
-    Pulse_Array(CGPUSemaphoreId, image_available_semaphores);
-    Pulse_Array(CGPUSemaphoreId, render_finished_semaphores);
-    uint32_t             width;
-    uint32_t             height;
-    uint32_t             current_backbuffer_index;
-    Pulse_Array(pulse_backbuffer_data_t, backbuffers);
-    pulse_backbuffer_data_t* current_backbuffer;
-
-} PulseSwapchain;
-
-/**
  * Record callback descriptor
  *
  */
@@ -548,10 +498,59 @@ typedef struct PulseMaterialCreateDesc
 } PulseMaterialCreateDesc;
 
 
-// ECS component declarations
+/**
+ * Renderer state (opaque at C API level)
+ *
+ */
+typedef struct PulseRenderer
+{
+    CGPUInstanceId       instance;
+    CGPUAdapterId        adapter;
+    CGPUDeviceId         device;
+    CGPUQueueId          graphics_queue;
+    CGPUQueueId          present_queue;
+    CGPURenderPassId     render_pass;
+    ECGPUBackend         backend;
+    ECGPUTextureFormat   swapchain_format;
+    uint32_t             image_count;
+    uint64_t             frame_index;
+
+} PulseRenderer;
 PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseRenderer);
+
+/**
+ * Window surface
+ *
+ */
+typedef struct PulseSurface
+{
+    CGPUInstanceId       instance;
+    CGPUSurfaceId        surface;
+
+} PulseSurface;
 PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseSurface);
+
+/**
+ * Window swapchain
+ *
+ */
+typedef struct PulseSwapchain
+{
+    CGPUDeviceId         device;
+    CGPUSwapChainId      swapchain;
+    Pulse_Array(CGPUTextureViewId, backbuffer_views);
+    Pulse_Array(CGPUFramebufferId, framebuffers);
+    Pulse_Array(CGPUSemaphoreId, image_available_semaphores);
+    Pulse_Array(CGPUSemaphoreId, render_finished_semaphores);
+    uint32_t             width;
+    uint32_t             height;
+    uint32_t             current_backbuffer_index;
+    Pulse_Array(pulse_backbuffer_data_t, backbuffers);
+    pulse_backbuffer_data_t* current_backbuffer;
+
+} PulseSwapchain;
 PULSE_GRAPHICS_API extern ECS_COMPONENT_DECLARE(PulseSwapchain);
+
 
 // ---- inline helpers for asset handle types ----
 
@@ -664,7 +663,7 @@ PULSE_GRAPHICS_API EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId
  *
  */
 PULSE_GRAPHICS_API void pulse_set_per_draw_shader_properties(PulseAppId app, Pulse_Array_Param(const char*, per_draw_shader_properties));
-PULSE_GRAPHICS_API [[pulse::optional]] const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
+[[pulse::optional]] PULSE_GRAPHICS_API const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
 [[pulse::optional]] PULSE_GRAPHICS_API const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
 
 /**

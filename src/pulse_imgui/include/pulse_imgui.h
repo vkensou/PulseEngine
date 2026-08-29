@@ -64,15 +64,14 @@ typedef struct PulseImguiPluginDesc
 
 } PulseImguiPluginDesc;
 
+
 typedef struct PulseImguiContext
 {
     ImGuiContext*        context;
 
 } PulseImguiContext;
-
-
-// ECS declarations
 PULSE_IMGUI_API extern ECS_COMPONENT_DECLARE(PulseImguiContext);
+
 
 PULSE_IMGUI_API PulseImguiPluginDesc pulse_imgui_plugin_desc_default(void);
 PULSE_IMGUI_API EPulseAppAddPluginResult pulse_add_imgui_plugin(PulseAppId app, const PulseImguiPluginDesc* desc);

@@ -56,7 +56,7 @@ struct.WindowPluginDesc
     .sdlInitFlags  "uint32_t"
     ()
 
-struct.Window
+component.Window
     .structSize "uint32_t"
     .title      "cstring"
     .width      "int32_t"
@@ -65,25 +65,29 @@ struct.Window
     .externalGraphicsContext "bool"
     ()
 
-struct.SdlWindow
+component.SdlWindow
     .handle     "*SDL_Window"
     .windowId   "uint32_t"
     .nativeView "*anyopaque"
 
-struct.TextInputEvent
+component.TextInputEvent
     .text   "[512] char"
     .window "ecs_entity_t"
     ()
 
-struct.WindowFocusEvent
+component.WindowFocusEvent
     .focused "bool"
     .window  "ecs_entity_t"
     ()
 
-struct.WindowMouseHoverEvent
+component.WindowMouseHoverEvent
     .entered "bool"
     .window  "ecs_entity_t"
     ()
+
+tag.PrimaryWindow()
+tag.WindowCloseRequested()
+tag.WindowResized()
 
 func.WindowDescDefault
     "WindowDesc"

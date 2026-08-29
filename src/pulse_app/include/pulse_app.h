@@ -228,6 +228,7 @@ typedef struct PulsePluginDesc
 struct PulseApp;
 typedef struct PulseApp PulseApp;
 
+
 /**
  * Per-frame timing (singleton component, updated every frame by the time system)
  *
@@ -241,9 +242,8 @@ typedef struct PulseTimer
     int32_t              fps;
 
 } PulseTimer;
-
-
 PULSE_APP_API extern ECS_COMPONENT_DECLARE(PulseTimer);
+
 
 [[pulse::optional]] [[pulse::owner]] PULSE_APP_API PulseAppId pulse_create_app(const PulseAppDesc* desc);
 PULSE_APP_API void pulse_destroy_app([[pulse::owner]] PulseAppId app);

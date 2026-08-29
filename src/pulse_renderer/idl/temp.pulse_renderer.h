@@ -41,10 +41,7 @@ $cfuncptrs
 
 $cstructs
 
-// ECS component declarations
-PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseCamera);
-PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseLight);
-PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseRenderable);
+$ccomponents
 
 $c99decl
 

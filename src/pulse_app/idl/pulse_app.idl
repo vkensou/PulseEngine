@@ -170,7 +170,7 @@ struct.PluginDesc
 struct.App()
 
 --- Per-frame timing (singleton component, updated every frame by the time system)
-struct.Timer
+component.Timer
     .deltaTime              "float"
     .timeSinceStartup       "float"
     .deltaTimeDouble        "double"

@@ -98,11 +98,9 @@ AddPluginResult App::validate_plugin(const Plugin& plugin) {
 
 App::App(const AppDesc& desc)
     : name_(desc.name), enable_rest_api_(desc.enable_rest_api) {
-    ecs_world_t* w = world_.c_ptr();
-    ECS_COMPONENT_DEFINE(w, PulseTimer);
-    ECS_COMPONENT_DEFINE(w, pulse_app_state_resource);
-
-    world_.component<PulseTimer>("PulseTimer", true, ecs_id(PulseTimer));
+    ecs_world_t* world = world_.c_ptr();
+    ecs_id(PulseTimer) = flecs::_::type<PulseTimer>::id(world);
+    ecs_id(pulse_app_state_resource) = flecs::_::type<pulse_app_state_resource>::id(world);
 
     PulseTimer time_ctx{};
     world_.set<PulseTimer>(time_ctx);

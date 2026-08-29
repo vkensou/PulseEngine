@@ -43,14 +43,7 @@ $cfuncptrs
 
 $cstructs
 
-// ECS declarations
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseInput);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
+$ccomponents
 
 $c99decl
 

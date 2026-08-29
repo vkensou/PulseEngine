@@ -3,9 +3,9 @@
 
 ECS_COMPONENT_DECLARE(PulseWindow);
 ECS_COMPONENT_DECLARE(PulseSdlWindow);
-ECS_TAG_DECLARE(PulsePrimaryWindowEntity);
-ECS_TAG_DECLARE(PulseWindowCloseRequested);
-ECS_TAG_DECLARE(PulseWindowResized);
+ECS_TAG_DECLARE(PulsePrimaryWindowId);
+ECS_TAG_DECLARE(PulseWindowCloseRequestedId);
+ECS_TAG_DECLARE(PulseWindowResizedId);
 ECS_COMPONENT_DECLARE(PulseTextInputEvent);
 ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
 ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
@@ -164,11 +164,11 @@ void on_window_remove(ecs_iter_t* it)
         if (ecs_has_id(world, entity, ecs_id(PulseSdlWindow))) {
             ecs_remove_id(world, entity, ecs_id(PulseSdlWindow));
         }
-        if (ecs_has_id(world, entity, PulseWindowCloseRequested)) {
-            ecs_remove_id(world, entity, PulseWindowCloseRequested);
+        if (ecs_has_id(world, entity, PulseWindowCloseRequestedId)) {
+            ecs_remove_id(world, entity, PulseWindowCloseRequestedId);
         }
-        if (ecs_has_id(world, entity, PulseWindowResized)) {
-            ecs_remove_id(world, entity, PulseWindowResized);
+        if (ecs_has_id(world, entity, PulseWindowResizedId)) {
+            ecs_remove_id(world, entity, PulseWindowResizedId);
         }
     }
 }
@@ -176,12 +176,16 @@ void on_window_remove(ecs_iter_t* it)
 } // namespace
 
 void register_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, PulseWindow);
-    ECS_COMPONENT_DEFINE(world, PulseSdlWindow);
-    ECS_COMPONENT_DEFINE(world, pulse_window_state_resource);
-    ECS_COMPONENT_DEFINE(world, PulseTextInputEvent);
-    ECS_COMPONENT_DEFINE(world, PulseWindowFocusEvent);
-    ECS_COMPONENT_DEFINE(world, PulseWindowMouseHoverEvent);
+    ecs_id(PulseWindow) = flecs::_::type<PulseWindow>::id(world);
+    ecs_id(PulseSdlWindow) = flecs::_::type<PulseSdlWindow>::id(world);
+    ecs_id(pulse_window_state_resource) = flecs::_::type<pulse_window_state_resource>::id(world);
+    ecs_id(PulseTextInputEvent) = flecs::_::type<PulseTextInputEvent>::id(world);
+    ecs_id(PulseWindowFocusEvent) = flecs::_::type<PulseWindowFocusEvent>::id(world);
+    ecs_id(PulseWindowMouseHoverEvent) = flecs::_::type<PulseWindowMouseHoverEvent>::id(world);
+    ecs_id(PulsePrimaryWindowId) = PulsePrimaryWindowId = flecs::_::type<PulsePrimaryWindow>::id(world);
+    ecs_id(PulseWindowCloseRequestedId) = PulseWindowCloseRequestedId = flecs::_::type<PulseWindowCloseRequested>::id(world);
+    ecs_id(PulseWindowResizedId) = PulseWindowResizedId = flecs::_::type<PulseWindowResized>::id(world);
+
     ecs_add_pair(world, ecs_id(PulseWindow), EcsWith, ecs_id(PulseSdlWindow));
 
     ecs_type_hooks_t pulse_sdl_window_hooks = {
@@ -200,16 +204,6 @@ void register_components(ecs_world_t* world) {
         .on_remove = on_window_remove,
     };
     ecs_set_hooks_id(world, ecs_id(PulseWindow), &pulse_window_hooks);
-
-    ECS_TAG_DEFINE(world, PulsePrimaryWindowEntity);
-    ECS_TAG_DEFINE(world, PulseWindowCloseRequested);
-    ECS_TAG_DEFINE(world, PulseWindowResized);
-
-    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
-    flecs::world world_view(world);
-    world_view.component<PulseWindow>("PulseWindow", true, ecs_id(PulseWindow));
-    world_view.component<PulseSdlWindow>("PulseSdlWindow", true, ecs_id(PulseSdlWindow));
-    world_view.component<struct PulsePrimaryWindow>("PulsePrimaryWindow", true, ecs_id(PulsePrimaryWindowEntity));
 }
 
 pulse_window_plugin_state* state_from_world(ecs_world_t* world) {

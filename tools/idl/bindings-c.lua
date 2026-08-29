@@ -22,6 +22,8 @@ local type_actions = {
 	cenums    = "\n",
 	structs   = "\n",
 	cstructs  = "\n",
+	ccomponents = "\n",
+	ctags     = "\n",
 	handles   = "\n",
 	chandles  = "\n",
 	ids       = "\n",
@@ -187,8 +189,20 @@ function typegen.structs(typedef)
 end
 
 function typegen.cstructs(typedef)
-	if typedef.struct then
+	if typedef.struct and not typedef.component and not typedef.tag then
 		return add_doxygen(typedef, codegen.gen_struct_cdefine(typedef), true)
+	end
+end
+
+function typegen.ccomponents(typedef)
+	if typedef.component then
+		return add_doxygen(typedef, codegen.gen_component_cdefine(typedef), true)
+	end
+end
+
+function typegen.ctags(typedef)
+	if typedef.tag then
+		return add_doxygen(typedef, codegen.gen_tag_cdefine(typedef), true)
 	end
 end
 

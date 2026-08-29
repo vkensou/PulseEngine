@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "imgui_internal.h"
 
 #include <cstring>
@@ -73,8 +74,8 @@ EPulsePluginBuildResult imgui_plugin_build(PulseAppId app, void* ctx) {
         io.IniFilename = state->ini_filename;
     }
 
-    ECS_COMPONENT_DEFINE(world, pulse_imgui_state_resource);
-    ECS_COMPONENT_DEFINE(world, PulseImguiContext);
+    ecs_id(pulse_imgui_state_resource) = flecs::_::type<pulse_imgui_state_resource>::id(world);
+    ecs_id(PulseImguiContext) = flecs::_::type<PulseImguiContext>::id(world);
 
     // 把 ImGuiContext 作为组件挂到渲染目标窗口上。
     // 后续系统直接查询这个组件即可拿到 context，不再需要 ctx 或全局查找。

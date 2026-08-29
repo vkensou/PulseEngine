@@ -45,8 +45,7 @@ $cfuncptrs
 
 $cstructs
 
-// ECS declarations
-PULSE_IMGUI_API extern ECS_COMPONENT_DECLARE(PulseImguiContext);
+$ccomponents
 
 $c99decl
 

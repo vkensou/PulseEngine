@@ -78,6 +78,7 @@ typedef struct PulseWindowPluginDesc
 
 } PulseWindowPluginDesc;
 
+
 typedef struct PulseWindow
 {
     uint32_t             struct_size;
@@ -88,6 +89,7 @@ typedef struct PulseWindow
     bool                 external_graphics_context;
 
 } PulseWindow;
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
 
 typedef struct PulseSdlWindow
 {
@@ -96,6 +98,7 @@ typedef struct PulseSdlWindow
     void*                native_view;
 
 } PulseSdlWindow;
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
 
 typedef struct PulseTextInputEvent
 {
@@ -103,6 +106,7 @@ typedef struct PulseTextInputEvent
     ecs_entity_t         window;
 
 } PulseTextInputEvent;
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
 
 typedef struct PulseWindowFocusEvent
 {
@@ -110,6 +114,7 @@ typedef struct PulseWindowFocusEvent
     ecs_entity_t         window;
 
 } PulseWindowFocusEvent;
+PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
 
 typedef struct PulseWindowMouseHoverEvent
 {
@@ -117,19 +122,18 @@ typedef struct PulseWindowMouseHoverEvent
     ecs_entity_t         window;
 
 } PulseWindowMouseHoverEvent;
-
-
-// ECS declarations
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseSdlWindow);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindowEntity);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequested);
-PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResized);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseTextInputEvent);
-PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowFocusEvent);
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindowMouseHoverEvent);
 
-struct PulsePrimaryWindow{};
+
+typedef struct PulsePrimaryWindow{} PulsePrimaryWindow;
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulsePrimaryWindowId);
+
+typedef struct PulseWindowCloseRequested{} PulseWindowCloseRequested;
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowCloseRequestedId);
+
+typedef struct PulseWindowResized{} PulseWindowResized;
+PULSE_WINDOW_API extern ECS_TAG_DECLARE(PulseWindowResizedId);
+
 
 PULSE_WINDOW_API PulseWindowDesc pulse_window_desc_default(void);
 PULSE_WINDOW_API PulseWindowPluginDesc pulse_window_plugin_desc_default(void);

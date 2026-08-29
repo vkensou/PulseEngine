@@ -58,19 +58,13 @@ void propagate_world_transform(ecs_iter_t* it) {
 } // anonymous namespace
 
 void register_components(ecs_world_t* world) {
-    ECS_COMPONENT_DEFINE(world, PulseLocalTransform);
-    ECS_COMPONENT_DEFINE(world, PulseWorldTransform);
-    ECS_COMPONENT_DEFINE(world, PulseShowMatrix);
+    ecs_id(PulseLocalTransform) = flecs::_::type<PulseLocalTransform>::id(world);
+    ecs_id(PulseWorldTransform) = flecs::_::type<PulseWorldTransform>::id(world);
+    ecs_id(PulseShowMatrix) = flecs::_::type<PulseShowMatrix>::id(world);
 
     // Auto-insertion (EcsWith):
     //   Adding LocalTransform automatically ensures WorldTransform is present.
     ecs_add_pair(world, ecs_id(PulseLocalTransform), EcsWith, ecs_id(PulseWorldTransform));
-
-    // Bind C++ types to the C component ids so gameplay modules can use flecs C++ API.
-    flecs::world world_view(world);
-    world_view.component<PulseLocalTransform>("PulseLocalTransform", true, ecs_id(PulseLocalTransform));
-    world_view.component<PulseWorldTransform>("PulseWorldTransform", true, ecs_id(PulseWorldTransform));
-    world_view.component<PulseShowMatrix>("PulseShowMatrix", true, ecs_id(PulseShowMatrix));
 }
 
 void install_transform_systems(ecs_world_t* world) {

@@ -56,6 +56,8 @@ typedef enum EPulseRendererPropertyType
 
 
 
+
+
 /**
  * ECS Components
  *
@@ -68,12 +70,14 @@ typedef struct PulseCamera
     float                far_plane;
 
 } PulseCamera;
+PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseCamera);
 
 typedef struct PulseLight
 {
     HMM_Vec4             color;
 
 } PulseLight;
+PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseLight);
 
 typedef struct PulseRenderable
 {
@@ -81,12 +85,8 @@ typedef struct PulseRenderable
     PulseMaterialHandle  material;
 
 } PulseRenderable;
-
-
-// ECS component declarations
-PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseCamera);
-PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseLight);
 PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseRenderable);
+
 
 
 /**

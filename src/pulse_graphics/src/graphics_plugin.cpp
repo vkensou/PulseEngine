@@ -1,3 +1,4 @@
+#include <flecs.h>
 #include "graphics_internal.h"
 
 #include <algorithm>
@@ -147,7 +148,7 @@ EPulsePluginBuildResult graphic_plugin_build(PulseAppId app, void* ctx) {
         return PULSE_PLUGIN_BUILD_RESULT_ERROR_INTERNAL;
     }
 
-    ECS_COMPONENT_DEFINE(world, pulse_graphics_state_resource);
+    ecs_id(pulse_graphics_state_resource) = flecs::_::type<pulse_graphics_state_resource>::id(world);
     register_components(world);
 
     pulse_graphics_state_resource res{ state };

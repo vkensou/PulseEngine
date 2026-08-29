@@ -40,6 +40,8 @@ extern "C" {
 
 
 
+
+
 typedef struct PulseLocalTransform
 {
     HMM_Vec3             translation;
@@ -47,24 +49,22 @@ typedef struct PulseLocalTransform
     HMM_Vec3             scale;
 
 } PulseLocalTransform;
+PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
 
 typedef struct PulseWorldTransform
 {
     HMM_Mat4             value;
 
 } PulseWorldTransform;
+PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
 
 typedef struct PulseShowMatrix
 {
     HMM_Mat4             model;
 
 } PulseShowMatrix;
-
-
-// ECS declarations
-PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
-PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
 PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
+
 
 PULSE_TRANSFORM_API EPulseAppAddPluginResult pulse_add_transform_plugin(PulseAppId app);
 PULSE_TRANSFORM_API void pulse_set_parent(PulseAppId app, ecs_entity_t child, ecs_entity_t parent);

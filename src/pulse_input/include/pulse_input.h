@@ -42,6 +42,8 @@ extern "C" {
 
 
 
+
+
 typedef struct PulseKeyboardInput
 {
     bool                 pressed[512];
@@ -49,6 +51,7 @@ typedef struct PulseKeyboardInput
     bool                 just_released[512];
 
 } PulseKeyboardInput;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
 
 typedef struct PulseMouseInput
 {
@@ -57,6 +60,7 @@ typedef struct PulseMouseInput
     uint8_t              just_released;
 
 } PulseMouseInput;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseInput);
 
 typedef struct PulseMouseMotion
 {
@@ -66,6 +70,7 @@ typedef struct PulseMouseMotion
     float                y;
 
 } PulseMouseMotion;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
 
 typedef struct PulseMouseScroll
 {
@@ -73,6 +78,7 @@ typedef struct PulseMouseScroll
     float                y;
 
 } PulseMouseScroll;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
 
 typedef struct PulseKeyEvent
 {
@@ -84,6 +90,7 @@ typedef struct PulseKeyEvent
     ecs_entity_t         window;
 
 } PulseKeyEvent;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
 
 typedef struct PulseMouseButtonEvent
 {
@@ -95,6 +102,7 @@ typedef struct PulseMouseButtonEvent
     ecs_entity_t         window;
 
 } PulseMouseButtonEvent;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
 
 typedef struct PulseMouseScrollEvent
 {
@@ -104,16 +112,8 @@ typedef struct PulseMouseScrollEvent
     ecs_entity_t         window;
 
 } PulseMouseScrollEvent;
-
-
-// ECS declarations
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyboardInput);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseInput);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseMotion);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScroll);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseKeyEvent);
-PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
 PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
+
 
 PULSE_INPUT_API EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app);
 PULSE_INPUT_API bool pulse_input_is_key_down(PulseAppId app, int32_t scancode);

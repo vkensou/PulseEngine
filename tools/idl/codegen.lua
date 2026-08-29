@@ -1357,6 +1357,21 @@ end
 local chandle_temp = [[
 typedef struct $NAME_s { uint16_t idx; } $NAME_t;
 ]]
+function codegen.gen_component_cdefine(component)
+	assert(component.component, "Not a component")
+	local api = codegen._naming.api_macro
+	return codegen.gen_struct_cdefine(component) ..
+		api .. " extern ECS_COMPONENT_DECLARE(" .. component.cname .. ");\n"
+end
+
+function codegen.gen_tag_cdefine(tag)
+	assert(tag.tag, "Not a tag")
+	assert(#tag.struct == 0, "tag can not have fields")
+	local api = codegen._naming.api_macro
+	return string.format(
+		"typedef struct %s{} %s;\n%s extern ECS_TAG_DECLARE(%s);\n",
+		tag.cname, tag.cname, api, tag.cname .. "Id")
+end
 function codegen.gen_chandle(handle)
 	assert(handle.handle, "Not a handle")
 	return (chandle_temp:gsub("$(%u+)", { NAME = handle.cname:match "(.-)_t$" }))

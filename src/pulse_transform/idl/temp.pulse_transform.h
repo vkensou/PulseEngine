@@ -41,10 +41,7 @@ $cfuncptrs
 
 $cstructs
 
-// ECS declarations
-PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseLocalTransform);
-PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseWorldTransform);
-PULSE_TRANSFORM_API extern ECS_COMPONENT_DECLARE(PulseShowMatrix);
+$ccomponents
 
 $c99decl
 
