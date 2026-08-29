@@ -7,7 +7,6 @@ if is_plat("windows") then
     add_ldflags("-subsystem:console")
 elseif is_plat("android") then
     add_cxflags("-fPIC")
-    -- includes("androidcpp")
     set_runtimes("c++_shared")
 end
 
@@ -20,7 +19,7 @@ if is_host("windows") and is_plat("android") then
     set_policy("install.strip_packagelibs", false)
 end
 
-add_requires("libsdl3", {configs = {sdlmain = false, shared = true}})
+add_requires("libsdl3 3.4.12", {configs = {sdlmain = false, shared = true}})
 add_requires("imgui v1.92.1-docking", {configs = {shared = true}})
 add_requires("mimalloc")
 add_requires("enkits")
@@ -262,7 +261,7 @@ target("pulse_daslang")
     end
 
 target("launcher")
-    set_kind("binary")
+    set_kind(is_plat("android") and "shared" or "binary")
     add_deps("pulse_app")
     add_deps("pulse_config")
     add_deps("pulse_package_loader")

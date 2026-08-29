@@ -26,7 +26,8 @@
 #include "pulse_package_loader.h"
 #include "pulse_vfs.h"
 
-int main(int argc, char** argv)
+extern "C"
+int SDL_main(int argc, char** argv)
 {
     // packages 搜索目录：每个位置参数是一个搜索目录；未传时默认当前目录 "."。
     std::vector<const char*> search_paths;
@@ -121,4 +122,8 @@ int main(int argc, char** argv)
     pulse_config_release(root);
     printf("Pulse launcher exited.\n");
     return 0;
+}
+
+int main(int argc, char** argv) {
+    return SDL_main(argc, argv);
 }
