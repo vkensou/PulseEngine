@@ -5,5 +5,8 @@
   "assets": true,
   "dependencies": [
     "pulse_asset"
+  ],
+  "paths": [
+    "das"
   ]
 }

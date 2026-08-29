@@ -13,5 +13,8 @@
     "pulse_renderer",
     "pulse_imgui",
     "pulse_daslang"
+  ],
+  "paths": [
+    "assets"
   ]
 }

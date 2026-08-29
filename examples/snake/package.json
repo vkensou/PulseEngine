@@ -12,5 +12,8 @@
     "pulse_graphics",
     "pulse_renderer",
     "pulse_imgui"
+  ],
+  "paths": [
+    "assets"
   ]
 }

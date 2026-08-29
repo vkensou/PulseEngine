@@ -86,3 +86,61 @@ rule("pulse.copy_package_runtime")
             end
         end
     end)
+
+rule("pulse.package_install")
+
+    on_install(function (target)
+
+        if not (target:is_shared() or target:is_binary()) then
+            return
+        end
+
+        local rulename = "pulse.package_install"
+        local manifest = target:extraconf("rules", rulename, "manifest")
+
+        local destdir = target:installdir()
+        if not manifest then
+            os.raise("pulse.package_install: manifest not configured")
+        end
+        if not destdir then
+            os.raise("pulse.package_install: installdir not set")
+        end
+
+        manifest = path.absolute(manifest, os.projectdir())
+        if not os.isfile(manifest) then
+            os.raise("pulse.package_install: manifest not found: %s", manifest)
+        end
+
+        os.mkdir(destdir)
+
+        local targetfile = target:targetfile()
+        if targetfile and os.isfile(targetfile) then
+            os.cp(targetfile, destdir)
+        end
+
+        os.cp(manifest, destdir)
+
+        local json = import("core.base.json")
+        local manifest_data = json.decode(io.readfile(manifest))
+        if not manifest_data then
+            os.raise("pulse.package_install: failed to parse manifest: %s", manifest)
+        end
+
+        local manifestdir = path.directory(manifest)
+        for _, relpath in ipairs(table.wrap(manifest_data.paths)) do
+            local srcpath = path.join(manifestdir, relpath)
+            if not (os.isfile(srcpath) or os.isdir(srcpath)) then
+                os.raise("pulse.package_install: resource not found: %s", srcpath)
+            end
+            os.cp(srcpath, destdir)
+        end
+
+        for _, pkg in ipairs(target:orderpkgs()) do
+            for _, file in ipairs(pkg:get("libfiles") or {}) do
+                local filename = path.filename(file)
+                if filename:find("%.dll") or filename:find("%.so") or filename:find("%.dylib") then
+                    os.cp(file, path.join(destdir, filename))
+                end
+            end
+        end
+    end)
