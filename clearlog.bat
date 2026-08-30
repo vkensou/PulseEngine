@@ -1,1 +1,1 @@
-D:\pgtools\android\sdk\platform-tools\adb.exe -s emulator-5554 shell logcat -c
+D:\pgtools\android\sdk\platform-tools\adb.exe -s 127.0.0.1:5555 shell logcat -c

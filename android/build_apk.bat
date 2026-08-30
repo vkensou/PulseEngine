@@ -183,6 +183,20 @@ if not exist "%LIBDIR%\libc++_shared.so" (
     copy /y "!CPP_SHARED!" "%LIBDIR%\" >nul
 )
 
+echo adding extra libs...
+if defined EXTRA_LIB_DIRS if not "%EXTRA_LIB_DIRS%"=="" (
+    for %%D in ("%EXTRA_LIB_DIRS:;=" "%") do (
+        if not "%%~D"=="" (
+            if not exist "%%~D" (
+                echo ERROR: EXTRA_LIB_DIRS entry not found: %%~D
+                exit /b 1
+            )
+            robocopy "%%~D" "%STAGE%\lib" /E >nul
+            if errorlevel 8 exit /b 1
+        )
+    )
+)
+
 echo packing resources...
 "%AAPT%" package -f -M "%STAGE%\AndroidManifest.xml" -I "%ANDROID_JAR%" -F "%STAGE%\res.zip" -S "%STAGE%\res" -A "%ASSETS%"
 if errorlevel 1 exit /b 1
