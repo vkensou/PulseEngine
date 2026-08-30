@@ -281,6 +281,28 @@ void emit_mouse_button_event(
     ecs_enqueue(world, &event_desc);
 }
 
+void emit_mouse_motion_event(
+    ecs_world_t* world,
+    ecs_entity_t window_entity,
+    const SDL_Event& event
+) {
+    PulseMouseMotionEvent motion_evt = {
+        .x = event.motion.x,
+        .y = event.motion.y,
+        .is_touch = (event.motion.which == SDL_TOUCH_MOUSEID),
+        .window = window_entity,
+    };
+    ecs_id_t comp_ids[] = { ecs_id(PulseMouseInput) };
+    ecs_type_t ids = { .array = comp_ids, .count = 1 };
+    ecs_event_desc_t event_desc = {};
+    event_desc.event = ecs_id(PulseMouseMotionEvent);
+    event_desc.entity = ecs_id(PulseMouseInput);
+    event_desc.ids = &ids;
+    event_desc.const_param = &motion_evt;
+    event_desc.observable = world;
+    ecs_enqueue(world, &event_desc);
+}
+
 void emit_mouse_scroll_event(
     ecs_world_t* world,
     ecs_entity_t window_entity,
@@ -396,6 +418,10 @@ EPulseResult pulse_window_poll_events(PulseAppId app, pulse_window_plugin_state*
             // --- Mouse button events: emit PulseMouseButtonEvent with window info ---
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
                 emit_mouse_button_event(world, window_entity, event);
+            }
+            // --- Mouse motion: emit PulseMouseMotionEvent with window info ---
+            else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                emit_mouse_motion_event(world, window_entity, event);
             }
             // --- Mouse wheel: emit PulseMouseScrollEvent with window info ---
             else if (event.type == SDL_EVENT_MOUSE_WHEEL) {

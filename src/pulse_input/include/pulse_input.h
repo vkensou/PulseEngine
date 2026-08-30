@@ -114,6 +114,16 @@ typedef struct PulseMouseScrollEvent
 } PulseMouseScrollEvent;
 PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
 
+typedef struct PulseMouseMotionEvent
+{
+    float                x;
+    float                y;
+    bool                 is_touch;
+    ecs_entity_t         window;
+
+} PulseMouseMotionEvent;
+PULSE_INPUT_API extern ECS_COMPONENT_DECLARE(PulseMouseMotionEvent);
+
 
 PULSE_INPUT_API EPulseAppAddPluginResult pulse_add_input_plugin(PulseAppId app);
 PULSE_INPUT_API bool pulse_input_is_key_down(PulseAppId app, int32_t scancode);

@@ -47,7 +47,8 @@ EPulsePluginBuildResult imgui_plugin_build(PulseAppId app, void* ctx) {
 
     // 输入/窗口组件需要对应插件先注册（pulse_imgui 观察这些组件上的事件）。
     if (!ecs_id(PulseKeyboardInput) || !ecs_id(PulseMouseInput) ||
-        !ecs_id(PulseMouseScroll) || !ecs_id(PulseWindow) ||
+        !ecs_id(PulseMouseScroll) || !ecs_id(PulseMouseMotionEvent) ||
+        !ecs_id(PulseWindow) ||
         !ecs_id(PulseTextInputEvent) || !ecs_id(PulseWindowFocusEvent) ||
         !ecs_id(PulseWindowMouseHoverEvent)) {
         return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_STATE;

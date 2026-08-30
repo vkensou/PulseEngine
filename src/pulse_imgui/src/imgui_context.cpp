@@ -13,12 +13,6 @@ void sync_display_size(const PulseWindow* window) {
 void sync_input(pulse_imgui_plugin_state* state) {
     ImGuiIO& io = ImGui::GetIO();
 
-    // 鼠标位置：直接查 SDL，保证 PreUpdate 阶段内不依赖 PulseInputSystem
-    // 与本系统的先后顺序（两者同属 EcsPreUpdate，无顺序保证）。
-    float mouse_x = 0.0f, mouse_y = 0.0f;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
-    io.AddMousePosEvent(mouse_x, mouse_y);
-
     // 修饰键：imgui 需要持续状态。优先 SDL 实时状态，
     // 输入插件未注册时退化到不发送（业务上 pulse_imgui 应在 pulse_input 之后安装）。
     io.AddKeyEvent(

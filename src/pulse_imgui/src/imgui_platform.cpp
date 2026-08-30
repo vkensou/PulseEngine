@@ -358,6 +358,25 @@ void imgui_mouse_button_observer(ecs_iter_t* it) {
     io.AddMousePosEvent(evt->x, evt->y);
 }
 
+void imgui_mouse_motion_observer(ecs_iter_t* it) {
+    pulse_imgui_plugin_state* state =
+        static_cast<pulse_imgui_plugin_state*>(it->ctx);
+    const PulseMouseMotionEvent* evt =
+        static_cast<const PulseMouseMotionEvent*>(it->param);
+    if (!state || !evt || !state->context) {
+        return;
+    }
+    if (!event_belongs_to_window(state, it->world, evt->window)) {
+        return;
+    }
+
+    ImGui::SetCurrentContext(state->context);
+    ImGuiIO& io = ImGui::GetIO();
+    io.AddMouseSourceEvent(
+        evt->is_touch ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse);
+    io.AddMousePosEvent(evt->x, evt->y);
+}
+
 void imgui_mouse_scroll_observer(ecs_iter_t* it) {
     pulse_imgui_plugin_state* state =
         static_cast<pulse_imgui_plugin_state*>(it->ctx);
@@ -583,6 +602,14 @@ void install_imgui_input(ecs_world_t* world, pulse_imgui_plugin_state* state) {
         desc.query.terms[0].id = ecs_id(PulseMouseInput);
         desc.events[0] = ecs_id(PulseMouseButtonEvent);
         desc.callback = imgui_mouse_button_observer;
+        desc.ctx = state;
+        ecs_observer_init(world, &desc);
+    }
+    {
+        ecs_observer_desc_t desc{};
+        desc.query.terms[0].id = ecs_id(PulseMouseInput);
+        desc.events[0] = ecs_id(PulseMouseMotionEvent);
+        desc.callback = imgui_mouse_motion_observer;
         desc.ctx = state;
         ecs_observer_init(world, &desc);
     }

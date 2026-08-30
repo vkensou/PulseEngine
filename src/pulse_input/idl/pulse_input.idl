@@ -70,6 +70,13 @@ component.MouseScrollEvent
     .window  "ecs_entity_t"
     ()
 
+component.MouseMotionEvent
+    .x       "float"
+    .y       "float"
+    .isTouch "bool"
+    .window  "ecs_entity_t"
+    ()
+
 func.AddInputPlugin
     "EPulseAppAddPluginResult"
     .app  "PulseAppId"

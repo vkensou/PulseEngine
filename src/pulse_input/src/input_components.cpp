@@ -10,6 +10,7 @@ ECS_COMPONENT_DECLARE(PulseMouseScroll);
 ECS_COMPONENT_DECLARE(PulseKeyEvent);
 ECS_COMPONENT_DECLARE(PulseMouseButtonEvent);
 ECS_COMPONENT_DECLARE(PulseMouseScrollEvent);
+ECS_COMPONENT_DECLARE(PulseMouseMotionEvent);
 
 namespace pulse_input_internal {
 
@@ -145,6 +146,7 @@ void register_components(ecs_world_t* world) {
     ecs_id(PulseKeyEvent) = flecs::_::type<PulseKeyEvent>::id(world);
     ecs_id(PulseMouseButtonEvent) = flecs::_::type<PulseMouseButtonEvent>::id(world);
     ecs_id(PulseMouseScrollEvent) = flecs::_::type<PulseMouseScrollEvent>::id(world);
+    ecs_id(PulseMouseMotionEvent) = flecs::_::type<PulseMouseMotionEvent>::id(world);
     ecs_id(pulse_input_state_resource) = flecs::_::type<pulse_input_state_resource>::id(world);
 }
 
