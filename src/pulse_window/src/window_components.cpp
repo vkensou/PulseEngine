@@ -23,16 +23,11 @@ SDL_Window* create_sdl_window(const char* title, float width, float height, bool
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
     SDL_SetFloatProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
     SDL_SetFloatProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
-    SDL_SetBooleanProperty(
-        props,
-        SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN,
-        resizable
-    );
-    SDL_SetBooleanProperty(
-        props,
-        SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN,
-        external_graphics_context
-    );
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, resizable);
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN, external_graphics_context);
+#ifdef __ANDROID__
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+#endif
 
     SDL_Window* sdl_window = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);
