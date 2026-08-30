@@ -15,7 +15,7 @@ namespace pulse_daslang_internal
 	struct Module
 	{
 		Module() = default;
-		Module(std::string path, das::FileInfoPtr main_info, das::ModuleGroup group, das::ProgramPtr prog, std::unique_ptr<das::Context> ctx)
+		Module(std::string path, das::FileInfoPtr main_info, std::unique_ptr<das::ModuleGroup> group, das::ProgramPtr prog, std::unique_ptr<das::Context> ctx)
 			: script_path(std::move(path))
 			, main_file_info(std::move(main_info))
 			, module_group(std::move(group))
@@ -32,7 +32,7 @@ namespace pulse_daslang_internal
 
 		std::string script_path;
 		das::FileInfoPtr main_file_info;
-		das::ModuleGroup module_group;
+        std::unique_ptr<das::ModuleGroup> module_group;
 		das::ProgramPtr program;
 		std::unique_ptr<das::Context> context;
 	};

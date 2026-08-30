@@ -69,7 +69,7 @@ namespace pulse_daslang_internal
     {
         context.reset();
         program.reset();
-        module_group = das::ModuleGroup();
+        module_group.reset();
     }
 
     std::string normalize_cache_key(std::string_view path)
@@ -170,8 +170,8 @@ namespace pulse_daslang_internal
         das::FileInfoPtr file_info = das::make_unique<das::TextFileInfo>(text.data(), static_cast<uint32_t>(text.size()), false);
         state->access->setFileInfo(script_key, std::move(file_info));
 
-        das::ModuleGroup module_group;
-        auto program = das::compileDaScript(script_key, state->access, printer, module_group);
+        std::unique_ptr<das::ModuleGroup> module_group = std::make_unique<das::ModuleGroup>();
+        auto program = das::compileDaScript(script_key, state->access, printer, *module_group);
         if (!program || program->failed()) {
             report_program_errors(program, printer);
             return false;
@@ -211,7 +211,7 @@ namespace pulse_daslang_internal
             return false;
         }
 
-        if (!das::verifyCall<void, dasPulseECS::ModuleContext&>(fn_import->debugInfo, module.module_group))
+        if (!das::verifyCall<void, dasPulseECS::ModuleContext&>(fn_import->debugInfo, *module.module_group))
         {
             printer << "Daslang 'importModule' has wrong signature; expected def importModule(var ctx: ModuleContext): void\n";
             return false;
