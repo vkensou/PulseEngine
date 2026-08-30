@@ -1,0 +1,1 @@
+D:\pgtools\android\sdk\platform-tools\adb.exe -s emulator-5554 shell logcat -c
