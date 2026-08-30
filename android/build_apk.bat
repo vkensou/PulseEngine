@@ -88,7 +88,6 @@ if "%~1"=="-build" (
     if errorlevel 1 exit /b 1
 )
 
-set "SDL_JAR=build\android\SDL.jar"
 if not exist "%SDL_JAR%" (
     echo ERROR: %SDL_JAR% not found, run build_sdl_jar.bat first
     exit /b 1
