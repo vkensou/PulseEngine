@@ -25,6 +25,7 @@
 #include "pulse_config.h"
 #include "pulse_package_loader.h"
 #include "pulse_vfs.h"
+#include "SDL3/SDL.h"
 
 extern "C"
 int SDL_main(int argc, char** argv)
@@ -61,7 +62,16 @@ int SDL_main(int argc, char** argv)
     PulsePackageLoaderId loader = pulse_package_loader_create(app);
     assert(loader != nullptr);
 
-    PulseConfig* root = pulse_config_create_from_json_file("launcher.manifest.json");
+    size_t manifest_size = 0;
+    void* manifest_data = SDL_LoadFile("launcher.manifest.json", &manifest_size);
+    if (!manifest_data) {
+        fprintf(stderr, "cannot load launcher.manifest.json from assets\n");
+        pulse_destroy_app(app);
+        pulse_package_loader_cleanup(loader);
+        return 1;
+    }
+    PulseConfig* root = pulse_config_create_from_json(static_cast<const char*>(manifest_data), manifest_size);
+    SDL_free(manifest_data);
     if (!root) {
         fprintf(stderr, "bad launcher.manifest.json: %s\n", pulse_config_last_error());
         pulse_destroy_app(app);
