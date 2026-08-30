@@ -42,7 +42,7 @@ int SDL_main(int argc, char** argv)
         search_paths.push_back(argv[i]);
     }
     if (search_paths.empty()) {
-        search_paths.push_back(".");
+        search_paths.push_back("packages");
     }
     printf("package search dirs:");
     for (const char* dir : search_paths)
