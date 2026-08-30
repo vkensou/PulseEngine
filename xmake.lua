@@ -19,11 +19,13 @@ if is_host("windows") and is_plat("android") then
     set_policy("install.strip_packagelibs", false)
 end
 
+add_repositories("local-repo xmake")
+
 add_requires("libsdl3 3.4.12", {configs = {sdlmain = false, shared = true}})
 add_requires("imgui v1.92.1-docking", {configs = {shared = true}})
 add_requires("mimalloc")
 add_requires("enkits")
-add_requires("physfs")
+add_requires("physfs 2026.08.30", {configs = {sdl3 = true}})
 
 if is_plat("windows", "linux", "android") then
     option("use_vulkan")
