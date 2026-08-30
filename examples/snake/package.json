@@ -1,7 +1,7 @@
 {
   "name": "snake",
   "version": "1.0.0",
-  "library": "example_snake.dll",
+  "library": "example_snake",
   "entry": "pulse_package_register",
   "assets": true,
   "dependencies": [

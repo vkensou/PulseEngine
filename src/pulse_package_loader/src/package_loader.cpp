@@ -81,6 +81,16 @@ std::string join_path(const std::string& a, const std::string& b) {
     return (last == '/' || last == '\\') ? a + b : a + "/" + b;
 }
 
+std::string platform_library_name(const std::string& base) {
+#ifdef _WIN32
+    return base + ".dll";
+#elif defined(__APPLE__)
+    return "lib" + base + ".dylib";
+#else
+    return "lib" + base + ".so";
+#endif
+}
+
 bool file_exists(const std::string& path) {
 #ifdef _WIN32
     DWORD attr = GetFileAttributesA(path.c_str());
@@ -218,27 +228,23 @@ bool resolve_package(const char* entry_name, const std::string& host_dir, Resolv
 
         const char* library = pulse_config_get_string(cfg, "library", nullptr);
         const bool library_absolute = library && library[0] && (library[0] == '/' || library[0] == '\\' || library[1] == ':');
-        if (library && library[0]) {
-            out.library_path = library_absolute ? library : join_path(host_dir, library);
+        if (library_absolute) {
+            out.library_path = library;
         } else {
-            std::string base = host_dir;
-            auto last = base.find_last_of("/\\");
-            base = (last == std::string::npos) ? base : base.substr(last + 1);
-            if (base.empty()) base = entry_name;
-#ifdef _WIN32
-            out.library_path = join_path(host_dir, base + ".dll");
-#elif defined(__APPLE__)
-            out.library_path = join_path(host_dir, "lib" + base + ".dylib");
-#else
-            out.library_path = join_path(host_dir, "lib" + base + ".so");
-#endif
-        }
+            std::string base;
+            if (library && library[0]) {
+                base = library;
+            } else {
+                std::string dir = host_dir;
+                auto last = dir.find_last_of("/\\");
+                base = (last == std::string::npos) ? dir : dir.substr(last + 1);
+                if (base.empty()) base = entry_name;
+            }
+            out.library_path = join_path(host_dir, platform_library_name(base));
 
-        if (!library_absolute && !file_exists(out.library_path)) {
-            auto slash = out.library_path.find_last_of("/\\");
-            if (slash != std::string::npos) {
+            if (!file_exists(out.library_path)) {
                 printf("library '%s' not found beside package manifest, falling back to name search\n", out.library_path.c_str());
-                out.library_path = out.library_path.substr(slash + 1);
+                out.library_path = platform_library_name(base);
             }
         }
     }

@@ -1,7 +1,7 @@
 {
   "name": "pkg_custom_entry",
   "version": "1.0.0",
-  "library": "test-pkg-custom-entry.dll",
+  "library": "test-pkg-custom-entry",
   "entry": "custom_package_register",
   "dependencies": []
 }
