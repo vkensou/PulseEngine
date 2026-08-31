@@ -1,5 +1,6 @@
 #include "snake.h"
 
+#include <cmath>
 #include <optional>
 #include <random>
 #include "imgui.h"
@@ -384,10 +385,19 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 	command_buffer.set_singleton<SnakeResources>(snakeResources);
 
 	// 棋盘 + 蛇 + 苹果
-	int up = 16;
-	int bottom = -15;
-	int left = -20;
-	int right = 21;
+	auto windowEntity = primaryWindowQuery.first();
+	const PulseWindow& window = windowEntity.get<PulseWindow>();
+
+	const float boardCenterX = 0.5f;
+	const float boardCenterY = 0.5f;
+	const float cameraZ = -38.f;
+	const float cameraFov = 45.f;
+	float halfHeight = -cameraZ * HMM_TanF(cameraFov * HMM_DegToRad * 0.5f);
+	float halfWidth = halfHeight * ((float)window.width / (float)window.height);
+	int up = (int)std::round(boardCenterY + halfHeight);
+	int bottom = (int)std::round(boardCenterY - halfHeight);
+	int left = (int)std::round(boardCenterX - halfWidth);
+	int right = (int)std::round(boardCenterX + halfWidth);
 
 	// 注意：系统运行期间（stage）不能 defer_suspend 后直接创建实体，
 	// 会让结构变更绕过 staging 直接改 readonly 主 world 导致死锁。
@@ -395,10 +405,9 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 	Border border = createBorder(command_buffer, quad, boardMat, up, bottom, left, right);
 	createEntities(command_buffer, border, snakeResources);
 
-	auto windowEntity = primaryWindowQuery.first();
 	auto camera = command_buffer.entity();
-	camera.set<PulseLocalTransform>({ .translation = HMM_V3(0.5f, 0.5f, -38.f), .rotation = HMM_Q_Identity, .scale = HMM_V3_One });
-	camera.set<PulseCamera>({ .window_entity = windowEntity, .fov = 45.f, .near_plane = 0.1f, .far_plane = 1000.f });
+	camera.set<PulseLocalTransform>({ .translation = HMM_V3(boardCenterX, boardCenterY, cameraZ), .rotation = HMM_Q_Identity, .scale = HMM_V3_One });
+	camera.set<PulseCamera>({ .window_entity = windowEntity, .fov = cameraFov, .near_plane = 0.1f, .far_plane = 1000.f });
 
 	state.to(SnakeGameState::Gaming);
 	printf("Snake resources ready.\n");
