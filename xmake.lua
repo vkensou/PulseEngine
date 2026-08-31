@@ -80,6 +80,16 @@ target("pulse_config")
     add_headerfiles("src/pulse_config/include/*.h")
     add_files("src/pulse_config/src/*.cpp")
 
+target("pulse_datalist")
+    set_group("core")
+    set_kind("shared")
+    set_exceptions("none")
+    add_defines("PULSE_DATALIST_MODULE_BUILD")
+    add_deps("pulse_platform")
+    add_includedirs("src/pulse_datalist/include", {public = true})
+    add_headerfiles("src/pulse_datalist/include/*.h")
+    add_files("src/pulse_datalist/src/*.cpp")
+
 target("pulse_script_register")
     set_group("core")
     set_kind("headeronly")
@@ -298,6 +308,20 @@ for _, test_file in ipairs(os.files("tests/config/test_*.cpp")) do
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")
         add_tests("default", {group = "config", rundir = "$(projectdir)"})
+end
+
+for _, test_file in ipairs(os.files("tests/datalist/test_*.cpp")) do
+    local test_name = "test-datalist-" .. path.basename(test_file):gsub("^test_", "")
+    target(test_name)
+        set_group("tests")
+        set_kind("binary")
+        set_default(false)
+        set_rundir("$(projectdir)")
+        add_includedirs("tests/datalist")
+        add_deps("pulse_datalist")
+        add_files(test_file)
+        add_files("tests/helper/msvc_headless_asserts.c")
+        add_tests("default", {group = "datalist", rundir = "$(projectdir)"})
 end
 
 target("test-pkg-custom-entry")

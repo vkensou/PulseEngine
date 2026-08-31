@@ -1,0 +1,154 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+struct.Datalist()
+
+enum.DatalistType { underscore }
+    .Nil
+    .Bool
+    .Int
+    .Double
+    .String
+    .List
+    .Map
+    .Mixed
+    ()
+
+func.DatalistCreateFromText
+    "?*Datalist"
+    .text "cstring"
+    .len  "size_t"
+    ()
+
+func.DatalistCreateFromTextList
+    "?*Datalist"
+    .text "cstring"
+    .len  "size_t"
+    ()
+
+func.DatalistCreateFromTextFile
+    "?*Datalist"
+    .path "cstring"
+    ()
+
+func.DatalistAddref
+    "void"
+    .node "*Datalist"
+    ()
+
+func.DatalistRelease
+    "void"
+    .node "*Datalist" { owner = true }
+    ()
+
+func.DatalistFreeString
+    "void"
+    .str "*char" { owner = true }
+    ()
+
+func.DatalistGetType
+    "DatalistType::Enum"
+    .node "*const Datalist"
+    .key "?cstring"
+    ()
+
+func.DatalistHas
+    "bool"
+    .node "*const Datalist"
+    .key "?cstring"
+    ()
+
+func.DatalistGetBool
+    "bool"
+    .node "*const Datalist"
+    .key "?cstring"
+    .defaultValue "bool"
+    ()
+
+func.DatalistGetInt
+    "int64_t"
+    .node "*const Datalist"
+    .key "?cstring"
+    .defaultValue "int64_t"
+    ()
+
+func.DatalistGetDouble
+    "double"
+    .node "*const Datalist"
+    .key "?cstring"
+    .defaultValue "double"
+    ()
+
+func.DatalistGetString
+    "?cstring"
+    .node "*const Datalist"
+    .key "?cstring"
+    .defaultValue "?cstring"
+    ()
+
+func.DatalistGetObj
+    "?*Datalist"
+    .node "*const Datalist"
+    .key "?cstring"
+    ()
+
+func.DatalistCount
+    "size_t"
+    .node "*const Datalist"
+    ()
+
+func.DatalistGet
+    "?*Datalist"
+    .node "*const Datalist"
+    .index "size_t"
+    ()
+
+func.DatalistObjectCount
+    "size_t"
+    .node "*const Datalist"
+    ()
+
+func.DatalistObjectKey
+    "?cstring"
+    .node "*const Datalist"
+    .index "size_t"
+    ()
+
+func.DatalistObjectValue
+    "?*Datalist"
+    .node "*const Datalist"
+    .index "size_t"
+    ()
+
+func.DatalistToText
+    "?*char"
+    .node "*const Datalist"
+    .outLen "?*size_t"
+    ()
+
+func.DatalistQuote
+    "?*char"
+    .str "cstring"
+    .len "size_t"
+    ()
+
+func.DatalistLastError
+    "?cstring"
+    ()
