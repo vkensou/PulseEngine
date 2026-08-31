@@ -10,6 +10,7 @@ require pulse public
 require cgpu
 require daslib/random
 require daslib/option
+require math
 
 // ============================================================
 // Game state machine (PULSE_ECS_STATE_MACHINE)
@@ -429,18 +430,24 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
         boardMat = boardMat)
     cmd |> set_singleton(resources)
 
-    let up = 16
-    let bottom = -15
-    let left = -20
-    let right = 21
+    let (windowEntity, window, _) = primaryWindowQuery |> first()
+    let boardCenterX = 0.5
+    let boardCenterY = 0.5
+    let cameraZ = -38.0
+    let cameraFov = 45.0
+    let halfHeight = -cameraZ * tan(cameraFov * 0.5 * PI / 180.0)
+    let halfWidth = halfHeight * float(window.width) / float(window.height)
+    let up = roundi(boardCenterY + halfHeight)
+    let bottom = roundi(boardCenterY - halfHeight)
+    let left = roundi(boardCenterX - halfWidth)
+    let right = roundi(boardCenterX + halfWidth)
 
     let border = createBorder(cmd, quad, boardMat, up, bottom, left, right)
     createEntities(cmd, border, resources)
 
-    let (windowEntity, _, _) = primaryWindowQuery |> first()
     let camera = cmd.entity()
-    cmd |> set_entity_component(camera, PulseLocalTransform(translation = HMM_V3(0.5, 0.5, -38.0), rotation = HMM_Q_Identity, scale = HMM_V3_One))
-    cmd |> set_entity_component(camera, PulseCamera(window_entity = windowEntity, fov = 45.0, near_plane = 0.1, far_plane = 1000.0))
+    cmd |> set_entity_component(camera, PulseLocalTransform(translation = HMM_V3(boardCenterX, boardCenterY, cameraZ), rotation = HMM_Q_Identity, scale = HMM_V3_One))
+    cmd |> set_entity_component(camera, PulseCamera(window_entity = windowEntity, fov = cameraFov, near_plane = 0.1, far_plane = 1000.0))
 
     state.to(SnakeGameState.Gaming)
     print("Snake resources ready.\n")

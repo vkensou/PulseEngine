@@ -26,6 +26,12 @@ struct PulseKeyboardInput {
 }
 
 struct PulseWindow {
+    struct_size: uint
+    title: string
+    width: int
+    height: int
+    resizable: bool
+    external_graphics_context: bool
 }
 
 struct PulsePrimaryWindow {
