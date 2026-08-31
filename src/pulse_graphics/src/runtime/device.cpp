@@ -2,8 +2,35 @@
 
 #include <new>
 #include <vector>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 namespace pulse_graphics_internal {
+
+#ifdef __ANDROID__
+  void Logger(void* user_data, ECGPULogSeverity severity, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    android_LogPriority priority;
+    if (severity == CGPU_LOG_SEVERITY_FATAL)
+        priority = ANDROID_LOG_FATAL;
+    else if (severity == CGPU_LOG_SEVERITY_ERROR)
+        priority = ANDROID_LOG_ERROR;
+    else if (severity == CGPU_LOG_SEVERITY_WARNING)
+        priority = ANDROID_LOG_WARN;
+    else if (severity == CGPU_LOG_SEVERITY_INFO)
+        priority = ANDROID_LOG_INFO;
+    else if (severity == CGPU_LOG_SEVERITY_DEBUG)
+        priority = ANDROID_LOG_DEBUG;
+    else if (severity == CGPU_LOG_SEVERITY_TRACE)
+        priority = ANDROID_LOG_VERBOSE;
+
+    __android_log_vprint(priority, "CGPU", fmt, args);
+    va_end(args);
+}
+#endif
 
 void create_default_resources(pulse_graphics_state* state) {
 	CGPUTextureDescriptor default_texture_desc = {
@@ -62,6 +89,10 @@ bool create_renderer(pulse_graphics_state* state) {
     instance_desc.enable_debug_layer = state->desc.enable_debug_layer;
     instance_desc.enable_gpu_based_validation = state->desc.enable_gpu_based_validation;
     instance_desc.enable_set_name = state->desc.enable_debug_layer;
+#ifdef __ANDROID__
+    CGPULogger logger{};
+    logger.log_callback = Logger;
+#endif
 
     renderer.instance = cgpu_create_instance(&instance_desc);
     if (!renderer.instance) {

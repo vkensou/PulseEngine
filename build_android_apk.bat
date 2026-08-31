@@ -16,5 +16,6 @@ set "KEYSTORE_ALIAS=xmake"
 set "OUT_APK=build\android\PulseEngine.apk"
 set "JAVA_HOME=D:\pgtools\openjdk\openjdk17"
 set "SDL_JAR=android\SDL.jar"
+set "EXTRA_LIB_DIRS=android-binaries-1.4.304.1\lib"
 call android\build_apk.bat %*
 exit /b %ERRORLEVEL%
