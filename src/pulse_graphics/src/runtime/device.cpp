@@ -92,6 +92,7 @@ bool create_renderer(pulse_graphics_state* state) {
 #ifdef __ANDROID__
     CGPULogger logger{};
     logger.log_callback = Logger;
+    instance_desc.logger = logger;
 #endif
 
     renderer.instance = cgpu_create_instance(&instance_desc);
