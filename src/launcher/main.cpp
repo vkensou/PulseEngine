@@ -1,0 +1,139 @@
+// ============================================================
+// PulseEngine Launcher (plugin package loader)
+//
+// 这个 launcher 不链接任何具体的 pulse_* 插件，只链接：
+//   - pulse_app            创建/运行 app
+//   - pulse_package_loader 动态加载 package
+//   - pulse_config         读取 launcher.manifest 并传递配置树
+//
+// launcher 只负责获取需要加载的包列表及其 config；
+// 每个包自己的 package.json（library、dependencies 等）由
+// pulse_package_loader 内部读取和解析。
+//
+// 命令行参数：每个位置参数都是一个 packages 搜索目录（可以传多个）；
+// 未传任何参数时默认搜索当前目录 "."。
+// ============================================================
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+
+#include <vector>
+
+#include "pulse_app.h"
+#include "pulse_config.h"
+#include "pulse_package_loader.h"
+#include "pulse_vfs.h"
+#include "SDL3/SDL.h"
+
+extern "C"
+int SDL_main(int argc, char** argv)
+{
+    // packages 搜索目录：每个位置参数是一个搜索目录；未传时默认当前目录 "."。
+    std::vector<const char*> search_paths;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            printf("Usage: launcher [package-search-dir ...]\n");
+            printf("  Each argument is a directory searched for packages (package.json).\n");
+            printf("  If none is given, the current directory is searched.\n");
+            return 0;
+        }
+        search_paths.push_back(argv[i]);
+    }
+    if (search_paths.empty()) {
+        search_paths.push_back("packages");
+    }
+    printf("package search dirs:");
+    for (const char* dir : search_paths)
+        printf(" %s", dir);
+    printf("\n");
+
+    PulseAppDesc app_desc = {
+        .name = "pulse-launcher",
+        .enable_restapi = true,
+    };
+    PulseAppId app = pulse_create_app(&app_desc);
+    assert(app != nullptr);
+
+    PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
+    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+
+    PulsePackageLoaderId loader = pulse_package_loader_create(app);
+    assert(loader != nullptr);
+
+    size_t manifest_size = 0;
+    void* manifest_data = SDL_LoadFile("launcher.manifest.json", &manifest_size);
+    if (!manifest_data) {
+        fprintf(stderr, "cannot load launcher.manifest.json from assets\n");
+        pulse_destroy_app(app);
+        pulse_package_loader_cleanup(loader);
+        return 1;
+    }
+    PulseConfig* root = pulse_config_create_from_json(static_cast<const char*>(manifest_data), manifest_size);
+    SDL_free(manifest_data);
+    if (!root) {
+        fprintf(stderr, "bad launcher.manifest.json: %s\n", pulse_config_last_error());
+        pulse_destroy_app(app);
+        pulse_package_loader_cleanup(loader);
+        return 1;
+    }
+
+    PulseConfigArray* packages = pulse_config_get_array(root, "packages");
+    if (!packages) {
+        fprintf(stderr, "bad launcher.manifest.json: missing 'packages' array\n");
+        pulse_config_release(root);
+        pulse_destroy_app(app);
+        pulse_package_loader_cleanup(loader);
+        return 1;
+    }
+
+    const size_t count = pulse_config_array_count(packages);
+    std::vector<PulsePackageListEntry> entries;
+    entries.reserve(count);
+
+    for (size_t i = 0; i < count; ++i) {
+        PulseConfig* pkg = pulse_config_array_get(packages, i);
+        if (!pkg) {
+            fprintf(stderr, "bad launcher.manifest.json: null package at index %zu\n", i);
+            pulse_config_release(root);
+            pulse_destroy_app(app);
+            pulse_package_loader_cleanup(loader);
+            return 1;
+        }
+
+        PulsePackageListEntry entry = {};
+        entry.name = pulse_config_get_string(pkg, "name", nullptr);
+        if (!entry.name || !entry.name[0]) {
+            fprintf(stderr, "bad launcher.manifest.json: missing 'name' at index %zu\n", i);
+            pulse_config_release(root);
+            pulse_destroy_app(app);
+            pulse_package_loader_cleanup(loader);
+            return 1;
+        }
+        entry.config = pulse_config_get_obj(pkg, "config");
+        entries.push_back(entry);
+    }
+
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, search_paths.data(), search_paths.size(), entries.data(), entries.size());
+
+    if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK) {
+        fprintf(stderr, "failed to load packages, result=%d\n", (int)load_result);
+        pulse_destroy_app(app);
+        pulse_package_loader_cleanup(loader);
+        pulse_config_release(root);
+        return 1;
+    }
+
+    pulse_app_run(app);
+
+    pulse_destroy_app(app);
+    pulse_package_loader_cleanup(loader);
+    pulse_config_release(root);
+    printf("Pulse launcher exited.\n");
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    return SDL_main(argc, argv);
+}

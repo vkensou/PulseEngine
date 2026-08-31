@@ -166,3 +166,6 @@ $RECYCLE.BIN/
 /vsxmake*
 /examples/assets/shaderbin
 /shaders
+/.worktrees/
+/references
+/imgui.ini

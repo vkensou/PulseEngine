@@ -1,0 +1,383 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- Constants
+const_value.AssetPluginDescVersion { value = "1u" }
+const_value.AssetTypeDescVersion { value = "1u" }
+const_value.AssetLoaderDescVersion { value = "1u" }
+const_value.AssetLoadDescVersion { value = "1u" }
+const_value.AssetMemoryLoadDescVersion { value = "1u" }
+const_value.AssetBuildDescVersion { value = "1u" }
+const_value.AssetInvalidIndex { value = "0u" }
+
+--- Flags: dependency flags (mutually exclusive, but used as bitmask)
+enum.LoadDependencyRequirement { underscore }
+    .Required
+    .Optional
+    ()
+
+--- Flags: asset load flags
+flag.AssetLoad { bits = 32, base = 0, underscore }
+    .Default
+    .SkipCache
+    ()
+
+--- Asset loading state machine
+enum.AssetState { underscore, comment = "Asset loading state" }
+    .Empty
+    .WaitingLoad
+    .Loading
+    .WaitingDependencies
+    .Processing
+    .Loaded
+    .Failed
+    .PendingDelete
+    ()
+
+--- Loader step result
+enum.AssetLoaderStatus { underscore, comment = "Loader step result" }
+    .Pending
+    .Done
+    .Failed
+    .WaitDependencies
+    ()
+
+--- Load source type
+enum.AssetLoadSource { underscore, comment = "Load source type" }
+    .File
+    .Memory
+    .Builder
+    ()
+
+enum.RetainErrorCode { underscore }
+    .AssetSystemIsInvalid
+    .HandleIsInvalid
+    .AssetIsPendingDelete
+    .AssetIsReleased
+    ()
+
+enum.ReleaseErrorCode { underscore }
+    .AssetSystemIsInvalid
+    .HandleIsInvalid
+    .AssetIsOverReleased
+    ()
+
+enum.BorrowErrorCode { underscore }
+    .AssetSystemIsInvalid
+    .HandleIsInvalid
+    .AssetIsPendingDelete
+    .AssetIsReleased
+    ()
+
+--- Function pointer: asset destroy callback (for type desc)
+funcptr.AssetDestroyFn
+    "void"
+    .ptr        "*anyopaque"
+    .userData   "?*anyopaque"
+
+--- Function pointer: loader constructor
+funcptr.AssetLoaderCtorFn
+    "EPulseResult"
+    .loader     "*anyopaque"
+    .ctx        "*const AssetLoadTask"
+
+--- Function pointer: loader destructor
+funcptr.AssetLoaderDtorFn
+    "void"
+    .loader     "*anyopaque"
+    .ctx        "*const AssetLoadTask"
+
+--- Function pointer: loader step / tick
+funcptr.AssetLoaderStepFn
+    "AssetLoaderStatus::Enum"
+    .state      "?*anyopaque"
+    .ctx        "*const AssetLoadTask"
+    .outError   "cstring" { out = true }
+
+--- Function pointer: settings size query (optional, paired with settingsCopy)
+--- Returns the total byte size needed to deep-copy the settings, including all nested data.
+funcptr.AssetSettingsSizeFn
+    "uint64_t"
+    .settings   "*const anyopaque"
+    .userData   "?*anyopaque"
+
+--- Function pointer: settings deep copy (optional, paired with settingsSize)
+--- Fills nested data inside the block allocated by the asset system and fixes nested
+--- pointers to point into the block. The struct bytes are already memcpy'd to dst.
+--- Layout (offsets/padding) must match the one computed by settingsSize.
+funcptr.AssetSettingsCopyFn
+    "bool"
+    .dst        "*anyopaque"
+    .src        "*const anyopaque"
+    .byteSize   "uint64_t"
+    .userData   "?*anyopaque"
+
+--- Asset identity handle (value type struct)
+struct.AssetHandle
+    .typeId     "uint64_t"
+    .index      "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.AssetRequest
+    .typeId     "uint64_t"
+    .index      "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.AssetDepRef
+    .typeId     "uint64_t"
+    .index      "uint32_t"
+    .generation "uint32_t"
+    ()
+
+--- Asset dependency descriptor
+struct.AssetDependency
+    .depRef         "AssetDepRef"
+    .requirement    "LoadDependencyRequirement::Enum"
+    ()
+
+--- Opaque forward declaration: load dependency hint (implementation defined)
+struct.AssetLoadDependencyHint()
+
+--- Plugin descriptor
+struct.AssetPluginDesc
+    .structSize             "uint32_t"
+    .version                "uint32_t"
+    .maxRequestsPerUpdate   "uint32_t"
+    ()
+
+struct.AssetSystem()
+
+--- Type descriptor
+struct.AssetTypeDesc
+    .structSize     "uint32_t"
+    .version        "uint32_t"
+    .typeId         "uint64_t"
+    .size           "uint32_t"
+    .align          "uint32_t"
+    .destroy        "AssetDestroyFn"
+    .userData       "?*anyopaque"
+    ()
+
+--- Load task context (passed to loader callbacks)
+struct.AssetLoadTask
+    .app                "PulseAppId"
+    .AssetSystem        "AssetSystemId"
+    .typeId             "uint64_t"
+    .loaderIdentifier   "?cstring"
+    .path               "?cstring"
+    .bytes              "[]const anyopaque"
+    .dependencies       "[]const AssetDependency"
+    .request            "AssetRequest"
+    .userData           "?*anyopaque"
+    .outAsset           "*anyopaque"
+    .settings           "?*const anyopaque"
+    .dependencyHint     "*AssetLoadDependencyHint"
+    .source             "AssetLoadSource::Enum"
+    ()
+
+--- Loader descriptor
+struct.AssetLoaderDesc
+    .structSize         "uint32_t"
+    .version            "uint32_t"
+    .typeId             "uint64_t"
+    .extensions         "?cstring"
+    .loaderIdentifier   "?cstring"
+    .ctor               "AssetLoaderCtorFn"
+    .dtor               "AssetLoaderDtorFn"
+    .step               "AssetLoaderStepFn"
+    .loaderSize         "uint32_t"
+    .loaderAlign        "uint32_t"
+    .settingsSize       "uint32_t"
+    .settingsAlign      "uint32_t"
+    .settingsSizeFn     "AssetSettingsSizeFn"
+    .settingsCopyFn     "AssetSettingsCopyFn"
+    .userData           "?*anyopaque"
+    ()
+
+--- File-based load descriptor
+struct.AssetLoadDesc
+    .structSize         "uint32_t"
+    .version            "uint32_t"
+    .typeId             "uint64_t"
+    .path               "cstring"
+    .dependencies       "[]const AssetDependency"
+    .settings           "?*const anyopaque"
+    .flags              "AssetLoad"
+    ()
+
+--- In-memory load descriptor
+struct.AssetMemoryLoadDesc
+    .structSize         "uint32_t"
+    .version            "uint32_t"
+    .typeId             "uint64_t"
+    .path               "cstring"
+    .data               "*const anyopaque"
+    .size               "uint64_t"
+    .dependencies       "[]const AssetDependency"
+    .settings           "?*const anyopaque"
+    .flags              "AssetLoad"
+    ()
+
+--- Builder (procedural) load descriptor
+struct.AssetBuildDesc
+    .structSize         "uint32_t"
+    .version            "uint32_t"
+    .typeId             "uint64_t"
+    .loaderIdentifier   "?cstring"
+    .name               "?cstring"
+    .dependencies       "[]const AssetDependency"
+    .settings           "?*const anyopaque"
+    ()
+
+id "AssetSystemId"
+
+--- Functions
+
+func.AssetPluginDescDefault
+    "AssetPluginDesc"
+    ()
+
+func.AddAssetPlugin
+    "EPulseAppAddPluginResult"
+    .app   "PulseAppId"
+    .desc  "*const AssetPluginDesc"
+    ()
+
+func.GetAssetSystem
+    "?AssetSystemId"
+    .app   "PulseAppId"
+
+func.AssetSystem.RegisterType { mut }
+    "EPulseResult"
+    .desc           "*const AssetTypeDesc"
+    ()
+
+func.AssetSystem.RegisterLoader { mut }
+    "EPulseResult"
+    .desc           "*const AssetLoaderDesc"
+    ()
+
+func.AssetSystem.Load { mut }
+    "AssetRequest"
+    .desc  "*const AssetLoadDesc"
+    ()
+
+func.AssetSystem.LoadFromMemory { mut }
+    "AssetRequest"
+    .desc  "*const AssetMemoryLoadDesc"
+    ()
+
+func.AssetSystem.Build { mut }
+    "AssetRequest"
+    .desc  "*const AssetBuildDesc"
+    ()
+
+func.AssetSystem.BuildSync { mut }
+    "AssetHandle"
+    .desc  "*const AssetBuildDesc"
+    ()
+
+func.AssetSystem.GetState
+    "AssetState::Enum"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.IsAlive
+    "bool"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.IsReady
+    "bool"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.GetError
+    "cstring"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.GetHandle
+    "AssetHandle"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.Cancel { mut }
+    "void"
+    .request "AssetRequest"
+    ()
+
+func.AssetSystem.Retain { mut }
+    "bool"
+    .handle     "AssetHandle"
+    .outError   "RetainErrorCode::Enum" { out = true }
+    ()
+
+func.AssetSystem.Release { mut }
+    "bool"
+    .handle     "AssetHandle"
+    .outError   "ReleaseErrorCode::Enum" { out = true }
+    ()
+
+func.AssetSystem.Borrow { mut }
+    "bool"
+    .handle     "AssetHandle"
+    .outRef     "?*anyopaque" { out = true }
+    .outError   "BorrowErrorCode::Enum" { out = true }
+    ()
+
+func.AssetSystem.MarkModified { mut }
+    "void"
+    .handle "AssetHandle"
+    ()
+
+func.AssetSystem.ForceUnloadAssets { mut }
+    "void"
+    .typeId "uint64_t"
+    ()
+
+func.AssetLoadTaskAddDependency
+    "EPulseResult"
+    .dependencyHint "*AssetLoadDependencyHint"
+    .dependency     "AssetDepRef"
+    .requirement    "LoadDependencyRequirement::Enum"
+    ()
+
+func.AssetSystem.ToAssetDepRefFromHandle
+    "AssetDepRef"
+    .handle         "AssetHandle"
+    ()
+
+func.AssetSystem.ToAssetDepRefFromRequest
+    "AssetDepRef"
+    .request        "AssetRequest"
+    ()
+
+func.AssetSystem.ToAssetRequestFromDepRef
+    "AssetRequest"
+    .depRef         "AssetDepRef"
+    ()

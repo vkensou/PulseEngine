@@ -1,0 +1,1213 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- External types from other modules
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+typedef "PulseAssetSystemId"
+typedef "ecs_entity_t"
+
+--- Rendergraph opaque types (forward declared in template)
+typedef "pulse_backbuffer_data_t"
+
+--- CGPU types
+typedef "ECGPUBackend"
+typedef "ECGPUTextureFormat"
+typedef "CGPUInstanceId"
+typedef "CGPUAdapterId"
+typedef "CGPUDeviceId"
+typedef "CGPUQueueId"
+typedef "CGPURenderPassId"
+typedef "CGPUSurfaceId"
+typedef "CGPUSwapChainId"
+typedef "CGPUTextureViewId"
+typedef "CGPUFramebufferId"
+typedef "CGPUSemaphoreId"
+typedef "CGPUBufferDescriptor"
+typedef "CGPUSamplerDescriptor"
+typedef "CGPUTextureDescriptor"
+typedef "CGPUVertexLayout"
+typedef "CGPUBlendStateDescriptor"
+typedef "CGPUDepthStateDescriptor"
+typedef "CGPURasterizerStateDescriptor"
+typedef "ECGPUPrimitiveTopology"
+typedef "ECGPULoadAction"
+typedef "ECGPUStoreAction"
+typedef "ECGPUResourceTypeFlags"
+typedef "ECGPUResourceStateFlags"
+typedef "ECGPUMemoryUsage"
+typedef "CGPUBufferId"
+typedef "CGPUSamplerId"
+
+--- From pulse_math.h
+typedef "HMM_Vec4" { cname = "HMM_Vec4" }
+typedef "HMM_Mat4" { cname = "HMM_Mat4" }
+
+--- Constants
+const_value.GraphicsPluginDescVersion { value = "1u" }
+const_value.TypeTexture { value = "UINT64_C(0x1000)" }
+const_value.TypeGraphicsBuffer { value = "UINT64_C(0x1001)" }
+const_value.TypeSampler { value = "UINT64_C(0x1002)" }
+const_value.TypeShaderLibrary { value = "UINT64_C(0x1003)" }
+const_value.TypeShader { value = "UINT64_C(0x1004)" }
+const_value.TypeComputeShader { value = "UINT64_C(0x1005)" }
+const_value.TypeMesh { value = "UINT64_C(0x1006)" }
+const_value.TypeMaterial { value = "UINT64_C(0x1007)" }
+const_value.RenderGraphMaxIndex { value = "(UINT32_MAX - 2)" }
+
+--- Rendergraph resource handle types
+
+id "RenderGraphId"
+
+struct.RenderGraph()
+
+struct.RGTextureHandle
+    .index "uint32_t"
+    ()
+
+struct.RGBufferHandle
+    .index "uint32_t"
+    ()
+
+struct.RenderPassBuilder
+    .renderGraph "RenderGraphId"
+    .passNode    "*anyopaque"
+    .passIndex   "uint32_t"
+    ()
+
+struct.ComputePassBuilder
+    .renderGraph "RenderGraphId"
+    .passNode    "*anyopaque"
+    .passIndex   "uint32_t"
+    ()
+
+struct.RenderPassEncoder()
+struct.UploadPassEncoder()
+
+--- Rendergraph function pointers
+funcptr.RenderPassExecutable
+    "void"
+    .encoder  "*RenderPassEncoder"
+    .userdata "?*anyopaque"
+
+funcptr.UploadpassExecutable
+    "void"
+    .encoder  "*UploadPassEncoder"
+    .userdata "?*anyopaque"
+
+--- Asset handle types (value structs with index+generation)
+struct.ShaderHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.ShaderLibraryHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.ComputeShaderHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.MeshHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.TextureHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.GraphicsBufferHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.MaterialHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.SamplerHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+--- Asset request types (async load/build results, value structs with index+generation)
+struct.ShaderRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.ShaderLibraryRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.ComputeShaderRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.MeshRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.TextureRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.GraphicsBufferRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.MaterialRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.SamplerRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.ShaderProperty
+    .name       "cstring"
+    .type       "ShaderPropertyType::Enum"
+    .role       "ShaderPropertyRole::Enum"
+    .set        "uint32_t"
+    .binding    "uint32_t"
+    .offset     "uint32_t"
+    .size       "uint32_t"
+
+struct.UboInfo
+    .layoutHash        "uint64_t"
+    .set                "uint32_t"
+    .binding            "uint32_t"
+    .size               "uint32_t"
+	.materialManaged    "bool"
+	.rendererManaged    "bool"
+    .perDraw            "bool"
+
+--- Function pointer: render record callback
+funcptr.RenderRecordCallback
+    "void"
+    .app        "PulseAppId"
+    .graph      "RenderGraphId"
+    .userData   "?*anyopaque"
+
+--- Plugin descriptor
+struct.GraphicsPluginDesc
+    .structSize             "uint32_t"
+    .version                "uint32_t"
+    .backend                "ECGPUBackend"
+    .swapchainFormat        "ECGPUTextureFormat"
+    .imageCount             "uint32_t"
+    .enableDebugLayer       "bool"
+    .enableGpuBasedValidation       "bool"
+    .enableVsync            "bool"
+    .recordCallback         "RenderRecordCallback"
+    .recordUserData         "?*anyopaque"
+    .perDrawShaderProperties        "[]const cstring"
+    ()
+
+--- Renderer state (opaque at C API level)
+component.Renderer
+    .instance   "CGPUInstanceId"
+    .adapter    "CGPUAdapterId"
+    .device     "CGPUDeviceId"
+    .graphicsQueue "CGPUQueueId"
+    .presentQueue "CGPUQueueId"
+    .renderPass "CGPURenderPassId"
+    .backend    "ECGPUBackend"
+    .swapchainFormat "ECGPUTextureFormat"
+    .imageCount "uint32_t"
+    .frameIndex "uint64_t"
+    ()
+
+--- Window surface
+component.Surface
+    .instance "CGPUInstanceId"
+    .surface  "CGPUSurfaceId"
+    ()
+
+--- Window swapchain
+component.Swapchain
+    .device                   "CGPUDeviceId"
+    .swapchain                "CGPUSwapChainId"
+    .backbufferViews          "[]CGPUTextureViewId"
+    .framebuffers             "[]CGPUFramebufferId"
+    .imageAvailableSemaphores "[]CGPUSemaphoreId"
+    .renderFinishedSemaphores "[]CGPUSemaphoreId"
+    .width                    "uint32_t"
+    .height                   "uint32_t"
+    .currentBackbufferIndex   "uint32_t"
+    .backbuffers              "[]pulse_backbuffer_data_t"
+    .currentBackbuffer        "*pulse_backbuffer_data_t"
+    ()
+
+--- Record callback descriptor
+struct.RenderRecordCallbackDesc
+    .callback  "RenderRecordCallback"
+    .userData  "?*anyopaque"
+    .priority  "int32_t"
+    ()
+
+--- Shader library create desc
+struct.ShaderLibraryCreateDesc
+    .code     "[]const anyopaque"
+    ()
+
+--- Shader library load desc
+struct.ShaderLibraryLoadDesc
+    .path "cstring"
+    ()
+
+--- Shader property role
+enum.ShaderPropertyRole { underscore }
+    .Material
+    .NonMaterial
+    ()
+
+--- Shader property type
+enum.ShaderPropertyType { underscore }
+    .Unknown
+    .Float
+    .Float2
+    .Float3
+    .Float4
+    .Int
+    .Mat4
+    .Texture
+    .Sampler
+    ()
+
+enum.DepthBits { underscore }
+    .D32        { value = 32 }
+    .D24        { value = 24 }
+    .D16        { value = 16 }
+    ()
+
+--- Shader create from binary desc
+struct.ShaderCreateFromBinaryDesc
+    .vsData             "[]const anyopaque"
+    .fsData             "[]const anyopaque"
+    .blendDesc          "CGPUBlendStateDescriptor"
+    .depthDesc          "CGPUDepthStateDescriptor"
+    .rasterizerState    "CGPURasterizerStateDescriptor"
+    .properties         "[]const ShaderProperty"
+    ()
+
+--- Shader create from file desc
+struct.ShaderCreateFromFileDesc
+    .vertPath           "cstring"
+    .fragPath           "cstring"
+    .blendDesc          "CGPUBlendStateDescriptor"
+    .depthDesc          "CGPUDepthStateDescriptor"
+    .rasterizerState    "CGPURasterizerStateDescriptor"
+    .properties         "[]const ShaderProperty"
+    ()
+
+--- Compute shader create from binary desc
+struct.ComputeShaderCreateFromBinaryDesc
+    .csData "[]const anyopaque"
+    ()
+
+--- Compute shader create from file desc
+struct.ComputeShaderCreateFromFileDesc
+    .csPath "cstring"
+    ()
+
+--- Buffer create desc
+struct.GraphicsBufferCreateDesc
+    .desc     "CGPUBufferDescriptor"
+    .data     "[]const anyopaque"
+    ()
+
+--- Sampler create desc
+struct.SamplerCreateDesc
+    .desc "CGPUSamplerDescriptor"
+    ()
+
+--- Texture create desc
+struct.TextureCreateDesc
+    .desc            "CGPUTextureDescriptor"
+    .pixelData       "[]const anyopaque"
+    .generateMipmaps "bool"
+    ()
+
+--- Texture load desc
+struct.TextureLoadDesc
+    .filepath        "cstring"
+    .generateMipmaps "bool"
+    ()
+
+--- Mesh create from data desc
+struct.MeshCreateFromDataDesc
+    .vertexCount          "uint32_t"
+    .vertexStride         "uint32_t"
+    .layout               "CGPUVertexLayout"
+    .vertexData           "*const uint8_t"
+    .updateVertexDataFromComputeShader "bool"
+    .topology             "ECGPUPrimitiveTopology"
+    .indexCount           "uint32_t"
+    .indexStride          "uint32_t"
+    .indexData            "*const uint8_t"
+    .updateIndexDataFromComputeShader "bool"
+    ()
+
+--- Mesh create dynamic desc
+struct.MeshCreateDynamicDesc
+    .topology    "ECGPUPrimitiveTopology"
+    .layout      "CGPUVertexLayout"
+    .indexStride "uint32_t"
+    ()
+
+--- Material create desc
+struct.MaterialCreateDesc
+    .shader "ShaderHandle"
+    ()
+
+--- ======== Functions ========
+
+--- Plugin
+func.GraphicsPluginDescDefault
+    "GraphicsPluginDesc"
+    ()
+
+func.AddGraphicsPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    .desc "*const GraphicsPluginDesc"
+    ()
+
+--- Renderer
+func.GetRenderer
+    "?*const Renderer"
+    .app "PulseAppId"
+    ()
+
+--- Do not affect loaded shaders
+func.SetPerDrawShaderProperties
+    "void"
+    .app "PulseAppId"
+    .perDrawShaderProperties       "[]const cstring"
+    ()
+
+func.GetSurface
+    "?*const Surface"
+    .app "PulseAppId"
+    .entity "ecs_entity_t"
+    ()
+
+func.GetSwapchain
+    "?*const Swapchain"
+    .app "PulseAppId"
+    .entity "ecs_entity_t"
+    ()
+
+--- Render record callbacks
+func.AddRenderRecordCallback
+    "EPulseResult"
+    .app  "PulseAppId"
+    .desc "*const RenderRecordCallbackDesc"
+    ()
+
+func.RemoveRenderRecordCallback
+    "EPulseResult"
+    .app      "PulseAppId"
+    .callback "RenderRecordCallback"
+    ()
+
+func.ImportWindowBackbuffer
+    "RGTextureHandle"
+    .app           "PulseAppId"
+    .graph         "RenderGraphId"
+    .windowEntity  "ecs_entity_t"
+    ()
+
+--- Shader library
+func.CreateShaderLibrary
+    "ShaderLibraryHandle"
+    .app  "PulseAppId"
+    .desc "*const ShaderLibraryCreateDesc"
+    ()
+
+func.LoadShaderLibrary
+    "ShaderLibraryRequest"
+    .app  "PulseAppId"
+    .desc "*const ShaderLibraryLoadDesc"
+    ()
+
+func.ShaderLibraryGetHandle
+    "ShaderLibraryHandle"
+    .app     "PulseAppId"
+    .request "ShaderLibraryRequest"
+    ()
+
+func.ShaderLibraryIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderLibraryRequest"
+    ()
+
+func.ShaderLibraryIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderLibraryRequest"
+    ()
+
+--- Shader
+func.CreateShaderFromBinary
+    "ShaderHandle"
+    .app  "PulseAppId"
+    .desc "*const ShaderCreateFromBinaryDesc"
+    ()
+
+func.CreateShaderFromFile
+    "ShaderRequest"
+    .app  "PulseAppId"
+    .desc "*const ShaderCreateFromFileDesc"
+    ()
+
+func.ShaderGetHandle
+    "ShaderHandle"
+    .app     "PulseAppId"
+    .request "ShaderRequest"
+    ()
+
+func.ShaderIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderRequest"
+    ()
+
+func.ShaderIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "ShaderRequest"
+    ()
+
+--- Compute shader
+func.CreateComputeShaderFromBinary
+    "ComputeShaderHandle"
+    .app  "PulseAppId"
+    .desc "*const ComputeShaderCreateFromBinaryDesc"
+    ()
+
+func.CreateComputeShaderFromFile
+    "ComputeShaderRequest"
+    .app  "PulseAppId"
+    .desc "*const ComputeShaderCreateFromFileDesc"
+    ()
+
+func.ComputeShaderGetHandle
+    "ComputeShaderHandle"
+    .app     "PulseAppId"
+    .request "ComputeShaderRequest"
+    ()
+
+func.ComputeShaderIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "ComputeShaderRequest"
+    ()
+
+func.ComputeShaderIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "ComputeShaderRequest"
+    ()
+
+--- Buffer
+func.CreateGraphicsBuffer
+    "GraphicsBufferRequest"
+    .app  "PulseAppId"
+    .desc "*const GraphicsBufferCreateDesc"
+    ()
+
+func.GraphicsBufferGetHandle
+    "GraphicsBufferHandle"
+    .app     "PulseAppId"
+    .request "GraphicsBufferRequest"
+    ()
+
+func.GraphicsBufferIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "GraphicsBufferRequest"
+    ()
+
+func.GraphicsBufferIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "GraphicsBufferRequest"
+    ()
+
+--- Sampler
+func.CreateSampler
+    "SamplerHandle"
+    .app  "PulseAppId"
+    .desc "*const SamplerCreateDesc"
+    ()
+
+func.SamplerGetHandle
+    "SamplerHandle"
+    .app     "PulseAppId"
+    .request "SamplerRequest"
+    ()
+
+func.SamplerIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "SamplerRequest"
+    ()
+
+func.SamplerIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "SamplerRequest"
+    ()
+
+--- Texture
+func.CreateTexture
+    "TextureRequest"
+    .app  "PulseAppId"
+    .desc "*const TextureCreateDesc"
+    ()
+
+func.LoadTexture
+    "TextureRequest"
+    .app  "PulseAppId"
+    .desc "*const TextureLoadDesc"
+    ()
+
+func.TextureGetHandle
+    "TextureHandle"
+    .app     "PulseAppId"
+    .request "TextureRequest"
+    ()
+
+func.TextureIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "TextureRequest"
+    ()
+
+func.TextureIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "TextureRequest"
+    ()
+
+--- Mesh
+func.CreateMeshFromData
+    "MeshRequest"
+    .app  "PulseAppId"
+    .desc "*const MeshCreateFromDataDesc"
+    ()
+
+func.CreateMeshDynamic
+    "MeshHandle"
+    .app  "PulseAppId"
+    .desc "*const MeshCreateDynamicDesc"
+    ()
+
+func.LoadMesh
+    "MeshRequest"
+    .app      "PulseAppId"
+    .filepath "cstring"
+    ()
+
+func.UpdateMeshVertices
+    "void"
+    .app   "PulseAppId"
+    .mesh  "MeshHandle"
+    .data  "*const anyopaque"
+    .count "uint32_t"
+    ()
+
+func.UpdateMeshIndices
+    "void"
+    .app   "PulseAppId"
+    .mesh  "MeshHandle"
+    .data  "*const anyopaque"
+    .count "uint32_t"
+    ()
+
+func.MeshGetHandle
+    "MeshHandle"
+    .app     "PulseAppId"
+    .request "MeshRequest"
+    ()
+
+func.MeshIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "MeshRequest"
+    ()
+
+func.MeshIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "MeshRequest"
+    ()
+
+--- Material
+func.CreateMaterial
+    "MaterialHandle"
+    .app  "PulseAppId"
+    .desc "*const MaterialCreateDesc"
+    ()
+
+func.MaterialGetHandle
+    "MaterialHandle"
+    .app     "PulseAppId"
+    .request "MaterialRequest"
+    ()
+
+func.MaterialIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "MaterialRequest"
+    ()
+
+func.MaterialIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "MaterialRequest"
+    ()
+
+func.MaterialGetShader
+    "ShaderHandle"
+    .app  "PulseAppId"
+    .self "MaterialHandle"
+    ()
+
+--- Material property setters (name-driven, Unity-style)
+func.MaterialSetPropertyFloat4
+    "void"
+    .app   "PulseAppId"
+    .self  "MaterialHandle"
+    .name  "cstring"
+    .value "HMM_Vec4"
+    ()
+
+func.MaterialSetPropertyMat4
+    "void"
+    .app   "PulseAppId"
+    .self  "MaterialHandle"
+    .name  "cstring"
+    .value "HMM_Mat4"
+    ()
+
+func.MaterialSetPropertyTexture
+    "void"
+    .app     "PulseAppId"
+    .self    "MaterialHandle"
+    .name    "cstring"
+    .texture "TextureHandle"
+    ()
+
+func.MaterialSetPropertySampler
+    "void"
+    .app     "PulseAppId"
+    .self    "MaterialHandle"
+    .name    "cstring"
+    .sampler "SamplerHandle"
+    ()
+
+func.MaterialGetUboColumn
+    "?*const uint8_t"
+    .app     "PulseAppId"
+    .self    "MaterialHandle"
+    .index   "uint32_t"
+    ()
+
+func.ShaderGetShaderPropertyCount
+    "uint32_t"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
+    ()
+
+func.ShaderGetShaderProperty
+    "ShaderProperty"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
+    .index "uint32_t"
+
+func.ShaderGetUboInfoCount
+    "uint32_t"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
+    ()
+
+func.ShaderGetUboInfo
+    "UboInfo"
+    .app  "PulseAppId"
+    .self "ShaderHandle"
+    .index "uint32_t"
+
+--- ======== Rendergraph Functions ========
+
+--- Rendergraph lifecycle
+func.CreateRenderGraph
+    "RenderGraphId" { ret = { owner = true } }
+    .assetSystem           "PulseAssetSystemId"
+    .estimateResourceCount "uint32_t"
+    .estimatePassCount     "uint32_t"
+    .estimateEdgeCount     "uint32_t"
+    .blitShader            "*anyopaque"
+    .blitSampler           "CGPUSamplerId"
+    ()
+
+func.DestroyRenderGraph
+    "void"
+    .renderGraph "RenderGraphId" { owner = true }
+    ()
+
+func.RenderGraph.Reset { mut }
+    "void"
+    ()
+
+--- Rendergraph handle validation
+func.RGTextureHandleIsValid
+    "bool"
+    .handle "RGTextureHandle"
+    ()
+
+func.RGBufferHandleIsValid
+    "bool"
+    .handle "RGBufferHandle"
+    ()
+
+--- Rendergraph resource declaration/import
+func.RenderGraph.DeclareTexture { mut }
+    "RGTextureHandle"
+    ()
+
+func.RenderGraph.ImportTexture { mut }
+    "RGTextureHandle"
+    .imported "TextureHandle"
+    ()
+
+func.RenderGraph.ImportBackbuffer { mut }
+    "RGTextureHandle"
+    .importedBackbuffer "*pulse_backbuffer_data_t"
+    ()
+
+func.RenderGraph.DeclareBuffer { mut }
+    "RGBufferHandle"
+    ()
+
+func.RenderGraph.ImportBuffer { mut }
+    "RGBufferHandle"
+    .imported "GraphicsBufferHandle"
+    ()
+
+func.RenderGraph.ImportDynamicBuffer { mut }
+    "RGBufferHandle"
+    .imported "*anyopaque"
+    ()
+
+func.RenderGraph.ImportDynamicMeshVertexBuffer { mut }
+    "RGBufferHandle"
+    .imported   "MeshHandle"
+    .count      "uint32_t"
+    ()
+
+func.RenderGraph.ImportDynamicMeshIndexBuffer { mut }
+    "RGBufferHandle"
+    .imported   "MeshHandle"
+    .count      "uint32_t"
+    ()
+
+func.RenderGraph.DeclareUniformBufferQuick { mut }
+    "RGBufferHandle"
+    .size_ "uint32_t"
+    .data  "*anyopaque"
+    ()
+
+func.RenderGraph.DeclareTextureSubresource { mut }
+    "RGTextureHandle"
+    .parent     "RGTextureHandle"
+    .mipLevel   "uint8_t"
+    .arraySlice "uint8_t"
+    ()
+
+--- Rendergraph texture properties
+func.RenderGraph.TextureSetExtent { mut }
+    "void"
+    .texture "RGTextureHandle"
+    .width  "uint32_t"
+    .height "uint32_t"
+    .depth  "uint32_t"
+    ()
+
+func.RenderGraph.TextureSetFormat { mut }
+    "void"
+    .texture "RGTextureHandle"
+    .format "ECGPUTextureFormat"
+    ()
+
+func.RenderGraph.TextureSetDepthFormat { mut }
+    "void"
+    .texture    "RGTextureHandle"
+    .depthBits  "DepthBits::Enum"
+    .needStencil "bool"
+    ()
+
+func.RenderGraph.TextureGetWidth
+    "uint32_t"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.TextureGetHeight
+    "uint32_t"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.TextureGetDepth
+    "uint32_t"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.TextureGetFormat
+    "ECGPUTextureFormat"
+    .texture "RGTextureHandle"
+    ()
+
+--- Rendergraph buffer properties
+func.RenderGraph.BufferSetSize { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    .size_  "uint32_t"
+    ()
+
+func.RenderGraph.BufferSetType { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    .type   "ECGPUResourceTypeFlags"
+    ()
+
+func.RenderGraph.BufferSetUsage { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    .usage  "ECGPUMemoryUsage"
+    ()
+
+func.RenderGraph.BufferSetHoldOnLast { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+--- Rendergraph pass management
+func.RenderGraph.AddRenderPass { mut }
+    "RenderPassBuilder"
+    .name "cstring"
+    ()
+
+func.RenderGraph.AddComputePass { mut }
+    "ComputePassBuilder"
+    .name "cstring"
+    ()
+
+func.RenderGraph.AddHoldpass { mut }
+    "RenderPassBuilder"
+    .name "cstring"
+    ()
+
+func.RenderGraph.AddUploadtexturepass { mut }
+    "void"
+    .name         "cstring"
+    .texture      "RGTextureHandle"
+    .mipLevel     "uint8_t"
+    .slice        "uint8_t"
+    .executable   "UploadpassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "*anyopaque" { out = true }
+    ()
+
+func.RenderGraph.AddUploadtexturepassEx { mut }
+    "void"
+    .name         "cstring"
+    .texture      "RGTextureHandle"
+    .mipLevel     "uint8_t"
+    .slice        "uint8_t"
+    .size_        "uint64_t"
+    .offset       "uint64_t"
+    .data         "*anyopaque" { retain = true }
+    .executable   "UploadpassExecutable" { retain = true }
+    .passdataSize "uint32_t"
+    .outPassdata  "*anyopaque" { out = true }
+    ()
+
+func.RenderGraph.AddUploadbufferpass { mut }
+    "void"
+    .name         "cstring"
+    .buffer       "RGBufferHandle"
+    .executable   "UploadpassExecutable"
+    .passdataSize "uint32_t"
+    .outPassdata  "*anyopaque" { out = true }
+    ()
+
+func.RenderGraph.AddUploadbufferpassEx { mut }
+    "void"
+    .name         "cstring"
+    .buffer       "RGBufferHandle"
+    .size_        "uint64_t"
+    .offset       "uint64_t"
+    .data         "*anyopaque" { retain = true }
+    .executable   "UploadpassExecutable" { retain = true }
+    .passdataSize "uint32_t"
+    .outPassdata  "*anyopaque" { out = true }
+    ()
+
+func.RenderGraph.AddGenerateMipmap { mut }
+    "void"
+    .texture     "RGTextureHandle"
+    .fromMipLevel "uint8_t"
+    ()
+
+func.RenderGraph.Present { mut }
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderGraph.AddEdge { mut }
+    "uint32_t"
+    .from  "uint32_t"
+    .to    "uint32_t"
+    .usage "ECGPUResourceStateFlags"
+    ()
+
+--- RenderPass builder
+func.RenderPassBuilder.AddColorAttachment { mut }
+    "void"
+    .texture    "RGTextureHandle"
+    .loadAction "ECGPULoadAction"
+    .clearColor "uint32_t"
+    .storeAction "ECGPUStoreAction"
+    ()
+
+func.RenderPassBuilder.AddDepthAttachment { mut }
+    "void"
+    .texture           "RGTextureHandle"
+    .depthLoadAction   "ECGPULoadAction"
+    .clearDepth        "float"
+    .depthStoreAction  "ECGPUStoreAction"
+    .stencilLoadAction "ECGPULoadAction"
+    .clearStencil      "uint8_t"
+    .stencilStoreAction "ECGPUStoreAction"
+    ()
+
+func.RenderPassBuilder.Sample { mut }
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.RenderPassBuilder.UseBuffer { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+func.RenderPassBuilder.UseBufferAs { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    .state  "ECGPUResourceStateFlags"
+    ()
+
+func.RenderPassBuilder.SetExecutable { mut }
+    "void"
+    .executable   "RenderPassExecutable" { retain = true }
+    .passdataSize "uint32_t"
+    .outPassdata  "*anyopaque" { out = true }
+    ()
+
+--- ComputePass builder
+func.ComputePassBuilder.Sample { mut }
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.ComputePassBuilder.UseBuffer { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+func.ComputePassBuilder.UseBufferAs { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    .state  "ECGPUResourceStateFlags"
+    ()
+
+func.ComputePassBuilder.ReadwriteTexture { mut }
+    "void"
+    .texture "RGTextureHandle"
+    ()
+
+func.ComputePassBuilder.ReadwriteBuffer { mut }
+    "void"
+    .buffer "RGBufferHandle"
+    ()
+
+func.ComputePassBuilder.SetExecutable { mut }
+    "void"
+    .executable   "RenderPassExecutable" { retain = true }
+    .passdataSize "uint32_t"
+    .outPassdata  "*anyopaque" { out = true }
+    ()
+
+--- Encoder
+func.RenderPassEncoder.Draw { mut }
+    "void"
+    .material "MaterialHandle"
+    .mesh     "MeshHandle"
+    ()
+
+func.RenderPassEncoder.DrawSubmesh { mut }
+    "void"
+    .material "MaterialHandle"
+    .mesh     "MeshHandle"
+    .idxCount "uint32_t"
+    .firstIdx "uint32_t"
+    .vtxCount "uint32_t"
+    .firstVtx "uint32_t"
+    ()
+
+func.RenderPassEncoder.DrawProcedure { mut }
+    "void"
+    .material  "MaterialHandle"
+    .topology  "ECGPUPrimitiveTopology"
+    .vertexCount "uint32_t"
+    ()
+
+func.RenderPassEncoder.Dispatch { mut }
+    "void"
+    .computeShader "ComputeShaderHandle"
+    .x            "uint32_t"
+    .y            "uint32_t"
+    .z            "uint32_t"
+    ()
+
+func.RenderPassEncoder.SetGlobalTexture { mut }
+    "void"
+    .texture  "TextureHandle"
+    .set      "uint32_t"
+    .binding  "uint32_t"
+    ()
+
+func.RenderPassEncoder.SetGlobalBuffer { mut }
+    "void"
+    .buffer   "GraphicsBufferHandle"
+    .set      "uint32_t"
+    .binding  "uint32_t"
+    ()
+
+func.RenderPassEncoder.SetGlobalSampler { mut }
+    "void"
+    .sampler  "SamplerHandle"
+    .set      "uint32_t"
+    .binding  "uint32_t"
+    ()
+
+func.RenderPassEncoder.SetGlobalTextureHandle { mut }
+    "void"
+    .handle   "RGTextureHandle"
+    .set      "uint32_t"
+    .binding  "uint32_t"
+    ()
+
+func.RenderPassEncoder.SetGlobalBufferHandle { mut }
+    "void"
+    .handle   "RGBufferHandle"
+    .set      "uint32_t"
+    .binding  "uint32_t"
+    ()
+
+func.RenderPassEncoder.SetGlobalBufferOffset { mut }
+    "void"
+    .handle   "RGBufferHandle"
+    .set      "uint32_t"
+    .binding  "uint32_t"
+    .offset   "uint64_t"
+    .size_    "uint64_t"
+    ()
+
+func.RenderPassEncoder.SetViewport { mut }
+    "void"
+    .x        "float"
+    .y        "float"
+    .width    "float"
+    .height   "float"
+    .minDepth "float"
+    .maxDepth "float"
+    ()
+
+func.RenderPassEncoder.SetScissor { mut }
+    "void"
+    .x        "uint32_t"
+    .y        "uint32_t"
+    .width    "uint32_t"
+    .height   "uint32_t"
+    ()
+
+func.RenderPassEncoder.PushConstants { mut }
+    "void"
+    .shader   "ShaderHandle"
+    .name     "cstring"
+    .data     "*const anyopaque"
+    ()
+
+func.RenderPassEncoder.ResolveBuffer { mut }
+    "CGPUBufferId"
+    .bufferHandle "RGBufferHandle"
+    ()
+
+func.RenderPassEncoder.ResolveTextureView { mut }
+    "CGPUTextureViewId"
+    .textureHandle "RGTextureHandle"
+    ()
+
+func.UploadPassEncoder.Upload { mut }
+    "void"
+    .offset         "uint64_t"
+    .length         "uint64_t"
+    .data           "*const anyopaque"
+
+switch_table.ShaderPropertyIsUniform
+    .arg            "ShaderPropertyType::Enum"
+    .ret            "bool"
+    .cases          ({
+                        { Float = true },
+                        { Float2 = true },
+                        { Float3 = true },
+                        { Float4 = true },
+                        { Int = true },
+                        { Mat4 = true },
+                    })
+    .default        (false)

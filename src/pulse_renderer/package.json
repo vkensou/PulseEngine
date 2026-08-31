@@ -1,0 +1,11 @@
+{
+  "name": "pulse_renderer",
+  "version": "1.0.0",
+  "library": "pulse_renderer",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "pulse_window",
+    "pulse_graphics",
+    "pulse_transform"
+  ]
+}

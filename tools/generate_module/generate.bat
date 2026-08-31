@@ -1,0 +1,1 @@
+..\lua54.exe generate_module.lua generate ..\..\examples\snake\snake.h

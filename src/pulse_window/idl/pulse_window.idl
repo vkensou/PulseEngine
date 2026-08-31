@@ -1,0 +1,122 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h (use exact C type names since the codegen overwrites custom cname)
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From flecs.h
+typedef "ecs_entity_t" { cname = "ecs_entity_t" }
+
+--- Forward declaration for SDL_Window
+typedef "SDL_Window" { cname = "SDL_Window" }
+
+const_value.WindowPluginDescVersion { value = "1u" }
+
+--- Window plugin flag bits (PulseWindowPluginFlags = EPulseFlags)
+flag.WindowPlugin { bits = 32, base = 1, underscore }
+    .CreatePrimary              --- Create primary window on build
+    .InstallRunner              --- Install window event runner
+    .ExitOnPrimaryClose         --- Exit app when primary window closes
+    .Default { "CreatePrimary", "InstallRunner", "ExitOnPrimaryClose" }    -- Window plugin default flags
+    ()
+
+struct.WindowDesc
+    .structSize "uint32_t"
+    .title      "cstring"
+    .width      "int32_t"
+    .height     "int32_t"
+    .resizable  "bool"
+    .externalGraphicsContext "bool"
+    ()
+
+struct.WindowPluginDesc
+    .structSize    "uint32_t"
+    .version       "uint32_t"
+    .primaryWindow "WindowDesc"
+    .flags         "WindowPlugin"
+    .sdlInitFlags  "uint32_t"
+    ()
+
+component.Window
+    .structSize "uint32_t"
+    .title      "cstring"
+    .width      "int32_t"
+    .height     "int32_t"
+    .resizable  "bool"
+    .externalGraphicsContext "bool"
+    ()
+
+component.SdlWindow
+    .handle     "*SDL_Window"
+    .windowId   "uint32_t"
+    .nativeView "*anyopaque"
+
+component.TextInputEvent
+    .text   "[512] char"
+    .window "ecs_entity_t"
+    ()
+
+component.WindowFocusEvent
+    .focused "bool"
+    .window  "ecs_entity_t"
+    ()
+
+component.WindowMouseHoverEvent
+    .entered "bool"
+    .window  "ecs_entity_t"
+    ()
+
+tag.PrimaryWindow()
+tag.WindowCloseRequested()
+tag.WindowResized()
+
+func.WindowDescDefault
+    "WindowDesc"
+    ()
+
+func.WindowPluginDescDefault
+    "WindowPluginDesc"
+    ()
+
+func.AddWindowPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    .desc "*const WindowPluginDesc"
+    ()
+
+func.WindowGetPrimary
+    "ecs_entity_t"
+    .app "PulseAppId"
+    ()
+
+func.WindowSetTitle
+    "EPulseResult"
+    .app    "PulseAppId"
+    .entity "ecs_entity_t"
+    .title  "cstring"
+    ()
+
+func.WindowGetNativeView
+    "?*anyopaque"
+    .app    "PulseAppId"
+    .entity "ecs_entity_t"
+    ()

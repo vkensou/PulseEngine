@@ -1,0 +1,6 @@
+{
+  "name": "pkg_script_runtime",
+  "version": "1.0.0",
+  "library": "test-pkg-script-runtime",
+  "dependencies": []
+}

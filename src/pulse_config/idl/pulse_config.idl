@@ -1,0 +1,196 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- Opaque config tree handles
+struct.Config()
+struct.ConfigArray()
+
+enum.ConfigType { underscore, comment = "PulseConfig node type:" }
+    .None
+    .Bool
+    .Int
+    .Double
+    .String
+    .Object
+    .Array
+    ()
+
+func.ConfigCreate
+    "*Config"
+    ()
+
+func.ConfigCreateFromJson
+    "*Config"
+    .json "cstring"
+    .len  "size_t"
+    ()
+
+func.ConfigCreateFromJsonFile
+    "*Config"
+    .path "cstring"
+    ()
+
+func.ConfigAddref
+    "void"
+    .cfg "*Config"
+    ()
+
+func.ConfigRelease
+    "void"
+    .cfg "*Config" { owned = true }
+    ()
+
+func.ConfigFreeString
+    "void"
+    .str "*char" { owned = true }
+    ()
+
+func.ConfigHas
+    "bool"
+    .cfg "*const Config"
+    .key "?cstring"
+    ()
+
+func.ConfigGetType
+    "ConfigType::Enum"
+    .cfg "*const Config"
+    .key "?cstring"
+    ()
+
+func.ConfigGetBool
+    "bool"
+    .cfg "*const Config"
+    .key "?cstring"
+    .defaultValue "bool"
+    ()
+
+func.ConfigGetInt
+    "int64_t"
+    .cfg "*const Config"
+    .key "?cstring"
+    .defaultValue "int64_t"
+    ()
+
+func.ConfigGetDouble
+    "double"
+    .cfg "*const Config"
+    .key "?cstring"
+    .defaultValue "double"
+    ()
+
+func.ConfigGetString
+    "?cstring"
+    .cfg "*const Config"
+    .key "?cstring"
+    .defaultValue "?cstring"
+    ()
+
+func.ConfigGetObj
+    "?*Config"
+    .cfg "*const Config"
+    .key "?cstring"
+    ()
+
+func.ConfigGetArray
+    "?*ConfigArray"
+    .cfg "*const Config"
+    .key "?cstring"
+    ()
+
+func.ConfigArrayCount
+    "size_t"
+    .arr "*const ConfigArray"
+    ()
+
+func.ConfigArrayGet
+    "?*Config"
+    .arr "*const ConfigArray"
+    .index "size_t"
+    ()
+
+func.ConfigSetBool
+    "void"
+    .cfg "*Config"
+    .key "cstring"
+    .value "bool"
+    ()
+
+func.ConfigSetInt
+    "void"
+    .cfg "*Config"
+    .key "cstring"
+    .value "int64_t"
+    ()
+
+func.ConfigSetDouble
+    "void"
+    .cfg "*Config"
+    .key "cstring"
+    .value "double"
+    ()
+
+func.ConfigSetString
+    "void"
+    .cfg "*Config"
+    .key "cstring"
+    .value "?cstring"
+    ()
+
+func.ConfigSetObj
+    "void"
+    .cfg "*Config"
+    .key "cstring"
+    .value "?*Config"
+    ()
+
+func.ConfigSetArray
+    "void"
+    .cfg "*Config"
+    .key "cstring"
+    .value "?*ConfigArray"
+    ()
+
+func.ConfigRemove
+    "bool"
+    .cfg "*Config"
+    .key "?cstring"
+    ()
+
+func.ConfigToJson
+    "?*char"
+    .cfg "*const Config"
+    .outLen "?*size_t"
+    ()
+
+func.ConfigToJsonPretty
+    "?*char"
+    .cfg "*const Config"
+    .outLen "?*size_t"
+    ()
+
+func.ConfigMerge
+    "?*Config"
+    .defaults "?*const Config"
+    .overrides "?*const Config"
+    ()
+
+func.ConfigLastError
+    "?cstring"
+    ()

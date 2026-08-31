@@ -1,0 +1,7 @@
+{
+  "name": "pkg_assets",
+  "version": "1.0.0",
+  "library": "test-pkg-assets",
+  "assets": true,
+  "dependencies": []
+}

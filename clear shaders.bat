@@ -1,1 +1,1 @@
-del examples\assets\shaderbin\*.spv
+del legacy\examples\assets\shaderbin\*.spv

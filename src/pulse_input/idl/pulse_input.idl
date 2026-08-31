@@ -1,0 +1,140 @@
+version(1)
+
+typedef "bool"
+typedef "float"
+typedef "int8_t"
+typedef "int32_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "void"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h (use exact C type names since the codegen overwrites custom cname)
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From flecs.h
+typedef "ecs_entity_t" { cname = "ecs_entity_t" }
+
+const_value.InputPluginDescVersion { value = "1u" }
+
+component.KeyboardInput
+    .pressed      "[512] bool"
+    .justPressed  "[512] bool"
+    .justReleased "[512] bool"
+    ()
+
+component.MouseInput
+    .state        "uint8_t"
+    .justPressed  "uint8_t"
+    .justReleased "uint8_t"
+    ()
+
+component.MouseMotion
+    .deltaX "float"
+    .deltaY "float"
+    .x      "float"
+    .y      "float"
+    ()
+
+component.MouseScroll
+    .x "float"
+    .y "float"
+    ()
+
+component.KeyEvent
+    .scancode "int32_t"
+    .keycode  "int32_t"
+    .mod      "uint16_t"
+    .pressed  "bool"
+    ["repeat"] "bool"
+    .window   "ecs_entity_t"
+    ()
+
+component.MouseButtonEvent
+    .button  "uint8_t"
+    .pressed "bool"
+    .x       "float"
+    .y       "float"
+    .isTouch "bool"
+    .window  "ecs_entity_t"
+    ()
+
+component.MouseScrollEvent
+    .x       "float"
+    .y       "float"
+    .isTouch "bool"
+    .window  "ecs_entity_t"
+    ()
+
+component.MouseMotionEvent
+    .x       "float"
+    .y       "float"
+    .isTouch "bool"
+    .window  "ecs_entity_t"
+    ()
+
+func.AddInputPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    ()
+
+func.InputIsKeyDown
+    "bool"
+    .app       "PulseAppId"
+    .scancode  "int32_t"
+    ()
+
+func.InputKeyJustPressed
+    "bool"
+    .app       "PulseAppId"
+    .scancode  "int32_t"
+    ()
+
+func.InputKeyJustReleased
+    "bool"
+    .app       "PulseAppId"
+    .scancode  "int32_t"
+    ()
+
+func.InputIsMouseButtonDown
+    "bool"
+    .app     "PulseAppId"
+    .button  "uint8_t"
+    ()
+
+func.InputMouseButtonJustPressed
+    "bool"
+    .app     "PulseAppId"
+    .button  "uint8_t"
+    ()
+
+func.InputMouseButtonJustReleased
+    "bool"
+    .app     "PulseAppId"
+    .button  "uint8_t"
+    ()
+
+func.InputGetMousePosition
+    "void"
+    .app   "PulseAppId"
+    .outX  "float" { out = true }
+    .outY  "float" { out = true }
+    ()
+
+func.InputGetMouseDelta
+    "void"
+    .app   "PulseAppId"
+    .outDx "float" { out = true }
+    .outDy "float" { out = true }
+    ()
+
+func.InputGetMouseScroll
+    "void"
+    .app   "PulseAppId"
+    .outX  "float" { out = true }
+    .outY  "float" { out = true }
+    ()

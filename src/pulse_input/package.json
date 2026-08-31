@@ -1,0 +1,7 @@
+{
+  "name": "pulse_input",
+  "version": "1.0.0",
+  "library": "pulse_input",
+  "entry": "pulse_package_register",
+  "dependencies": []
+}

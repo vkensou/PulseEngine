@@ -1,0 +1,246 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+typedef "ecs_world_t"
+
+const_value.PluginDescVersion { value = "2u" }
+
+enum.Result { underscore, comment = "Pulse Result:" }
+    .OK
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicatePlugin
+    .ErrorDuplicateSubapp
+    .ErrorNotFound
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
+    .ErrorInternal
+    ()
+
+enum.AppRunResult { underscore, comment = "Pulse app run result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorPluginBuildFailed
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
+    .ErrorPluginPostBuildFailed
+    .ErrorSubappPostBuildFailed
+    .ErrorSubappPrepareFailed
+    .ErrorSubappExtractFailed
+    .ErrorSubappUpdateFailed
+    .ErrorInternal
+    ()
+
+enum.AppPrepareResult { underscore, comment = "Pulse app prepare result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorPluginBuildFailed
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
+    .ErrorPluginPostBuildFailed
+    .ErrorSubappPostBuildFailed
+    .ErrorSubappPrepareFailed
+    .ErrorInternal
+    ()
+
+enum.AppUpdateResult { underscore, comment = "Pulse app update result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorSubappExtractFailed
+    .ErrorSubappUpdateFailed
+    .ErrorInternal
+    ()
+
+enum.AppSetRunnerResult { underscore, comment = "Pulse app set runner result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorInternal
+    ()
+
+enum.AppAddPluginResult { underscore, comment = "Pulse app add plugin result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicatePlugin
+    .ErrorPluginBuildFailed
+    .ErrorMissingPluginDependency
+    .ErrorCircularPluginDependency
+    .ErrorInternal
+    ()
+
+enum.AppInsertSubappResult { underscore, comment = "Pulse app insert subapp result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicateSubapp
+    .ErrorInternal
+    ()
+
+enum.AppSetSubappExtractResult { underscore, comment = "Pulse app set subapp extract result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorNotFound
+    .ErrorInternal
+    ()
+
+enum.RunnerResult { underscore, comment = "Pulse runner callback result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorSubappExtractFailed
+    .ErrorSubappUpdateFailed
+    .ErrorInternal
+    ()
+
+enum.SubappExtractResult { underscore, comment = "Pulse subapp extract callback result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorInternal
+    ()
+
+enum.PluginBuildResult { underscore, comment = "Pulse plugin build callback result:" }
+    .Ok
+    .ErrorInvalidArgument
+    .ErrorInvalidState
+    .ErrorDuplicatePlugin
+    .ErrorInternal
+    ()
+
+funcptr.RunnerFn
+    "RunnerResult::Enum"
+    .app            "AppId"
+    .ctx            "?*anyopaque"
+
+funcptr.SubappExtractFn
+    "SubappExtractResult::Enum"
+    .app            "AppId"
+    .subapp         "AppId"
+    .ctx            "?*anyopaque"
+
+funcptr.PluginBuildFn
+    "PluginBuildResult::Enum"
+    .app            "AppId"
+    .ctx            "?*anyopaque"
+
+funcptr.PluginShutdownFn
+    "void"
+    .app            "AppId"
+    .ctx            "?*anyopaque"
+
+id "AppId"
+
+struct.AppDesc
+    .name           "?cstring"
+    .enableRESTApi  "bool"
+
+struct.PluginDesc
+    .structSize     "uint32_t"
+    .version        "uint32_t"
+    .pluginVersion  "uint32_t"
+    .name           "cstring"
+    .ctx            "?*anyopaque" { retain = true }
+    .build          "PluginBuildFn"
+    .postBuild      "PluginBuildFn"
+    .shutdown       "PluginShutdownFn"
+    .dependencyCount "uint32_t"
+    .dependencies   "*cstring"
+
+struct.App()
+
+--- Per-frame timing (singleton component, updated every frame by the time system)
+component.Timer
+    .deltaTime              "float"
+    .timeSinceStartup       "float"
+    .deltaTimeDouble        "double"
+    .timeSinceStartupDouble "double"
+    .fps                    "int32_t"
+    ()
+
+func.CreateApp
+    "?AppId" { ret = { owner = true } }
+    .desc "*const AppDesc"
+
+func.DestroyApp
+    "void"
+    .app "AppId" { owner = true }
+
+func.App.Run { mut }
+    "AppRunResult::Enum"
+
+func.App.Prepare { mut }
+    "AppPrepareResult::Enum"
+
+func.App.Update { mut }
+    "AppUpdateResult::Enum"
+
+func.App.Teardown { mut }
+    "void"
+
+func.App.Finish { mut }
+    "void"
+
+func.App.ShouldQuit
+    "bool"
+
+func.App.SetRunner { mut }
+    "AppSetRunnerResult::Enum"
+    .runner     "RunnerFn"
+    .ctx        "?*anyopaque" { retain = true }
+
+func.App.AddPlugin { mut }
+    "AppAddPluginResult::Enum"
+    .desc "*const PluginDesc"
+
+func.App.HasPlugin "bool"
+    .name       "cstring"
+
+func.App.World { mut }
+    "*ecs_world_t"
+
+func.App.LastError
+    "cstring"
+
+func.App.InsertSubapp { mut }
+    "AppInsertSubappResult::Enum"
+    .name       "cstring"
+    .subapp     "AppId"
+
+func.App.GetSubapp
+    "AppId"
+    .name       "cstring"
+
+func.App.RemoveSubapp { mut }
+    "AppId" { ret = { owner = true } }
+    .name       "cstring"
+
+func.App.SetSubappExtract { mut }
+    "AppSetSubappExtractResult::Enum"
+    .name       "cstring"
+    .extract    "SubappExtractFn"
+    .ctx        "?*anyopaque" { retain = true }
+
+func.GetAppFromWorld { mut }
+    "AppId"
+    .world      "*ecs_world_t"

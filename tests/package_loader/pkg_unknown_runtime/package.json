@@ -1,0 +1,7 @@
+{
+  "name": "pkg_unknown_runtime",
+  "version": "1.0.0",
+  "type": "nosuchruntime",
+  "script_file": "main.xyz",
+  "dependencies": []
+}

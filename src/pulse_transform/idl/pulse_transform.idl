@@ -1,0 +1,62 @@
+version(1)
+
+typedef "float"
+typedef "int32_t"
+typedef "uint32_t"
+typedef "void"
+typedef "bool"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From pulse_math.h
+typedef "HMM_Vec3" { cname = "HMM_Vec3" }
+typedef "HMM_Quat" { cname = "HMM_Quat" }
+typedef "HMM_Mat4" { cname = "HMM_Mat4" }
+
+--- From flecs.h
+typedef "ecs_entity_t" { cname = "ecs_entity_t" }
+
+const_value.TransformPluginDescVersion { value = "1u" }
+
+component.LocalTransform
+    .translation "HMM_Vec3"
+    .rotation    "HMM_Quat"
+    .scale       "HMM_Vec3"
+    ()
+
+component.WorldTransform
+    .value "HMM_Mat4"
+    ()
+
+component.ShowMatrix
+    .model "HMM_Mat4"
+    ()
+
+func.AddTransformPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    ()
+
+func.SetParent
+    "void"
+    .app     "PulseAppId"
+    .child   "ecs_entity_t"
+    .parent  "ecs_entity_t"
+    ()
+
+func.RemoveParent
+    "void"
+    .app   "PulseAppId"
+    .child "ecs_entity_t"
+    ()
+
+func.GetParent
+    "ecs_entity_t"
+    .app   "PulseAppId"
+    .child "ecs_entity_t"
+    ()

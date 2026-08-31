@@ -1,0 +1,290 @@
+#include "rendergraph_compiler.h"
+#include "rendergraph_compiler_internal.h"
+
+#include "dependencygraph.h"
+#include <cassert>
+#include <algorithm>
+
+namespace HGEGraphics
+{
+	CompiledRenderGraph Compiler::Compile(PulseRenderGraphId renderGraph, std::pmr::memory_resource* const memory_resource)
+	{
+		auto& impl = *to_impl(renderGraph);
+		auto resourceCount = impl.resources.size();
+		auto passCount = impl.passes.size();
+		auto edgeCount = impl.edges.size();
+
+		struct Node
+		{
+			Node(index_type_t index, bool is_pass, bool is_persistent, std::pmr::memory_resource* const resource)
+				: index(index), is_pass(is_pass), is_persistent(is_persistent), ins(resource), outs(resource)
+			{
+			}
+
+			bool is_culled() const
+			{
+				return ref_count == 0 && !is_persistent;
+			}
+
+			std::pmr::vector<index_type_t> ins;
+			std::pmr::vector<index_type_t> outs;
+			index_type_t index = 0;
+			uint32_t ref_count = 0;
+			bool is_pass;
+			bool is_persistent{ false };
+		};
+
+		std::pmr::vector<Node> nodes(memory_resource);
+		nodes.reserve(passCount + resourceCount);
+		for (index_type_t i = 0; i < passCount; ++i)
+		{
+			auto const& pass = impl.passes[i];
+			Node node(i, true, pass.type == PASS_TYPE_PRESENT || pass.type == PASS_TYPE_HOLDON, memory_resource);
+			node.ins.reserve(pass.reads.size());
+			for (index_type_t j = 0; j < pass.reads.size(); ++j)
+				node.ins.push_back(impl.edges[pass.reads[j]].from + passCount);
+			node.outs.reserve(pass.writes.size());
+			for (index_type_t j = 0; j < pass.writes.size(); ++j)
+				node.outs.push_back(impl.edges[pass.writes[j]].to + passCount);
+			nodes.emplace_back(std::move(node));
+		}
+
+		for (index_type_t i = 0; i < resourceCount; ++i)
+		{
+			auto const& resource = impl.resources[i];
+			Node node(i, false, resource.manageType != ManageType::Managed, memory_resource);
+			nodes.emplace_back(std::move(node));
+		}
+
+		for (index_type_t i = 0; i < passCount; ++i)
+		{
+			auto const& node = nodes[i];
+			for (index_type_t j = 0; j < node.ins.size(); ++j)
+			{
+				auto the_in = node.ins[j];
+				nodes[the_in].outs.push_back(i);
+			}
+			for (index_type_t j = 0; j < node.outs.size(); ++j)
+			{
+				auto the_out = node.outs[j];
+				nodes[the_out].ins.push_back(i);
+			}
+		}
+
+		for (auto i = 0; i < nodes.size(); ++i)
+		{
+			auto& node = nodes[i];
+			node.ref_count = node.outs.size();
+		}
+
+		std::pmr::vector<index_type_t> cullingStack(memory_resource);
+		cullingStack.reserve(nodes.size());
+		for (auto i = 0; i < nodes.size(); ++i)
+		{
+			auto& node = nodes[i];
+			if (node.ref_count == 0 && !node.is_persistent)
+				cullingStack.push_back(i);
+		}
+
+		while (!cullingStack.empty())
+		{
+			auto index = cullingStack.back();
+			cullingStack.pop_back();
+			auto const& node = nodes[index];
+
+			for (auto i = 0; i < node.ins.size(); ++i)
+			{
+				auto inNodeIndex = node.ins[i];
+				auto& inNode = nodes[inNodeIndex];
+				assert(inNode.ref_count > 0);
+				inNode.ref_count--;
+				if (inNode.ref_count == 0 && !inNode.is_persistent)
+					cullingStack.push_back(inNodeIndex);
+			}
+		}
+
+		CompiledRenderGraph compiled(memory_resource);
+		auto usedPassCount = std::count_if(nodes.begin(), nodes.begin() + passCount, [](auto& node) {return !node.is_culled(); });
+		auto usedResourceCount = std::count_if(nodes.begin() + passCount, nodes.end(), [](auto& node) {return !node.is_culled(); });
+		compiled.passes.reserve(usedPassCount);
+		for (auto i = 0; i < passCount; ++i)
+		{
+			auto const& node = nodes[i];
+			auto const& pass = impl.passes[node.index];
+			if (!node.is_culled())
+			{
+				auto& compiledPass = compiled.passes.emplace_back(pass.name, memory_resource);
+				compiledPass.type = pass.type;
+
+				compiledPass.reads.reserve(pass.reads.size());
+				for (auto edgeIndex : pass.reads)
+				{
+					auto& edge = impl.edges[edgeIndex];
+					compiledPass.reads.emplace_back(edge.from, edge.usage);
+				}
+
+				compiledPass.writes.reserve(pass.writes.size());
+				for (auto edgeIndex : pass.writes)
+				{
+					auto& edge = impl.edges[edgeIndex];
+					compiledPass.writes.emplace_back(edge.to, edge.usage);
+				}
+
+				if (pass.type == PASS_TYPE_RENDER)
+				{
+					compiledPass.colorAttachmentCount = pass.render_context.colorAttachmentCount;
+					for (auto j = 0; j < pass.render_context.colorAttachmentCount; ++j)
+					{
+						compiledPass.colorAttachments[j] = pass.render_context.colorAttachments[j];
+					}
+					compiledPass.depthAttachment = pass.render_context.depthAttachment;
+					compiledPass.executable = pass.render_context.executable;
+				}
+				else if (pass.type == PASS_TYPE_COMPUTE)
+				{
+					compiledPass.executable = pass.compute_context.executable;
+				}
+				else if (pass.type == PASS_TYPE_UPLOAD_TEXTURE)
+				{
+					compiledPass.staging_buffer = pass.upload_texture_context.staging_buffer.index;
+					compiledPass.dest_texture = pass.upload_texture_context.dest_texture.index;
+					compiledPass.uploadTextureExecutable = pass.upload_texture_context.executable;
+					compiledPass.size = pass.upload_texture_context.size;
+					compiledPass.offset = pass.upload_texture_context.offset;
+					compiledPass.data = pass.upload_texture_context.data;
+					compiledPass.mipmap = pass.upload_texture_context.mipmap;
+					compiledPass.slice = pass.upload_texture_context.slice;
+				}
+				else if (pass.type == PASS_TYPE_UPLOAD_BUFFER)
+				{
+					compiledPass.staging_buffer = pass.upload_buffer_context.staging_buffer.index;
+					compiledPass.dest_buffer = pass.upload_buffer_context.dest_buffer.index;
+					compiledPass.uploadTextureExecutable = pass.upload_buffer_context.executable;
+					compiledPass.size = pass.upload_buffer_context.size;
+					compiledPass.offset = pass.upload_buffer_context.offset;
+					compiledPass.data = pass.upload_buffer_context.data;
+				}
+				compiledPass.passdata = pass.passdata;
+			}
+			else
+			{
+				compiled.passes.emplace_back();
+			}
+		}
+
+		compiled.resources.reserve(usedResourceCount);
+		for (auto i = 0; i < resourceCount; ++i)
+		{
+			auto const& node = nodes[i + passCount];
+			auto const& resource = impl.resources[node.index];
+			if (!node.is_culled())
+			{
+				if (resource.resourceType == ResourceType::Texture)
+					compiled.resources.emplace_back(resource.name, resource.manageType, resource.width, resource.height, resource.depth, resource.format, resource.texture, resource.mipCount, resource.arraySize, resource.parent, resource.mipLevel, resource.arraySlice);
+				else if (resource.resourceType == ResourceType::Buffer)
+					compiled.resources.emplace_back(resource.name, resource.manageType, resource.size, resource.buffer, resource.bufferType, resource.memoryUsage);
+
+				if (resource.manageType == ManageType::Managed)
+				{
+					index_type_t first = MAX_INDEX;
+					index_type_t last = 0;
+					if (!node.ins.empty())
+					{
+						first = std::min(first, node.ins.front());
+						last = std::max(last, node.ins.back());
+					}
+					if (!node.outs.empty())
+					{
+						first = std::min(first, node.outs.front());
+						last = std::max(last, node.outs.back());
+					}
+					if (resource.holdOnLast)
+						last = passCount - 1;
+
+					assert(first >= 0 && first < compiled.passes.size());
+					compiled.passes[first].devirtualize.push_back(i);
+					assert(last >= 0 && last < compiled.passes.size());
+					compiled.passes[last].destroy.push_back(i);
+				}
+			}
+			else
+			{
+				compiled.resources.emplace_back();
+			}
+		}
+
+		return compiled;
+	}
+	CompiledResourceNode::CompiledResourceNode(const char* name, ManageType type, uint16_t width, uint16_t height, uint16_t depth, ECGPUTextureFormat format, PulseTextureData* imported_texture, uint8_t mipCount, uint8_t arraySize, index_type_t parent, uint8_t mipLevel, uint8_t arraySlice)
+		: name(name), resourceType(ResourceType::Texture), manageType(type), width(width), height(height), depth(depth), format(format), imported_texture(imported_texture), imported_buffer(CGPU_NULLPTR), managered_texture(nullptr), size(0), managed_buffer(nullptr), bufferType(CGPU_RESOURCE_TYPE_NONE), memoryUsage(CGPU_MEMORY_USAGE_UNKNOWN)
+		, mipCount(mipCount), arraySize(arraySize), parent(parent), mipLevel(mipLevel), arraySlice(arraySlice)
+	{
+	}
+	CompiledResourceNode::CompiledResourceNode(const char* name, ManageType type, uint32_t size, PulseGraphicsBufferData* imported_buffer, ECGPUResourceTypeFlags bufferType, ECGPUMemoryUsage memoryUsage)
+		: name(name), resourceType(ResourceType::Buffer), manageType(type), size(size), width(0), height(0), depth(0), format(CGPU_TEXTURE_FORMAT_UNDEFINED), imported_texture(CGPU_NULLPTR), imported_buffer(imported_buffer), managered_texture(nullptr), managed_buffer(nullptr), bufferType(bufferType), memoryUsage(memoryUsage)
+		, mipCount(0), arraySize(0), parent(0), mipLevel(0), arraySlice(0)
+	{
+	}
+	CompiledResourceNode::CompiledResourceNode()
+		: name(nullptr), resourceType(ResourceType::Texture), manageType(ManageType::Managed), width(0), height(0), depth(0), format(CGPU_TEXTURE_FORMAT_UNDEFINED), imported_texture(nullptr), imported_buffer(CGPU_NULLPTR), managered_texture(nullptr), size(0), managed_buffer(nullptr), bufferType(CGPU_RESOURCE_TYPE_NONE), memoryUsage(CGPU_MEMORY_USAGE_UNKNOWN)
+		, mipCount(0), arraySize(0), parent(0), mipLevel(0), arraySlice(0)
+	{
+	}
+	CompiledRenderPassNode::CompiledRenderPassNode(const char* name, std::pmr::memory_resource* const memory_resource)
+		: name(name), reads(memory_resource), writes(memory_resource)
+	{
+	}
+	CompiledRenderPassNode::CompiledRenderPassNode()
+		: name(nullptr), type(PASS_TYPE_HOLDON), passdata(nullptr)
+	{
+	}
+	CompiledRenderGraph::CompiledRenderGraph(std::pmr::memory_resource* const memory_resource)
+		: passes(memory_resource), resources(memory_resource)
+	{
+	}
+
+} // namespace HGEGraphics
+
+extern "C" {
+
+CGPUBufferId pulse_render_pass_encoder_resolve_buffer(PulseRenderPassEncoder* encoder, PulseRGBufferHandle buffer_handle)
+{
+	auto* enc = (HGEGraphics::RenderPassEncoder*)encoder;
+	auto crg = enc->compiled_graph;
+	auto resourceNode = crg->resources[buffer_handle.index];
+	auto buffer = resourceNode.manageType == HGEGraphics::ManageType::Managed ? resourceNode.managed_buffer->handle : resourceNode.imported_buffer->handle;
+	return buffer;
+}
+
+CGPUTextureViewId pulse_render_pass_encoder_resolve_texture_view(PulseRenderPassEncoder* encoder, PulseRGTextureHandle texture_handle)
+{
+	using namespace HGEGraphics;
+	auto* enc = (RenderPassEncoder*)encoder;
+	auto crg = enc->compiled_graph;
+	auto& resourceNode = crg->resources[texture_handle.index];
+	CGPUTextureViewDescriptor desc = {};
+	PulseTextureData* texture;
+	if (resourceNode.manageType == ManageType::Managed)
+		texture = resourceNode.managered_texture->texture;
+	else if (resourceNode.manageType == ManageType::Imported)
+		texture = resourceNode.imported_texture;
+	else
+	{
+		auto& parentResource = crg->resources[resourceNode.parent];
+		assert(parentResource.parent == 0 && parentResource.resourceType == ResourceType::Texture);
+		texture = parentResource.manageType == ManageType::Managed ? parentResource.managered_texture->texture : parentResource.imported_texture;
+	}
+	desc.texture = texture->handle;
+	desc.format = texture->handle->info->format;
+	desc.usages = CGPU_TEXTURE_VIEW_USAGE_SRV;
+	desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
+	desc.dims = texture->handle->info->depth > 1 ? CGPU_TEXTURE_DIMENSION_3D :  CGPU_TEXTURE_DIMENSION_2D;
+	desc.base_array_layer = resourceNode.arraySlice;
+	desc.array_layer_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->array_size_minus_one + 1 : 1;
+	desc.base_mip_level = resourceNode.mipLevel;
+	desc.mip_level_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->mip_levels : 1;
+	auto textureView = enc->context->textureViewPool.getResource(desc);
+	return textureView->handle;
+}
+
+} // extern "C"

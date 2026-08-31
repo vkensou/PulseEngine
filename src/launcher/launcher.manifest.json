@@ -1,0 +1,52 @@
+{
+  "app": {
+    "name": "pulse-launcher",
+    "enable_restapi": true
+  },
+  "packages": [
+    {
+      "name": "pulse_input"
+    },
+    {
+      "name": "pulse_window",
+      "config": {
+        "primary_window": {
+          "title": "PulseEngine Snake Daslang",
+          "width": 800,
+          "height": 600,
+          "resizable": false,
+          "external_graphics_context": true
+        },
+        "sdl_init_flags": 0
+      }
+    },
+    {
+      "name": "pulse_asset",
+      "config": {
+        "max_requests_per_update": 64
+      }
+    },
+    {
+      "name": "pulse_transform"
+    },
+    {
+      "name": "pulse_graphics",
+      "config": {
+        "enable_debug_layer": true,
+        "enable_vsync": true
+      }
+    },
+    {
+      "name": "pulse_renderer"
+    },
+    {
+      "name": "pulse_imgui"
+    },
+    {
+      "name": "pulse_daslang"
+    },
+    {
+      "name": "snake"
+    }
+  ]
+}
