@@ -282,48 +282,8 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 
 	if (state.is(SnakeGameState::UnInitialized))
 	{
-		// pulse_create_shader_from_file 内部会深拷贝 settings（含属性数组、
-		// 名字符串与 blend attachments），栈上临时 desc 可安全丢弃
-		CGPUBlendAttachmentState blend_attachments = {
-			.enable = false,
-			.src_factor = CGPU_BLEND_FACTOR_ONE,
-			.dst_factor = CGPU_BLEND_FACTOR_ZERO,
-			.src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
-			.dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
-			.blend_op = CGPU_BLEND_OP_ADD,
-			.blend_alpha_op = CGPU_BLEND_OP_ADD,
-			.color_mask = CGPU_COLOR_MASK_RGBA,
-		};
-		PulseShaderProperty shader_props[] = {
-			{ .name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
-			{ .name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
-			{ .name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
-		};
-		PulseShaderCreateFromFileDesc shader_desc = {
-			.vert_path = "assets/color.vert.spv",
-			.frag_path = "assets/color.frag.spv",
-			.blend_desc = {
-				.attachment_count = 1,
-				.p_attachments = &blend_attachments,
-				.alpha_to_coverage = false,
-				.independent_blend = false,
-			},
-			.depth_desc = {
-				.depth_test = true,
-				.depth_write = true,
-				.depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
-				.stencil_test = false,
-			},
-			.rasterizer_state = {
-				.cull_mode = CGPU_CULL_MODE_BACK,
-				.front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-			},
-			.p_properties = shader_props,
-			.properties_count = 3,
-		};
-
 		// ---- shader / mesh（异步，不等待）----
-		as.shader = pulse_create_shader_from_file(app, &shader_desc);
+		as.shader = pulse_load_shader(app, "assets/color.shader");
 		as.mesh = pulse_load_mesh(app, "assets/Quad.obj");
 		state.to(SnakeGameState::Loading);
 		return;

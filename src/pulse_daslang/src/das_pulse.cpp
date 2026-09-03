@@ -10,7 +10,6 @@
 #include "daScript/simulate/bind_enum.h"
 
 #include "das_flecs.h"
-#include "das_cgpu_types.h"
 
 #include <imgui.h>
 
@@ -72,9 +71,9 @@ static const char* das_asset_system_get_error(const PulseAssetSystemHandle& asse
 	return pulse_asset_system_get_error(asset_system.asset_system, request);
 }
 
-static PulseShaderRequest das_create_shader_from_file(const PulseAppHandle& app, const PulseShaderCreateFromFileDesc* desc)
+static PulseShaderRequest das_load_shader(const PulseAppHandle& app, const char* filepath)
 {
-	return pulse_create_shader_from_file(app.app, desc);
+	return pulse_load_shader(app.app, filepath);
 }
 
 static PulseMeshRequest das_load_mesh(const PulseAppHandle& app, const char* filepath)
@@ -299,14 +298,6 @@ struct PulseMaterialCreateDescAnnotation final : das::ManagedStructureAnnotation
 // Shader descriptor annotations
 // ============================================================
 
-DAS_BASE_BIND_ENUM(EPulseShaderPropertyRole, EPulseShaderPropertyRole,
-	PULSE_SHADER_PROPERTY_ROLE_MATERIAL,
-	PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL);
-
-DAS_BASE_BIND_ENUM(EPulseShaderPropertyType, EPulseShaderPropertyType,
-	PULSE_SHADER_PROPERTY_TYPE_FLOAT4,
-	PULSE_SHADER_PROPERTY_TYPE_MAT4);
-
 DAS_BASE_BIND_ENUM(EPulseAssetState, EPulseAssetState,
 	PULSE_ASSET_STATE_EMPTY,
 	PULSE_ASSET_STATE_WAITING_LOAD,
@@ -317,41 +308,7 @@ DAS_BASE_BIND_ENUM(EPulseAssetState, EPulseAssetState,
 	PULSE_ASSET_STATE_FAILED,
 	PULSE_ASSET_STATE_PENDING_DELETE);
 
-DAS_BIND_ENUM_CAST(EPulseShaderPropertyRole);
-DAS_BIND_ENUM_CAST(EPulseShaderPropertyType);
 DAS_BIND_ENUM_CAST(EPulseAssetState);
-
-MAKE_TYPE_FACTORY(PulseShaderProperty, PulseShaderProperty);
-struct PulseShaderPropertyAnnotation final : das::ManagedStructureAnnotation<PulseShaderProperty>
-{
-	PulseShaderPropertyAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("PulseShaderProperty", ml, "PulseShaderProperty")
-	{
-		addField<DAS_BIND_MANAGED_FIELD(name)>("name");
-		addField<DAS_BIND_MANAGED_FIELD(type)>("_type", "type");
-		addField<DAS_BIND_MANAGED_FIELD(role)>("role");
-		addField<DAS_BIND_MANAGED_FIELD(set)>("set");
-		addField<DAS_BIND_MANAGED_FIELD(binding)>("binding");
-		addField<DAS_BIND_MANAGED_FIELD(offset)>("offset");
-		addField<DAS_BIND_MANAGED_FIELD(size)>("size");
-	}
-};
-
-MAKE_TYPE_FACTORY(PulseShaderCreateFromFileDesc, PulseShaderCreateFromFileDesc);
-struct PulseShaderCreateFromFileDescAnnotation final : das::ManagedStructureAnnotation<PulseShaderCreateFromFileDesc>
-{
-	PulseShaderCreateFromFileDescAnnotation(das::ModuleLibrary& ml)
-		: ManagedStructureAnnotation("PulseShaderCreateFromFileDesc", ml, "PulseShaderCreateFromFileDesc")
-	{
-		addField<DAS_BIND_MANAGED_FIELD(vert_path)>("vert_path");
-		addField<DAS_BIND_MANAGED_FIELD(frag_path)>("frag_path");
-		addField<DAS_BIND_MANAGED_FIELD(blend_desc)>("blend_desc");
-		addField<DAS_BIND_MANAGED_FIELD(depth_desc)>("depth_desc");
-		addField<DAS_BIND_MANAGED_FIELD(rasterizer_state)>("rasterizer_state");
-		addField<DAS_BIND_MANAGED_FIELD(p_properties)>("p_properties");
-		addField<DAS_BIND_MANAGED_FIELD(properties_count)>("properties_count");
-	}
-};
 
 namespace das
 {
@@ -409,7 +366,6 @@ namespace das
 
 		lib.addModule(this);
 		lib.addBuiltInModule();
-		lib.addModule(Module::require("cgpu"));
 		lib.addModule(Module::require("flecs"));
 
 		addAnnotation(new HMM_Vec3Annotation(lib));
@@ -420,8 +376,6 @@ namespace das
 		addAnnotation(new PulseAppIdAnnotation(lib));
 		addAnnotation(new PulseAssetSystemIdAnnotation(lib));
 
-		addEnumeration(new ::EnumerationEPulseShaderPropertyRole());
-		addEnumeration(new ::EnumerationEPulseShaderPropertyType());
 		addEnumeration(new ::EnumerationEPulseAssetState());
 
 		addAnnotation(new PulseShaderRequestAnnotation(lib));
@@ -431,8 +385,6 @@ namespace das
 		addAnnotation(new PulseMaterialHandleAnnotation(lib));
 		addAnnotation(new PulseAssetRequestAnnotation(lib));
 		addAnnotation(new PulseMaterialCreateDescAnnotation(lib));
-		addAnnotation(new PulseShaderPropertyAnnotation(lib));
-		addAnnotation(new PulseShaderCreateFromFileDescAnnotation(lib));
 
 		addExtern<DAS_BIND_FUN(HMM_V3), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V3", SideEffects::none, "HMM_V3")->args({ "x", "y", "z" });
 		addExtern<DAS_BIND_FUN(HMM_V4), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V4", SideEffects::none, "HMM_V4")->args({ "x", "y", "z", "w" });
@@ -447,7 +399,7 @@ namespace das
 		addExtern<DAS_BIND_FUN(das_asset_system_get_state)>(*this, lib, "pulse_asset_system_get_state", SideEffects::modifyExternal, "pulse_asset_system_get_state")->args({ "asset_system", "request" });
 		addExtern<DAS_BIND_FUN(das_asset_system_get_error)>(*this, lib, "pulse_asset_system_get_error", SideEffects::modifyExternal, "pulse_asset_system_get_error")->args({ "asset_system", "request" });
 
-		addExtern<DAS_BIND_FUN(das_create_shader_from_file), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_create_shader_from_file", SideEffects::worstDefault, "pulse_create_shader_from_file")->args({ "app", "desc" });
+		addExtern<DAS_BIND_FUN(das_load_shader), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_load_shader", SideEffects::worstDefault, "pulse_load_shader")->args({ "app", "path" });
 		addExtern<DAS_BIND_FUN(das_load_mesh), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_load_mesh", SideEffects::worstDefault, "pulse_load_mesh")->args({ "app", "path" });
 		addExtern<DAS_BIND_FUN(das_shader_is_ready)>(*this, lib, "pulse_shader_is_ready", SideEffects::modifyExternal, "pulse_shader_is_ready")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_mesh_is_ready)>(*this, lib, "pulse_mesh_is_ready", SideEffects::modifyExternal, "pulse_mesh_is_ready")->args({ "app", "request" });

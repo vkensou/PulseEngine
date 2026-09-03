@@ -7,7 +7,6 @@ options strict_smart_pointers = true
 require pulse/flecs_boost public
 require pulse/pulse_components public
 require pulse public
-require cgpu
 require daslib/random
 require daslib/option
 require math
@@ -322,56 +321,7 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 [system(phase="update", state="UnInitialized|Loading")]
 def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: SystemStateMachine<SnakeGameState>, cmd: CommandBuffer, primaryWindowQuery: Query<PulseWindow const, PulsePrimaryWindow const>) {
     if (state.is_state(SnakeGameState.UnInitialized)) {
-        var blend_attachments = CGPUBlendAttachmentState(
-            enable = false,
-            src_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ONE,
-            dst_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ZERO,
-            src_alpha_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ONE,
-            dst_alpha_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ZERO,
-            blend_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
-            blend_alpha_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
-            color_mask = uint(ECGPUColorMaskFlagBits.CGPU_COLOR_MASK_RGBA))
-        let blend_desc = CGPUBlendStateDescriptor(
-            attachment_count = 1u,
-            p_attachments = unsafe(addr(blend_attachments)),
-            alpha_to_coverage = false,
-            independent_blend = false)
-        let depth_desc = CGPUDepthStateDescriptor(
-            depth_test = true,
-            depth_write = true,
-            depth_op = ECGPUCompareOp.CGPU_COMPARE_OP_GREATER_EQUAL,
-            stencil_test = false)
-        let rasterizer_state = CGPURasterizerStateDescriptor(
-            cull_mode = uint(ECGPUCullModeFlagBits.CGPU_CULL_MODE_BACK),
-            front_face = ECGPUFrontFace.CGPU_FRONT_FACE_CLOCK_WISE)
-
-        var shader_props: PulseShaderProperty[3]
-        shader_props[0] = PulseShaderProperty(
-            name = "vpMatrix",
-            _type = EPulseShaderPropertyType.PULSE_SHADER_PROPERTY_TYPE_MAT4,
-            role = EPulseShaderPropertyRole.PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,
-            set = 0u, binding = 0u, offset = 0u, size = 64u)
-        shader_props[1] = PulseShaderProperty(
-            name = "albedo",
-            _type = EPulseShaderPropertyType.PULSE_SHADER_PROPERTY_TYPE_FLOAT4,
-            role = EPulseShaderPropertyRole.PULSE_SHADER_PROPERTY_ROLE_MATERIAL,
-            set = 1u, binding = 0u, offset = 0u, size = 16u)
-        shader_props[2] = PulseShaderProperty(
-            name = "wMatrix",
-            _type = EPulseShaderPropertyType.PULSE_SHADER_PROPERTY_TYPE_MAT4,
-            role = EPulseShaderPropertyRole.PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,
-            set = 2u, binding = 0u, offset = 0u, size = 64u)
-
-        let shader_desc = PulseShaderCreateFromFileDesc(
-            vert_path = "assets/color.vert.spv",
-            frag_path = "assets/color.frag.spv",
-            blend_desc = blend_desc,
-            depth_desc = depth_desc,
-            rasterizer_state = rasterizer_state,
-            properties_count = 3ul,
-            p_properties = unsafe(addr(shader_props[0])))
-
-        assets.get().shader = pulse_create_shader_from_file(app, unsafe(addr(shader_desc)))
+        assets.get().shader = pulse_load_shader(app, "assets/color.shader")
         assets.get().mesh = pulse_load_mesh(app, "assets/Quad.obj")
         state.to(SnakeGameState.Loading)
         return

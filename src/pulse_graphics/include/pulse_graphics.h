@@ -378,21 +378,6 @@ typedef struct PulseShaderCreateFromBinaryDesc
 } PulseShaderCreateFromBinaryDesc;
 
 /**
- * Shader create from file desc
- *
- */
-typedef struct PulseShaderCreateFromFileDesc
-{
-    const char*          vert_path;
-    const char*          frag_path;
-    CGPUBlendStateDescriptor blend_desc;
-    CGPUDepthStateDescriptor depth_desc;
-    CGPURasterizerStateDescriptor rasterizer_state;
-    Pulse_Array(const PulseShaderProperty, properties);
-
-} PulseShaderCreateFromFileDesc;
-
-/**
  * Compute shader create from binary desc
  *
  */
@@ -401,16 +386,6 @@ typedef struct PulseComputeShaderCreateFromBinaryDesc
     Pulse_Blob(cs_data);
 
 } PulseComputeShaderCreateFromBinaryDesc;
-
-/**
- * Compute shader create from file desc
- *
- */
-typedef struct PulseComputeShaderCreateFromFileDesc
-{
-    const char*          cs_path;
-
-} PulseComputeShaderCreateFromFileDesc;
 
 /**
  * Buffer create desc
@@ -698,7 +673,7 @@ PULSE_GRAPHICS_API bool pulse_shader_library_is_alive(PulseAppId app, PulseShade
  *
  */
 PULSE_GRAPHICS_API PulseShaderHandle pulse_create_shader_from_binary(PulseAppId app, const PulseShaderCreateFromBinaryDesc* desc);
-PULSE_GRAPHICS_API PulseShaderRequest pulse_create_shader_from_file(PulseAppId app, const PulseShaderCreateFromFileDesc* desc);
+PULSE_GRAPHICS_API PulseShaderRequest pulse_load_shader(PulseAppId app, const char* filepath);
 PULSE_GRAPHICS_API PulseShaderHandle pulse_shader_get_handle(PulseAppId app, PulseShaderRequest request);
 PULSE_GRAPHICS_API bool pulse_shader_is_ready(PulseAppId app, PulseShaderRequest request);
 PULSE_GRAPHICS_API bool pulse_shader_is_alive(PulseAppId app, PulseShaderRequest request);
@@ -711,7 +686,7 @@ PULSE_GRAPHICS_API bool pulse_shader_is_alive(PulseAppId app, PulseShaderRequest
  *
  */
 PULSE_GRAPHICS_API PulseComputeShaderHandle pulse_create_compute_shader_from_binary(PulseAppId app, const PulseComputeShaderCreateFromBinaryDesc* desc);
-PULSE_GRAPHICS_API PulseComputeShaderRequest pulse_create_compute_shader_from_file(PulseAppId app, const PulseComputeShaderCreateFromFileDesc* desc);
+PULSE_GRAPHICS_API PulseComputeShaderRequest pulse_load_compute_shader(PulseAppId app, const char* filepath);
 PULSE_GRAPHICS_API PulseComputeShaderHandle pulse_compute_shader_get_handle(PulseAppId app, PulseComputeShaderRequest request);
 PULSE_GRAPHICS_API bool pulse_compute_shader_is_ready(PulseAppId app, PulseComputeShaderRequest request);
 PULSE_GRAPHICS_API bool pulse_compute_shader_is_alive(PulseAppId app, PulseComputeShaderRequest request);

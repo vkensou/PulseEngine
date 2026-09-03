@@ -248,6 +248,22 @@ inline PulseSamplerData* internal_borrow_sampler(PulseAssetSystemId as, PulseSam
     return pulse_asset_system_borrow(as, pulse_sampler_to_handle(handle), &ptr, nullptr) ? static_cast<PulseSamplerData*>(ptr) : nullptr;
 }
 
+struct ShaderCreateSettings {
+    CGPUBlendStateDescriptor blend_desc;
+    CGPUDepthStateDescriptor depth_desc;
+    CGPURasterizerStateDescriptor rasterizer_state;
+    uint32_t property_count;
+    const PulseShaderProperty* p_properties;
+};
+
+// Assemble the render pipeline from two already-loaded shader-library dependencies
+// (p_dependencies[0]=vertex, p_dependencies[1]=fragment) plus a settings struct. Shared by
+// both the builder loader (create-from-binary) and the data-driven .shader file loader.
+EPulseAssetLoaderStatus build_shader_pipeline(const PulseAssetLoadTask* ctx, const ShaderCreateSettings* settings, const char** out_error);
+
+// Assemble a compute pipeline from one already-loaded shader-library dependency (p_dependencies[0]).
+EPulseAssetLoaderStatus build_compute_shader_pipeline(const PulseAssetLoadTask* ctx, const char** out_error);
+
 uint8_t* queue_staging_texture_full(
     pulse_graphics_state* gstate,
     PulseTextureHandle handle,
@@ -279,9 +295,11 @@ void register_mesh_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId dev
 
 void register_shader_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_shader_create_loaders(PulseAssetSystemId asset_system, CGPUDeviceId device);
-EPulseResult ctor_shader_from_deps(void* state, const PulseAssetLoadTask* ctx);
+void register_shader_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
+
 void register_compute_shader_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_compute_shader_create_loaders(PulseAssetSystemId asset_system, CGPUDeviceId device);
+void register_compute_shader_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_shader_library_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_shader_library_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_shader_library_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);

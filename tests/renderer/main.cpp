@@ -105,45 +105,7 @@ static void test_renderer_load_system(ecs_iter_t* it) {
 
     switch (m.phase) {
         case test_renderer_load_phase::Start: {
-            //// ---- Create resource requests ----
-            CGPUBlendAttachmentState blend_attachments = {
-                .enable = false,
-                .src_factor = CGPU_BLEND_FACTOR_ONE,
-                .dst_factor = CGPU_BLEND_FACTOR_ZERO,
-                .src_alpha_factor = CGPU_BLEND_FACTOR_ONE,
-                .dst_alpha_factor = CGPU_BLEND_FACTOR_ZERO,
-                .blend_op = CGPU_BLEND_OP_ADD,
-                .blend_alpha_op = CGPU_BLEND_OP_ADD,
-                .color_mask = CGPU_COLOR_MASK_RGBA,
-            };
-            PulseShaderProperty shader_props[] = {
-                {.name = "vpMatrix", .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 64 },
-                {.name = "albedo",   .type = PULSE_SHADER_PROPERTY_TYPE_FLOAT4, .role = PULSE_SHADER_PROPERTY_ROLE_MATERIAL,     .set = 1, .binding = 0, .offset = 0, .size = 16 },
-                {.name = "wMatrix",  .type = PULSE_SHADER_PROPERTY_TYPE_MAT4,   .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 2, .binding = 0, .offset = 0, .size = 64 },
-            };
-            PulseShaderCreateFromFileDesc shader_desc = {
-                .vert_path = "color.vert.spv",
-                .frag_path = "color.frag.spv",
-                .blend_desc = {
-                    .attachment_count = 1,
-                    .p_attachments = &blend_attachments,
-                    .alpha_to_coverage = false,
-                    .independent_blend = false,
-                },
-                .depth_desc = {
-                    .depth_test = true,
-                    .depth_write = true,
-                    .depth_op = CGPU_COMPARE_OP_GREATER_EQUAL,
-                    .stencil_test = false,
-                },
-                .rasterizer_state = {
-                    .cull_mode = CGPU_CULL_MODE_BACK,
-                    .front_face = CGPU_FRONT_FACE_CLOCK_WISE,
-                },
-                .p_properties = shader_props,
-                .properties_count = 3,
-            };
-            m.shader = pulse_create_shader_from_file(m.app, &shader_desc);
+            m.shader = pulse_load_shader(m.app, "color.shader");
             m.mesh = pulse_load_mesh(m.app, "Quad.obj");
 
             m.phase = test_renderer_load_phase::WaitShader;

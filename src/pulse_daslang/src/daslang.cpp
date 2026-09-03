@@ -23,7 +23,6 @@ void need_das_modules()
 {
     NEED_ALL_DEFAULT_MODULES;
     NEED_MODULE(ModuleFlecs);
-    NEED_MODULE(ModuleCGPU);
     NEED_MODULE(ModulePulse);
 }
 

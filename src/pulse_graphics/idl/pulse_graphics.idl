@@ -322,24 +322,9 @@ struct.ShaderCreateFromBinaryDesc
     .properties         "[]const ShaderProperty"
     ()
 
---- Shader create from file desc
-struct.ShaderCreateFromFileDesc
-    .vertPath           "cstring"
-    .fragPath           "cstring"
-    .blendDesc          "CGPUBlendStateDescriptor"
-    .depthDesc          "CGPUDepthStateDescriptor"
-    .rasterizerState    "CGPURasterizerStateDescriptor"
-    .properties         "[]const ShaderProperty"
-    ()
-
 --- Compute shader create from binary desc
 struct.ComputeShaderCreateFromBinaryDesc
     .csData "[]const anyopaque"
-    ()
-
---- Compute shader create from file desc
-struct.ComputeShaderCreateFromFileDesc
-    .csPath "cstring"
     ()
 
 --- Buffer create desc
@@ -488,10 +473,10 @@ func.CreateShaderFromBinary
     .desc "*const ShaderCreateFromBinaryDesc"
     ()
 
-func.CreateShaderFromFile
+func.LoadShader
     "ShaderRequest"
-    .app  "PulseAppId"
-    .desc "*const ShaderCreateFromFileDesc"
+    .app      "PulseAppId"
+    .filepath "cstring"
     ()
 
 func.ShaderGetHandle
@@ -519,10 +504,10 @@ func.CreateComputeShaderFromBinary
     .desc "*const ComputeShaderCreateFromBinaryDesc"
     ()
 
-func.CreateComputeShaderFromFile
+func.LoadComputeShader
     "ComputeShaderRequest"
-    .app  "PulseAppId"
-    .desc "*const ComputeShaderCreateFromFileDesc"
+    .app      "PulseAppId"
+    .filepath "cstring"
     ()
 
 func.ComputeShaderGetHandle
