@@ -121,8 +121,8 @@ struct RestartEvent {};
 PULSE_ECS_RESOURCE
 struct SnakeAssets
 {
-	PulseShaderRequest shader;
 	PulseMeshRequest mesh;
+	PulseMaterialRequest boardMat, appleMat, snakeHeadMat, snakeBodyMat;
 };
 
 // ============================================================

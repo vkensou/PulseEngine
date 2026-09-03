@@ -752,6 +752,7 @@ PULSE_GRAPHICS_API bool pulse_mesh_is_alive(PulseAppId app, PulseMeshRequest req
  *
  */
 PULSE_GRAPHICS_API PulseMaterialHandle pulse_create_material(PulseAppId app, const PulseMaterialCreateDesc* desc);
+PULSE_GRAPHICS_API PulseMaterialRequest pulse_load_material(PulseAppId app, const char* filepath);
 PULSE_GRAPHICS_API PulseMaterialHandle pulse_material_get_handle(PulseAppId app, PulseMaterialRequest request);
 PULSE_GRAPHICS_API bool pulse_material_is_ready(PulseAppId app, PulseMaterialRequest request);
 PULSE_GRAPHICS_API bool pulse_material_is_alive(PulseAppId app, PulseMaterialRequest request);

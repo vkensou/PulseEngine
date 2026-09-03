@@ -51,6 +51,11 @@ static PulseAssetRequest das_mesh_request_to_asset_request(const PulseMeshReques
 	return pulse_mesh_request_to_asset_request(mesh);
 }
 
+static PulseAssetRequest das_material_request_to_asset_request(const PulseMaterialRequest& material)
+{
+	return pulse_material_request_to_asset_request(material);
+}
+
 static PulseAppHandle das_get_app_from_world(dasPulseECS::World& world)
 {
 	return { pulse_get_app_from_world(world.world_) };
@@ -81,6 +86,11 @@ static PulseMeshRequest das_load_mesh(const PulseAppHandle& app, const char* fil
 	return pulse_load_mesh(app.app, filepath);
 }
 
+static PulseMaterialRequest das_load_material(const PulseAppHandle& app, const char* filepath)
+{
+	return pulse_load_material(app.app, filepath);
+}
+
 static bool das_shader_is_ready(const PulseAppHandle& app, const PulseShaderRequest& request)
 {
 	return pulse_shader_is_ready(app.app, request);
@@ -99,6 +109,16 @@ static PulseShaderHandle das_shader_get_handle(const PulseAppHandle& app, const 
 static PulseMeshHandle das_mesh_get_handle(const PulseAppHandle& app, const PulseMeshRequest& request)
 {
 	return pulse_mesh_get_handle(app.app, request);
+}
+
+static bool das_material_is_ready(const PulseAppHandle& app, const PulseMaterialRequest& request)
+{
+	return pulse_material_is_ready(app.app, request);
+}
+
+static PulseMaterialHandle das_material_get_handle(const PulseAppHandle& app, const PulseMaterialRequest& request)
+{
+	return pulse_material_get_handle(app.app, request);
 }
 
 static PulseMaterialHandle das_create_material(const PulseAppHandle& app, const PulseMaterialCreateDesc* desc)
@@ -239,6 +259,17 @@ struct PulseMeshRequestAnnotation final : das::ManagedStructureAnnotation<PulseM
 	}
 };
 
+MAKE_TYPE_FACTORY(PulseMaterialRequest, PulseMaterialRequest);
+struct PulseMaterialRequestAnnotation final : das::ManagedStructureAnnotation<PulseMaterialRequest>
+{
+	PulseMaterialRequestAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseMaterialRequest", ml, "PulseMaterialRequest")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
 MAKE_TYPE_FACTORY(PulseShaderHandle, PulseShaderHandle);
 struct PulseShaderHandleAnnotation final : das::ManagedStructureAnnotation<PulseShaderHandle>
 {
@@ -347,6 +378,7 @@ DAS_PULSE_VALUE_CAST(PulseAppHandle);
 DAS_PULSE_VALUE_CAST(PulseAssetSystemHandle);
 DAS_PULSE_VALUE_CAST(PulseShaderRequest);
 DAS_PULSE_VALUE_CAST(PulseMeshRequest);
+DAS_PULSE_VALUE_CAST(PulseMaterialRequest);
 DAS_PULSE_VALUE_CAST(PulseShaderHandle);
 DAS_PULSE_VALUE_CAST(PulseMeshHandle);
 DAS_PULSE_VALUE_CAST(PulseMaterialHandle);
@@ -380,6 +412,7 @@ namespace das
 
 		addAnnotation(new PulseShaderRequestAnnotation(lib));
 		addAnnotation(new PulseMeshRequestAnnotation(lib));
+		addAnnotation(new PulseMaterialRequestAnnotation(lib));
 		addAnnotation(new PulseShaderHandleAnnotation(lib));
 		addAnnotation(new PulseMeshHandleAnnotation(lib));
 		addAnnotation(new PulseMaterialHandleAnnotation(lib));
@@ -394,6 +427,7 @@ namespace das
 
 		addExtern<DAS_BIND_FUN(das_shader_request_to_asset_request), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_shader_request_to_asset_request", SideEffects::none, "pulse_shader_request_to_asset_request")->args({ "request" });
 		addExtern<DAS_BIND_FUN(das_mesh_request_to_asset_request), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_mesh_request_to_asset_request", SideEffects::none, "pulse_mesh_request_to_asset_request")->args({ "request" });
+		addExtern<DAS_BIND_FUN(das_material_request_to_asset_request), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_material_request_to_asset_request", SideEffects::none, "pulse_material_request_to_asset_request")->args({ "request" });
 
 		addExtern<DAS_BIND_FUN(das_get_asset_system), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_get_asset_system", SideEffects::modifyExternal, "pulse_get_asset_system")->args({ "app" });
 		addExtern<DAS_BIND_FUN(das_asset_system_get_state)>(*this, lib, "pulse_asset_system_get_state", SideEffects::modifyExternal, "pulse_asset_system_get_state")->args({ "asset_system", "request" });
@@ -401,10 +435,13 @@ namespace das
 
 		addExtern<DAS_BIND_FUN(das_load_shader), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_load_shader", SideEffects::worstDefault, "pulse_load_shader")->args({ "app", "path" });
 		addExtern<DAS_BIND_FUN(das_load_mesh), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_load_mesh", SideEffects::worstDefault, "pulse_load_mesh")->args({ "app", "path" });
+		addExtern<DAS_BIND_FUN(das_load_material), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_load_material", SideEffects::worstDefault, "pulse_load_material")->args({ "app", "path" });
 		addExtern<DAS_BIND_FUN(das_shader_is_ready)>(*this, lib, "pulse_shader_is_ready", SideEffects::modifyExternal, "pulse_shader_is_ready")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_mesh_is_ready)>(*this, lib, "pulse_mesh_is_ready", SideEffects::modifyExternal, "pulse_mesh_is_ready")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_material_is_ready)>(*this, lib, "pulse_material_is_ready", SideEffects::modifyExternal, "pulse_material_is_ready")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_shader_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_shader_get_handle", SideEffects::modifyExternal, "pulse_shader_get_handle")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_mesh_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_mesh_get_handle", SideEffects::modifyExternal, "pulse_mesh_get_handle")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_material_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_material_get_handle", SideEffects::modifyExternal, "pulse_material_get_handle")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_create_material), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_create_material", SideEffects::worstDefault, "pulse_create_material")->args({ "app", "desc" });
 		addExtern<DAS_BIND_FUN(das_material_set_property_float4)>(*this, lib, "pulse_material_set_property_float4", SideEffects::modifyExternal, "pulse_material_set_property_float4")->args({ "app", "material", "name", "value" });
 

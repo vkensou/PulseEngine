@@ -75,8 +75,8 @@ struct SnakeResources {
 }
 
 struct SnakeAssets {
-    shader: PulseShaderRequest
     mesh: PulseMeshRequest
+    boardMat, appleMat, snakeHeadMat, snakeBodyMat: PulseMaterialRequest
 }
 
 struct SnakeMoveIntentEvent {
@@ -321,56 +321,63 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 [system(phase="update", state="UnInitialized|Loading")]
 def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: SystemStateMachine<SnakeGameState>, cmd: CommandBuffer, primaryWindowQuery: Query<PulseWindow const, PulsePrimaryWindow const>) {
     if (state.is_state(SnakeGameState.UnInitialized)) {
-        assets.get().shader = pulse_load_shader(app, "assets/color.shader")
         assets.get().mesh = pulse_load_mesh(app, "assets/Quad.obj")
+        assets.get().boardMat = pulse_load_material(app, "assets/board.material")
+        assets.get().appleMat = pulse_load_material(app, "assets/apple.material")
+        assets.get().snakeHeadMat = pulse_load_material(app, "assets/snake_head.material")
+        assets.get().snakeBodyMat = pulse_load_material(app, "assets/snake_body.material")
         state.to(SnakeGameState.Loading)
         return
     }
 
     let asset_system = pulse_get_asset_system(app)
-    let shader_request = pulse_shader_request_to_asset_request(assets.get().shader)
     let mesh_request = pulse_mesh_request_to_asset_request(assets.get().mesh)
-    let shader_state = pulse_asset_system_get_state(asset_system, shader_request)
+    let board_request = pulse_material_request_to_asset_request(assets.get().boardMat)
+    let apple_request = pulse_material_request_to_asset_request(assets.get().appleMat)
+    let head_request = pulse_material_request_to_asset_request(assets.get().snakeHeadMat)
+    let body_request = pulse_material_request_to_asset_request(assets.get().snakeBodyMat)
     let mesh_state = pulse_asset_system_get_state(asset_system, mesh_request)
-    if (shader_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED || mesh_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
-        if (shader_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
-            print("Snake shader load failed.\n")
-        }
+    let board_state = pulse_asset_system_get_state(asset_system, board_request)
+    let apple_state = pulse_asset_system_get_state(asset_system, apple_request)
+    let head_state = pulse_asset_system_get_state(asset_system, head_request)
+    let body_state = pulse_asset_system_get_state(asset_system, body_request)
+    if (mesh_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED ||
+        board_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED ||
+        apple_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED ||
+        head_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED ||
+        body_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
         if (mesh_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
             print("Snake mesh load failed.\n")
+        }
+        if (board_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
+            print("Snake board material load failed.\n")
+        }
+        if (apple_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
+            print("Snake apple material load failed.\n")
+        }
+        if (head_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
+            print("Snake head material load failed.\n")
+        }
+        if (body_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
+            print("Snake body material load failed.\n")
         }
         state.to(SnakeGameState.LoadFailed)
         return
     }
 
-    if (!pulse_shader_is_ready(app, assets.get().shader) || !pulse_mesh_is_ready(app, assets.get().mesh)) {
+    if (!pulse_mesh_is_ready(app, assets.get().mesh) ||
+        !pulse_material_is_ready(app, assets.get().boardMat) ||
+        !pulse_material_is_ready(app, assets.get().appleMat) ||
+        !pulse_material_is_ready(app, assets.get().snakeHeadMat) ||
+        !pulse_material_is_ready(app, assets.get().snakeBodyMat)) {
         return
     }
 
-    var shader = pulse_shader_get_handle(app, assets.get().shader)
     var quad = pulse_mesh_get_handle(app, assets.get().mesh)
-
-    var boardMat, appleMat, snakeHeadMat, snakeBodyMat: PulseMaterialHandle
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        boardMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, boardMat, "albedo", HMM_V4(1.0, 1.0, 1.0, 1.0))
-    }
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        appleMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, appleMat, "albedo", HMM_V4(1.0, 0.0, 0.0, 0.0))
-    }
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        snakeHeadMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, snakeHeadMat, "albedo", HMM_V4(1.0, 1.0, 0.0, 1.0))
-    }
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        snakeBodyMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, snakeBodyMat, "albedo", HMM_V4(0.0, 1.0, 0.0, 1.0))
-    }
+    var boardMat = pulse_material_get_handle(app, assets.get().boardMat)
+    var appleMat = pulse_material_get_handle(app, assets.get().appleMat)
+    var snakeHeadMat = pulse_material_get_handle(app, assets.get().snakeHeadMat)
+    var snakeBodyMat = pulse_material_get_handle(app, assets.get().snakeBodyMat)
 
     let resources = SnakeResources(
         quad = quad,

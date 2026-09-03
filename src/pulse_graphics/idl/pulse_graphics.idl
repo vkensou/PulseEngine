@@ -669,6 +669,12 @@ func.CreateMaterial
     .desc "*const MaterialCreateDesc"
     ()
 
+func.LoadMaterial
+    "MaterialRequest"
+    .app      "PulseAppId"
+    .filepath "cstring"
+    ()
+
 func.MaterialGetHandle
     "MaterialHandle"
     .app     "PulseAppId"

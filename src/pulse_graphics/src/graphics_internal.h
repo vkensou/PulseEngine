@@ -2,6 +2,7 @@
 
 #include "pulse_graphics.h"
 #include "pulse_asset.h"
+#include "pulse_datalist.h"
 #include <vector>
 #include <deque>
 #include <unordered_map>
@@ -256,6 +257,20 @@ struct ShaderCreateSettings {
     const PulseShaderProperty* p_properties;
 };
 
+struct NamedValue {
+    const char* name;
+    int64_t value;
+};
+
+int64_t enum_from_string(const PulseDatalist* node, const char* key, const NamedValue* table, size_t count, int64_t default_value);
+EPulseShaderPropertyType prop_type_from_string(const PulseDatalist* prop);
+PulseDatalist* parse_datalist_bytes(const PulseAssetLoadTask* ctx, const char** out_error);
+
+void pulse_material_set_float4(PulseMaterialData* _this, const char* name, HMM_Vec4 value);
+void pulse_material_set_mat4(PulseMaterialData* _this, const char* name, HMM_Mat4 value);
+void pulse_material_set_texture(PulseMaterialData* _this, const char* name, PulseTextureData* texture);
+void pulse_material_set_sampler(PulseMaterialData* _this, const char* name, PulseSamplerData* sampler);
+
 // Assemble the render pipeline from two already-loaded shader-library dependencies
 // (p_dependencies[0]=vertex, p_dependencies[1]=fragment) plus a settings struct. Shared by
 // both the builder loader (create-from-binary) and the data-driven .shader file loader.
@@ -288,6 +303,7 @@ void register_buffer_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_buffer_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_material_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_material_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
+void register_material_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
 
 void register_mesh_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_mesh_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);

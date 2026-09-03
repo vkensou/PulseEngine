@@ -275,65 +275,60 @@ Obstacle queryCollideObstacle(HMM_Vec3 nextPos, const SnakeBodies& snake, const 
 // ============================================================
 
 // UnInitialized：发起异步加载请求 → Loading
-// Loading：      每帧轮询；失败 → LoadFailed；就绪 → 建材质/棋盘/蛇/苹果 → Gaming
+// Loading：      每帧轮询；失败 → LoadFailed；就绪 → 建棋盘/蛇/苹果 → Gaming
 void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pulse::system_state_machine<SnakeGameState> state, pulse::command_buffer& command_buffer, flecs::query<PulseWindow, PulsePrimaryWindow>& primaryWindowQuery)
 {
 	auto& as = assets.get();
 
 	if (state.is(SnakeGameState::UnInitialized))
 	{
-		// ---- shader / mesh（异步，不等待）----
-		as.shader = pulse_load_shader(app, "assets/color.shader");
 		as.mesh = pulse_load_mesh(app, "assets/Quad.obj");
+		as.boardMat = pulse_load_material(app, "assets/board.material");
+		as.appleMat = pulse_load_material(app, "assets/apple.material");
+		as.snakeHeadMat = pulse_load_material(app, "assets/snake_head.material");
+		as.snakeBodyMat = pulse_load_material(app, "assets/snake_body.material");
 		state.to(SnakeGameState::Loading);
 		return;
 	}
 
 	// ---- 失败检测（避免静默无限轮询）----
 	PulseAssetSystemId assetSystem = pulse_get_asset_system(app);
-	PulseAssetRequest shaderRequest = pulse_shader_request_to_asset_request(as.shader);
 	PulseAssetRequest meshRequest = pulse_mesh_request_to_asset_request(as.mesh);
-	EPulseAssetState shaderState = pulse_asset_system_get_state(assetSystem, shaderRequest);
+	PulseAssetRequest boardRequest = pulse_material_request_to_asset_request(as.boardMat);
+	PulseAssetRequest appleRequest = pulse_material_request_to_asset_request(as.appleMat);
+	PulseAssetRequest snakeHeadRequest = pulse_material_request_to_asset_request(as.snakeHeadMat);
+	PulseAssetRequest snakeBodyRequest = pulse_material_request_to_asset_request(as.snakeBodyMat);
 	EPulseAssetState meshState = pulse_asset_system_get_state(assetSystem, meshRequest);
-	if (shaderState == PULSE_ASSET_STATE_FAILED || meshState == PULSE_ASSET_STATE_FAILED)
+	EPulseAssetState boardState = pulse_asset_system_get_state(assetSystem, boardRequest);
+	EPulseAssetState appleState = pulse_asset_system_get_state(assetSystem, appleRequest);
+	EPulseAssetState snakeHeadState = pulse_asset_system_get_state(assetSystem, snakeHeadRequest);
+	EPulseAssetState snakeBodyState = pulse_asset_system_get_state(assetSystem, snakeBodyRequest);
+	bool anyFailed = meshState == PULSE_ASSET_STATE_FAILED || boardState == PULSE_ASSET_STATE_FAILED || appleState == PULSE_ASSET_STATE_FAILED || snakeHeadState == PULSE_ASSET_STATE_FAILED || snakeBodyState == PULSE_ASSET_STATE_FAILED;
+	if (anyFailed)
 	{
-		if (shaderState == PULSE_ASSET_STATE_FAILED)
-			printf("Snake shader load failed: %s\n", pulse_asset_system_get_error(assetSystem, shaderRequest));
 		if (meshState == PULSE_ASSET_STATE_FAILED)
 			printf("Snake mesh load failed: %s\n", pulse_asset_system_get_error(assetSystem, meshRequest));
+		if (boardState == PULSE_ASSET_STATE_FAILED)
+			printf("Snake board material load failed: %s\n", pulse_asset_system_get_error(assetSystem, boardRequest));
+		if (appleState == PULSE_ASSET_STATE_FAILED)
+			printf("Snake apple material load failed: %s\n", pulse_asset_system_get_error(assetSystem, appleRequest));
+		if (snakeHeadState == PULSE_ASSET_STATE_FAILED)
+			printf("Snake head material load failed: %s\n", pulse_asset_system_get_error(assetSystem, snakeHeadRequest));
+		if (snakeBodyState == PULSE_ASSET_STATE_FAILED)
+			printf("Snake body material load failed: %s\n", pulse_asset_system_get_error(assetSystem, snakeBodyRequest));
 		state.to(SnakeGameState::LoadFailed);
 		return;
 	}
 
-	if (!pulse_shader_is_ready(app, as.shader) || !pulse_mesh_is_ready(app, as.mesh))
+	if (!pulse_mesh_is_ready(app, as.mesh) || !pulse_material_is_ready(app, as.boardMat) || !pulse_material_is_ready(app, as.appleMat) || !pulse_material_is_ready(app, as.snakeHeadMat) || !pulse_material_is_ready(app, as.snakeBodyMat))
 		return;
 
 	// ---- 就绪：解析资源 handle ----
-	PulseShaderHandle shader = pulse_shader_get_handle(app, as.shader);
 	PulseMeshHandle quad = pulse_mesh_get_handle(app, as.mesh);
-
-	// 创建 4 个材质（白边框 / 红苹果 / 黄蛇头 / 绿蛇身）
-	PulseMaterialHandle boardMat, appleMat, snakeHeadMat, snakeBodyMat;
-	{
-		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		boardMat = pulse_create_material(app, &mat_desc);
-		pulse_material_set_property_float4(app, boardMat, "albedo", HMM_V4(1, 1, 1, 1));
-	}
-	{
-		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		appleMat = pulse_create_material(app, &mat_desc);
-		pulse_material_set_property_float4(app, appleMat, "albedo", HMM_V4(1, 0, 0, 0));
-	}
-	{
-		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		snakeHeadMat = pulse_create_material(app, &mat_desc);
-		pulse_material_set_property_float4(app, snakeHeadMat, "albedo", HMM_V4(1, 1, 0, 1));
-	}
-	{
-		PulseMaterialCreateDesc mat_desc = { .shader = shader };
-		snakeBodyMat = pulse_create_material(app, &mat_desc);
-		pulse_material_set_property_float4(app, snakeBodyMat, "albedo", HMM_V4(0, 1, 0, 1));
-	}
+	PulseMaterialHandle boardMat = pulse_material_get_handle(app, as.boardMat);
+	PulseMaterialHandle appleMat = pulse_material_get_handle(app, as.appleMat);
+	PulseMaterialHandle snakeHeadMat = pulse_material_get_handle(app, as.snakeHeadMat);
+	PulseMaterialHandle snakeBodyMat = pulse_material_get_handle(app, as.snakeBodyMat);
 
 	SnakeResources snakeResources = {
 		.quad = quad,
