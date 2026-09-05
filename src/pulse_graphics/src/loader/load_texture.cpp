@@ -191,6 +191,12 @@ const char* basis_model_name(uint32_t* bdb)
     }
 }
 
+uint32_t ktx_slice_count(ktxTexture* ktx, uint32_t mip)
+{
+    if (ktx->isCubemap) return ktx->numFaces;
+    return std::max(1u, ktx->baseDepth >> mip);
+}
+
 bool transcode_to_supported_format(ktxTexture2* ktx2, CGPUAdapterId adapter, const char* path, ECGPUTextureFormat* out_format, const char** out_error)
 {
     uint32_t* bdb = ktx2->pDfd + 1;
@@ -234,10 +240,51 @@ bool transcode_to_supported_format(ktxTexture2* ktx2, CGPUAdapterId adapter, con
     return false;
 }
 
-bool resolve_upload_format(ktxTexture2* ktx2, CGPUAdapterId adapter, const char* path, ECGPUTextureFormat* out_format, const char** out_error)
+struct UploadLayout {
+    ECGPUTextureFormat source_format;
+    ECGPUTextureFormat upload_format;
+    bool expand_rgb_to_rgba;
+};
+
+uint32_t rgba8_counterpart(uint32_t vk_format)
+{
+    switch (vk_format)
+    {
+    case VK_FORMAT_R8G8B8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
+    case VK_FORMAT_R8G8B8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+    default: return VK_FORMAT_UNDEFINED;
+    }
+}
+
+uint64_t image_texel_count(ECGPUTextureFormat format, uint64_t image_size)
+{
+    return image_size * 8 / FormatUtil_BitSizeOfBlock(format);
+}
+
+void expand_rgb_to_rgba(uint8_t* dst, const uint8_t* src, uint64_t texels)
+{
+    for (uint64_t i = 0; i < texels; ++i) {
+        const uint8_t* pixel = src + i * 3;
+        uint8_t* rgba = dst + i * 4;
+        rgba[0] = pixel[0];
+        rgba[1] = pixel[1];
+        rgba[2] = pixel[2];
+        rgba[3] = 0xff;
+    }
+}
+
+bool resolve_upload_format(ktxTexture2* ktx2, CGPUAdapterId adapter, const char* path, UploadLayout* out_layout, const char** out_error)
 {
     if (ktxTexture2_NeedsTranscoding(ktx2))
-        return transcode_to_supported_format(ktx2, adapter, path, out_format, out_error);
+    {
+        ECGPUTextureFormat transcoded = CGPU_TEXTURE_FORMAT_UNDEFINED;
+        if (!transcode_to_supported_format(ktx2, adapter, path, &transcoded, out_error))
+            return false;
+        out_layout->source_format = transcoded;
+        out_layout->upload_format = transcoded;
+        out_layout->expand_rgb_to_rgba = false;
+        return true;
+    }
 
     ECGPUTextureFormat format = vk_format_to_cgpu(ktx2->vkFormat);
     if (format == CGPU_TEXTURE_FORMAT_UNDEFINED)
@@ -246,17 +293,30 @@ bool resolve_upload_format(ktxTexture2* ktx2, CGPUAdapterId adapter, const char*
         *out_error = "texture ktx loader: unsupported vkFormat";
         return false;
     }
-    if (!texture_format_supports(adapter, format, CGPU_TEXTURE_FORMAT_SUPPORT_SAMPLE))
+    if (texture_format_supports(adapter, format, CGPU_TEXTURE_FORMAT_SUPPORT_SAMPLE))
     {
-        printf("ktx2: %s is %s %ux%u, which this device cannot sample", path, vkFormatString(static_cast<VkFormat>(ktx2->vkFormat)), ktx2->baseWidth, ktx2->baseHeight);
-        if (ktx2->isCompressed)
-            printf("; produce this file from a UASTC or ETC1S master with 'ktx transcode --target <format>' (ktx transcode cannot read an already block-compressed file)");
-        printf("\n");
-        *out_error = "texture ktx loader: format not supported by device";
-        return false;
+        out_layout->source_format = format;
+        out_layout->upload_format = format;
+        out_layout->expand_rgb_to_rgba = false;
+        return true;
     }
-    *out_format = format;
-    return true;
+
+    uint32_t rgba8_vk = rgba8_counterpart(ktx2->vkFormat);
+    if (rgba8_vk != VK_FORMAT_UNDEFINED)
+    {
+        out_layout->source_format = format;
+        out_layout->upload_format = vk_format_to_cgpu(rgba8_vk);
+        out_layout->expand_rgb_to_rgba = true;
+        printf("ktx2: %s is %s %ux%u x%u levels, which this device cannot sample, expanding to %s on the cpu\n", path, vkFormatString(static_cast<VkFormat>(ktx2->vkFormat)), ktx2->baseWidth, ktx2->baseHeight, ktx2->numLevels, vkFormatString(static_cast<VkFormat>(rgba8_vk)));
+        return true;
+    }
+
+    printf("ktx2: %s is %s %ux%u, which this device cannot sample", path, vkFormatString(static_cast<VkFormat>(ktx2->vkFormat)), ktx2->baseWidth, ktx2->baseHeight);
+    if (ktx2->isCompressed)
+        printf("; produce this file from a UASTC or ETC1S master with 'ktx transcode --target <format>' (ktx transcode cannot read an already block-compressed file)");
+    printf("\n");
+    *out_error = "texture ktx loader: format not supported by device";
+    return false;
 }
 
 }
@@ -289,54 +349,62 @@ EPulseAssetLoaderStatus step_texture_ktx(
     }
     auto* ktx2 = reinterpret_cast<ktxTexture2*>(ktx);
 
-    if (ktx->numDimensions != 2 || ktx->baseDepth > 1) {
-        ktxTexture_Destroy(ktx);
-        *out_error = "texture ktx loader: only 2D textures are supported";
-        return PULSE_ASSET_LOADER_STATUS_FAILED;
-    }
-    if (ktx->numLayers > 1) {
-        ktxTexture_Destroy(ktx);
-        *out_error = "texture ktx loader: texture arrays are not supported";
-        return PULSE_ASSET_LOADER_STATUS_FAILED;
-    }
     if (ktx->numFaces != (ktx->isCubemap ? 6u : 1u)) {
         ktxTexture_Destroy(ktx);
         *out_error = "texture ktx loader: invalid face count";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
-    ECGPUTextureFormat format = CGPU_TEXTURE_FORMAT_UNDEFINED;
-    if (!resolve_upload_format(ktx2, device->adapter, ctx->path, &format, out_error)) {
+    UploadLayout layout = {};
+    if (!resolve_upload_format(ktx2, device->adapter, ctx->path, &layout, out_error)) {
         ktxTexture_Destroy(ktx);
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
     const uint32_t width = ktx->baseWidth;
     const uint32_t height = ktx->baseHeight;
+    const uint32_t depth = ktx->baseDepth;
     const uint32_t sourceLevels = ktx->numLevels;
-    const uint32_t arraySize = ktx->isCubemap ? 6 : 1;
+    const uint32_t arraySize = ktx->numLayers * ktx->numFaces;
     uint32_t mipLevels = sourceLevels;
-    bool generate_mipmaps = ktx->generateMipmaps && !ktx->isCompressed && !ktx->isCubemap;
-    if (generate_mipmaps) {
-        mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
-        printf("ktx2: %s generates %u mips from the stored level at upload\n", ctx->path, mipLevels);
-    } else if (ktx->generateMipmaps) {
-        printf("ktx2: %s asks for runtime mipmaps but is block-compressed or a cubemap, bake the chain with --generate-mipmap\n", ctx->path);
+    bool generate_mipmaps = false;
+    if (ktx->generateMipmaps) {
+        if (depth > 1) {
+            printf("ktx2: %s is a 3D texture, mipmaps are never generated for 3D, uploading its %u stored level(s)\n", ctx->path, sourceLevels);
+        } else if (ktx->isCompressed) {
+            printf("ktx2: %s asks for runtime mipmaps but is block-compressed, bake the chain with --generate-mipmap\n", ctx->path);
+        } else {
+            mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+            generate_mipmaps = mipLevels > 1;
+            if (generate_mipmaps)
+                printf("ktx2: %s generates %u mips for %u slices from the stored level at upload\n", ctx->path, mipLevels, arraySize);
+        }
     }
 
+    uint64_t sourceTotal = 0;
     for (uint32_t mip = 0; mip < sourceLevels; ++mip) {
-        if (ktxTexture_GetImageSize(ktx, mip) != HGEGraphics::texture_image_size(format, width, height, 1, mip)) {
+        const ktx_size_t imageSize = ktxTexture_GetImageSize(ktx, mip);
+        if (imageSize != HGEGraphics::texture_image_size(layout.source_format, width, height, 1, mip)) {
             ktxTexture_Destroy(ktx);
             *out_error = "texture ktx loader: image size does not match the cgpu block layout";
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
-        for (ktx_uint32_t face = 0; face < ktx->numFaces; ++face) {
-            ktx_size_t offset = 0;
-            if (ktxTexture_GetImageOffset(ktx, mip, 0, face, &offset) != KTX_SUCCESS) {
-                ktxTexture_Destroy(ktx);
-                *out_error = "texture ktx loader: image offsets are unavailable, the texture is not decoded";
-                return PULSE_ASSET_LOADER_STATUS_FAILED;
+        const uint32_t slices = ktx_slice_count(ktx, mip);
+        for (ktx_uint32_t layer = 0; layer < ktx->numLayers; ++layer) {
+            for (ktx_uint32_t slice = 0; slice < slices; ++slice) {
+                ktx_size_t offset = 0;
+                if (ktxTexture_GetImageOffset(ktx, mip, layer, slice, &offset) != KTX_SUCCESS) {
+                    ktxTexture_Destroy(ktx);
+                    *out_error = "texture ktx loader: image offsets are unavailable, the texture is not decoded";
+                    return PULSE_ASSET_LOADER_STATUS_FAILED;
+                }
+                sourceTotal += imageSize;
             }
         }
+    }
+    if (sourceTotal != HGEGraphics::texture_data_size(layout.source_format, width, height, depth, sourceLevels, arraySize)) {
+        ktxTexture_Destroy(ktx);
+        *out_error = "texture ktx loader: image data does not match the cgpu texture layout";
+        return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
     ECGPUResourceTypeFlags descriptors = CGPU_RESOURCE_TYPE_TEXTURE;
@@ -350,9 +418,9 @@ EPulseAssetLoaderStatus step_texture_ktx(
         .name = ctx->path,
         .width = (uint64_t)width,
         .height = (uint64_t)height,
-        .depth = 1,
+        .depth = (uint64_t)depth,
         .array_size = arraySize,
-        .format = format,
+        .format = layout.upload_format,
         .mip_levels = mipLevels,
         .owner_queue = CGPU_NULLPTR,
         .start_state = CGPU_RESOURCE_STATE_UNDEFINED,
@@ -377,11 +445,19 @@ EPulseAssetLoaderStatus step_texture_ktx(
     uint64_t written = 0;
     for (uint32_t mip = 0; mip < sourceLevels; ++mip) {
         const ktx_size_t imageSize = ktxTexture_GetImageSize(ktx, mip);
-        for (ktx_uint32_t face = 0; face < ktx->numFaces; ++face) {
-            ktx_size_t ktxOffset = 0;
-            assert(ktxTexture_GetImageOffset(ktx, mip, 0, face, &ktxOffset) == KTX_SUCCESS);
-            memcpy(staging + written, ktxData + ktxOffset, imageSize);
-            written += imageSize;
+        const uint64_t texels = image_texel_count(layout.source_format, imageSize);
+        const uint64_t uploadSize = HGEGraphics::texture_image_size(layout.upload_format, width, height, 1, mip);
+        const uint32_t slices = ktx_slice_count(ktx, mip);
+        for (ktx_uint32_t layer = 0; layer < ktx->numLayers; ++layer) {
+            for (ktx_uint32_t slice = 0; slice < slices; ++slice) {
+                ktx_size_t ktxOffset = 0;
+                assert(ktxTexture_GetImageOffset(ktx, mip, layer, slice, &ktxOffset) == KTX_SUCCESS);
+                if (layout.expand_rgb_to_rgba)
+                    expand_rgb_to_rgba(staging + written, ktxData + ktxOffset, texels);
+                else
+                    memcpy(staging + written, ktxData + ktxOffset, imageSize);
+                written += uploadSize;
+            }
         }
     }
     assert(written == totalSize);
