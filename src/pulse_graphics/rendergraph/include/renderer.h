@@ -55,6 +55,7 @@ namespace HGEGraphics
 	void init_texture(PulseTextureData* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc);
 	PulseTextureData* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc);
 	void free_texture(PulseTextureData* texture);
+	ECGPUTextureDimension texture_view_dims(const CGPUTextureInfo* info);
 
 	uint64_t mip_extent(uint64_t size, uint32_t mip_level);
 	uint64_t texture_image_size(ECGPUTextureFormat format, uint64_t width, uint64_t height, uint64_t depth, uint32_t mip_level);

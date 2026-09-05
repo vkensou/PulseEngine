@@ -322,6 +322,19 @@ namespace HGEGraphics
 		return texture;
 	}
 
+	ECGPUTextureDimension texture_view_dims(const CGPUTextureInfo* info)
+	{
+		const uint32_t arrayCount = info->array_size_minus_one + 1;
+		if (info->depth > 1)
+			return CGPU_TEXTURE_DIMENSION_3D;
+		if (info->is_cube)
+		{
+			assert(arrayCount % 6 == 0);
+			return arrayCount > 6 ? CGPU_TEXTURE_DIMENSION_CUBE_ARRAY : CGPU_TEXTURE_DIMENSION_CUBE;
+		}
+		return arrayCount > 1 ? CGPU_TEXTURE_DIMENSION_2DARRAY : CGPU_TEXTURE_DIMENSION_2D;
+	}
+
 	void init_texture(PulseTextureData* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc)
 	{
 		CGPUTextureDescriptor new_desc = desc;
@@ -335,17 +348,12 @@ namespace HGEGraphics
 		texture->states_consistent = true;
 
 		uint32_t arrayCount = texture->handle->info->array_size_minus_one + 1;
-		ECGPUTextureDimension dims = CGPU_TEXTURE_DIMENSION_2D;
-		if (CGPU_RESOURCE_TYPE_TEXTURE_CUBE == (new_desc.descriptors & CGPU_RESOURCE_TYPE_TEXTURE_CUBE))
-			dims = CGPU_TEXTURE_DIMENSION_CUBE;
-		else if (new_desc.depth > 1)
-			dims = CGPU_TEXTURE_DIMENSION_3D;
 		CGPUTextureViewDescriptor view_desc;
 		view_desc.texture = texture->handle;
 		view_desc.format = texture->handle->info->format;
 		view_desc.usages = CGPU_TEXTURE_VIEW_USAGE_SRV;
 		view_desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
-		view_desc.dims = dims;
+		view_desc.dims = texture_view_dims(texture->handle->info);
 		view_desc.base_array_layer = 0;
 		view_desc.array_layer_count = arrayCount;
 		view_desc.base_mip_level = 0;

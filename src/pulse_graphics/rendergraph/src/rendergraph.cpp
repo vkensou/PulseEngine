@@ -150,6 +150,7 @@ PulseRGTextureHandle pulse_render_graph_import_texture_impl(PulseRenderGraphId s
 	resourceNode.height = imported->handle->info->height;
 	resourceNode.depth = imported->handle->info->depth;
 	resourceNode.format = imported->handle->info->format;
+	assert(imported->handle->info->mip_levels <= 0xFF && imported->handle->info->array_size_minus_one + 1 <= 0xFF);
 	resourceNode.mipCount = imported->handle->info->mip_levels;
 	resourceNode.arraySize = imported->handle->info->array_size_minus_one + 1;
 	resourceNode.mipLevel = 0;
@@ -615,45 +616,49 @@ void pulse_render_graph_add_uploadbufferpass_ex(PulseRenderGraphId self, const c
 	pass.upload_buffer_context.data = data;
 }
 
+struct BlitMipmapPassData
+{
+	PulseShaderData* blitShader;
+	CGPUSamplerId blitSampler;
+	PulseRGTextureHandle source;
+};
+
 void pulse_render_graph_add_generate_mipmap(PulseRenderGraphId self, PulseRGTextureHandle texture, uint8_t from_mipmap)
 {
 	auto* impl = to_impl(self);
 	assert(pulse_rgtexture_handle_is_valid(texture));
 	auto& textureNode = impl->resources[get_texture_handle_index(texture)];
 	assert(textureNode.resourceType == ResourceType::Texture && textureNode.manageType != ManageType::SubResource);
-	assert(textureNode.arraySize == 1);
-	if (textureNode.mipCount == 1)
+	assert(textureNode.depth == 1);
+	assert(from_mipmap > 0);
+	if (from_mipmap >= textureNode.mipCount)
 		return;
 
-	auto mip0 = pulse_render_graph_declare_texture_subresource(self, texture, 0, 0);
-	auto last = mip0;
-	for (size_t i = from_mipmap; i < textureNode.mipCount; ++i)
+	for (uint8_t slice = 0; slice < textureNode.arraySize; ++slice)
 	{
-		auto mipi = pulse_render_graph_declare_texture_subresource(self, texture, (uint8_t)i, 0);
-
-		auto passBuilder = pulse_render_graph_add_render_pass(self, "generate mip");
-		pulse_render_pass_builder_add_color_attachment(&passBuilder, mipi, CGPU_LOAD_ACTION_DONT_CARE, 0, CGPU_STORE_ACTION_STORE);
-		pulse_render_pass_builder_sample(&passBuilder, last);
-
-		struct BlitMipmapPassData
+		auto last = pulse_render_graph_declare_texture_subresource(self, texture, (uint8_t)(from_mipmap - 1), slice);
+		for (uint8_t i = from_mipmap; i < textureNode.mipCount; ++i)
 		{
-			PulseShaderData* blitShader;
-			CGPUSamplerId blitSampler;
-			PulseRGTextureHandle source;
-		};
-		BlitMipmapPassData* passdata = nullptr;
-		pulse_render_pass_builder_set_executable(&passBuilder, [](PulseRenderPassEncoder* encoder, void* userdata)
-			{
-				BlitMipmapPassData* resolved_passdata = (BlitMipmapPassData*)userdata;
-				auto* rgEncoder = (RenderPassEncoder*)encoder;
-				set_global_texture_handle(rgEncoder, resolved_passdata->source, 0, 0);
-				set_global_sampler(rgEncoder, resolved_passdata->blitSampler, 0, 1);
-				draw_procedure(rgEncoder, resolved_passdata->blitShader, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
-			}, sizeof(BlitMipmapPassData), (void**)&passdata);
-		passdata->blitShader = impl->blitShader;
-		passdata->blitSampler = impl->blitSampler;
-		passdata->source = last;
-		last = mipi;
+			auto mipi = pulse_render_graph_declare_texture_subresource(self, texture, i, slice);
+
+			auto passBuilder = pulse_render_graph_add_render_pass(self, "generate mip");
+			pulse_render_pass_builder_add_color_attachment(&passBuilder, mipi, CGPU_LOAD_ACTION_DONT_CARE, 0, CGPU_STORE_ACTION_STORE);
+			pulse_render_pass_builder_sample(&passBuilder, last);
+
+			BlitMipmapPassData* passdata = nullptr;
+			pulse_render_pass_builder_set_executable(&passBuilder, [](PulseRenderPassEncoder* encoder, void* userdata)
+				{
+					BlitMipmapPassData* resolved_passdata = (BlitMipmapPassData*)userdata;
+					auto* rgEncoder = (RenderPassEncoder*)encoder;
+					set_global_texture_handle(rgEncoder, resolved_passdata->source, 0, 0);
+					set_global_sampler(rgEncoder, resolved_passdata->blitSampler, 0, 1);
+					draw_procedure(rgEncoder, resolved_passdata->blitShader, CGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 3);
+				}, sizeof(BlitMipmapPassData), (void**)&passdata);
+			passdata->blitShader = impl->blitShader;
+			passdata->blitSampler = impl->blitSampler;
+			passdata->source = last;
+			last = mipi;
+		}
 	}
 }
 

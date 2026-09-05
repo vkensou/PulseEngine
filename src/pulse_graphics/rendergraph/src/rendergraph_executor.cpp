@@ -193,7 +193,7 @@ namespace HGEGraphics
 				desc.usages = CGPU_TEXTURE_VIEW_USAGE_RTV_DSV;
 				desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
 				desc.dims = CGPU_TEXTURE_DIMENSION_2D;
-				desc.base_array_layer = 0;
+				desc.base_array_layer = resource.arraySlice;
 				desc.array_layer_count = 1;
 				desc.base_mip_level = resource.mipLevel;
 				desc.mip_level_count = 1;
@@ -211,7 +211,7 @@ namespace HGEGraphics
 				desc.usages = CGPU_TEXTURE_VIEW_USAGE_RTV_DSV;
 				desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_DEPTH | CGPU_TEXTURE_VIEW_ASPECT_STENCIL;
 				desc.dims = CGPU_TEXTURE_DIMENSION_2D;
-				desc.base_array_layer = 0;
+				desc.base_array_layer = resource.arraySlice;
 				desc.array_layer_count = 1;
 				desc.base_mip_level = resource.mipLevel;
 				desc.mip_level_count = 1;
