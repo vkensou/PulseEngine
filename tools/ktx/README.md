@@ -163,7 +163,7 @@ tools\ktx\ktx2ktx2.exe -f in.ktx
 | --- | --- | --- | --- |
 | 不要 mipmap | 不加参数 | `levelCount = 1` | UI 图标等 |
 | **烘进文件** | `ktx create --generate-mipmap`（可选 `--mipmap-filter lanczos4`、`--mipmap-filter-scale`、`--mipmap-wrap clamp`、`--levels N` 只生成前 N 级）；`toktx --genmipmap`（可选 `--filter/--fscale/--wmode`） | `levelCount = N` | **所有压缩贴图只能用这个** |
-| 运行时生成 | `ktx create --runtime-mipmap`；`toktx --automipmap` | `levelCount = 0` | 仅未压缩格式，且需加载端支持运行时生成 |
+| 运行时生成 | `ktx create --runtime-mipmap`；`toktx --automipmap` | `levelCount = 0` | 工具侧只有未压缩格式合法（压缩 + `levelCount=0` 是 `error-3017`）；引擎侧的判定看**最终上传格式**（转码兜底到 RGBA32 的也算未压缩），对 2D / cubemap / 2D array / cube array 逐 slice 生成，**3D 不生成**（见 §9） |
 | 手工给每级图 | `create --levels N` + 多个输入；`toktx --mipmap`（+ `--levels`） | 按给的图 | 需要自定义 mip 过滤时 |
 
 坑：`--runtime-mipmap` / `--automipmap` 用在压缩贴图上会产出**非法文件**（`ktx validate` 报 `error-3017: levelCount cannot be 0 for block-compressed formats`），而 `ktx create` 本身不会拦你。压缩贴图务必 `--generate-mipmap` / `--genmipmap`。
@@ -220,16 +220,25 @@ loader 在 `src/pulse_graphics/src/loader/load_texture.cpp`，注册扩展名 `k
 
 | 资产 | 引擎行为 |
 | --- | --- |
-| 未压缩 RGBA8（`R8G8B8A8_UNORM/SRGB`，含 `--zstd N` 超压缩） | 直接上传；文件的 `levelCount=0`（`--runtime-mipmap`，未压缩且非 cubemap）在加载时由引擎生成 mip 链（走 render-graph 的 generate-mip pass，纹理加 `RENDER_TARGET`） |
+| 未压缩 RGBA8（`R8G8B8A8_UNORM/SRGB`，含 `--zstd N` 超压缩） | 直接上传；文件的 `levelCount=0`（`--runtime-mipmap`）在加载时由引擎生成 mip 链（走 render-graph 的 generate-mip pass，纹理加 `RENDER_TARGET`，**逐 slice 各推一条链**：cube 按面、数组按层、cube array 按面×层；3D 除外）。引擎判的是**最终上传格式**是否未压缩，不是源文件——见本节末「运行时仍是块压缩的贴图 + `--runtime-mipmap`」那行 |
 | UASTC / UASTC+zstd / ETC1S | 运行时转码为设备支持的最优目标：**BC7 → BC1/BC3（按有无 alpha）→ ASTC 4x4 → ETC2 → RGBA32**，按 DFD transfer 自动选 UNORM/SRGB 变体；RGBA32 是无条件兜底（跳过能力过滤），保证任何设备可加载并打 32bpp warning |
 | 原生 BC1–BC7 / ETC2 / EAC / ASTC | 查 `format_supports` 的 SAMPLE 位后直接上传；**不支持时显式失败，原生块格式没有运行时兜底**（引擎不链接 BC/ASTC 解码器）。报错打 vkFormat 名 + 尺寸，并提示**从该贴图的 UASTC/ETC1S 母文件重新 `ktx transcode --target <format>`**（`transcode` 读不了已块压缩的文件，见 §8.8） |
-| RGB8（`R8G8B8_UNORM/SRGB`） | 会映射上传，但 `R8G8B8` 不是 Vulkan 强制格式：设备（如 Intel 核显）缺 SAMPLE 位时**显式失败**（不是静默转 RGBA8）。资产要跨平台就用 RGBA8 |
+| RGB8（`R8G8B8_UNORM/SRGB`） | 设备有 SAMPLE 位就按原生 24bpp 上传；`R8G8B8` 不是 Vulkan 强制格式，设备（如 Intel 核显）缺 SAMPLE 位时**回退成同 transfer 的 RGBA8**：CPU 逐像素把 3 字节展开成 4 字节（A=255，`SRGB→R8G8B8A8_SRGB`、`UNORM→R8G8B8A8_UNORM`），打一条 `expanding to ... on the cpu` 日志。回退是**无损**的但多一次 CPU 展开与 1/3 带宽，资产要跨平台仍建议直接出 RGBA8 |
 | KTX1 文件 | 拒绝并提示用 `ktx create` 重打包或 `ktx2ktx2` 转换 |
-| 纹理数组 / 3D（`numLayers>1` 或 `baseDepth>1`） | 显式失败（能力待做，见 `docs/v0.3/ktx2贴图加载设计.md`） |
-| cubemap（`numFaces==6, numLayers==1`） | loader 侧接受：按 `array_size=6` + `TEXTURE_CUBE` 上传烘好的 mip 链。但仓库暂无 cubemap 测试资产，端到端渲染未经验证；且运行时生成对 cubemap 关闭（generate-mip pass 只支持单面，见上表 `--runtime-mipmap` 行） |
-| 压缩贴图 / cubemap 的 `--runtime-mipmap`（levelCount=0） | 不报错，按文件里的单层上传并 warning 提示打包时 `--generate-mipmap` 烘链（libktx 加载路径不校验此非法组合，`error-3017` 只在离线 `ktx validate`） |
+| 2D 纹理数组（`numLayers>1`） | 支持：`array_size = numLayers * numFaces`（单 2D=1、单 cube=6、2D array=N、cube array=N*6、3D=1），逐 `(level, layer, slice)` 搬 image；`--runtime-mipmap` 的数组在**最终上传格式未压缩**时按每层各生成一条链 |
+| 3D（`baseDepth>1`） | 支持：`depth` 直传，视图走 `CGPU_TEXTURE_DIMENSION_3D`；**永不生成 mip**——`depth > 1` 是 mip 三分支里的第一道，即便文件带 `--runtime-mipmap`（`levelCount=0`）也一律不生成，打的是 3D 守卫那条日志（`mipmaps are never generated for 3D…`，**不是**块压缩的 bake-chain warning），按文件里的层上传，且**不挂 `RENDER_TARGET`**（generate-mip pass 是 2D blit，rendergraph 侧还有 `assert(textureNode.depth == 1)`）。工具侧本来也不能给 3D 烘链（§8.9），所以 3D 资产通常只有 1 级；"3D + `levelCount=0`"这个非法组合有专门的正例资产 `tex_3d_32x16x8_rt.ktx2`，守卫分支已被实跑坐实（见本节末段） |
+| 1D（`pixelHeight==0`） | libktx 已把它归一为 `baseHeight=baseDepth=1`，引擎按 height=1 的 2D 纹理上传（`init_texture` 的 `FORCE2D`），全仓只有这一条 1D→2D 通路，不做第二套映射 |
+| cubemap / cube array（`numFaces==6`） | 支持：`array_size=6`（cube array 为 `numLayers*6`，即**层数必须是 6 的正整数倍**：12 / 18 / 24 / 30 … 都合法，18 层就是 3 层 cube array；配合下表的 255 层上限，cube array 最多 42 组立方体（252 层））+ `TEXTURE_CUBE`，可上传烘好的 mip 链，也可对**最终上传格式未压缩**的立方体贴图运行时生成——generate-mip pass 现在逐 slice（cube 的每个面、cube array 的每个面×层）各起一条链，每个附件/采样视图是 array_layer_count=1 的 2D 子资源视图。视图维度只由 `texture_view_dims` 一处派生（整图 6 层→`CUBE`、多于 6 层→`CUBE_ARRAY`），Vulkan 侧 `cgpu_create_texture_view_vulkan` 的 dims switch 按 `layer_count == 6`（02960）/ `layer_count % 6 == 0`（02961）断言，不再由 `is_cube` 暗中改写 |
+| 层数与 mip 数的上限 | 建纹理本身是 `uint32_t`（`CGPUTextureDescriptor.array_size` / `mip_levels`），但**视图侧是 `uint8_t`**：`CGPUTextureViewDescriptor.base_array_layer` / `array_layer_count` 在 cgpu 里就定义为 `uint8_t`（RHI 既有约束，不是本轮随手截断）。**第一处窄化发生在 `init_texture` 构造整图视图时把 `uint32_t arrayCount` 赋给 `array_layer_count`（`renderer.cpp`）——那是隐式转换，任何构建模式都静默截断**；`texture_view_dims` 的 `% 6` 断言在它之前用未截断值跑，`pulse_render_graph_import_texture_impl` 的 `mip_levels <= 0xFF && array_size_minus_one + 1 <= 0xFF` 断言在它之后。所以实际可用上限是 **255 层 / 255 级**，而"越界会被抓住"只是 **debug 断言保护**（`assert` 与 cgpu 的 `cgpu_assert` 在 `NDEBUG` 下都空掉，见 `common_utils.h`；release 不做任何保证，视图会拿着回绕后的层数被创建）。例：258 层 cube array 通过 `% 6` 但被截成 2，随后在 debug 下撞上 cube-array 的 `% 6` 断言，release 下静默出错视图。多维资产写之前先自己算层数，别指望运行时兜住（这条边界未构造越界资产实测过，属代码语义而非日志证据） |
+| 运行时仍是块压缩的贴图 + `--runtime-mipmap`（levelCount=0） | 不报错，按文件里的单层上传并 warning 提示打包时 `--generate-mipmap` 烘链。判据是**最终上传格式**而不是源文件：UASTC/ETC1S 转成 BC7/BC3/ASTC/ETC2 走这条 warning；只有转成 RGBA32 无条件兜底时最终格式才是未压缩，改走上面的运行时生成链。libktx 加载路径不校验"压缩 + levelCount=0"这个非法组合（`error-3017` 只在离线 `ktx validate` 报） |
 
-实测（130×130、8 级 mip、开 Vulkan 校验层）：UASTC→BC7 ≈ 40 ms/张，zstd UASTC ≈ 1 ms，ETC1S ≈ 0 ms；关校验层更快。转码发生在 loader 的 PROCESSING 步（主线程、每帧限额内）。日志：转码 `ktx2: <文件> <模型> <源vkFormat> -> <目标vkFormat>, <W>x<H> x<levels> levels, in <N> ms`；运行时生成 `ktx2: <文件> generates <N> mips from the stored level at upload`。
+实测（130×130、8 级 mip、开 Vulkan 校验层）：UASTC→BC7 ≈ 40 ms/张，zstd UASTC ≈ 1 ms，ETC1S ≈ 0 ms；关校验层更快。转码发生在 loader 的 PROCESSING 步（主线程、每帧限额内）。日志：转码 `ktx2: <文件> <模型> <源vkFormat> -> <目标vkFormat>, <W>x<H> x<levels> levels, in <N> ms`；运行时生成 `ktx2: <文件> generates <N> mips for <S> slices from the stored level at upload`（`S` = `numLayers*numFaces`）；RGB8 回退 `ktx2: <文件> is <源vkFormat> <W>x<H> x<levels> levels, which this device cannot sample, expanding to <目标vkFormat> on the cpu`；3D 守卫 `ktx2: <文件> is a 3D texture, mipmaps are never generated for 3D, uploading its <N> stored level(s)`（这条要靠 `depth > 1` 守卫分支才打，早先仓库里没有"3D + `levelCount=0`"的组合——`tex_3d_32x16x8.ktx2` 是 `levelCount=1`，`generateMipmaps=0` 压根进不了这个分支——所以补了 `tex_3d_32x16x8_rt.ktx2`，实跑见本节末段）。
+
+多维与 RGB8 资产已入库 `tests/graphics/data/`：`tex_1d_256`（`pixelHeight=0`）、`tex_3d_32x16x8`（`levelCount=1`，走已烘层上传）、`tex_3d_32x16x8_rt`（3D + `levelCount=0`，专门喂"3D 不生成 mip"的守卫分支）、`tex_array4_64` / `tex_cube_64` / `tex_cube_array2_64`（三者 `levelCount=0`，正是运行时生成路径）、`tex_rgb8_64_rt`（`R8G8B8_SRGB` + `--runtime-mipmap`，覆盖"CPU 展开 × GPU 生 mip"落在同一条纹理上）。端到端入口是 `tests/graphics/main.cpp` 的 `kKtxProbes` 探针表，三档断言：`MustLoad`（任何设备都必须 loaded）、`TracksFormatSupport`（loaded 与否必须等于设备 SAMPLE 位）、`LoadsEitherFormat`（恒 loaded，用于有等价回退的格式）。
+
+几何与最终格式是**硬断言**不是看日志：探针全部 resolved 后，`check_ktx_probe_readbacks` 一次性把它们 import 进 render graph，用 `pulse_render_graph_texture_get_width/height/depth/format` 读回真实 `info` 逐条断言——1D 读回 `256x1x1`（证明 `FORCE2D` 那条通路）、两张 3D 读回 `32x16x8`、数组 / cube / cube array 读回 `64x64x1`；`LoadsEitherFormat` 断言格式 ∈ {源格式, 同 transfer 的 `R8G8B8A8_*`}，本机三条 r8g8b8 全部落在回退侧：`Tiles130_rgb_srgb.ktx2`→`r8g8b8a8_srgb`、`TilesGray512.ktx`→`r8g8b8a8_unorm`、`tex_rgb8_64_rt.ktx2`→`r8g8b8a8_srgb`，即回退确实作用到了**上传格式**而不是只改了日志；转码族读回 `bc7_srgb`（非 undefined）。
+
+本机 Intel 集显开 Vulkan 校验层实跑：`kKtxProbes` 全条通过（`16 checked, 0 failed`，读回 15 条 + latch 1 条——未加载的 `astc6x6` 按 `TracksFormatSupport` 预期不参与读回，它那行 `FAILED: format not supported by device` 不计入 failed），日志含逐 slice 生链（数组 4 slices、cube 6 slices、cube array 12 slices）与 rgb8 → rgba8 展开 + 7 级生成。**3D 那道守卫也已实测坐实**：`tex_3d_32x16x8_rt.ktx2` 打出且只打一次 `is a 3D texture, mipmaps are never generated for 3D, uploading its 1 stored level(s)`（这里 `N=1` 是 libktx 把 `levelCount=0` 归一成 `numLevels=1` 的实况，别读成"0 级"），该资产**没有**任何 `generates ... mips` 行（它的 `descriptors` 因此也不含 `RENDER_TARGET`——loader 里那位只跟 `generate_mipmaps` 走，属代码推导而非日志证据）。边界只剩两条：`mip_levels` / `array_size` 没有 capi getter，仍靠 loader 的 `generates <N> mips for <S> slices` 日志取证；探针不做逐资产的渲染像素比对，内容等价靠 `ktx extract --level 0` 的 SHA256 一致来证明。
 
 ### 推荐打包命令
 
@@ -248,5 +257,5 @@ tools\ktx\ktx.exe create --format R8G8B8A8_SRGB --encode basis-lz --qlevel 128 -
 
 1. `--encode basis-lz --generate-mipmap` 生成完整 mip 链会产出**非法文件**（`error-4001: ... byteLength incorrectly ordered`），用 `--levels N` 截断最小 mip 到 ≥4×4 即合法；ETC1S 块为 8×8，建议链尾留在 16×16 附近。
 2. `ktxsc --zcmp 19` 给**已有** UASTC 文件叠 zstd 会报 `error-7013: Duplicate key-value entry "KTXwriterScParams"`；zstd 要在首次 `ktx create --encode uastc --zstd 19` 时指定。
-3. RGB8 系不要用作交付格式（见支持矩阵）；`tools/ktx` 早期文档中"23=R8G8B8 展开上传"的旧路径已删除。
+3. RGB8 系（`R8G8B8_*`）不要用作交付格式：设备缺 SAMPLE 位时引擎不再报错，而是 CPU 展开成 RGBA8 上传（见支持矩阵），能加载但白付一次展开开销与 1/3 带宽；`tools/ktx` 早期文档中"23=R8G8B8 展开上传"的旧路径已删除，现在只在设备不支持时才展开。
 4. 非 2 幂/非块对齐尺寸（如 130×130 BC7）现在可正常上传：staging 按块向上取整（`bufferRowLength`），`imageExtent` 用真实 texel 尺寸，引擎与 cgpu 已按 Vulkan 规则对齐，无需迁就 4/8 整除。
