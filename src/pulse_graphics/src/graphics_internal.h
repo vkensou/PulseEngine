@@ -279,6 +279,11 @@ EPulseAssetLoaderStatus build_shader_pipeline(const PulseAssetLoadTask* ctx, con
 // Assemble a compute pipeline from one already-loaded shader-library dependency (p_dependencies[0]).
 EPulseAssetLoaderStatus build_compute_shader_pipeline(const PulseAssetLoadTask* ctx, const char** out_error);
 
+struct TextureLoaderState {
+    bool upload_requested = false;
+    bool upload_completed = false;
+};
+
 uint8_t* queue_staging_texture_full(
     pulse_graphics_state* gstate,
     PulseTextureHandle handle,

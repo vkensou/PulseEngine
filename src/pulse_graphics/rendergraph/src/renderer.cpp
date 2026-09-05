@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 #include <vector>
+#include <algorithm>
 #include "hash.h"
 #include "rendergraph_compiler_internal.h"
 #include <bit>
@@ -352,6 +353,31 @@ namespace HGEGraphics
 		texture->view = cgpu_device_create_texture_view(device, &view_desc);
 		texture->prepared = false;
 		texture->dynamic_handle = {};
+	}
+
+	uint64_t mip_extent(uint64_t size, uint32_t mip_level)
+	{
+		return std::max<uint64_t>(size >> mip_level, 1ull);
+	}
+
+	uint64_t texture_image_size(ECGPUTextureFormat format, uint64_t width, uint64_t height, uint64_t depth, uint32_t mip_level)
+	{
+		const uint64_t block_width = FormatUtil_WidthOfBlock(format);
+		const uint64_t block_height = FormatUtil_HeightOfBlock(format);
+		const uint64_t extent_width = mip_extent(width, mip_level);
+		const uint64_t extent_height = mip_extent(height, mip_level);
+		const uint64_t blocks_x = (extent_width + block_width - 1) / block_width;
+		const uint64_t blocks_y = (extent_height + block_height - 1) / block_height;
+		const uint64_t blocks_z = mip_extent(depth, mip_level);
+		return blocks_x * blocks_y * blocks_z * FormatUtil_BitSizeOfBlock(format) / 8;
+	}
+
+	uint64_t texture_data_size(ECGPUTextureFormat format, uint64_t width, uint64_t height, uint64_t depth, uint32_t mip_levels, uint32_t array_size)
+	{
+		uint64_t total = 0;
+		for (uint32_t mip = 0; mip < mip_levels; ++mip)
+			total += texture_image_size(format, width, height, depth, mip);
+		return total * array_size;
 	}
 
 	PulseTextureData* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)

@@ -560,11 +560,7 @@ void pulse_render_graph_add_uploadtexturepass_ex(PulseRenderGraphId self, const 
 	pass.writes.push_back(write_edge);
 
 	auto staging_buffer = pulse_render_graph_declare_buffer(self);
-	auto mipedSize = [](uint64_t sz, uint64_t mip) { return std::max<uint64_t>(sz >> mip, 1ull); };
-	const uint64_t xBlocksCount = mipedSize(usedTextureNode->width, mipmap) / FormatUtil_WidthOfBlock(usedTextureNode->format);
-	const uint64_t yBlocksCount = mipedSize(usedTextureNode->height, mipmap) / FormatUtil_HeightOfBlock(usedTextureNode->format);
-	const uint64_t zBlocksCount = mipedSize(usedTextureNode->depth, mipmap);
-	const uint64_t bufferSize = xBlocksCount * yBlocksCount * zBlocksCount * FormatUtil_BitSizeOfBlock(usedTextureNode->format) / 8;
+	const uint64_t bufferSize = texture_image_size(usedTextureNode->format, usedTextureNode->width, usedTextureNode->height, usedTextureNode->depth, mipmap);
 	assert(bufferSize >= size + offset);
 	pulse_render_graph_buffer_set_size(self, staging_buffer, (uint32_t)bufferSize);
 	pulse_render_graph_buffer_set_type(self, staging_buffer, CGPU_RESOURCE_TYPE_NONE);

@@ -119,6 +119,105 @@ struct test_render_state {
     ObjectData objectData;
 };
 
+enum class ktx_probe_mode {
+    MustLoad,
+    TracksFormatSupport,
+};
+
+struct ktx_probe {
+    const char* path;
+    ktx_probe_mode mode;
+    ECGPUTextureFormat format;
+    PulseTextureRequest request{};
+    bool resolved = false;
+    bool loaded = false;
+    bool device_supported = true;
+    int frames = 0;
+};
+
+static ktx_probe kKtxProbes[] = {
+    { "Tiles130_rgba_srgb.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "Tiles130_runtime_mip.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "Tiles130_uastc.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_UNDEFINED },
+    { "Tiles130_uastc_zstd.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_UNDEFINED },
+    { "Tiles130_etc1s.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_UNDEFINED },
+    { "Tiles130_bc7.ktx2", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_BC7_SRGB_BLOCK },
+    { "Tiles130_astc6x6.ktx2", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_ASTC_6X6_SRGB_BLOCK },
+    { "Tiles130_rgb_srgb.ktx2", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_R8G8B8_SRGB },
+    { "TilesGray512.ktx", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_R8G8B8_UNORM },
+};
+
+static const int kKtxProbeFrameBudget = 300;
+
+static void request_ktx_probes(PulseAppId app, std::vector<ktx_probe>& probes) {
+    const PulseRenderer* renderer = pulse_get_renderer(app);
+    const CGPUAdapterDetail* detail = renderer ? cgpu_adapter_query_adapter_detail(renderer->adapter) : nullptr;
+    assert(detail && "adapter detail must be available while the renderer is alive");
+    assert((detail->format_supports[CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB] & CGPU_TEXTURE_FORMAT_SUPPORT_SAMPLE) != 0 && "mandatory R8G8B8A8_SRGB must be sampleable");
+    for (ktx_probe& probe : kKtxProbes) {
+        PulseTextureLoadDesc desc{
+            .filepath = probe.path,
+            .generate_mipmaps = true,
+        };
+        probe.resolved = false;
+        probe.loaded = false;
+        probe.frames = 0;
+        probe.device_supported = probe.mode == ktx_probe_mode::MustLoad
+            || (detail->format_supports[probe.format] & CGPU_TEXTURE_FORMAT_SUPPORT_SAMPLE) != 0;
+        probe.request = pulse_load_texture(app, &desc);
+        probes.push_back(probe);
+    }
+}
+
+static void update_ktx_probes(PulseAppId app, std::vector<ktx_probe>& probes) {
+    const PulseAssetSystemId system = pulse_get_graphics_asset_system(app);
+    for (ktx_probe& probe : probes) {
+        if (probe.resolved) {
+            continue;
+        }
+        const PulseAssetRequest asset = pulse_texture_request_to_asset_request(probe.request);
+        const EPulseAssetState state = pulse_asset_system_get_state(system, asset);
+        if (state == PULSE_ASSET_STATE_FAILED) {
+            probe.resolved = true;
+            probe.loaded = false;
+            const char* error = pulse_asset_system_get_error(system, asset);
+            printf("ktx2 probe %s FAILED: %s\n", probe.path, error ? error : "no error message");
+            continue;
+        }
+        if (pulse_texture_is_ready(app, probe.request)) {
+            probe.resolved = true;
+            probe.loaded = true;
+            continue;
+        }
+        if (++probe.frames >= kKtxProbeFrameBudget) {
+            probe.resolved = true;
+            probe.loaded = false;
+            printf("ktx2 probe %s stuck in state %d\n", probe.path, (int)state);
+        }
+    }
+}
+
+static void report_ktx_probes(std::vector<ktx_probe>& probes) {
+    int failed = 0;
+
+    for (ktx_probe& probe : probes) {
+        assert(probe.resolved && "ktx2 probe did not resolve, run the window longer");
+    }
+
+    for (ktx_probe& probe : probes) {
+        printf("ktx2 probe %-28s loaded=%d supported=%d\n", probe.path, (int)probe.loaded, (int)probe.device_supported);
+        if (probe.mode == ktx_probe_mode::MustLoad) {
+            assert(probe.loaded && "ktx2 texture must load on every device");
+            if (!probe.loaded) {
+                ++failed;
+            }
+        } else {
+            assert(probe.loaded == probe.device_supported && "native format load outcome must match device support");
+        }
+    }
+    printf("ktx2 probes: %zu checked, %d failed\n", probes.size(), failed);
+}
+
 enum class test_graphics_load_phase {
     Start,
     WaitShader,  // shader still loading; create the material once it's ready
@@ -131,6 +230,7 @@ struct test_graphics_load_machine {
     PulseAppId app = nullptr;
     PulseShaderRequest shader{};
     test_render_state* render = nullptr;
+    std::vector<ktx_probe> probes;
 };
 
 static void test_graphics_load_system(ecs_iter_t* it) {
@@ -140,9 +240,14 @@ static void test_graphics_load_system(ecs_iter_t* it) {
         return;
     }
 
+    if (m.phase != test_graphics_load_phase::Start) {
+        update_ktx_probes(m.app, m.probes);
+    }
+
     switch (m.phase) {
         case test_graphics_load_phase::Start: {
             PulseShaderRequest shader = pulse_load_shader(m.app, "color.shader");
+            request_ktx_probes(m.app, m.probes);
 
             PulseTextureLoadDesc tex_load_desc{
                 .filepath = "TilesGray512.jpg",
@@ -367,6 +472,8 @@ int main(void) {
 
     assert(render_state.material_resolved);
     assert(render_state.mesh_resolved);
+
+    report_ktx_probes(test_graphics_load.probes);
 
     ecs_query_fini(render_state.window_query);
 
