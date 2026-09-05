@@ -106,8 +106,32 @@ static void on_test_render(PulseRenderPassEncoder* encoder, void* userdata) {
     pulse_render_pass_encoder_set_global_sampler(encoder, {}, 0, 0);
 }
 
+enum class ktx_probe_mode {
+    MustLoad,
+    TracksFormatSupport,
+    LoadsEitherFormat,
+};
+
+struct ktx_probe {
+    const char* path;
+    ktx_probe_mode mode;
+    uint32_t width;
+    uint32_t height;
+    uint32_t depth;
+    ECGPUTextureFormat format;
+    ECGPUTextureFormat fallback_format = CGPU_TEXTURE_FORMAT_UNDEFINED;
+    PulseTextureRequest request{};
+    bool resolved = false;
+    bool loaded = false;
+    bool device_supported = true;
+    bool readback_checked = false;
+    int frames = 0;
+};
+
 struct test_render_state {
     ecs_query_t* window_query;
+    std::vector<ktx_probe>* ktx_probes = nullptr;
+    bool ktx_readbacks_done = false;
     PulseTextureRequest texture_request;
     PulseMeshRequest mesh_request;
     PulseMaterialHandle material;
@@ -119,32 +143,23 @@ struct test_render_state {
     ObjectData objectData;
 };
 
-enum class ktx_probe_mode {
-    MustLoad,
-    TracksFormatSupport,
-};
-
-struct ktx_probe {
-    const char* path;
-    ktx_probe_mode mode;
-    ECGPUTextureFormat format;
-    PulseTextureRequest request{};
-    bool resolved = false;
-    bool loaded = false;
-    bool device_supported = true;
-    int frames = 0;
-};
-
 static ktx_probe kKtxProbes[] = {
-    { "Tiles130_rgba_srgb.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
-    { "Tiles130_runtime_mip.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
-    { "Tiles130_uastc.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_UNDEFINED },
-    { "Tiles130_uastc_zstd.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_UNDEFINED },
-    { "Tiles130_etc1s.ktx2", ktx_probe_mode::MustLoad, CGPU_TEXTURE_FORMAT_UNDEFINED },
-    { "Tiles130_bc7.ktx2", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_BC7_SRGB_BLOCK },
-    { "Tiles130_astc6x6.ktx2", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_ASTC_6X6_SRGB_BLOCK },
-    { "Tiles130_rgb_srgb.ktx2", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_R8G8B8_SRGB },
-    { "TilesGray512.ktx", ktx_probe_mode::TracksFormatSupport, CGPU_TEXTURE_FORMAT_R8G8B8_UNORM },
+    { "Tiles130_rgba_srgb.ktx2", ktx_probe_mode::MustLoad, 130, 130, 1, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "Tiles130_runtime_mip.ktx2", ktx_probe_mode::MustLoad, 130, 130, 1, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "Tiles130_uastc.ktx2", ktx_probe_mode::MustLoad, 130, 130, 1, CGPU_TEXTURE_FORMAT_UNDEFINED },
+    { "Tiles130_uastc_zstd.ktx2", ktx_probe_mode::MustLoad, 130, 130, 1, CGPU_TEXTURE_FORMAT_UNDEFINED },
+    { "Tiles130_etc1s.ktx2", ktx_probe_mode::MustLoad, 130, 130, 1, CGPU_TEXTURE_FORMAT_UNDEFINED },
+    { "Tiles130_bc7.ktx2", ktx_probe_mode::TracksFormatSupport, 130, 130, 1, CGPU_TEXTURE_FORMAT_BC7_SRGB_BLOCK },
+    { "Tiles130_astc6x6.ktx2", ktx_probe_mode::TracksFormatSupport, 130, 130, 1, CGPU_TEXTURE_FORMAT_ASTC_6X6_SRGB_BLOCK },
+    { "Tiles130_rgb_srgb.ktx2", ktx_probe_mode::LoadsEitherFormat, 130, 130, 1, CGPU_TEXTURE_FORMAT_R8G8B8_SRGB, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "TilesGray512.ktx", ktx_probe_mode::LoadsEitherFormat, 512, 512, 1, CGPU_TEXTURE_FORMAT_R8G8B8_UNORM, CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM },
+    { "tex_rgb8_64_rt.ktx2", ktx_probe_mode::LoadsEitherFormat, 64, 64, 1, CGPU_TEXTURE_FORMAT_R8G8B8_SRGB, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "tex_array4_64.ktx2", ktx_probe_mode::MustLoad, 64, 64, 1, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "tex_cube_64.ktx2", ktx_probe_mode::MustLoad, 64, 64, 1, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "tex_cube_array2_64.ktx2", ktx_probe_mode::MustLoad, 64, 64, 1, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "tex_3d_32x16x8.ktx2", ktx_probe_mode::MustLoad, 32, 16, 8, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "tex_3d_32x16x8_rt.ktx2", ktx_probe_mode::MustLoad, 32, 16, 8, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
+    { "tex_1d_256.ktx2", ktx_probe_mode::MustLoad, 256, 1, 1, CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB },
 };
 
 static const int kKtxProbeFrameBudget = 300;
@@ -197,22 +212,96 @@ static void update_ktx_probes(PulseAppId app, std::vector<ktx_probe>& probes) {
     }
 }
 
+static const char* ktx_format_name(ECGPUTextureFormat format) {
+    switch (format) {
+    case CGPU_TEXTURE_FORMAT_UNDEFINED: return "undefined";
+    case CGPU_TEXTURE_FORMAT_R8G8B8_SRGB: return "r8g8b8_srgb";
+    case CGPU_TEXTURE_FORMAT_R8G8B8_UNORM: return "r8g8b8_unorm";
+    case CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB: return "r8g8b8a8_srgb";
+    case CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM: return "r8g8b8a8_unorm";
+    case CGPU_TEXTURE_FORMAT_BC7_SRGB_BLOCK: return "bc7_srgb";
+    case CGPU_TEXTURE_FORMAT_ASTC_6X6_SRGB_BLOCK: return "astc6x6_srgb";
+    default: return "other";
+    }
+}
+
+static const char* ktx_probe_mode_name(ktx_probe_mode mode) {
+    switch (mode) {
+    case ktx_probe_mode::MustLoad: return "must-load";
+    case ktx_probe_mode::TracksFormatSupport: return "tracks-format-support";
+    case ktx_probe_mode::LoadsEitherFormat: return "loads-either-format";
+    }
+    return "unknown";
+}
+
+static void check_ktx_probe_readback(PulseAppId app, PulseRenderGraphId graph, ktx_probe& probe) {
+    const PulseTextureHandle handle = pulse_texture_get_handle(app, probe.request);
+    assert(handle.index != 0);
+    const PulseRGTextureHandle imported = pulse_render_graph_import_texture(graph, handle);
+    assert(pulse_rgtexture_handle_is_valid(imported) && "loaded ktx2 texture must import into the render graph");
+    const uint32_t width = pulse_render_graph_texture_get_width(graph, imported);
+    const uint32_t height = pulse_render_graph_texture_get_height(graph, imported);
+    const uint32_t depth = pulse_render_graph_texture_get_depth(graph, imported);
+    const ECGPUTextureFormat format = pulse_render_graph_texture_get_format(graph, imported);
+    printf("ktx2 readback %-28s %ux%ux%u format=%s\n", probe.path, width, height, depth, ktx_format_name(format));
+    assert((width == probe.width && height == probe.height && depth == probe.depth) && "ktx2 import readback must match the asset geometry");
+    if (probe.mode == ktx_probe_mode::LoadsEitherFormat) {
+        assert((format == probe.format || format == probe.fallback_format) && "r8g8b8 texture must land either on the source format or on the same transfer rgba8 counterpart");
+    } else if (probe.format != CGPU_TEXTURE_FORMAT_UNDEFINED) {
+        assert(format == probe.format && "ktx2 import readback format must match the expected upload format");
+    } else {
+        assert(format != CGPU_TEXTURE_FORMAT_UNDEFINED && "transcoded texture must land on a concrete format");
+    }
+    probe.readback_checked = true;
+}
+
+static void check_ktx_probe_readbacks(PulseAppId app, PulseRenderGraphId graph, test_render_state* state) {
+    if (!state->ktx_probes || state->ktx_readbacks_done) {
+        return;
+    }
+    bool all_resolved = true;
+    for (ktx_probe& probe : *state->ktx_probes) {
+        if (!probe.resolved) {
+            all_resolved = false;
+            continue;
+        }
+        if (!probe.loaded || probe.readback_checked) {
+            continue;
+        }
+        check_ktx_probe_readback(app, graph, probe);
+    }
+    if (!all_resolved) {
+        return;
+    }
+    state->ktx_readbacks_done = true;
+    printf("ktx2 readback: mip_levels and array_size have no capi getter, they stay loader log evidence (generates N mips for M slices)\n");
+}
+
 static void report_ktx_probes(std::vector<ktx_probe>& probes) {
     int failed = 0;
 
     for (ktx_probe& probe : probes) {
         assert(probe.resolved && "ktx2 probe did not resolve, run the window longer");
+        assert((!probe.loaded || probe.readback_checked) && "loaded ktx2 texture must have been read back through the render graph");
     }
 
     for (ktx_probe& probe : probes) {
-        printf("ktx2 probe %-28s loaded=%d supported=%d\n", probe.path, (int)probe.loaded, (int)probe.device_supported);
+        printf("ktx2 probe %-28s mode=%-22s loaded=%d source_supported=%d expect_format=%s\n", probe.path, ktx_probe_mode_name(probe.mode), (int)probe.loaded, (int)probe.device_supported, ktx_format_name(probe.device_supported ? probe.format : probe.fallback_format));
         if (probe.mode == ktx_probe_mode::MustLoad) {
             assert(probe.loaded && "ktx2 texture must load on every device");
             if (!probe.loaded) {
                 ++failed;
             }
+        } else if (probe.mode == ktx_probe_mode::LoadsEitherFormat) {
+            assert(probe.loaded && "r8g8b8 texture must load either natively or through the rgba8 fallback");
+            if (!probe.loaded) {
+                ++failed;
+            }
         } else {
             assert(probe.loaded == probe.device_supported && "native format load outcome must match device support");
+            if (probe.loaded != probe.device_supported) {
+                ++failed;
+            }
         }
     }
     printf("ktx2 probes: %zu checked, %d failed\n", probes.size(), failed);
@@ -337,6 +426,8 @@ static void record_test_graphic(
         state->mesh_resolved = true;
     }
 
+    check_ktx_probe_readbacks(app, graph, state);
+
     ecs_iter_t it = ecs_query_iter(state->window_query->world, state->window_query);
     while (ecs_query_next(&it)) {
         PulseWindow* windows = ecs_field(&it, PulseWindow, 0);
@@ -454,6 +545,7 @@ int main(void) {
     test_graphics_load_machine test_graphics_load;
     test_graphics_load.app = app;
     test_graphics_load.render = &render_state;
+    render_state.ktx_probes = &test_graphics_load.probes;
 
     ecs_world_t* world = pulse_app_world(app);
 
