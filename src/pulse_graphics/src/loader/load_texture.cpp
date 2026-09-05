@@ -77,19 +77,25 @@ EPulseAssetLoaderStatus step_texture_stb(
 
 namespace {
 
+enum class TranscodeGate { Any, DualChannel, OpaqueOnly };
+
 struct TranscodeCandidate {
     ktx_transcode_fmt_e target;
     ECGPUTextureFormat srgb_format;
     ECGPUTextureFormat unorm_format;
     bool always_available;
+    TranscodeGate gate;
 };
 
 const TranscodeCandidate kTranscodeCandidates[] = {
-    { KTX_TTF_BC7_RGBA,       CGPU_TEXTURE_FORMAT_BC7_SRGB_BLOCK,             CGPU_TEXTURE_FORMAT_BC7_UNORM_BLOCK,             false },
-    { KTX_TTF_BC1_OR_3,       CGPU_TEXTURE_FORMAT_BC3_SRGB_BLOCK,             CGPU_TEXTURE_FORMAT_BC3_UNORM_BLOCK,             false },
-    { KTX_TTF_ASTC_4x4_RGBA,  CGPU_TEXTURE_FORMAT_ASTC_4X4_SRGB_BLOCK,        CGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM_BLOCK,        false },
-    { KTX_TTF_ETC2_RGBA,      CGPU_TEXTURE_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,   CGPU_TEXTURE_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,   false },
-    { KTX_TTF_RGBA32,         CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB,              CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,              true  },
+    { KTX_TTF_ETC2_EAC_RG11,  CGPU_TEXTURE_FORMAT_EAC_R11G11_UNORM_BLOCK,     CGPU_TEXTURE_FORMAT_EAC_R11G11_UNORM_BLOCK,      false, TranscodeGate::DualChannel },
+    { KTX_TTF_BC5_RG,         CGPU_TEXTURE_FORMAT_BC5_UNORM_BLOCK,            CGPU_TEXTURE_FORMAT_BC5_UNORM_BLOCK,             false, TranscodeGate::DualChannel },
+    { KTX_TTF_BC7_RGBA,       CGPU_TEXTURE_FORMAT_BC7_SRGB_BLOCK,             CGPU_TEXTURE_FORMAT_BC7_UNORM_BLOCK,             false, TranscodeGate::Any },
+    { KTX_TTF_BC1_OR_3,       CGPU_TEXTURE_FORMAT_BC3_SRGB_BLOCK,             CGPU_TEXTURE_FORMAT_BC3_UNORM_BLOCK,             false, TranscodeGate::Any },
+    { KTX_TTF_ASTC_4x4_RGBA,  CGPU_TEXTURE_FORMAT_ASTC_4X4_SRGB_BLOCK,        CGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM_BLOCK,        false, TranscodeGate::Any },
+    { KTX_TTF_ETC1_RGB,       CGPU_TEXTURE_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,     CGPU_TEXTURE_FORMAT_ETC2_R8G8B8_UNORM_BLOCK,     false, TranscodeGate::OpaqueOnly },
+    { KTX_TTF_ETC2_RGBA,      CGPU_TEXTURE_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,   CGPU_TEXTURE_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,   false, TranscodeGate::Any },
+    { KTX_TTF_RGBA32,         CGPU_TEXTURE_FORMAT_R8G8B8A8_SRGB,              CGPU_TEXTURE_FORMAT_R8G8B8A8_UNORM,              true,  TranscodeGate::Any },
 };
 
 ECGPUTextureFormat vk_format_to_cgpu(uint32_t vk_format)
@@ -191,6 +197,26 @@ const char* basis_model_name(uint32_t* bdb)
     }
 }
 
+bool dfd_is_dual_channel(uint32_t* bdb)
+{
+    switch (KHR_DFDVAL(bdb, MODEL))
+    {
+    case KHR_DF_MODEL_UASTC: return KHR_DFDSVAL(bdb, 0, CHANNELID) == KHR_DF_CHANNEL_UASTC_RRRG;
+    case KHR_DF_MODEL_ETC1S: return KHR_DFDSAMPLECOUNT(bdb) > 1 && KHR_DFDSVAL(bdb, 1, CHANNELID) == KHR_DF_CHANNEL_ETC1S_GGG;
+    default: return false;
+    }
+}
+
+bool dfd_is_opaque(uint32_t* bdb)
+{
+    switch (KHR_DFDVAL(bdb, MODEL))
+    {
+    case KHR_DF_MODEL_ETC1S: return KHR_DFDSAMPLECOUNT(bdb) < 2;
+    case KHR_DF_MODEL_UASTC: { const uint32_t chan = KHR_DFDSVAL(bdb, 0, CHANNELID); return chan == KHR_DF_CHANNEL_UASTC_RGB || chan == KHR_DF_CHANNEL_UASTC_RRR; }
+    default: return false;
+    }
+}
+
 uint32_t ktx_slice_count(ktxTexture* ktx, uint32_t mip)
 {
     if (ktx->isCubemap) return ktx->numFaces;
@@ -202,10 +228,14 @@ bool transcode_to_supported_format(ktxTexture2* ktx2, CGPUAdapterId adapter, con
     uint32_t* bdb = ktx2->pDfd + 1;
     const bool srgb = KHR_DFDVAL(bdb, TRANSFER) == KHR_DF_TRANSFER_SRGB;
     const char* model = basis_model_name(bdb);
+    const bool dual_channel = dfd_is_dual_channel(bdb);
+    const bool opaque = dfd_is_opaque(bdb);
     const uint32_t source_format = ktx2->vkFormat;
 
     for (const TranscodeCandidate& candidate : kTranscodeCandidates)
     {
+        if (candidate.gate == TranscodeGate::DualChannel && !dual_channel) continue;
+        if (candidate.gate == TranscodeGate::OpaqueOnly && !opaque) continue;
         ECGPUTextureFormat probe = srgb ? candidate.srgb_format : candidate.unorm_format;
         if (!candidate.always_available && !texture_format_supports(adapter, probe, CGPU_TEXTURE_FORMAT_SUPPORT_SAMPLE)) continue;
 
