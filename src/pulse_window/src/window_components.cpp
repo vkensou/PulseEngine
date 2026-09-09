@@ -180,6 +180,25 @@ void register_components(ecs_world_t* world) {
     ecs_id(PulseWindowCloseRequestedId) = PulseWindowCloseRequestedId = flecs::_::type<PulseWindowCloseRequested>::id(world);
     ecs_id(PulseWindowResizedId) = PulseWindowResizedId = flecs::_::type<PulseWindowResized>::id(world);
 
+    flecs::untyped_component window(world, ecs_id(PulseWindow));
+    window.member("struct_size", &PulseWindow::struct_size);
+    window.member("width", &PulseWindow::width);
+    window.member("height", &PulseWindow::height);
+    window.member("resizable", &PulseWindow::resizable);
+    window.member("external_graphics_context", &PulseWindow::external_graphics_context);
+
+    flecs::untyped_component text_input(world, ecs_id(PulseTextInputEvent));
+    text_input.member("text", &PulseTextInputEvent::text);
+    text_input.member("window", &PulseTextInputEvent::window);
+
+    flecs::untyped_component focus_event(world, ecs_id(PulseWindowFocusEvent));
+    focus_event.member("focused", &PulseWindowFocusEvent::focused);
+    focus_event.member("window", &PulseWindowFocusEvent::window);
+
+    flecs::untyped_component hover_event(world, ecs_id(PulseWindowMouseHoverEvent));
+    hover_event.member("entered", &PulseWindowMouseHoverEvent::entered);
+    hover_event.member("window", &PulseWindowMouseHoverEvent::window);
+
     ecs_add_pair(world, ecs_id(PulseWindow), EcsWith, ecs_id(PulseSdlWindow));
 
     ecs_type_hooks_t pulse_sdl_window_hooks = {

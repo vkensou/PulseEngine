@@ -101,6 +101,13 @@ App::App(const AppDesc& desc)
     ecs_id(PulseTimer) = flecs::_::type<PulseTimer>::id(world);
     ecs_id(pulse_app_state_resource) = flecs::_::type<pulse_app_state_resource>::id(world);
 
+    flecs::untyped_component timer(world, ecs_id(PulseTimer));
+    timer.member("delta_time", &PulseTimer::delta_time);
+    timer.member("time_since_startup", &PulseTimer::time_since_startup);
+    timer.member("delta_time_double", &PulseTimer::delta_time_double);
+    timer.member("time_since_startup_double", &PulseTimer::time_since_startup_double);
+    timer.member("fps", &PulseTimer::fps).range(0.0, 1000.0);
+
     PulseTimer time_ctx{};
     world_.set<PulseTimer>(time_ctx);
 
