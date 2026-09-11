@@ -1,0 +1,21 @@
+version(1)
+
+typedef "float"
+typedef "int32_t"
+typedef "uint32_t"
+typedef "void"
+typedef "bool"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+const_value.MathPluginDescVersion { value = "1u" }
+
+func.AddMathPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    ()

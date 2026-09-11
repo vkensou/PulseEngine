@@ -34,22 +34,21 @@
 extern "C" {
 #endif
 
-#define PULSE_MATH_PLUGIN_DESC_VERSION 1u
+$cconsts
 
+$cenums
 
+$cflags
 
+$cids
 
+$cfuncptrs
 
+$cstructs
 
+$ccomponents
 
-
-
-
-
-
-
-
-PULSE_MATH_API EPulseAppAddPluginResult pulse_add_math_plugin(PulseAppId app);
+$c99decl
 
 #ifdef __cplusplus
 }

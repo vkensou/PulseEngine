@@ -5,6 +5,7 @@
   "entry": "pulse_package_register",
   "assets": true,
   "dependencies": [
+    "pulse_math",
     "pulse_asset"
   ],
   "paths": [
