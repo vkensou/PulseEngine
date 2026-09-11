@@ -171,6 +171,8 @@ int main(void) {
     assert(pulse_vfs_mount("tests/graphics/data", "/", false));
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+    assert(pulse_add_math_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+
     // transform plugin
     assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 

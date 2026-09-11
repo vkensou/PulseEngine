@@ -2,11 +2,11 @@
 
 #undef NDEBUG
 #include <assert.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "flecs.h"
-#include "ecs_meta.hpp"
 #include "pulse_math.h"
 
 #include <string>
@@ -61,26 +61,21 @@ inline void register_test_meta(flecs::world& world)
 	flecs::component<TestDirection>(world, "TestDirection");
 	{
 		auto comp = flecs::component<TestPrim>(world, "TestPrim");
-		pulse::meta_member(comp, "hp", &TestPrim::hp);
-		pulse::meta_member(comp, "shield", &TestPrim::shield);
-		pulse::meta_member(comp, "alive", &TestPrim::alive);
-		pulse::meta_member(comp, "sign", &TestPrim::sign);
-		pulse::meta_member(comp, "ratio", &TestPrim::ratio);
-		pulse::meta_member(comp, "precise", &TestPrim::precise);
+		comp.member("hp", &TestPrim::hp);
+		comp.member("shield", &TestPrim::shield);
+		comp.member("alive", &TestPrim::alive);
+		comp.member("sign", &TestPrim::sign);
+		comp.member("ratio", &TestPrim::ratio);
+		comp.member("precise", &TestPrim::precise);
 	}
 	{
 		auto comp = flecs::component<TestMixed>(world, "TestMixed");
-		pulse::meta_member(comp, "dir", &TestMixed::dir);
-		pulse::meta_member(comp, "pos", &TestMixed::pos);
-		pulse::meta_member(comp, "rot", &TestMixed::rot);
-		pulse::meta_member(comp, "target", &TestMixed::target);
-		pulse::meta_member(comp, "samples", &TestMixed::samples);
+		comp.member("dir", &TestMixed::dir);
+		comp.member(ecs_id(ecs_f32_t), "pos", 3, offsetof(TestMixed, pos));
+		comp.member(ecs_id(ecs_f32_t), "rot", 4, offsetof(TestMixed, rot));
+		comp.member(ecs_id(ecs_entity_t), "target", 0, offsetof(TestMixed, target));
+		comp.member("samples", &TestMixed::samples);
 	}
-	{
-		auto comp = flecs::component<TestOpaque>(world, "TestOpaque");
-		pulse::meta_member(comp, "name", &TestOpaque::name);
-		pulse::meta_member(comp, "mode", &TestOpaque::mode);
-		pulse::meta_member(comp, "bag", &TestOpaque::bag);
-	}
+	flecs::component<TestOpaque>(world, "TestOpaque");
 	flecs::component<TestTag>(world, "TestTag");
 }

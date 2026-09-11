@@ -31,8 +31,8 @@ void register_renderer_components(ecs_world_t* world) {
 
     ecs_entity_t ecs_id(PulseMaterialHandle) = flecs::_::type<PulseMaterialHandle>::id(world);
     flecs::untyped_component material_handle(world, ecs_id(PulseMaterialHandle));
-    material_handle.member("index", &PulseMeshHandle::index);
-    material_handle.member("generation", &PulseMeshHandle::generation);
+    material_handle.member("index", &PulseMaterialHandle::index);
+    material_handle.member("generation", &PulseMaterialHandle::generation);
 
     flecs::untyped_component renderable(world, ecs_id(PulseRenderable));
     renderable.member("mesh", &PulseRenderable::mesh);

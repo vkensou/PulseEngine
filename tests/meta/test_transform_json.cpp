@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "pulse_app.h"
+#include "pulse_math.h"
 #include "pulse_transform.h"
 
 static void expect_substr(const char* haystack, const char* needle) {
@@ -18,6 +19,7 @@ static PulseAppId make_meta_transform_app(const char* name) {
 	};
 	PulseAppId app = pulse_create_app(&app_desc);
 	assert(app);
+	assert(pulse_add_math_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 	assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 	return app;
 }
@@ -31,6 +33,11 @@ static ecs_entity_t named_entity(ecs_world_t* world, const char* name) {
 int main() {
 	PulseAppId app = make_meta_transform_app("t-meta-json");
 	ecs_world_t* world = pulse_app_world(app);
+
+	ecs_entity_t vec3_type = ecs_lookup(world, "HMM_Vec3");
+	assert(vec3_type != 0);
+	assert(ecs_has_id(world, vec3_type, ecs_id(EcsStruct)));
+	assert(ecs_lookup(world, "union HMM_Vec3") == 0);
 
 	PulseLocalTransform lt = {};
 	lt.translation = HMM_V3(1.5f, -2.5f, 4.f);
@@ -46,8 +53,8 @@ int main() {
 	assert(json);
 	printf("thing json: %s\n", json);
 	expect_substr(json, "\"PulseLocalTransform\"");
-	expect_substr(json, "\"translation\":[1.5, -2.5, 4]");
-	expect_substr(json, "\"scale\":[2, 2, 2]");
+	expect_substr(json, "\"translation\":{\"X\":1.5, \"Y\":-2.5, \"Z\":4}");
+	expect_substr(json, "\"scale\":{\"X\":2, \"Y\":2, \"Z\":2}");
 
 	const PulseWorldTransform* src_wt = ecs_get(world, thing, PulseWorldTransform);
 	assert(src_wt);

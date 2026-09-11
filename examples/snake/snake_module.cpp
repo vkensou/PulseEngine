@@ -139,6 +139,42 @@ static void restartSystemWrapper(
 
 void importModule(pulse::ModuleContext* moduleContext)
 {
+	flecs::component<SnakeGameState>(moduleContext->world, "SnakeGameState");
+	flecs::component<Direction4W>(moduleContext->world, "Direction4W");
+	{
+		auto comp = flecs::component<Facing4W>(moduleContext->world, "Facing4W");
+		comp.member("value", &Facing4W::value);
+	}
+	{
+		auto comp = flecs::component<SnakeMove>(moduleContext->world, "SnakeMove");
+		comp.member("interval", &SnakeMove::interval);
+		comp.member("lastTime", &SnakeMove::lastTime);
+	}
+	{
+		auto comp = flecs::component<Border>(moduleContext->world, "Border");
+		comp.member("up", &Border::up);
+		comp.member("bottom", &Border::bottom);
+		comp.member("left", &Border::left);
+		comp.member("right", &Border::right);
+	}
+	{
+		auto comp = flecs::component<Score>(moduleContext->world, "Score");
+		comp.member("value", &Score::value);
+	}
+	flecs::component<SnakeInput>(moduleContext->world, "SnakeInput");
+	flecs::component<SnakeBodies>(moduleContext->world, "SnakeBodies");
+	flecs::component<IsApple>(moduleContext->world, "IsApple");
+	{
+		auto comp = flecs::component<AppleEatenEvent>(moduleContext->world, "AppleEatenEvent");
+		comp.member(ecs_id(ecs_entity_t), "apple", 0, offsetof(AppleEatenEvent, apple));
+	}
+	{
+		auto comp = flecs::component<SnakeMoveIntentEvent>(moduleContext->world, "SnakeMoveIntentEvent");
+		comp.member("delta", &SnakeMoveIntentEvent::delta);
+	}
+	flecs::component<GameOverEvent>(moduleContext->world, "GameOverEvent");
+	flecs::component<SnakeResources>(moduleContext->world, "SnakeResources");
+	flecs::component<RestartEvent>(moduleContext->world, "RestartEvent");
 	pulse::registerResource<SnakeAssets>(moduleContext->world, "Snake Assets", SnakeAssets{});
 	moduleContext->world.set<pulse::StateMachine<SnakeGameState>>(pulse::StateMachine<SnakeGameState>{});
 	auto& stateMachine = moduleContext->world.get_mut<pulse::StateMachine<SnakeGameState>>();

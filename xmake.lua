@@ -550,6 +550,48 @@ for _, test_file in ipairs(os.files("tests/daslang/test_*.cpp")) do
         add_tests("default", {group = "daslang", rundir = "$(projectdir)"})
 end
 
+for _, test_file in ipairs(os.files("tests/meta/test_*.cpp")) do
+    local test_name = "test-meta-" .. path.basename(test_file):gsub("^test_", "")
+    if test_name ~= "test-meta-generated_snake" then
+        target(test_name)
+            set_group("tests")
+            set_kind("binary")
+            set_default(false)
+            set_rundir("$(projectdir)")
+            add_includedirs("tests/meta")
+            add_deps("pulse_app")
+            add_deps("pulse_math")
+            add_deps("pulse_transform")
+            add_files(test_file)
+            add_files("tests/helper/msvc_headless_asserts.c")
+            add_tests("default", {group = "meta", rundir = "$(projectdir)"})
+    end
+end
+
+target("test-meta-generated_snake")
+    set_group("tests")
+    set_kind("binary")
+    set_default(false)
+    set_rundir("$(projectdir)")
+    add_includedirs("tests/meta")
+    add_includedirs("examples/snake")
+    add_deps("pulse_app")
+    add_deps("pulse_config")
+    add_deps("pulse_math")
+    add_deps("pulse_window")
+    add_deps("pulse_input")
+    add_deps("pulse_asset")
+    add_deps("pulse_transform")
+    add_deps("pulse_graphics")
+    add_deps("pulse_renderer")
+    add_deps("pulse_imgui")
+    add_deps("pulse_cpp_gameplay")
+    add_files("tests/meta/test_generated_snake.cpp")
+    add_files("examples/snake/snake_module.cpp")
+    add_files("examples/snake/snake.cpp")
+    add_files("tests/helper/msvc_headless_asserts.c")
+    add_tests("default", {group = "meta", rundir = "$(projectdir)"})
+
 target("example-snake")
     set_group("examples")
     set_kind("shared")
