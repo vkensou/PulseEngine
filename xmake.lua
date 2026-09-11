@@ -60,6 +60,7 @@ target("pulse_app")
     add_includedirs("src/pulse_app/flecs/include", {public = true})
     add_headerfiles("src/pulse_app/flecs/include/**/*.h")
     add_headerfiles("src/pulse_app/flecs/include/**/*.hpp")
+    add_files("src/pulse_app/flecs/src/*.c")
     add_files("src/pulse_app/flecs/src/**/*.c")
 
 target("pulse_vfs")
