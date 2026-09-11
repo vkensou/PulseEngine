@@ -1,6 +1,7 @@
-#include "math_internal.h"
+#include "pulse_math.h"
+#include "pulse_math_reflection.h"
 
-namespace pulse_math_internal {
+namespace {
 
 constexpr const char* kPluginName = "pulse_math";
 
@@ -11,7 +12,7 @@ EPulsePluginBuildResult math_plugin_build(PulseAppId app, void* ctx) {
         return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    register_reflection(world);
+    pulse_math_register_reflection(world);
 
     return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
@@ -27,9 +28,7 @@ void math_plugin_shutdown(PulseAppId app, void* ctx) {
     (void)ctx;
 }
 
-} // namespace pulse_math_internal
-
-using namespace pulse_math_internal;
+} // namespace
 
 extern "C" {
 

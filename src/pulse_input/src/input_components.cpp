@@ -1,5 +1,7 @@
 #include "input_internal.h"
 
+#include "pulse_input_reflection.h"
+
 #include <algorithm>
 #include <cstring>
 
@@ -139,63 +141,8 @@ void post_frame_clear_system_run(ecs_iter_t* it) {
 } // namespace
 
 void register_components(ecs_world_t* world) {
-    ecs_id(PulseKeyboardInput) = flecs::_::type<PulseKeyboardInput>::id(world);
-    ecs_id(PulseMouseInput) = flecs::_::type<PulseMouseInput>::id(world);
-    ecs_id(PulseMouseMotion) = flecs::_::type<PulseMouseMotion>::id(world);
-    ecs_id(PulseMouseScroll) = flecs::_::type<PulseMouseScroll>::id(world);
-    ecs_id(PulseKeyEvent) = flecs::_::type<PulseKeyEvent>::id(world);
-    ecs_id(PulseMouseButtonEvent) = flecs::_::type<PulseMouseButtonEvent>::id(world);
-    ecs_id(PulseMouseScrollEvent) = flecs::_::type<PulseMouseScrollEvent>::id(world);
-    ecs_id(PulseMouseMotionEvent) = flecs::_::type<PulseMouseMotionEvent>::id(world);
+    pulse_input_register_reflection(world);
     ecs_id(pulse_input_state_resource) = flecs::_::type<pulse_input_state_resource>::id(world);
-
-    flecs::untyped_component keyboard(world, ecs_id(PulseKeyboardInput));
-    keyboard.member("pressed", &PulseKeyboardInput::pressed);
-    keyboard.member("just_pressed", &PulseKeyboardInput::just_pressed);
-    keyboard.member("just_released", &PulseKeyboardInput::just_released);
-
-    flecs::untyped_component mouse_input(world, ecs_id(PulseMouseInput));
-    mouse_input.member("state", &PulseMouseInput::state);
-    mouse_input.member("just_pressed", &PulseMouseInput::just_pressed);
-    mouse_input.member("just_released", &PulseMouseInput::just_released);
-
-    flecs::untyped_component mouse_motion(world, ecs_id(PulseMouseMotion));
-    mouse_motion.member("delta_x", &PulseMouseMotion::delta_x);
-    mouse_motion.member("delta_y", &PulseMouseMotion::delta_y);
-    mouse_motion.member("x", &PulseMouseMotion::x);
-    mouse_motion.member("y", &PulseMouseMotion::y);
-
-    flecs::untyped_component mouse_scroll(world, ecs_id(PulseMouseScroll));
-    mouse_scroll.member("x", &PulseMouseScroll::x);
-    mouse_scroll.member("y", &PulseMouseScroll::y);
-
-    flecs::untyped_component key_event(world, ecs_id(PulseKeyEvent));
-    key_event.member("scancode", &PulseKeyEvent::scancode);
-    key_event.member("keycode", &PulseKeyEvent::keycode);
-    key_event.member("mod", &PulseKeyEvent::mod);
-    key_event.member("pressed", &PulseKeyEvent::pressed);
-    key_event.member("repeat", &PulseKeyEvent::repeat);
-    key_event.member("window", &PulseKeyEvent::window);
-
-    flecs::untyped_component mouse_button_event(world, ecs_id(PulseMouseButtonEvent));
-    mouse_button_event.member("button", &PulseMouseButtonEvent::button);
-    mouse_button_event.member("pressed", &PulseMouseButtonEvent::pressed);
-    mouse_button_event.member("x", &PulseMouseButtonEvent::x);
-    mouse_button_event.member("y", &PulseMouseButtonEvent::y);
-    mouse_button_event.member("is_touch", &PulseMouseButtonEvent::is_touch);
-    mouse_button_event.member("window", &PulseMouseButtonEvent::window);
-
-    flecs::untyped_component mouse_scroll_event(world, ecs_id(PulseMouseScrollEvent));
-    mouse_scroll_event.member("x", &PulseMouseScrollEvent::x);
-    mouse_scroll_event.member("y", &PulseMouseScrollEvent::y);
-    mouse_scroll_event.member("is_touch", &PulseMouseScrollEvent::is_touch);
-    mouse_scroll_event.member("window", &PulseMouseScrollEvent::window);
-
-    flecs::untyped_component mouse_motion_event(world, ecs_id(PulseMouseMotionEvent));
-    mouse_motion_event.member("x", &PulseMouseMotionEvent::x);
-    mouse_motion_event.member("y", &PulseMouseMotionEvent::y);
-    mouse_motion_event.member("is_touch", &PulseMouseMotionEvent::is_touch);
-    mouse_motion_event.member("window", &PulseMouseMotionEvent::window);
 }
 
 pulse_input_plugin_state* state_from_world(ecs_world_t* world) {

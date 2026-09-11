@@ -15,6 +15,44 @@ typedef "PulseAppId"
 
 const_value.MathPluginDescVersion { value = "1u" }
 
+--- 数学类型由 HandmadeMath.h 定义（external），idl 中只声明形状用于生成反射
+component.HMM_Vec2 { external = true }
+    .X "float"
+    .Y "float"
+    ()
+
+component.HMM_Vec3 { external = true }
+    .X "float"
+    .Y "float"
+    .Z "float"
+    ()
+
+component.HMM_Vec4 { external = true }
+    .X "float"
+    .Y "float"
+    .Z "float"
+    .W "float"
+    ()
+
+component.HMM_Quat { external = true }
+    .X "float"
+    .Y "float"
+    .Z "float"
+    .W "float"
+    ()
+
+component.HMM_Mat2 { external = true }
+    .Columns "[2]HMM_Vec2"
+    ()
+
+component.HMM_Mat3 { external = true }
+    .Columns "[3]HMM_Vec3"
+    ()
+
+component.HMM_Mat4 { external = true }
+    .Columns "[4]HMM_Vec4"
+    ()
+
 func.AddMathPlugin
     "EPulseAppAddPluginResult"
     .app  "PulseAppId"

@@ -57,8 +57,8 @@ struct.WindowPluginDesc
     ()
 
 component.Window
-    .structSize "uint32_t"
-    .title      "cstring"
+    .structSize "uint32_t" { noreflex = true }
+    .title      "cstring" { noreflex = true }
     .width      "int32_t"
     .height     "int32_t"
     .resizable  "bool"

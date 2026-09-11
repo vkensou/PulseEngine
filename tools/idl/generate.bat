@@ -11,3 +11,10 @@
 .\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl ..\..\src\pulse_renderer\idl\temp.pulse_renderer.h c ..\..\src\pulse_renderer\include\pulse_renderer.h Pulse "    " PULSE_RENDERER_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_imgui\idl\pulse_imgui.idl ..\..\src\pulse_imgui\idl\temp.pulse_imgui.h c ..\..\src\pulse_imgui\include\pulse_imgui.h Pulse "    " PULSE_IMGUI_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_daslang\idl\pulse_daslang.idl ..\..\src\pulse_daslang\idl\temp.pulse_daslang.h c ..\..\src\pulse_daslang\include\pulse_daslang.h Pulse "    " PULSE_DASLANG_API
+
+.\lua54.exe generate-binding.lua ..\..\src\pulse_app\idl\pulse_app.idl temp.flecs_reflection.h flecs ..\..\src\pulse_app\src\pulse_app_reflection.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_math\idl\pulse_math.idl temp.flecs_reflection.h flecs ..\..\src\pulse_math\src\pulse_math_reflection.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_window\idl\pulse_window.idl temp.flecs_reflection.h flecs ..\..\src\pulse_window\src\pulse_window_reflection.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_input\idl\pulse_input.idl temp.flecs_reflection.h flecs ..\..\src\pulse_input\src\pulse_input_reflection.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl temp.flecs_reflection.h flecs ..\..\src\pulse_transform\src\pulse_transform_reflection.h Pulse "    "
+.\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl temp.flecs_reflection.h flecs ..\..\src\pulse_renderer\src\pulse_renderer_reflection.h Pulse "    "

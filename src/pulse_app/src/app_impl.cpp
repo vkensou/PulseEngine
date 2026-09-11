@@ -11,6 +11,7 @@ module;
 
 #include "pulse_app.h"
 #include "app_internal.h"
+#include "pulse_app_reflection.h"
 
 module pulse_app;
 
@@ -98,15 +99,8 @@ AddPluginResult App::validate_plugin(const Plugin& plugin) {
 App::App(const AppDesc& desc)
     : name_(desc.name), enable_rest_api_(desc.enable_rest_api) {
     ecs_world_t* world = world_.c_ptr();
-    ecs_id(PulseTimer) = flecs::_::type<PulseTimer>::id(world);
+    pulse_app_register_reflection(world);
     ecs_id(pulse_app_state_resource) = flecs::_::type<pulse_app_state_resource>::id(world);
-
-    flecs::untyped_component timer(world, ecs_id(PulseTimer));
-    timer.member("delta_time", &PulseTimer::delta_time);
-    timer.member("time_since_startup", &PulseTimer::time_since_startup);
-    timer.member("delta_time_double", &PulseTimer::delta_time_double);
-    timer.member("time_since_startup_double", &PulseTimer::time_since_startup_double);
-    timer.member("fps", &PulseTimer::fps).range(0.0, 1000.0);
 
     PulseTimer time_ctx{};
     world_.set<PulseTimer>(time_ctx);

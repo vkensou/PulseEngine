@@ -1,5 +1,7 @@
 #include "transform_internal.h"
 
+#include "pulse_transform_reflection.h"
+
 #include <assert.h>
 #include <string.h>
 
@@ -57,20 +59,7 @@ void propagate_world_transform(ecs_iter_t* it) {
 } // anonymous namespace
 
 void register_components(ecs_world_t* world) {
-    ecs_id(PulseLocalTransform) = flecs::_::type<PulseLocalTransform>::id(world);
-    ecs_id(PulseWorldTransform) = flecs::_::type<PulseWorldTransform>::id(world);
-    ecs_id(PulseShowMatrix) = flecs::_::type<PulseShowMatrix>::id(world);
-
-    flecs::untyped_component local_transform(world, ecs_id(PulseLocalTransform));
-    local_transform.member("translation", &PulseLocalTransform::translation);
-    local_transform.member("rotation", &PulseLocalTransform::rotation);
-    local_transform.member("scale", &PulseLocalTransform::scale);
-
-    flecs::untyped_component world_transform(world, ecs_id(PulseWorldTransform));
-    world_transform.member("value", &PulseWorldTransform::value);
-
-    flecs::untyped_component show_matrix(world, ecs_id(PulseShowMatrix));
-    show_matrix.member("model", &PulseShowMatrix::model);
+    pulse_transform_register_reflection(world);
 
     // Auto-insertion (EcsWith):
     //   Adding LocalTransform automatically ensures WorldTransform is present.

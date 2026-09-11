@@ -561,6 +561,7 @@ for _, test_file in ipairs(os.files("tests/meta/test_*.cpp")) do
             add_includedirs("tests/meta")
             add_deps("pulse_app")
             add_deps("pulse_math")
+            add_deps("pulse_input")
             add_deps("pulse_transform")
             add_files(test_file)
             add_files("tests/helper/msvc_headless_asserts.c")
