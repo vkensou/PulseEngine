@@ -15,13 +15,15 @@ int main() {
 
     PulsePackageListEntry entries[] = {
         { "pulse_input", nullptr },
+        { "pulse_math", nullptr },
         { "pulse_transform", nullptr },
     };
 
     // 搜索目录相对运行目录（项目根）解析：包清单来自 src/ 与 tests/
     const char* search_paths[] = { "src", "tests/package_loader" };
-    assert(pulse_package_loader_load_packages(loader, search_paths, 1, entries, 2) == PULSE_PACKAGE_LOAD_RESULT_OK);
+    assert(pulse_package_loader_load_packages(loader, search_paths, 1, entries, sizeof(entries) / sizeof(entries[0])) == PULSE_PACKAGE_LOAD_RESULT_OK);
     assert(pulse_app_has_plugin(app, "pulse_input"));
+    assert(pulse_app_has_plugin(app, "pulse_math"));
     assert(pulse_app_has_plugin(app, "pulse_transform"));
 
     // Loading the same package again is a duplicate.
