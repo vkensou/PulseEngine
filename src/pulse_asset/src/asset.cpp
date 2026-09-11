@@ -103,6 +103,14 @@ const char* AssetSystem::get_error(PulseAssetHandle handle) const {
     return slot && !slot->slot.error.empty() ? slot->slot.error.c_str() : nullptr;
 }
 
+const char* AssetSystem::get_path(PulseAssetHandle handle) const {
+    auto slot = storage_.get_slot(handle);
+    if (!slot || slot->slot.source != PULSE_ASSET_LOAD_SOURCE_FILE || slot->slot.path.empty()) {
+        return nullptr;
+    }
+    return slot->slot.path.c_str();
+}
+
 bool AssetSystem::retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_error) {
     auto slot = storage_.get_slot(handle);
     if (!slot || slot->slot.state == PULSE_ASSET_STATE_EMPTY) {
@@ -249,6 +257,8 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
     if (!slot) {
         return invalid_handle();
     }
+
+    slot->source = request.source;
 
     auto release_failed_builder = [&]() {
         release(handle, nullptr);

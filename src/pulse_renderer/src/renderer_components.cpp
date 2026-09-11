@@ -12,16 +12,6 @@ ECS_COMPONENT_DECLARE(pulse_renderer_state_resource);
 namespace pulse_renderer_internal {
 
 void register_renderer_components(ecs_world_t* world) {
-    ecs_entity_t ecs_id(PulseMeshHandle) = flecs::_::type<PulseMeshHandle>::id(world);
-    flecs::untyped_component mesh_handle(world, ecs_id(PulseMeshHandle));
-    mesh_handle.member("index", &PulseMeshHandle::index);
-    mesh_handle.member("generation", &PulseMeshHandle::generation);
-
-    ecs_entity_t ecs_id(PulseMaterialHandle) = flecs::_::type<PulseMaterialHandle>::id(world);
-    flecs::untyped_component material_handle(world, ecs_id(PulseMaterialHandle));
-    material_handle.member("index", &PulseMaterialHandle::index);
-    material_handle.member("generation", &PulseMaterialHandle::generation);
-
     pulse_renderer_register_reflection(world);
 
     ecs_id(pulse_renderer_state_resource) = flecs::_::type<pulse_renderer_state_resource>::id(world);

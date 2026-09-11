@@ -479,6 +479,7 @@ PULSE_ASSET_API EPulseAssetState pulse_asset_system_get_state(Const_PulseAssetSy
 PULSE_ASSET_API bool pulse_asset_system_is_alive(Const_PulseAssetSystemId _this, PulseAssetRequest request);
 PULSE_ASSET_API bool pulse_asset_system_is_ready(Const_PulseAssetSystemId _this, PulseAssetRequest request);
 PULSE_ASSET_API const char* pulse_asset_system_get_error(Const_PulseAssetSystemId _this, PulseAssetRequest request);
+[[pulse::optional]] PULSE_ASSET_API const char* pulse_asset_system_get_path(Const_PulseAssetSystemId _this, PulseAssetHandle handle);
 PULSE_ASSET_API PulseAssetHandle pulse_asset_system_get_handle(Const_PulseAssetSystemId _this, PulseAssetRequest request);
 PULSE_ASSET_API void pulse_asset_system_cancel(PulseAssetSystemId _this, PulseAssetRequest request);
 PULSE_ASSET_API bool pulse_asset_system_retain(PulseAssetSystemId _this, PulseAssetHandle handle, [[pulse::out]] EPulseRetainErrorCode* out_error);

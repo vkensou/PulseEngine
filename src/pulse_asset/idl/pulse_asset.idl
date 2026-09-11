@@ -321,6 +321,11 @@ func.AssetSystem.GetError
     .request "AssetRequest"
     ()
 
+func.AssetSystem.GetPath
+    "?cstring"
+    .handle  "AssetHandle"
+    ()
+
 func.AssetSystem.GetHandle
     "AssetHandle"
     .request "AssetRequest"

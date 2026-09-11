@@ -53,7 +53,7 @@ int main() {
 	expect_member(world, ecs_id(PulseTimer), "delta_time");
 	const ecs_member_t* fps = expect_member(world, ecs_id(PulseTimer), "fps");
 	assert(fps->range.min == 0.0);
-	assert(fps->range.max == 1000.0);
+	assert(fps->range.max == 10000.0);
 
 	pulse_destroy_app(app);
 	printf("idl reflection test passed\n");

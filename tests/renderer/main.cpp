@@ -44,6 +44,7 @@ enum class test_renderer_load_phase {
     Start,       // create the resource requests (shader, mesh)
     WaitShader,  // waiting for the shader to finish loading
     WaitMesh,    // waiting for the mesh to finish loading
+    Verify,      // scene is committed: serialize the renderable once
     Done,
 };
 
@@ -52,15 +53,19 @@ struct test_renderer_load_machine {
     PulseAppId app = nullptr;
     PulseShaderRequest shader{};
     PulseMeshRequest mesh{};
+    PulseMaterialRequest material_file{};
     PulseMaterialHandle material{};
+    PulseMaterialHandle material_file_handle{};
     PulseMeshHandle mesh_handle{};
     ecs_entity_t window_entity = 0;
+    ecs_entity_t renderable_entity = 0;
+    ecs_entity_t renderable_entity2 = 0;
 };
 
 // Creates camera + renderable + light entities once the mesh is ready.
 static void create_renderer_scene(
     ecs_world_t* world,
-    const test_renderer_load_machine& m)
+    test_renderer_load_machine& m)
 {
     // Create a camera entity
     ecs_entity_t camera_entity = create_transform_entity(world, 0 + 0.5, 0 + 0.5, -38);
@@ -78,6 +83,7 @@ static void create_renderer_scene(
         renderable.mesh = m.mesh_handle;
         renderable.material = m.material;
         ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+        m.renderable_entity = renderable_entity;
     }
 
     {
@@ -85,8 +91,9 @@ static void create_renderer_scene(
         ecs_entity_t renderable_entity = create_transform_entity(world, -10, 5, 0, 6.0f);
         PulseRenderable renderable = {};
         renderable.mesh = m.mesh_handle;
-        renderable.material = m.material;
+        renderable.material = m.material_file_handle;
         ecs_set_ptr(world, renderable_entity, PulseRenderable, &renderable);
+        m.renderable_entity2 = renderable_entity;
     }
 
     // Create a light entity (optional)
@@ -107,6 +114,7 @@ static void test_renderer_load_system(ecs_iter_t* it) {
         case test_renderer_load_phase::Start: {
             m.shader = pulse_load_shader(m.app, "color.shader");
             m.mesh = pulse_load_mesh(m.app, "Quad.obj");
+            m.material_file = pulse_load_material(m.app, "quad.material");
 
             m.phase = test_renderer_load_phase::WaitShader;
         }
@@ -132,15 +140,38 @@ static void test_renderer_load_system(ecs_iter_t* it) {
             break;
 
         case test_renderer_load_phase::WaitMesh:
-            if (pulse_mesh_is_ready(m.app, m.mesh)) {
+            if (pulse_mesh_is_ready(m.app, m.mesh) && pulse_material_is_ready(m.app, m.material_file)) {
                 m.mesh_handle = pulse_mesh_get_handle(m.app, m.mesh);
                 assert(m.mesh_handle.index != 0);
+
+                m.material_file_handle = pulse_material_get_handle(m.app, m.material_file);
+                assert(m.material_file_handle.index != 0);
 
                 ecs_world_t* world = pulse_app_world(m.app);
                 create_renderer_scene(world, m);
 
-                m.phase = test_renderer_load_phase::Done;
+                m.phase = test_renderer_load_phase::Verify;
             }
+            break;
+
+        case test_renderer_load_phase::Verify: {
+            ecs_world_t* world = pulse_app_world(m.app);
+            char* json = ecs_entity_to_json(world, m.renderable_entity, nullptr);
+            printf("builder renderable json: %s\n", json);
+            fflush(stdout);
+            assert(strstr(json, "\"mesh\":\"Quad.obj\""));
+            assert(strstr(json, "\"material\":\"\""));
+            ecs_os_free(json);
+
+            char* json2 = ecs_entity_to_json(world, m.renderable_entity2, nullptr);
+            printf("loaded renderable json: %s\n", json2);
+            fflush(stdout);
+            assert(strstr(json2, "\"mesh\":\"Quad.obj\""));
+            assert(strstr(json2, "\"material\":\"quad.material\""));
+            ecs_os_free(json2);
+
+            m.phase = test_renderer_load_phase::Done;
+        }
             break;
 
     }

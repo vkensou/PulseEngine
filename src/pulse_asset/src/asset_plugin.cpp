@@ -277,6 +277,11 @@ const char* pulse_asset_system_get_error(Const_PulseAssetSystemId asset_system, 
     return system ? system->get_error(pulse::asset::request_to_handle(request)) : nullptr;
 }
 
+const char* pulse_asset_system_get_path(Const_PulseAssetSystemId asset_system, PulseAssetHandle handle) {
+    const pulse::asset::AssetSystem* system = to_const_impl(asset_system);
+    return system ? system->get_path(handle) : nullptr;
+}
+
 PulseAssetHandle pulse_asset_system_get_handle(
     Const_PulseAssetSystemId asset_system,
     PulseAssetRequest request

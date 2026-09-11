@@ -176,6 +176,7 @@ public:
     uint32_t pin_count = 0;
     PooledBlock data;
     std::pmr::string path;
+    EPulseAssetLoadSource source = PULSE_ASSET_LOAD_SOURCE_FILE;
     std::pmr::string error;
     uint64_t version = 0;
     bool constructed = false;
@@ -373,6 +374,7 @@ public:
     PulseAssetHandle build_asset(const PulseAssetBuildDesc* desc);
     EPulseAssetState get_state(PulseAssetHandle handle) const;
     const char* get_error(PulseAssetHandle handle) const;
+    const char* get_path(PulseAssetHandle handle) const;
     bool retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_error);
     bool release(PulseAssetHandle handle, EPulseReleaseErrorCode* out_error);
     bool borrow(PulseAssetHandle handle, void** out_ptr, EPulseBorrowErrorCode* out_error);
