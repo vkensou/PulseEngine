@@ -122,6 +122,7 @@ const char* ecs_world_from_json_file(
  * ecs_asset_refs_from_json(). */
 typedef void (*ecs_asset_ref_action_t)(
     void *ctx,
+    uint64_t user_data,                /**< EcsOpaque.user_data of the opaque type. */
     const char *path);                 /**< Referenced asset path. */
 
 /** Scan JSON for asset references without deserializing it.

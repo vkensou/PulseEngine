@@ -11,9 +11,14 @@ namespace pulse_prefab_internal {
 
 extern const char* kPluginName;
 
+struct prefab_reference {
+    uint64_t type_id = 0;
+    std::string path;
+};
+
 struct prefab_reference_set {
     std::string json;
-    std::vector<std::string> paths;
+    std::vector<prefab_reference> references;
 };
 
 struct prefab_load_state {

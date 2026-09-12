@@ -218,7 +218,7 @@ struct.AssetLoaderDesc
     .userData           "?*anyopaque"
     ()
 
---- File-based load descriptor; typeId 0 infers the asset type from the path extension
+--- File-based load descriptor
 struct.AssetLoadDesc
     .structSize         "uint32_t"
     .version            "uint32_t"

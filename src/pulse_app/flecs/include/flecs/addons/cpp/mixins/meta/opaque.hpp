@@ -189,6 +189,12 @@ struct opaque {
         return *this;
     }
 
+    /** Set user data. Not interpreted by the reflection framework. */
+    opaque& user_data(uint64_t value) {
+        this->desc.type.user_data = value;
+        return *this;
+    }
+
     ~opaque() {
         if (world) {
             ecs_opaque_init(world, &desc);

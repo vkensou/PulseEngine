@@ -123,7 +123,7 @@ public:
 
     bool has_loader_for_any(const std::pmr::vector<std::pmr::string>& extension_list) const;
     AssetLoader* find_builder_loader(const std::pmr::string& name);
-    AssetLoader* find_extension_loader(const std::pmr::string& extension) const;
+    AssetLoader* find_extension_loader(const std::pmr::string& extension);
     EPulseResult add_loader(const PulseAssetLoaderDesc& loader_desc, std::pmr::vector<std::pmr::string>&& extension_list, std::pmr::memory_resource* resource);
 };
 
@@ -136,7 +136,6 @@ public:
     AssetType* find_type(uint64_t type_id);
     AssetLoader* find_loader(uint64_t type_id, const std::pmr::string& path);
     AssetLoader* find_builder_loader(uint64_t type_id, const std::pmr::string& loader_identifier);
-    uint64_t find_unique_type_id_for_path(const std::pmr::string& path) const;
 
 private:
     std::pmr::memory_resource* resource_ = nullptr;

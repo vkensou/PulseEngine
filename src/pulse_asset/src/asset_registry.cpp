@@ -33,7 +33,7 @@ AssetLoader* AssetType::find_builder_loader(const std::pmr::string& name) {
     return loader_it != builder_loaders.end() ? loader_it->second : nullptr;
 }
 
-AssetLoader* AssetType::find_extension_loader(const std::pmr::string& extension) const {
+AssetLoader* AssetType::find_extension_loader(const std::pmr::string& extension) {
     auto loader_it = extension_loaders.find(extension);
     return loader_it != extension_loaders.end() ? loader_it->second : nullptr;
 }
@@ -129,25 +129,6 @@ AssetLoader* AssetRegistry::find_loader(uint64_t type_id, const std::pmr::string
 AssetLoader* AssetRegistry::find_builder_loader(uint64_t type_id, const std::pmr::string& loader_identifier) {
     AssetType* type = find_type(type_id);
     return type ? type->find_builder_loader(loader_identifier) : nullptr;
-}
-
-uint64_t AssetRegistry::find_unique_type_id_for_path(const std::pmr::string& path) const {
-    std::pmr::string extension = AssetIo::extension_from_path(path, resource_);
-    if (extension.empty()) {
-        return 0;
-    }
-
-    uint64_t found = 0;
-    for (const auto& type_entry : types_) {
-        if (!type_entry.second.find_extension_loader(extension)) {
-            continue;
-        }
-        if (found != 0) {
-            return 0;
-        }
-        found = type_entry.first;
-    }
-    return found;
 }
 
 } // namespace pulse::asset

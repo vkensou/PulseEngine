@@ -486,6 +486,10 @@ typedef struct EcsOpaque {
     void (*resize)(
         void *dst,
         size_t count);
+
+    /** User data. Not interpreted by the reflection framework, provided so
+     * applications can associate opaque types with their own metadata. */
+    uint64_t user_data;
 } EcsOpaque;
 
 

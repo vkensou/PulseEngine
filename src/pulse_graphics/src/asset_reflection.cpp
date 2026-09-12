@@ -102,14 +102,14 @@ void assign_material_handle(PulseMaterialHandle* dst, ecs_world_t* world, const 
 } // namespace
 
 void register_asset_reflection(ecs_world_t* world) {
-    flecs::opaque<PulseShaderHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_shader_handle).assign_string(assign_shader_handle);
-    flecs::opaque<PulseShaderLibraryHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_shader_library_handle).assign_string(assign_shader_library_handle);
-    flecs::opaque<PulseComputeShaderHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_compute_shader_handle).assign_string(assign_compute_shader_handle);
-    flecs::opaque<PulseGraphicsBufferHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_graphics_buffer_handle).assign_string(assign_graphics_buffer_handle);
-    flecs::opaque<PulseSamplerHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_sampler_handle).assign_string(assign_sampler_handle);
-    flecs::opaque<PulseTextureHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_texture_handle).assign_string(assign_texture_handle);
-    flecs::opaque<PulseMeshHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_mesh_handle).assign_string(assign_mesh_handle);
-    flecs::opaque<PulseMaterialHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_material_handle).assign_string(assign_material_handle);
+    flecs::opaque<PulseShaderHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_shader_handle).assign_string(assign_shader_handle).user_data(PULSE_TYPE_SHADER);
+    flecs::opaque<PulseShaderLibraryHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_shader_library_handle).assign_string(assign_shader_library_handle).user_data(PULSE_TYPE_SHADER_LIBRARY);
+    flecs::opaque<PulseComputeShaderHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_compute_shader_handle).assign_string(assign_compute_shader_handle).user_data(PULSE_TYPE_COMPUTE_SHADER);
+    flecs::opaque<PulseGraphicsBufferHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_graphics_buffer_handle).assign_string(assign_graphics_buffer_handle).user_data(PULSE_TYPE_GRAPHICS_BUFFER);
+    flecs::opaque<PulseSamplerHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_sampler_handle).assign_string(assign_sampler_handle).user_data(PULSE_TYPE_SAMPLER);
+    flecs::opaque<PulseTextureHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_texture_handle).assign_string(assign_texture_handle).user_data(PULSE_TYPE_TEXTURE);
+    flecs::opaque<PulseMeshHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_mesh_handle).assign_string(assign_mesh_handle).user_data(PULSE_TYPE_MESH);
+    flecs::opaque<PulseMaterialHandle>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_material_handle).assign_string(assign_material_handle).user_data(PULSE_TYPE_MATERIAL);
 }
 
 } // namespace pulse_graphics_internal

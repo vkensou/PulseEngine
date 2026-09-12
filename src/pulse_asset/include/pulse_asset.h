@@ -352,7 +352,7 @@ typedef struct PulseAssetLoaderDesc
 } PulseAssetLoaderDesc;
 
 /**
- * File-based load descriptor; typeId 0 infers the asset type from the path extension
+ * File-based load descriptor
  *
  */
 typedef struct PulseAssetLoadDesc

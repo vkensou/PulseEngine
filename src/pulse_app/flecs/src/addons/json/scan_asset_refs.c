@@ -61,6 +61,7 @@ const char* flecs_json_scan_skip_value(
 static
 const char* flecs_json_scan_asset_string(
     ecs_json_scan_ctx_t *scan,
+    uint64_t user_data,
     const char *json)
 {
     char token[ECS_MAX_TOKEN_SIZE];
@@ -76,7 +77,7 @@ const char* flecs_json_scan_asset_string(
     }
 
     if (token_kind == JsonString) {
-        scan->action(scan->user_ctx, token);
+        scan->action(scan->user_ctx, user_data, token);
         return json;
     }
 
@@ -88,7 +89,7 @@ const char* flecs_json_scan_asset_string(
             return NULL;
         }
         char *str = ecs_strbuf_get(&buf);
-        scan->action(scan->user_ctx, str);
+        scan->action(scan->user_ctx, user_data, str);
         ecs_os_free(str);
         return json;
     }
@@ -242,7 +243,7 @@ const char* flecs_json_scan_ops(
             return flecs_json_scan_skip_value(json);
         }
         if (opaque->as_type == ecs_id(ecs_string_t)) {
-            return flecs_json_scan_asset_string(scan, json);
+            return flecs_json_scan_asset_string(scan, opaque->user_data, json);
         }
         return flecs_json_scan_type(scan, opaque->as_type, json);
     }

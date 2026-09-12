@@ -4,8 +4,6 @@ namespace pulse_prefab_internal {
 
 namespace {
 
-constexpr uint64_t kTypeIdFromPath = 0;
-
 PulseAssetRequest request_file_load(PulseAssetSystemId asset_system, uint64_t type_id, const char* path) {
     PulseAssetLoadDesc desc{};
     desc.struct_size = sizeof(PulseAssetLoadDesc);
@@ -15,17 +13,17 @@ PulseAssetRequest request_file_load(PulseAssetSystemId asset_system, uint64_t ty
     return pulse_asset_system_load(asset_system, &desc);
 }
 
-void collect_asset_reference(void* ctx, const char* path) {
+void collect_asset_reference(void* ctx, uint64_t asset_type, const char* path) {
     auto* references = static_cast<prefab_reference_set*>(ctx);
-    if (!path || !path[0]) {
+    if (!asset_type || !path || !path[0]) {
         return;
     }
-    for (const std::string& seen : references->paths) {
-        if (seen == path) {
+    for (const prefab_reference& seen : references->references) {
+        if (seen.type_id == asset_type && seen.path == path) {
             return;
         }
     }
-    references->paths.emplace_back(path);
+    references->references.push_back(prefab_reference{ asset_type, path });
 }
 
 bool asset_state_is_pending(EPulseAssetState state) {
@@ -65,8 +63,8 @@ EPulseAssetLoaderStatus step_prefab_load(void* state, const PulseAssetLoadTask* 
         }
     }
 
-    for (const std::string& path : s->references->paths) {
-        PulseAssetRequest request = request_file_load(ctx->asset_system, kTypeIdFromPath, path.c_str());
+    for (const prefab_reference& reference : s->references->references) {
+        PulseAssetRequest request = request_file_load(ctx->asset_system, reference.type_id, reference.path.c_str());
         if (asset_state_is_pending(pulse_asset_system_get_state(ctx->asset_system, request))) {
             return PULSE_ASSET_LOADER_STATUS_PENDING;
         }
