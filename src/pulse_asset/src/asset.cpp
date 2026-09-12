@@ -44,9 +44,21 @@ PulseAssetHandle AssetSystem::load(const PulseAssetLoadDesc* desc) {
         return invalid_handle();
     }
 
+    uint64_t type_id = desc->type_id;
+    if (!type_id) {
+        if (!desc->path || !desc->path[0]) {
+            return invalid_handle();
+        }
+        std::pmr::string normalized = AssetIo::normalize_path(desc->path, resource());
+        type_id = registry_.find_unique_type_id_for_path(normalized);
+        if (!type_id) {
+            return invalid_handle();
+        }
+    }
+
     LoadRequest request{};
     request.source = PULSE_ASSET_LOAD_SOURCE_FILE;
-    request.type_id = desc->type_id;
+    request.type_id = type_id;
     request.loader_identifier = nullptr;
     request.path_or_name = desc->path;
     request.settings = desc->settings;
@@ -96,6 +108,19 @@ PulseAssetHandle AssetSystem::build_asset(const PulseAssetBuildDesc* desc) {
 EPulseAssetState AssetSystem::get_state(PulseAssetHandle handle) const {
     auto slot = storage_.get_slot(handle);
     return slot ? slot->slot.state : PULSE_ASSET_STATE_EMPTY;
+}
+
+PulseAssetHandle AssetSystem::find_loaded(uint64_t type_id, const char* path) const {
+    if (!type_id || !path || !path[0]) {
+        return invalid_handle();
+    }
+
+    std::pmr::string normalized = AssetIo::normalize_path(path, resource());
+    PulseAssetHandle cached = storage_.find_cached(type_id, normalized);
+    if (is_invalid_handle(cached) || get_state(cached) != PULSE_ASSET_STATE_LOADED) {
+        return invalid_handle();
+    }
+    return cached;
 }
 
 const char* AssetSystem::get_error(PulseAssetHandle handle) const {

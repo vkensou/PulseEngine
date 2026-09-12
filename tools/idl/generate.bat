@@ -6,6 +6,7 @@
 .\lua54.exe generate-binding.lua ..\..\src\pulse_window\idl\pulse_window.idl ..\..\src\pulse_window\idl\temp.pulse_window.h c ..\..\src\pulse_window\include\pulse_window.h Pulse "    " PULSE_WINDOW_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_input\idl\pulse_input.idl ..\..\src\pulse_input\idl\temp.pulse_input.h c ..\..\src\pulse_input\include\pulse_input.h Pulse "    " PULSE_INPUT_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_asset\idl\pulse_asset.idl ..\..\src\pulse_asset\idl\temp.pulse_asset.h c ..\..\src\pulse_asset\include\pulse_asset.h Pulse "    " PULSE_ASSET_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_prefab\idl\pulse_prefab.idl ..\..\src\pulse_prefab\idl\temp.pulse_prefab.h c ..\..\src\pulse_prefab\include\pulse_prefab.h Pulse "    " PULSE_PREFAB_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_graphics\idl\pulse_graphics.idl ..\..\src\pulse_graphics\idl\temp.pulse_graphics.h c ..\..\src\pulse_graphics\include\pulse_graphics.h Pulse "    " PULSE_GRAPHICS_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl ..\..\src\pulse_transform\idl\temp.pulse_transform.h c ..\..\src\pulse_transform\include\pulse_transform.h Pulse "    " PULSE_TRANSFORM_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl ..\..\src\pulse_renderer\idl\temp.pulse_renderer.h c ..\..\src\pulse_renderer\include\pulse_renderer.h Pulse "    " PULSE_RENDERER_API

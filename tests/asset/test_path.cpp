@@ -1,6 +1,7 @@
 #include "test_text.h"
 
 const uint64_t path_builder_type = 2;
+const uint64_t ambiguous_dat_type = 3;
 
 struct path_builder_asset {
     uint64_t value;
@@ -73,6 +74,29 @@ int main(void) {
 
     PulseAssetRequest file_request = load_asset_file(assetSystem, text_type, "deep\\deep.dat", nullptr);
     assert(pulse_asset_request_is_valid(file_request));
+
+    PulseAssetRequest inferred_request = load_asset_file(assetSystem, 0, "deep\\deep.dat", nullptr);
+    assert(pulse_asset_request_equals(inferred_request, file_request));
+
+    assert(!pulse_asset_request_is_valid(load_asset_file(assetSystem, 0, "noextension", nullptr)));
+    assert(!pulse_asset_request_is_valid(load_asset_file(assetSystem, 0, nullptr, nullptr)));
+
+    PulseAssetTypeDesc ambiguous_type_desc = {
+        sizeof(PulseAssetTypeDesc),
+        PULSE_ASSET_TYPE_DESC_VERSION,
+        ambiguous_dat_type,
+        sizeof(test_text_asset),
+        alignof(test_text_asset),
+        nullptr,
+        nullptr,
+    };
+    assert(pulse_asset_system_register_type(assetSystem, &ambiguous_type_desc) == PULSE_RESULT_OK);
+
+    PulseAssetLoaderDesc ambiguous_loader_desc = make_loader_desc(ambiguous_dat_type, "dat", step_test_text);
+    assert(pulse_asset_system_register_loader(assetSystem, &ambiguous_loader_desc) == PULSE_RESULT_OK);
+
+    assert(!pulse_asset_request_is_valid(load_asset_file(assetSystem, 0, "deep\\deep.dat", nullptr)));
+    assert(pulse_asset_request_equals(load_asset_file(assetSystem, text_type, "deep\\deep.dat", nullptr), file_request));
 
     const char mem_bytes[] = "in-memory";
     PulseAssetRequest memory_request = load_asset_memory(assetSystem, text_type, "memory.dat", mem_bytes, 9, nullptr);

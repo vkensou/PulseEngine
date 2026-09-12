@@ -114,7 +114,7 @@ struct opaque {
     }
 
     /** Assign string value. */
-    opaque& assign_string(void (*func)(T *dst, const char *value)) {
+    opaque& assign_string(void (*func)(T *dst, ecs_world_t *world, const char *value)) {
         this->desc.type.assign_string =
             reinterpret_cast<decltype(
                 this->desc.type.assign_string)>(func);

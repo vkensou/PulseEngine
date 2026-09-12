@@ -445,6 +445,7 @@ typedef struct EcsOpaque {
     /** Assign string value. */
     void (*assign_string)(
         void *dst,
+        ecs_world_t *world,
         const char *value);
 
     /** Assign entity value. */

@@ -1703,7 +1703,8 @@ int ecs_meta_set_string(
             "entity %s is not an opaque type but serializer thinks so",
                 ecs_get_name(cursor->world, op->type));
         if (opaque->assign_string) { /* preferred */
-            opaque->assign_string(ptr, value);
+            opaque->assign_string(ptr, 
+                ECS_CONST_CAST(ecs_world_t*, cursor->world), value);
             break;
         } else if (opaque->assign_char && value[0] && !value[1]) {
             opaque->assign_char(ptr, value[0]);

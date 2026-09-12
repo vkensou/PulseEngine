@@ -1,0 +1,9 @@
+{
+  "name": "pulse_prefab",
+  "version": "1.0.0",
+  "library": "pulse_prefab",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "pulse_asset"
+  ]
+}

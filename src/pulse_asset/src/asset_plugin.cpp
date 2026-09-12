@@ -82,6 +82,7 @@ void AssetSystem::install_process_system(ecs_world_t* world) {
     system_desc.phase = EcsOnLoad;
     system_desc.callback = process_load_requests_callback;
     system_desc.ctx = this;
+    system_desc.immediate = true;
     process_system_ = ecs_system_init(world, &system_desc);
 }
 
@@ -289,6 +290,15 @@ PulseAssetHandle pulse_asset_system_get_handle(
     const pulse::asset::AssetSystem* system = to_const_impl(asset_system);
     PulseAssetHandle handle = pulse::asset::request_to_handle(request);
     return system && system->get_state(handle) == PULSE_ASSET_STATE_LOADED ? handle : pulse_asset_handle_make_invalid();
+}
+
+PulseAssetHandle pulse_asset_system_find_loaded(
+    Const_PulseAssetSystemId asset_system,
+    uint64_t type_id,
+    const char* path
+) {
+    const pulse::asset::AssetSystem* system = to_const_impl(asset_system);
+    return system ? system->find_loaded(type_id, path) : pulse_asset_handle_make_invalid();
 }
 
 void pulse_asset_system_cancel(PulseAssetSystemId asset_system, PulseAssetRequest request) {

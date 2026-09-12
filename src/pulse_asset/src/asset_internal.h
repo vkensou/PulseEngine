@@ -123,7 +123,7 @@ public:
 
     bool has_loader_for_any(const std::pmr::vector<std::pmr::string>& extension_list) const;
     AssetLoader* find_builder_loader(const std::pmr::string& name);
-    AssetLoader* find_extension_loader(const std::pmr::string& extension);
+    AssetLoader* find_extension_loader(const std::pmr::string& extension) const;
     EPulseResult add_loader(const PulseAssetLoaderDesc& loader_desc, std::pmr::vector<std::pmr::string>&& extension_list, std::pmr::memory_resource* resource);
 };
 
@@ -136,6 +136,7 @@ public:
     AssetType* find_type(uint64_t type_id);
     AssetLoader* find_loader(uint64_t type_id, const std::pmr::string& path);
     AssetLoader* find_builder_loader(uint64_t type_id, const std::pmr::string& loader_identifier);
+    uint64_t find_unique_type_id_for_path(const std::pmr::string& path) const;
 
 private:
     std::pmr::memory_resource* resource_ = nullptr;
@@ -245,6 +246,7 @@ public:
     bool cached_slot_can_be_reused(PulseAssetHandle handle) const;
     PulseAssetHandle find_cached(uint64_t type_id, const std::pmr::string& path) const;
     void cache_path(uint64_t type_id, const std::pmr::string& path, PulseAssetHandle handle);
+    std::pmr::memory_resource* resource() const { return resource_; }
 
     DependencyGraph& dependencies() { return dependency_graph_; }
     const DependencyGraph& dependencies() const { return dependency_graph_; }
@@ -373,6 +375,7 @@ public:
     PulseAssetHandle load_from_memory(const PulseAssetMemoryLoadDesc* desc);
     PulseAssetHandle build_asset(const PulseAssetBuildDesc* desc);
     EPulseAssetState get_state(PulseAssetHandle handle) const;
+    PulseAssetHandle find_loaded(uint64_t type_id, const char* path) const;
     const char* get_error(PulseAssetHandle handle) const;
     const char* get_path(PulseAssetHandle handle) const;
     bool retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_error);
@@ -383,7 +386,7 @@ public:
 
     PulseAppId app() const { return app_; }
     uint32_t max_requests_per_update() const { return desc_.max_requests_per_update; }
-    std::pmr::memory_resource* resource() { return &memory_pool_; }
+    std::pmr::memory_resource* resource() const { return &memory_pool_; }
     AssetRegistry& registry() { return registry_; }
     const AssetRegistry& registry() const { return registry_; }
     AssetStorage& storage() { return storage_; }
@@ -393,7 +396,7 @@ public:
 private:
     PulseAppId app_ = nullptr;
     PulseAssetPluginDesc desc_{};
-    std::pmr::unsynchronized_pool_resource memory_pool_;
+    mutable std::pmr::unsynchronized_pool_resource memory_pool_;
     ecs_entity_t process_system_ = 0;
     AssetRegistry registry_;
     AssetStorage storage_;

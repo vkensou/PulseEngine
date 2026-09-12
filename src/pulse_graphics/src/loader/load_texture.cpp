@@ -34,7 +34,7 @@ EPulseAssetLoaderStatus step_texture_stb(
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
 
-        bool mipmap = load_desc->generate_mipmaps;
+        bool mipmap = load_desc && load_desc->generate_mipmaps;
         auto mipLevels = mipmap ? static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1 : 1;
         CGPUTextureDescriptor texture_desc =
         {

@@ -118,6 +118,32 @@ const char* ecs_world_from_json_file(
     const char *filename,
     const ecs_from_json_desc_t *desc);
 
+/** Callback invoked for each asset reference found by 
+ * ecs_asset_refs_from_json(). */
+typedef void (*ecs_asset_ref_action_t)(
+    void *ctx,
+    const char *path);                 /**< Referenced asset path. */
+
+/** Scan JSON for asset references without deserializing it.
+ * An asset reference is a value of an opaque type that maps to a string
+ * (EcsOpaque.as_type == ecs_id(ecs_string_t)). Accepts both the entity format
+ * (as output by ecs_entity_to_json()) and the world format (as output by
+ * ecs_world_to_json()). Members and components without reflection data are
+ * skipped. This operation does not modify the world.
+ *
+ * @param world The world.
+ * @param json The JSON expression to scan.
+ * @param action Callback invoked for each asset reference.
+ * @param ctx Userdata passed to the callback.
+ * @return Pointer to the character after the last one read, or NULL if failed.
+ */
+FLECS_API
+const char* ecs_asset_refs_from_json(
+    const ecs_world_t *world,
+    const char *json,
+    ecs_asset_ref_action_t action,
+    void *ctx);
+
 /** Serialize array into JSON string.
  * This operation serializes a value of the provided type to a JSON string. The
  * memory pointed to must be large enough to contain a value of the used type.
