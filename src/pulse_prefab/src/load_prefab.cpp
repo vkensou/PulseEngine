@@ -1,12 +1,30 @@
 #include "prefab_internal.h"
 
+#include <cstdarg>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
 
+#if defined(_MSC_VER)
+#define PREFAB_TLS __declspec(thread)
+#else
+#define PREFAB_TLS _Thread_local
+#endif
+
 namespace pulse_prefab_internal {
 
 namespace {
+
+PREFAB_TLS char g_last_error[256];
+
+const char* set_error(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vsnprintf(g_last_error, sizeof(g_last_error), format, args);
+    va_end(args);
+    return g_last_error;
+}
 
 struct prefab_reference {
     uint64_t type_id = 0;
@@ -42,6 +60,127 @@ bool node_is_container(const PulseDatalist* node) {
 
 bool node_is_empty_container(const PulseDatalist* node) {
     return pulse_datalist_object_count(node) == 0 && pulse_datalist_count(node) == 0;
+}
+
+bool root_section_is_known(const char* key) {
+    return strcmp(key, "name") == 0 || strcmp(key, "components") == 0 || strcmp(key, "tags") == 0 || strcmp(key, "pairs") == 0;
+}
+
+ecs_id_t component_id_from_datalist(ecs_world_t* world, const char* name);
+
+bool check_root_sections(const PulseDatalist* root, const char** out_error) {
+    size_t count = pulse_datalist_object_count(root);
+    for (size_t i = 0; i < count; ++i) {
+        const char* key = pulse_datalist_object_key(root, i);
+        if (key && !root_section_is_known(key)) {
+            *out_error = set_error("prefab loader: unknown section '%s' (expected name / components / tags / pairs)", key);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool apply_tags(ecs_world_t* world, ecs_entity_t entity, const PulseDatalist* root, const char** out_error) {
+    if (!pulse_datalist_has(root, "tags")) {
+        return true;
+    }
+
+    PulseDatalist* tags = pulse_datalist_get_obj(root, "tags");
+    if (!tags || pulse_datalist_object_count(tags) != 0) {
+        *out_error = "prefab loader: 'tags' must be a list of tag names";
+        return false;
+    }
+
+    size_t count = pulse_datalist_count(tags);
+    for (size_t i = 0; i < count; ++i) {
+        PulseDatalist* item = pulse_datalist_get(tags, i);
+        const char* name = item ? pulse_datalist_get_string(item, nullptr, nullptr) : nullptr;
+        if (!name || !name[0]) {
+            *out_error = "prefab loader: 'tags' entries must be tag names";
+            return false;
+        }
+        if (strchr(name, '(')) {
+            *out_error = set_error("prefab loader: '%s' is a pair, write it in 'pairs'", name);
+            return false;
+        }
+
+        ecs_id_t id = ecs_lookup_path_w_sep(world, 0, name, ".", nullptr, false);
+        if (!id) {
+            *out_error = set_error("prefab loader: unknown tag '%s'", name);
+            return false;
+        }
+        if (!ecs_id_is_tag(world, id)) {
+            *out_error = set_error("prefab loader: '%s' is a component, write it in 'components'", name);
+            return false;
+        }
+        ecs_add_id(world, entity, id);
+    }
+    return true;
+}
+
+bool apply_pair_targets(ecs_world_t* world, ecs_entity_t entity, ecs_entity_t rel, const PulseDatalist* node, const char** out_error) {
+    if (node_is_container(node) && !node_is_empty_container(node)) {
+        size_t count = pulse_datalist_count(node);
+        for (size_t i = 0; i < count; ++i) {
+            PulseDatalist* item = pulse_datalist_get(node, i);
+            const char* target = item ? pulse_datalist_get_string(item, nullptr, nullptr) : nullptr;
+            if (!target || !target[0]) {
+                *out_error = "prefab loader: pair targets must be names";
+                return false;
+            }
+            ecs_entity_t tgt = ecs_lookup_path_w_sep(world, 0, target, ".", nullptr, false);
+            if (!tgt) {
+                *out_error = set_error("prefab loader: pair target '%s' not found", target);
+                return false;
+            }
+            ecs_add_id(world, entity, ecs_pair(rel, tgt));
+        }
+        return true;
+    }
+
+    const char* target = pulse_datalist_get_string(node, nullptr, nullptr);
+    if (!target || !target[0]) {
+        *out_error = "prefab loader: pair targets must be names";
+        return false;
+    }
+    ecs_entity_t tgt = ecs_lookup_path_w_sep(world, 0, target, ".", nullptr, false);
+    if (!tgt) {
+        *out_error = set_error("prefab loader: pair target '%s' not found", target);
+        return false;
+    }
+    ecs_add_id(world, entity, ecs_pair(rel, tgt));
+    return true;
+}
+
+bool apply_pairs(ecs_world_t* world, ecs_entity_t entity, const PulseDatalist* root, const char** out_error) {
+    if (!pulse_datalist_has(root, "pairs")) {
+        return true;
+    }
+
+    PulseDatalist* pairs = pulse_datalist_get_obj(root, "pairs");
+    if (!pairs || pulse_datalist_count(pairs) != 0) {
+        *out_error = "prefab loader: 'pairs' must be a map of relationship to target";
+        return false;
+    }
+
+    size_t count = pulse_datalist_object_count(pairs);
+    for (size_t i = 0; i < count; ++i) {
+        const char* rel_name = pulse_datalist_object_key(pairs, i);
+        PulseDatalist* node = pulse_datalist_object_value(pairs, i);
+        if (!rel_name || !node) {
+            continue;
+        }
+
+        ecs_entity_t rel = ecs_lookup_path_w_sep(world, 0, rel_name, ".", nullptr, false);
+        if (!rel) {
+            *out_error = set_error("prefab loader: unknown relationship '%s'", rel_name);
+            return false;
+        }
+        if (!apply_pair_targets(world, entity, rel, node, out_error)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void collect_reference(prefab_apply_ctx* ctx, uint64_t type_id, const char* path) {
@@ -158,24 +297,50 @@ bool walk_node(ecs_meta_cursor_t* cursor, const PulseDatalist* node, prefab_appl
     return true;
 }
 
-ecs_id_t component_id_from_datalist(ecs_world_t* world, const char* name, const ecs_type_info_t** out_type_info) {
-    ecs_entity_t id = ecs_lookup_path_w_sep(world, 0, name, ".", nullptr, false);
-    const ecs_type_info_t* type_info = id ? ecs_get_type_info(world, id) : nullptr;
-    if (!type_info || !type_info->component) {
+ecs_id_t component_id_from_datalist(ecs_world_t* world, const char* name) {
+    const char* open = strchr(name, '(');
+    if (!open) {
+        return ecs_lookup_path_w_sep(world, 0, name, ".", nullptr, false);
+    }
+
+    size_t path_len = strlen(name);
+    size_t rel_len = static_cast<size_t>(open - name);
+    if (rel_len == 0 || path_len < rel_len + 2 || name[path_len - 1] != ')') {
         return 0;
     }
-    *out_type_info = type_info;
-    return id;
+
+    std::string rel_name(name, rel_len);
+    std::string tgt_name(name + rel_len + 1, path_len - rel_len - 2);
+    ecs_entity_t rel = ecs_lookup_path_w_sep(world, 0, rel_name.c_str(), ".", nullptr, false);
+    ecs_entity_t tgt = ecs_lookup_path_w_sep(world, 0, tgt_name.c_str(), ".", nullptr, false);
+    if (!rel || !tgt) {
+        return 0;
+    }
+    return ecs_pair(rel, tgt);
+}
+
+const ecs_type_info_t* reflected_type_info(ecs_world_t* world, ecs_id_t id) {
+    const ecs_type_info_t* type_info = id ? ecs_get_type_info(world, id) : nullptr;
+    return type_info && type_info->component ? type_info : nullptr;
 }
 
 bool apply_component(ecs_world_t* world, ecs_entity_t entity, const char* name, const PulseDatalist* node, prefab_apply_ctx* ctx, const char** out_error) {
-    const ecs_type_info_t* type_info = nullptr;
-    ecs_id_t id = component_id_from_datalist(world, name, &type_info);
+    ecs_id_t id = component_id_from_datalist(world, name);
     if (!id) {
         return true;
     }
+
+    const ecs_type_info_t* type_info = reflected_type_info(world, id);
     if (pulse_datalist_get_type(node, nullptr) == PULSE_DATALIST_TYPE_NIL || node_is_empty_container(node)) {
-        ecs_add_id(world, entity, id);
+        if (type_info) {
+            ecs_ensure_id(world, entity, id, static_cast<size_t>(type_info->size));
+            ecs_modified_id(world, entity, id);
+        } else {
+            ecs_add_id(world, entity, id);
+        }
+        return true;
+    }
+    if (!type_info) {
         return true;
     }
 
@@ -218,8 +383,8 @@ bool scan_asset_references(ecs_world_t* world, const PulseDatalist* root, prefab
             continue;
         }
 
-        const ecs_type_info_t* type_info = nullptr;
-        if (!component_id_from_datalist(world, name, &type_info) || type_info->size == 0) {
+        const ecs_type_info_t* type_info = reflected_type_info(world, component_id_from_datalist(world, name));
+        if (!type_info || type_info->size == 0) {
             continue;
         }
 
@@ -264,6 +429,15 @@ ecs_entity_t build_prefab_entity(ecs_world_t* world, const PulseDatalist* root, 
         }
     }
 
+    if (!apply_tags(world, entity, root, out_error)) {
+        ecs_delete(world, entity);
+        return 0;
+    }
+    if (!apply_pairs(world, entity, root, out_error)) {
+        ecs_delete(world, entity);
+        return 0;
+    }
+
     ecs_add_id(world, entity, EcsPrefab);
     return entity;
 }
@@ -291,6 +465,13 @@ EPulseAssetLoaderStatus step_prefab_load(void* state, const PulseAssetLoadTask* 
         s->datalist = pulse_datalist_create_from_text(static_cast<const char*>(ctx->p_bytes), ctx->bytes_size);
         if (!s->datalist) {
             *out_error = pulse_datalist_last_error();
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
+        }
+        if (!node_is_container(s->datalist)) {
+            *out_error = "prefab loader: prefab root is not an object";
+            return PULSE_ASSET_LOADER_STATUS_FAILED;
+        }
+        if (!check_root_sections(s->datalist, out_error)) {
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
     }

@@ -23,10 +23,17 @@ struct TestNoteHolder {
     PulseMeshHandle mesh;
 };
 
+struct TestTag {};
+
 ECS_COMPONENT_DECLARE(TestNoteHolder);
 
 static const char kRenderableJson[] = "{\"components\":{\"PulseRenderable\":{\"mesh\":\"Quad.obj\", \"material\":\"quad.material\"}}}";
 static const char kOpaqueJson[] = "{\"components\":{\"TestNoteHolder\":{\"note\":\"not_an_asset.obj\", \"mesh\":\"Quad.obj\"}}}";
+static const char kTagNullJson[] = "{\"components\":{\"TestTag\":null}}";
+static const char kTagEmptyJson[] = "{\"components\":{\"TestTag\":{}}}";
+static const char kTagArrayJson[] = "{\"tags\":[\"TestTag\"]}";
+static const char kTagPairJson[] = "{\"components\":{\"(TestPairRel,TestPairTarget)\":null}}";
+static const char kTagPairMapJson[] = "{\"pairs\":{\"TestPairRel\":\"TestPairTarget\"}}";
 
 static void assign_test_note(TestNote* dst, ecs_world_t* world, const char* value) {
     (void)world;
@@ -59,6 +66,17 @@ static bool wait_prefab_ready(PulseAppId app, PulsePrefabRequest request) {
 template <typename T>
 static bool handle_is_zero(T handle) {
     return handle.index == 0 && handle.generation == 0;
+}
+
+static void assert_prefab_fails(PulseAppId app, const char* path, const char* expected_error) {
+    PulsePrefabRequest request = pulse_load_prefab(app, path);
+    PulseAssetRequest asset_request = pulse_prefab_request_to_asset_request(request);
+    assert(pulse_asset_request_is_valid(asset_request));
+    assert(!wait_prefab_ready(app, request));
+    assert(!pulse_prefab_is_alive(app, request));
+    assert(pulse_asset_system_get_state(pulse_get_asset_system(app), asset_request) == PULSE_ASSET_STATE_FAILED);
+    const char* error = pulse_asset_system_get_error(pulse_get_asset_system(app), asset_request);
+    assert(error != nullptr && strstr(error, expected_error) != nullptr);
 }
 
 int main(void) {
@@ -99,6 +117,13 @@ int main(void) {
     ecs_id(TestNoteHolder) = note_holder_comp.id();
     note_holder_comp.member("note", &TestNoteHolder::note);
     note_holder_comp.member("mesh", &TestNoteHolder::mesh);
+    flecs::component<TestTag> test_tag_comp(world, "TestTag");
+    ecs_entity_desc_t pair_rel_desc = {};
+    pair_rel_desc.name = "TestPairRel";
+    ecs_entity_t test_pair_rel = ecs_entity_init(world, &pair_rel_desc);
+    ecs_entity_desc_t pair_target_desc = {};
+    pair_target_desc.name = "TestPairTarget";
+    ecs_entity_t test_pair_target = ecs_entity_init(world, &pair_target_desc);
 
     {
         ecs_entity_t entity = ecs_new(world);
@@ -117,6 +142,41 @@ int main(void) {
         assert(holder != nullptr);
         assert(strcmp(holder->note.value, "not_an_asset.obj") == 0);
         assert(handle_is_zero(holder->mesh));
+        ecs_delete(world, entity);
+    }
+
+    {
+        ecs_entity_t entity = ecs_new(world);
+        assert(ecs_entity_from_json(world, entity, kTagNullJson, nullptr) != nullptr);
+        assert(ecs_has_id(world, entity, test_tag_comp.id()));
+        ecs_delete(world, entity);
+    }
+
+    {
+        ecs_entity_t entity = ecs_new(world);
+        assert(ecs_entity_from_json(world, entity, kTagArrayJson, nullptr) != nullptr);
+        assert(ecs_has_id(world, entity, test_tag_comp.id()));
+        ecs_delete(world, entity);
+    }
+
+    {
+        ecs_entity_t entity = ecs_new(world);
+        assert(ecs_entity_from_json(world, entity, kTagEmptyJson, nullptr) != nullptr);
+        assert(ecs_has_id(world, entity, test_tag_comp.id()));
+        ecs_delete(world, entity);
+    }
+
+    {
+        ecs_entity_t entity = ecs_new(world);
+        assert(ecs_entity_from_json(world, entity, kTagPairJson, nullptr) != nullptr);
+        assert(ecs_has_pair(world, entity, test_pair_rel, test_pair_target));
+        ecs_delete(world, entity);
+    }
+
+    {
+        ecs_entity_t entity = ecs_new(world);
+        assert(ecs_entity_from_json(world, entity, kTagPairMapJson, nullptr) != nullptr);
+        assert(ecs_has_pair(world, entity, test_pair_rel, test_pair_target));
         ecs_delete(world, entity);
     }
 
@@ -146,6 +206,19 @@ int main(void) {
     assert(quad_transform->translation.X == 1.0f && quad_transform->translation.Y == 2.0f && quad_transform->translation.Z == 3.0f);
     assert(quad_transform->rotation.W == 1.0f);
 
+    assert(ecs_has_id(world, quad_root, test_tag_comp.id()));
+    assert(!ecs_get_type_info(world, test_tag_comp.id()));
+
+    assert(ecs_has_pair(world, quad_root, test_pair_rel, test_pair_target));
+    assert(!ecs_get_type_info(world, ecs_pair(test_pair_rel, test_pair_target)));
+
+    {
+        ecs_id_t pair_id = ecs_pair(ecs_id(PulseLocalTransform), test_pair_target);
+        const PulseLocalTransform* pair_transform = static_cast<const PulseLocalTransform*>(ecs_get_id(world, quad_root, pair_id));
+        assert(pair_transform != nullptr);
+        assert(pair_transform->translation.X == 9.0f && pair_transform->translation.Y == 8.0f && pair_transform->translation.Z == 7.0f);
+    }
+
     PulseMeshRequest mesh_request = pulse_load_mesh(app, "Quad.obj");
     PulseMaterialRequest material_request = pulse_load_material(app, "quad.material");
     assert(pulse_mesh_is_ready(app, mesh_request));
@@ -168,6 +241,8 @@ int main(void) {
         assert(instance != 0);
         assert(ecs_has_pair(world, instance, EcsIsA, quad_root));
         assert(!ecs_has_id(world, instance, EcsPrefab));
+        assert(ecs_has_id(world, instance, test_tag_comp.id()));
+        assert(ecs_has_pair(world, instance, test_pair_rel, test_pair_target));
         const PulseRenderable* instance_renderable = ecs_get(world, instance, PulseRenderable);
         assert(instance_renderable != nullptr);
         assert(instance_renderable->mesh.index == mesh_handle.index && instance_renderable->mesh.generation == mesh_handle.generation);
@@ -229,6 +304,24 @@ int main(void) {
         assert(!pulse_prefab_is_alive(app, request));
         assert(pulse_asset_system_get_state(pulse_get_asset_system(app), pulse_prefab_request_to_asset_request(request)) == PULSE_ASSET_STATE_FAILED);
     }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "tags.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(ecs_has_id(world, root, test_tag_comp.id()));
+    }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "pairs.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(ecs_has_pair(world, root, test_pair_rel, test_pair_target));
+    }
+
+    assert_prefab_fails(app, "bad_section.prefab", "tgas");
+    assert_prefab_fails(app, "bad_tag_pair.prefab", "write it in 'pairs'");
+    assert_prefab_fails(app, "bad_tag_component.prefab", "write it in 'components'");
 
     {
         ecs_entity_t entity = ecs_new(world);

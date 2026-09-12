@@ -61,7 +61,7 @@ int main() {
 	assert(input != 0);
 	assert(!ecs_has_id(w, input, ecs_id(EcsStruct)));
 	assert(world.id<SnakeBodies>() != 0);
-	assert(world.id<SnakeResources>() != 0);
+	assert(world.id<SnakePrefabs>() != 0);
 
 	assert(ecs_lookup(w, "IsApple") == world.id<IsApple>());
 	assert(ecs_lookup(w, "GameOverEvent") == world.id<GameOverEvent>());

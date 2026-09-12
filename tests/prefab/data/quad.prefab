@@ -25,4 +25,13 @@ components : {
     TestNoteHolder : {
         note : "not_an_asset.obj"
     }
+    TestTag : {}
+    TestPairRel(TestPairTarget) : {}
+    PulseLocalTransform(TestPairTarget) : {
+        translation : {
+            X : 9.0
+            Y : 8.0
+            Z : 7.0
+        }
+    }
 }

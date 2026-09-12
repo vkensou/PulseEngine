@@ -6,7 +6,8 @@
   "assets": true,
   "dependencies": [
     "pulse_math",
-    "pulse_asset"
+    "pulse_asset",
+    "pulse_prefab"
   ],
   "paths": [
     "das"

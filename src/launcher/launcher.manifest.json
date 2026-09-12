@@ -33,6 +33,9 @@
       "name": "pulse_transform"
     },
     {
+      "name": "pulse_prefab"
+    },
+    {
       "name": "pulse_graphics",
       "config": {
         "enable_debug_layer": true,

@@ -32,6 +32,7 @@ int main(void)
     PulsePackageListEntry entries[] = {
         { "pulse_asset", nullptr },
         { "pulse_math", nullptr },
+        { "pulse_prefab", nullptr },
         { "pulse_daslang", nullptr },
         { "pkg_das_test", nullptr },
     };
