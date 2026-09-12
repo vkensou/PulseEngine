@@ -65,12 +65,12 @@ static void *arena_alloc(Arena *arena, size_t size) {
 
 static void arena_free_all(Arena *arena) {
 	Block *b = arena->head;
+	arena->head = NULL;
 	while (b != NULL) {
 		Block *next = b->next;
 		free(b);
 		b = next;
 	}
-	arena->head = NULL;
 }
 
 typedef struct Entry {
