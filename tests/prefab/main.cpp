@@ -14,13 +14,8 @@
 #include "pulse_renderer.h"
 #include "pulse_prefab.h"
 
-struct TestAuthored {
-    const char* label;
-    PulseMeshHandle mesh;
-};
-
 struct TestNote {
-    const char* value;
+    ecs_string_t value;
 };
 
 struct TestNoteHolder {
@@ -31,28 +26,17 @@ struct TestNoteHolder {
 ECS_COMPONENT_DECLARE(TestNoteHolder);
 
 static const char kRenderableJson[] = "{\"components\":{\"PulseRenderable\":{\"mesh\":\"Quad.obj\", \"material\":\"quad.material\"}}}";
-static const char kAuthoredJson[] = "{\"components\":{\"TestAuthored\":{\"label\":\"not_an_asset.obj\", \"mesh\":\"Quad.obj\"}}}";
-static const char kUntaggedJson[] = "{\"components\":{\"TestNoteHolder\":{\"note\":\"not_an_asset.obj\", \"mesh\":\"Quad.obj\"}}}";
-static const char kWorldJson[] = "{\"results\":[{\"components\":{\"PulseRenderable\":{\"mesh\":\"Quad.obj\"}}},{\"components\":{\"PulseRenderable\":{\"material\":\"quad.material\"}}}]}";
-
-struct ref_scan_result {
-    int count = 0;
-    uint64_t user_data[8] = {};
-    char paths[8][256] = {};
-};
-
-static void collect_ref(void* ctx, uint64_t user_data, const char* path) {
-    ref_scan_result* result = static_cast<ref_scan_result*>(ctx);
-    assert(result->count < 8);
-    result->user_data[result->count] = user_data;
-    snprintf(result->paths[result->count], sizeof(result->paths[0]), "%s", path);
-    result->count += 1;
-}
+static const char kOpaqueJson[] = "{\"components\":{\"TestNoteHolder\":{\"note\":\"not_an_asset.obj\", \"mesh\":\"Quad.obj\"}}}";
 
 static void assign_test_note(TestNote* dst, ecs_world_t* world, const char* value) {
-    (void)dst;
     (void)world;
-    (void)value;
+    ecs_os_free(dst->value);
+    dst->value = ecs_os_strdup(value);
+}
+
+static int serialize_test_note(const flecs::serializer* ser, const TestNote* note) {
+    const char* value = note->value ? note->value : "";
+    return ser->value(ecs_id(ecs_string_t), &value);
 }
 
 static void update_once(PulseAppId app) {
@@ -110,58 +94,11 @@ int main(void) {
 
     ecs_world_t* world = pulse_app_world(app);
 
-    flecs::component<TestAuthored> authored_comp(world, "TestAuthored");
-    authored_comp.member(ecs_id(ecs_string_t), "label", 0, offsetof(TestAuthored, label));
-    authored_comp.member("mesh", &TestAuthored::mesh);
-
-    flecs::opaque<TestNote>(world).as_type(ecs_id(ecs_string_t)).assign_string(assign_test_note);
+    flecs::opaque<TestNote>(world).as_type(ecs_id(ecs_string_t)).serialize(serialize_test_note).assign_string(assign_test_note);
     flecs::component<TestNoteHolder> note_holder_comp(world, "TestNoteHolder");
     ecs_id(TestNoteHolder) = note_holder_comp.id();
     note_holder_comp.member("note", &TestNoteHolder::note);
     note_holder_comp.member("mesh", &TestNoteHolder::mesh);
-
-    {
-        ref_scan_result result;
-        assert(ecs_asset_refs_from_json(world, kRenderableJson, collect_ref, &result) != nullptr);
-        assert(result.count == 2);
-        assert(result.user_data[0] == PULSE_TYPE_MESH);
-        assert(strcmp(result.paths[0], "Quad.obj") == 0);
-        assert(result.user_data[1] == PULSE_TYPE_MATERIAL);
-        assert(strcmp(result.paths[1], "quad.material") == 0);
-    }
-
-    {
-        ref_scan_result result;
-        assert(ecs_asset_refs_from_json(world, kAuthoredJson, collect_ref, &result) != nullptr);
-        assert(result.count == 1);
-        assert(result.user_data[0] == PULSE_TYPE_MESH);
-        assert(strcmp(result.paths[0], "Quad.obj") == 0);
-    }
-
-    {
-        ref_scan_result result;
-        assert(ecs_asset_refs_from_json(world, kUntaggedJson, collect_ref, &result) != nullptr);
-        assert(result.count == 2);
-        assert(result.user_data[0] == 0);
-        assert(strcmp(result.paths[0], "not_an_asset.obj") == 0);
-        assert(result.user_data[1] == PULSE_TYPE_MESH);
-        assert(strcmp(result.paths[1], "Quad.obj") == 0);
-    }
-
-    {
-        ref_scan_result result;
-        assert(ecs_asset_refs_from_json(world, kWorldJson, collect_ref, &result) != nullptr);
-        assert(result.count == 2);
-        assert(result.user_data[0] == PULSE_TYPE_MESH);
-        assert(strcmp(result.paths[0], "Quad.obj") == 0);
-        assert(result.user_data[1] == PULSE_TYPE_MATERIAL);
-        assert(strcmp(result.paths[1], "quad.material") == 0);
-    }
-
-    {
-        ref_scan_result result;
-        assert(ecs_asset_refs_from_json(world, "{invalid", collect_ref, &result) == nullptr);
-    }
 
     {
         ecs_entity_t entity = ecs_new(world);
@@ -174,13 +111,13 @@ int main(void) {
     }
 
     {
-        PulsePrefabRequest request = pulse_load_prefab(app, "untagged.prefab");
-        assert(wait_prefab_ready(app, request));
-        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
-        assert(root != 0);
-        assert(ecs_get(world, root, TestNoteHolder) != nullptr);
-        PulseAssetHandle material = pulse_asset_system_find_loaded(pulse_get_asset_system(app), PULSE_TYPE_MATERIAL, "quad.material");
-        assert(!pulse_asset_handle_is_valid(material));
+        ecs_entity_t entity = ecs_new(world);
+        assert(ecs_entity_from_json(world, entity, kOpaqueJson, nullptr) != nullptr);
+        const TestNoteHolder* holder = ecs_get(world, entity, TestNoteHolder);
+        assert(holder != nullptr);
+        assert(strcmp(holder->note.value, "not_an_asset.obj") == 0);
+        assert(handle_is_zero(holder->mesh));
+        ecs_delete(world, entity);
     }
 
     PulsePrefabRequest quad_request = pulse_load_prefab(app, "quad.prefab");
@@ -198,6 +135,11 @@ int main(void) {
     assert(quad_renderable != nullptr);
     assert(!handle_is_zero(quad_renderable->mesh));
     assert(!handle_is_zero(quad_renderable->material));
+
+    const TestNoteHolder* quad_note = ecs_get(world, quad_root, TestNoteHolder);
+    assert(quad_note != nullptr);
+    assert(quad_note->note.value != nullptr);
+    assert(strcmp(quad_note->note.value, "not_an_asset.obj") == 0);
 
     const PulseLocalTransform* quad_transform = ecs_get(world, quad_root, PulseLocalTransform);
     assert(quad_transform != nullptr);

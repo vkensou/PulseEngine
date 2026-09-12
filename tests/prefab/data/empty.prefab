@@ -1,1 +1,7 @@
-{"components":{"PulseRenderable":{"mesh":"","material":""}}}
+name : "EmptyPrefab"
+components : {
+    PulseRenderable : {
+        mesh : ""
+        material : ""
+    }
+}

@@ -1,1 +1,7 @@
-{"components":{"PulseRenderable":{"mesh":"missing.obj","material":"missing.material"}}}
+name : "MissingPrefab"
+components : {
+    PulseRenderable : {
+        mesh : "missing.obj"
+        material : "missing.material"
+    }
+}

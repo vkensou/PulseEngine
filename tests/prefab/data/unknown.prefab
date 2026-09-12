@@ -1,1 +1,7 @@
-{"components":{"PulseRenderable":{"mesh":"noextension","material":"noextension"}}}
+name : "UnknownPrefab"
+components : {
+    PulseRenderable : {
+        mesh : "noextension"
+        material : "noextension"
+    }
+}
