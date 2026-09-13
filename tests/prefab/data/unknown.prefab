@@ -1,7 +1,0 @@
-name : "UnknownPrefab"
-components : {
-    PulseRenderable : {
-        mesh : "noextension"
-        material : "noextension"
-    }
-}

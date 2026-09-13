@@ -31,6 +31,8 @@ struct.PrefabRequest
 
 struct.PrefabData
     .root "ecs_entity_t"
+    .entities "?*ecs_entity_t" { owner = true }
+    .entityCount "uint32_t"
     ()
 
 func.AddPrefabPlugin

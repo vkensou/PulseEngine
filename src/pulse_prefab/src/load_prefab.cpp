@@ -1,6 +1,7 @@
 #include "prefab_internal.h"
 
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -63,22 +64,33 @@ bool node_is_empty_container(const PulseDatalist* node) {
 }
 
 bool root_section_is_known(const char* key) {
-    return strcmp(key, "name") == 0 || strcmp(key, "components") == 0 || strcmp(key, "tags") == 0 || strcmp(key, "pairs") == 0;
+    return strcmp(key, "name") == 0 || strcmp(key, "extends") == 0 || strcmp(key, "components") == 0 || strcmp(key, "tags") == 0 || strcmp(key, "pairs") == 0 || strcmp(key, "children") == 0;
 }
 
-ecs_id_t component_id_from_datalist(ecs_world_t* world, const char* name);
-
-bool check_root_sections(const PulseDatalist* root, const char** out_error) {
+bool root_has_section(const PulseDatalist* root) {
     size_t count = pulse_datalist_object_count(root);
     for (size_t i = 0; i < count; ++i) {
         const char* key = pulse_datalist_object_key(root, i);
+        if (key && root_section_is_known(key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool check_known_sections(const PulseDatalist* node, const char* what, const char** out_error) {
+    size_t count = pulse_datalist_object_count(node);
+    for (size_t i = 0; i < count; ++i) {
+        const char* key = pulse_datalist_object_key(node, i);
         if (key && !root_section_is_known(key)) {
-            *out_error = set_error("prefab loader: unknown section '%s' (expected name / components / tags / pairs)", key);
+            *out_error = set_error("prefab loader: unknown %s key '%s'", what, key);
             return false;
         }
     }
     return true;
 }
+
+ecs_id_t component_id_from_datalist(ecs_world_t* world, const char* name);
 
 bool apply_tags(ecs_world_t* world, ecs_entity_t entity, const PulseDatalist* root, const char** out_error) {
     if (!pulse_datalist_has(root, "tags")) {
@@ -363,23 +375,17 @@ bool apply_component(ecs_world_t* world, ecs_entity_t entity, const char* name, 
     return true;
 }
 
-bool scan_asset_references(ecs_world_t* world, const PulseDatalist* root, prefab_reference_set* references, const char** out_error) {
-    if (!node_is_container(root)) {
-        *out_error = "prefab loader: prefab root is not an object";
-        return false;
-    }
-
-    PulseDatalist* components = pulse_datalist_get_obj(root, "components");
+bool scan_node_references(ecs_world_t* world, const PulseDatalist* node, prefab_apply_ctx* ctx, const char** out_error) {
+    PulseDatalist* components = pulse_datalist_get_obj(node, "components");
     if (!components) {
         return true;
     }
 
-    prefab_apply_ctx ctx{ world, references };
     size_t count = pulse_datalist_object_count(components);
     for (size_t i = 0; i < count; ++i) {
         const char* name = pulse_datalist_object_key(components, i);
-        PulseDatalist* node = pulse_datalist_object_value(components, i);
-        if (!name || !node) {
+        PulseDatalist* member = pulse_datalist_object_value(components, i);
+        if (!name || !member) {
             continue;
         }
 
@@ -393,62 +399,438 @@ bool scan_asset_references(ecs_world_t* world, const PulseDatalist* root, prefab
         if (!cursor.valid) {
             continue;
         }
-        if (!walk_node(&cursor, node, &ctx, out_error)) {
+        if (!walk_node(&cursor, member, ctx, out_error)) {
             return false;
         }
     }
     return true;
 }
 
-ecs_entity_t build_prefab_entity(ecs_world_t* world, const PulseDatalist* root, const char** out_error) {
+bool scan_children_references(ecs_world_t* world, const PulseDatalist* node, prefab_apply_ctx* ctx, const char** out_error) {
+    PulseDatalist* children = pulse_datalist_get_obj(node, "children");
+    if (!children) {
+        return true;
+    }
+
+    size_t count = pulse_datalist_count(children);
+    for (size_t i = 0; i < count; ++i) {
+        PulseDatalist* child = pulse_datalist_get(children, i);
+        if (!child) {
+            continue;
+        }
+        if (!scan_node_references(world, child, ctx, out_error) || !scan_children_references(world, child, ctx, out_error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool scan_asset_references(ecs_world_t* world, const PulseDatalist* root, prefab_reference_set* references, const char** out_error) {
     if (!node_is_container(root)) {
         *out_error = "prefab loader: prefab root is not an object";
-        return 0;
+        return false;
     }
 
-    ecs_entity_t entity = ecs_new(world);
+    prefab_apply_ctx ctx{ world, references };
+    return scan_node_references(world, root, &ctx, out_error) && scan_children_references(world, root, &ctx, out_error);
+}
+
+bool prefab_name_is_unique(const prefab_library& library, const char* name) {
+    for (const prefab_definition& definition : library.definitions) {
+        if (definition.name == name) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool collect_single_prefab(const PulseDatalist* root, prefab_library* library, const char** out_error) {
+    if (!check_known_sections(root, "section", out_error)) {
+        return false;
+    }
+
+    prefab_definition definition;
     const char* name = pulse_datalist_get_string(root, "name", nullptr);
-    if (name && name[0] != '#') {
-        ecs_set_name(world, entity, name);
+    if (name && name[0] && name[0] != '#') {
+        definition.name = name;
+    }
+    definition.node = root;
+    library->definitions.push_back(definition);
+    library->root = 0;
+    return true;
+}
+
+size_t find_definition_by_node(const prefab_library& library, const PulseDatalist* node) {
+    for (size_t i = 0; i < library.definitions.size(); ++i) {
+        if (library.definitions[i].node == node) {
+            return i;
+        }
+    }
+    return SIZE_MAX;
+}
+
+std::string definition_label(const prefab_library& library, size_t index) {
+    if (!library.definitions[index].name.empty()) {
+        return library.definitions[index].name;
+    }
+    return std::string("#") + std::to_string(index);
+}
+
+bool collect_prefab_library(const PulseDatalist* root, prefab_library* library, const char** out_error) {
+    size_t count = pulse_datalist_object_count(root);
+    for (size_t i = 0; i < count; ++i) {
+        const char* key = pulse_datalist_object_key(root, i);
+        PulseDatalist* node = pulse_datalist_object_value(root, i);
+        if (!key || !key[0]) {
+            *out_error = "prefab loader: prefab entry key must be a name";
+            return false;
+        }
+        if (!node_is_container(node) || pulse_datalist_object_count(node) == 0) {
+            *out_error = set_error("prefab loader: prefab entry '%s' must be an object with at least one section", key);
+            return false;
+        }
+        if (!check_known_sections(node, "prefab", out_error)) {
+            return false;
+        }
+        if (find_definition_by_node(*library, node) != SIZE_MAX) {
+            *out_error = set_error("prefab loader: prefab entry '%s' is the same node as an earlier entry", key);
+            return false;
+        }
+
+        prefab_definition definition;
+        const char* name = pulse_datalist_get_string(node, "name", nullptr);
+        definition.name = name && name[0] && name[0] != '#' ? name : key;
+        definition.node = node;
+        if (!prefab_name_is_unique(*library, definition.name.c_str())) {
+            *out_error = set_error("prefab loader: duplicate prefab name '%s'", definition.name.c_str());
+            return false;
+        }
+        library->definitions.push_back(definition);
+    }
+    library->root = 0;
+    return true;
+}
+
+bool mark_child_references(const PulseDatalist* node, const prefab_library& library, std::vector<const PulseDatalist*>* visited, std::vector<bool>* referenced, const char** out_error) {
+    for (const PulseDatalist* seen : *visited) {
+        if (seen == node) {
+            return true;
+        }
+    }
+    visited->push_back(node);
+
+    PulseDatalist* children = pulse_datalist_get_obj(node, "children");
+    if (!children) {
+        return true;
+    }
+    if (pulse_datalist_object_count(children) != 0) {
+        *out_error = "prefab loader: 'children' must be a list of child entities";
+        return false;
     }
 
-    PulseDatalist* components = pulse_datalist_get_obj(root, "components");
+    size_t count = pulse_datalist_count(children);
+    for (size_t i = 0; i < count; ++i) {
+        PulseDatalist* child = pulse_datalist_get(children, i);
+        if (!child || !node_is_container(child)) {
+            continue;
+        }
+        size_t index = find_definition_by_node(library, child);
+        if (index != SIZE_MAX) {
+            (*referenced)[index] = true;
+        }
+        if (!mark_child_references(child, library, visited, referenced, out_error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool collect_section_list(const PulseDatalist* root, prefab_library* library, const char** out_error) {
+    size_t count = pulse_datalist_count(root);
+    if (count == 0) {
+        *out_error = "prefab loader: file declares no prefab";
+        return false;
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+        PulseDatalist* node = pulse_datalist_get(root, i);
+        if (!node_is_container(node) || pulse_datalist_object_count(node) == 0) {
+            *out_error = set_error("prefab loader: list entry #%zu must be an object with at least one section", i);
+            return false;
+        }
+        if (!check_known_sections(node, "entry", out_error)) {
+            return false;
+        }
+        if (find_definition_by_node(*library, node) != SIZE_MAX) {
+            *out_error = set_error("prefab loader: list entry #%zu is the same node as an earlier entry", i);
+            return false;
+        }
+
+        prefab_definition definition;
+        const char* name = pulse_datalist_get_string(node, "name", nullptr);
+        if (name && name[0] && name[0] != '#') {
+            definition.name = name;
+        }
+        definition.node = node;
+        library->definitions.push_back(definition);
+    }
+
+    std::vector<const PulseDatalist*> visited;
+    std::vector<bool> referenced(library->definitions.size(), false);
+    for (const prefab_definition& definition : library->definitions) {
+        if (!mark_child_references(definition.node, *library, &visited, &referenced, out_error)) {
+            return false;
+        }
+    }
+
+    size_t root_count = 0;
+    size_t root_index = SIZE_MAX;
+    for (size_t i = 0; i < referenced.size(); ++i) {
+        if (referenced[i]) {
+            continue;
+        }
+        if (root_count == 0) {
+            root_index = i;
+        } else {
+            *out_error = set_error("prefab loader: list entry '%s' is not referenced by any 'children'", definition_label(*library, i).c_str());
+            return false;
+        }
+        ++root_count;
+    }
+    if (root_count == 0) {
+        *out_error = "prefab loader: list form needs one unreferenced entry as root, found none";
+        return false;
+    }
+
+    library->root = root_index;
+    library->single_root = true;
+    return true;
+}
+
+bool collect_library(const PulseDatalist* root, prefab_library* library, const char** out_error) {
+    if (!node_is_container(root)) {
+        *out_error = "prefab loader: prefab root is not an object";
+        return false;
+    }
+    if (pulse_datalist_object_count(root) == 0) {
+        return collect_section_list(root, library, out_error);
+    }
+    if (root_has_section(root)) {
+        return collect_single_prefab(root, library, out_error);
+    }
+    if (!collect_prefab_library(root, library, out_error)) {
+        return false;
+    }
+    if (library->definitions.empty()) {
+        *out_error = "prefab loader: file declares no prefab";
+        return false;
+    }
+    return true;
+}
+
+ecs_entity_t resolve_prefab_target(ecs_world_t* world, const prefab_library& library, const char* name) {
+    for (const prefab_definition& definition : library.definitions) {
+        if (definition.name == name) {
+            return definition.entity;
+        }
+    }
+    return ecs_lookup_path_w_sep(world, 0, name, ".", nullptr, false);
+}
+
+bool build_prefab_parent(prefab_library* library, size_t index, const char** out_error) {
+    if (library->definitions[index].expanded) {
+        return true;
+    }
+    library->definitions[index].expanded = true;
+
+    PulseDatalist* children = pulse_datalist_get_obj(library->definitions[index].node, "children");
+    if (!children) {
+        return true;
+    }
+    if (pulse_datalist_object_count(children) != 0) {
+        *out_error = "prefab loader: 'children' must be a list of child entities";
+        return false;
+    }
+
+    size_t count = pulse_datalist_count(children);
+    for (size_t i = 0; i < count; ++i) {
+        PulseDatalist* child = pulse_datalist_get(children, i);
+        if (!child || !node_is_container(child)) {
+            *out_error = "prefab loader: 'children' entries must be objects";
+            return false;
+        }
+        if (!check_known_sections(child, "child", out_error)) {
+            return false;
+        }
+
+        size_t existing = find_definition_by_node(*library, child);
+        if (existing != SIZE_MAX) {
+            if (library->definitions[existing].parent != SIZE_MAX) {
+                *out_error = set_error("prefab loader: '%s' is referenced as a child more than once", definition_label(*library, existing).c_str());
+                return false;
+            }
+            library->definitions[existing].parent = index;
+            if (!build_prefab_parent(library, existing, out_error)) {
+                return false;
+            }
+            continue;
+        }
+
+        prefab_definition nested;
+        const char* name = pulse_datalist_get_string(child, "name", nullptr);
+        if (name && name[0] && name[0] != '#') {
+            nested.name = name;
+        }
+        nested.node = child;
+        nested.parent = index;
+        library->definitions.push_back(nested);
+
+        if (!build_prefab_parent(library, library->definitions.size() - 1, out_error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+ecs_entity_t build_prefab_entity(ecs_world_t* world, ecs_entity_t entity, const PulseDatalist* node, const char** out_error) {
+    prefab_apply_ctx ctx{ world, nullptr };
+    PulseDatalist* components = pulse_datalist_get_obj(node, "components");
     if (components) {
-        prefab_apply_ctx ctx{ world, nullptr };
         size_t count = pulse_datalist_object_count(components);
         for (size_t i = 0; i < count; ++i) {
             const char* component_name = pulse_datalist_object_key(components, i);
-            PulseDatalist* node = pulse_datalist_object_value(components, i);
-            if (!component_name || !node) {
+            PulseDatalist* member = pulse_datalist_object_value(components, i);
+            if (!component_name || !member) {
                 continue;
             }
-            if (!apply_component(world, entity, component_name, node, &ctx, out_error)) {
-                ecs_delete(world, entity);
+            if (!apply_component(world, entity, component_name, member, &ctx, out_error)) {
                 return 0;
             }
         }
     }
 
-    if (!apply_tags(world, entity, root, out_error)) {
-        ecs_delete(world, entity);
+    if (!apply_tags(world, entity, node, out_error)) {
         return 0;
     }
-    if (!apply_pairs(world, entity, root, out_error)) {
-        ecs_delete(world, entity);
+    if (!apply_pairs(world, entity, node, out_error)) {
         return 0;
+    }
+    return entity;
+}
+
+void delete_prefab_entities(ecs_world_t* world, const prefab_library& library) {
+    for (size_t i = library.definitions.size(); i > 0; --i) {
+        ecs_entity_t entity = library.definitions[i - 1].entity;
+        if (entity && ecs_is_alive(world, entity)) {
+            ecs_delete(world, entity);
+        }
+    }
+}
+
+bool resolve_prefab_bases(prefab_library* library, const char** out_error) {
+    for (size_t i = 0; i < library->definitions.size(); ++i) {
+        prefab_definition& definition = library->definitions[i];
+        if (!pulse_datalist_has(definition.node, "extends")) {
+            continue;
+        }
+        const char* base_name = pulse_datalist_get_string(definition.node, "extends", nullptr);
+        if (!base_name || !base_name[0]) {
+            *out_error = "prefab loader: 'extends' must be a prefab name";
+            return false;
+        }
+        for (size_t j = 0; j < library->definitions.size(); ++j) {
+            if (library->definitions[j].name == base_name) {
+                definition.base = j;
+                break;
+            }
+        }
     }
 
-    ecs_add_id(world, entity, EcsPrefab);
-    return entity;
+    for (size_t i = 0; i < library->definitions.size(); ++i) {
+        size_t steps = 0;
+        for (size_t at = i; at != SIZE_MAX; at = library->definitions[at].base) {
+            if (++steps > library->definitions.size()) {
+                *out_error = set_error("prefab loader: 'extends' cycle at '%s'", library->definitions[i].name.c_str());
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool build_prefab_library(ecs_world_t* world, prefab_library* library, const char** out_error) {
+    if (library->single_root) {
+        if (!build_prefab_parent(library, library->root, out_error)) {
+            return false;
+        }
+    } else {
+        size_t top_count = library->definitions.size();
+        for (size_t i = 0; i < top_count; ++i) {
+            if (!build_prefab_parent(library, i, out_error)) {
+                return false;
+            }
+        }
+    }
+    if (!resolve_prefab_bases(library, out_error)) {
+        return false;
+    }
+
+    for (prefab_definition& definition : library->definitions) {
+        definition.entity = ecs_new(world);
+        if (!definition.name.empty()) {
+            ecs_set_name(world, definition.entity, definition.name.c_str());
+        }
+    }
+
+    for (const prefab_definition& definition : library->definitions) {
+        if (definition.parent != SIZE_MAX) {
+            ecs_add_pair(world, definition.entity, EcsChildOf, library->definitions[definition.parent].entity);
+        }
+    }
+
+    for (const prefab_definition& definition : library->definitions) {
+        if (!build_prefab_entity(world, definition.entity, definition.node, out_error)) {
+            delete_prefab_entities(world, *library);
+            return false;
+        }
+        ecs_add_id(world, definition.entity, EcsPrefab);
+    }
+
+    for (const prefab_definition& definition : library->definitions) {
+        if (definition.base != SIZE_MAX) {
+            ecs_add_pair(world, definition.entity, EcsIsA, library->definitions[definition.base].entity);
+            continue;
+        }
+        if (!pulse_datalist_has(definition.node, "extends")) {
+            continue;
+        }
+        const char* base_name = pulse_datalist_get_string(definition.node, "extends", nullptr);
+        ecs_entity_t base = resolve_prefab_target(world, *library, base_name);
+        if (!base) {
+            delete_prefab_entities(world, *library);
+            *out_error = set_error("prefab loader: unknown prefab '%s' in 'extends'", base_name);
+            return false;
+        }
+        ecs_add_pair(world, definition.entity, EcsIsA, base);
+    }
+    return true;
 }
 
 void destroy_prefab(void* ptr, void* user_data) {
     auto* data = static_cast<PulsePrefabData*>(ptr);
     PulseAppId app = static_cast<PulseAppId>(user_data);
     ecs_world_t* world = app ? pulse_app_world(app) : nullptr;
-    if (world && data->root && ecs_is_alive(world, data->root)) {
-        ecs_delete(world, data->root);
+    if (world && data->entities) {
+        for (uint32_t i = data->entity_count; i > 0; --i) {
+            ecs_entity_t entity = data->entities[i - 1];
+            if (entity && ecs_is_alive(world, entity)) {
+                ecs_delete(world, entity);
+            }
+        }
     }
+    delete[] data->entities;
+    data->entities = nullptr;
+    data->entity_count = 0;
     data->root = 0;
 }
 
@@ -467,19 +849,18 @@ EPulseAssetLoaderStatus step_prefab_load(void* state, const PulseAssetLoadTask* 
             *out_error = pulse_datalist_last_error();
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
-        if (!node_is_container(s->datalist)) {
-            *out_error = "prefab loader: prefab root is not an object";
-            return PULSE_ASSET_LOADER_STATUS_FAILED;
-        }
-        if (!check_root_sections(s->datalist, out_error)) {
+        s->library = new prefab_library();
+        if (!collect_library(s->datalist, s->library, out_error)) {
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
     }
 
     if (!s->references_ready) {
         prefab_reference_set references;
-        if (!scan_asset_references(world, s->datalist, &references, out_error)) {
-            return PULSE_ASSET_LOADER_STATUS_FAILED;
+        for (const prefab_definition& definition : s->library->definitions) {
+            if (!scan_asset_references(world, definition.node, &references, out_error)) {
+                return PULSE_ASSET_LOADER_STATUS_FAILED;
+            }
         }
 
         for (const prefab_reference& reference : references.references) {
@@ -496,17 +877,24 @@ EPulseAssetLoaderStatus step_prefab_load(void* state, const PulseAssetLoadTask* 
         ecs_defer_suspend(world);
     }
 
-    ecs_entity_t root = build_prefab_entity(world, s->datalist, out_error);
+    bool built = build_prefab_library(world, s->library, out_error);
 
     if (suspended) {
         ecs_defer_resume(world);
     }
 
-    if (!root) {
+    if (!built) {
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
 
-    static_cast<PulsePrefabData*>(ctx->out_asset)->root = root;
+    auto* data = static_cast<PulsePrefabData*>(ctx->out_asset);
+    size_t count = s->library->definitions.size();
+    data->entities = new ecs_entity_t[count];
+    data->entity_count = static_cast<uint32_t>(count);
+    for (size_t i = 0; i < count; ++i) {
+        data->entities[i] = s->library->definitions[i].entity;
+    }
+    data->root = s->library->definitions[s->library->root].entity;
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
@@ -515,6 +903,8 @@ void dtor_prefab_load(void* state, const PulseAssetLoadTask* ctx) {
     auto* s = static_cast<prefab_load_state*>(state);
     pulse_datalist_release(s->datalist);
     s->datalist = nullptr;
+    delete s->library;
+    s->library = nullptr;
 }
 
 } // namespace

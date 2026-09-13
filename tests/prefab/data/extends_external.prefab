@@ -1,0 +1,4 @@
+mount : {
+    extends : "ExternalBase"
+    name : "ExternalDerived"
+}

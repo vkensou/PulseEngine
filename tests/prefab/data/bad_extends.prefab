@@ -1,0 +1,2 @@
+extends : "MissingBase"
+name : "BrokenInherit"

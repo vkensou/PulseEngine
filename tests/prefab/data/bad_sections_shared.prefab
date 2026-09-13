@@ -1,0 +1,11 @@
+--- &1
+name : "SharedRoot"
+children : [ *2, *3 ]
+--- &2
+name : "SharedA"
+children : [ *4 ]
+--- &3
+name : "SharedB"
+children : [ *4 ]
+--- &4
+name : "SharedLeaf"

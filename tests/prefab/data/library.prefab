@@ -1,0 +1,14 @@
+root : {
+    name : "LibraryRoot"
+    components : {
+        PulseRenderable : {
+            mesh : "Quad.obj"
+            material : "quad.material"
+        }
+    }
+    children : [
+        {
+            name : "Mount"
+        }
+    ]
+}

@@ -117,6 +117,148 @@ static void test_tag_cycle(void) {
     pulse_datalist_release(v);
 }
 
+static void test_section_tag_nested(void) {
+    static const char text[] = "key :\n  &1\n  x : 1\nother : *1\nother2 : *1\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    PulseDatalist* key = pulse_datalist_get_obj(v, "key");
+    PulseDatalist* other = pulse_datalist_get_obj(v, "other");
+    PulseDatalist* other2 = pulse_datalist_get_obj(v, "other2");
+    assert(key != nullptr && other != nullptr && other2 != nullptr);
+    assert(other == other2);
+    assert(pulse_datalist_get_type(key, nullptr) == PULSE_DATALIST_TYPE_MAP);
+    assert(pulse_datalist_object_count(key) == 1);
+    assert(pulse_datalist_get_int(key, "x", -1) == 1);
+    assert(pulse_datalist_get_int(other, "x", -1) == 1);
+    pulse_datalist_release(v);
+}
+
+static void test_section_tag_keeps_shape(void) {
+    static const char tagged[] = "key :\n  &1\n  ---\n  { 7 }\n";
+    static const char plain[] = "key :\n  ---\n  { 7 }\n";
+    PulseDatalist* a = pulse_datalist_create_from_text(tagged, sizeof(tagged) - 1);
+    PulseDatalist* b = pulse_datalist_create_from_text(plain, sizeof(plain) - 1);
+    assert(a != nullptr && b != nullptr);
+    PulseDatalist* ta = pulse_datalist_get_obj(a, "key");
+    PulseDatalist* tb = pulse_datalist_get_obj(b, "key");
+    assert(ta != nullptr && tb != nullptr);
+    assert(pulse_datalist_get_type(ta, nullptr) == pulse_datalist_get_type(tb, nullptr));
+    assert(pulse_datalist_count(ta) == 1);
+    assert(pulse_datalist_get_int(pulse_datalist_get(ta, 0), nullptr, -1) == 7);
+    assert(pulse_datalist_get_int(pulse_datalist_get(tb, 0), nullptr, -1) == 7);
+    pulse_datalist_release(a);
+    pulse_datalist_release(b);
+}
+
+static void test_section_tag_without_section(void) {
+    static const char text[] = "key :\n  &1\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v == nullptr);
+    assert(strstr(pulse_datalist_last_error(), "tag must be followed by a section") != nullptr);
+}
+
+static void test_section_tag_at_line_start(void) {
+    static const char text[] = "---\n&1\nx : 1\n---\ny : *1\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    assert(pulse_datalist_count(v) == 2);
+    PulseDatalist* a = pulse_datalist_get(v, 0);
+    PulseDatalist* b = pulse_datalist_get(v, 1);
+    assert(a != nullptr && b != nullptr);
+    PulseDatalist* y = pulse_datalist_get_obj(b, "y");
+    assert(y != nullptr);
+    assert(pulse_datalist_get_type(y, nullptr) == PULSE_DATALIST_TYPE_MAP);
+    assert(pulse_datalist_get_int(y, "x", -1) == 1);
+    assert(pulse_datalist_get_type(a, nullptr) == PULSE_DATALIST_TYPE_MAP);
+    assert(pulse_datalist_get_int(a, "x", -1) == 1);
+    pulse_datalist_release(v);
+}
+
+static void test_section_tag_value(void) {
+    static const char text[] = "--- &1\n\"hello\\nworld\"\n---\nx : *1\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    assert(pulse_datalist_count(v) == 2);
+    PulseDatalist* a = pulse_datalist_get(v, 0);
+    PulseDatalist* b = pulse_datalist_get(v, 1);
+    assert(pulse_datalist_get_type(a, nullptr) == PULSE_DATALIST_TYPE_STRING);
+    assert(strcmp(pulse_datalist_get_string(a, nullptr, ""), "hello\nworld") == 0);
+    assert(pulse_datalist_count(b) == 0);
+    assert(pulse_datalist_object_count(b) == 1);
+    assert(strcmp(pulse_datalist_object_key(b, 0), "x") == 0);
+    assert(pulse_datalist_get_type(pulse_datalist_object_value(b, 0), nullptr) == PULSE_DATALIST_TYPE_STRING);
+    assert(strcmp(pulse_datalist_get_string(pulse_datalist_object_value(b, 0), nullptr, ""), "hello\nworld") == 0);
+    pulse_datalist_release(v);
+}
+
+static void test_section_ref_graph(void) {
+    static const char text[] = "--- &1\nx : 1\n--- *1\n--- *2\n--- &2\ny : &3 { 1, 2, 3 }\nz : *1\n---\n*1 *2 *3\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    assert(pulse_datalist_count(v) == 5);
+    PulseDatalist* p1 = pulse_datalist_get(v, 0);
+    PulseDatalist* p2 = pulse_datalist_get(v, 1);
+    PulseDatalist* p3 = pulse_datalist_get(v, 2);
+    PulseDatalist* p4 = pulse_datalist_get(v, 3);
+    PulseDatalist* p5 = pulse_datalist_get(v, 4);
+    assert(p1 == p2);
+    assert(p3 == p4);
+    assert(pulse_datalist_get_int(p1, "x", -1) == 1);
+    PulseDatalist* y = pulse_datalist_get_obj(p3, "y");
+    assert(y != nullptr);
+    assert(pulse_datalist_get_obj(p3, "z") == p1);
+    assert(pulse_datalist_count(y) == 3);
+    assert(pulse_datalist_get_int(pulse_datalist_get(y, 0), nullptr, -1) == 1);
+    assert(pulse_datalist_get_int(pulse_datalist_get(y, 2), nullptr, -1) == 3);
+    assert(pulse_datalist_count(p5) == 3);
+    assert(pulse_datalist_get(p5, 0) == p1);
+    assert(pulse_datalist_get(p5, 1) == p3);
+    assert(pulse_datalist_get(p5, 2) == y);
+    pulse_datalist_release(v);
+}
+
+static void test_bracket_ref_element(void) {
+    static const char text[] = "--- &1\nname : \"B\"\n--- &2\nname : \"C\"\n---\nx : [ *1, *2 ]\ny : { *1 }\nz : { a : *2 }\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    PulseDatalist* b = pulse_datalist_get(v, 0);
+    PulseDatalist* c = pulse_datalist_get(v, 1);
+    PulseDatalist* last = pulse_datalist_get(v, 2);
+    assert(b != nullptr && c != nullptr && last != nullptr);
+    PulseDatalist* x = pulse_datalist_get_obj(last, "x");
+    assert(x != nullptr);
+    assert(pulse_datalist_get_type(x, nullptr) == PULSE_DATALIST_TYPE_LIST);
+    assert(pulse_datalist_count(x) == 2);
+    assert(pulse_datalist_get(x, 0) == b);
+    assert(pulse_datalist_get(x, 1) == c);
+    PulseDatalist* y = pulse_datalist_get_obj(last, "y");
+    assert(y != nullptr);
+    assert(pulse_datalist_count(y) == 1);
+    assert(pulse_datalist_get(y, 0) == b);
+    PulseDatalist* z = pulse_datalist_get_obj(last, "z");
+    assert(z != nullptr);
+    assert(pulse_datalist_object_count(z) == 1);
+    assert(pulse_datalist_get_obj(z, "a") == c);
+    pulse_datalist_release(v);
+}
+
+static void test_repeated_key_ref(void) {
+    static const char text[] = "box : &1 { name : \"Box\" }\nbox : *1\nbox : { name : \"Lamp\" }\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    assert(pulse_datalist_object_count(v) == 1);
+    assert(strcmp(pulse_datalist_object_key(v, 0), "box") == 0);
+    PulseDatalist* box = pulse_datalist_get_obj(v, "box");
+    assert(box != nullptr);
+    assert(pulse_datalist_get_type(box, nullptr) == PULSE_DATALIST_TYPE_MIXED);
+    assert(strcmp(pulse_datalist_get_string(box, "name", ""), "Box") == 0);
+    assert(pulse_datalist_count(box) == 1);
+    PulseDatalist* lamp = pulse_datalist_get(box, 0);
+    assert(lamp != nullptr && lamp != box);
+    assert(strcmp(pulse_datalist_get_string(lamp, "name", ""), "Lamp") == 0);
+    pulse_datalist_release(v);
+}
+
 static void test_multi_key(void) {
     static const char text[] = "multi : { x : 1 }\nmulti : { x : 2 }\nmulti : { x : 3 }\n";
     PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
@@ -233,6 +375,14 @@ int main() {
     test_tag_shared();
     test_tag_forward();
     test_tag_cycle();
+    test_section_tag_nested();
+    test_section_tag_at_line_start();
+    test_section_tag_keeps_shape();
+    test_section_tag_without_section();
+    test_section_tag_value();
+    test_section_ref_graph();
+    test_bracket_ref_element();
+    test_repeated_key_ref();
     test_multi_key();
     test_parse_list();
     test_converter();

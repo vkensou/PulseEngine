@@ -1,0 +1,6 @@
+--- &1
+name : "CycleA"
+children : [ *2 ]
+--- &2
+name : "CycleB"
+children : [ *1 ]

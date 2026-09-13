@@ -711,6 +711,50 @@ cache_tag(struct BuildState *B, objectid tag, PulseDatalist *n, int unsolved) {
 	B->tag_count++;
 }
 
+static int
+is_container(const PulseDatalist *n) {
+	return n->type == PULSE_DATALIST_TYPE_LIST
+		|| n->type == PULSE_DATALIST_TYPE_MAP
+		|| n->type == PULSE_DATALIST_TYPE_MIXED;
+}
+
+static void
+tag_fill(PulseDatalist *n) {
+	if (n->item_count != 1 || n->entry_count != 0 || !is_container(n)) {
+		return;
+	}
+	PulseDatalist *v = n->items[0];
+	n->type = v->type;
+	n->b = v->b;
+	n->i = v->i;
+	n->d = v->d;
+	n->s = v->s;
+	n->s_len = v->s_len;
+	n->entries = v->entries;
+	n->entry_count = v->entry_count;
+	n->entry_cap = v->entry_cap;
+	n->items = v->items;
+	n->item_count = v->item_count;
+	n->item_cap = v->item_cap;
+}
+
+static void
+push_item(struct BuildState *B, PulseDatalist *n, PulseDatalist *v) {
+	if (n->item_count + 1 > n->item_cap) {
+		size_t ncap = n->item_cap == 0 ? 4 : n->item_cap * 2;
+		PulseDatalist **np = (PulseDatalist **)arena_alloc(&B->arena, ncap * sizeof(PulseDatalist *));
+		if (np == NULL) {
+			invalid(B, NULL, "Out of memory");
+			return;
+		}
+		if (n->items != NULL)
+			memcpy(np, n->items, n->item_cap * sizeof(PulseDatalist *));
+		n->items = np;
+		n->item_cap = ncap;
+	}
+	n->items[n->item_count++] = v;
+}
+
 static objectid
 parse_tag(struct BuildState *B, struct lex_state *LS) {
 	objectid tag = read_tag(LS);
@@ -794,6 +838,9 @@ set_keyvalue(struct BuildState *B, struct lex_state *LS, PulseDatalist *n, ptrdi
 		return;
 	}
 	if (old != NULL) {
+		if (old == v) {
+			return;
+		}
 		if (old->type == PULSE_DATALIST_TYPE_MAP || old->type == PULSE_DATALIST_TYPE_LIST || old->type == PULSE_DATALIST_TYPE_MIXED) {
 			// append to the old table
 			if (old->item_count + 1 > old->item_cap) {
@@ -929,7 +976,8 @@ parse_bracket_sequence(struct BuildState *B, struct lex_state *LS, int layer, Pu
 			read_token(B, LS);	// consume }
 			return n;
 		case TOKEN_REF:
-			return parse_ref(B, LS);
+			push_item(B, n, parse_ref(B, LS));
+			break;
 		case TOKEN_OPEN:
 			// No tag in sequence
 			if (n->item_count + 1 > n->item_cap) {
@@ -1028,6 +1076,7 @@ parse_section_at(struct BuildState *B, struct lex_state *LS, int layer, PulseDat
 	B->root = container;
 	parse_section(B, LS, layer);
 	B->root = saved;
+	tag_fill(container);
 }
 
 static PulseDatalist *
@@ -1428,7 +1477,20 @@ parse_section_list(struct BuildState *B, struct lex_state *LS, int ident, int la
 static void
 parse_section(struct BuildState *B, struct lex_state *LS, int layer) {
 	int ident = token_ident(LS);
-	switch (read_token(B, LS)) {
+	if (read_token(B, LS) == TOKEN_TAG) {
+		PulseDatalist *n = new_table(B, layer, parse_tag(B, LS));
+		if (LS->n.type != TOKEN_NEWLINE) {
+			invalid(B, LS, "A tag must be followed by a section");
+		}
+		read_token(B, LS);
+		if (token_ident(LS) < ident) {
+			invalid(B, LS, "Invalid new section ident");
+		}
+		parse_section_at(B, LS, layer, n);
+		push_item(B, B->root, n);
+		return;
+	}
+	switch (LS->c.type) {
 	case TOKEN_ATOM:
 		if (LS->n.type == TOKEN_MAP) {
 			parse_section_map(B, LS, ident, layer);
@@ -1759,13 +1821,6 @@ serialize_root(const PulseDatalist *n, SBuf *sb) {
 		r = emit_item_list(n, sb, 0, path, 1, &sep);
 	free(path);
 	return r;
-}
-
-static int
-is_container(const PulseDatalist *n) {
-	return n->type == PULSE_DATALIST_TYPE_LIST
-		|| n->type == PULSE_DATALIST_TYPE_MAP
-		|| n->type == PULSE_DATALIST_TYPE_MIXED;
 }
 
 PulseDatalist *

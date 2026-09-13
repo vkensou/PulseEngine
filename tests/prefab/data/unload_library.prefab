@@ -1,0 +1,17 @@
+First : {
+    name : "UnloadFirst"
+    components : {
+        TestTag : {}
+    }
+}
+Second : {
+    name : "UnloadSecond"
+    components : {
+        TestTag : {}
+    }
+    children : [
+        {
+            name : "UnloadChild"
+        }
+    ]
+}

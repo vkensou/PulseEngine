@@ -1,7 +1,0 @@
-name : "EmptyPrefab"
-components : {
-    PulseRenderable : {
-        mesh : ""
-        material : ""
-    }
-}

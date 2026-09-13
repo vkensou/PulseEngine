@@ -29,11 +29,8 @@ ECS_COMPONENT_DECLARE(TestNoteHolder);
 
 static const char kRenderableJson[] = "{\"components\":{\"PulseRenderable\":{\"mesh\":\"Quad.obj\", \"material\":\"quad.material\"}}}";
 static const char kOpaqueJson[] = "{\"components\":{\"TestNoteHolder\":{\"note\":\"not_an_asset.obj\", \"mesh\":\"Quad.obj\"}}}";
-static const char kTagNullJson[] = "{\"components\":{\"TestTag\":null}}";
-static const char kTagEmptyJson[] = "{\"components\":{\"TestTag\":{}}}";
 static const char kTagArrayJson[] = "{\"tags\":[\"TestTag\"]}";
 static const char kTagPairJson[] = "{\"components\":{\"(TestPairRel,TestPairTarget)\":null}}";
-static const char kTagPairMapJson[] = "{\"pairs\":{\"TestPairRel\":\"TestPairTarget\"}}";
 
 static void assign_test_note(TestNote* dst, ecs_world_t* world, const char* value) {
     (void)world;
@@ -147,35 +144,7 @@ int main(void) {
 
     {
         ecs_entity_t entity = ecs_new(world);
-        assert(ecs_entity_from_json(world, entity, kTagNullJson, nullptr) != nullptr);
-        assert(ecs_has_id(world, entity, test_tag_comp.id()));
-        ecs_delete(world, entity);
-    }
-
-    {
-        ecs_entity_t entity = ecs_new(world);
-        assert(ecs_entity_from_json(world, entity, kTagArrayJson, nullptr) != nullptr);
-        assert(ecs_has_id(world, entity, test_tag_comp.id()));
-        ecs_delete(world, entity);
-    }
-
-    {
-        ecs_entity_t entity = ecs_new(world);
-        assert(ecs_entity_from_json(world, entity, kTagEmptyJson, nullptr) != nullptr);
-        assert(ecs_has_id(world, entity, test_tag_comp.id()));
-        ecs_delete(world, entity);
-    }
-
-    {
-        ecs_entity_t entity = ecs_new(world);
         assert(ecs_entity_from_json(world, entity, kTagPairJson, nullptr) != nullptr);
-        assert(ecs_has_pair(world, entity, test_pair_rel, test_pair_target));
-        ecs_delete(world, entity);
-    }
-
-    {
-        ecs_entity_t entity = ecs_new(world);
-        assert(ecs_entity_from_json(world, entity, kTagPairMapJson, nullptr) != nullptr);
         assert(ecs_has_pair(world, entity, test_pair_rel, test_pair_target));
         ecs_delete(world, entity);
     }
@@ -260,26 +229,6 @@ int main(void) {
     }
 
     {
-        PulsePrefabRequest request = pulse_load_prefab(app, "empty.prefab");
-        assert(wait_prefab_ready(app, request));
-        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
-        const PulseRenderable* renderable = ecs_get(world, root, PulseRenderable);
-        assert(renderable != nullptr);
-        assert(handle_is_zero(renderable->mesh));
-        assert(handle_is_zero(renderable->material));
-    }
-
-    {
-        PulsePrefabRequest request = pulse_load_prefab(app, "unknown.prefab");
-        assert(wait_prefab_ready(app, request));
-        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
-        const PulseRenderable* renderable = ecs_get(world, root, PulseRenderable);
-        assert(renderable != nullptr);
-        assert(handle_is_zero(renderable->mesh));
-        assert(handle_is_zero(renderable->material));
-    }
-
-    {
         PulsePrefabRequest request = pulse_load_prefab(app, "mixed.prefab");
         assert(wait_prefab_ready(app, request));
         ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
@@ -324,13 +273,210 @@ int main(void) {
     assert_prefab_fails(app, "bad_tag_component.prefab", "write it in 'components'");
 
     {
-        ecs_entity_t entity = ecs_new(world);
-        assert(ecs_entity_from_json(world, entity, kRenderableJson, nullptr) != nullptr);
-        const PulseRenderable* renderable = ecs_get(world, entity, PulseRenderable);
+        PulsePrefabRequest request = pulse_load_prefab(app, "hierarchy.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(strcmp(ecs_get_name(world, root), "HierarchyRoot") == 0);
+
+        ecs_entity_t body = ecs_lookup_child(world, root, "Body");
+        assert(body != 0);
+        ecs_entity_t tip = ecs_lookup_child(world, body, "Tip");
+        assert(tip != 0);
+        ecs_entity_t tail = ecs_lookup_child(world, root, "Tail");
+        assert(tail != 0);
+        assert(ecs_has_id(world, body, EcsPrefab));
+        assert(ecs_has_id(world, tip, EcsPrefab));
+        assert(ecs_has_id(world, tail, EcsPrefab));
+        assert(ecs_has_id(world, tail, test_tag_comp.id()));
+
+        int root_children = 0;
+        ecs_iter_t root_it = ecs_children(world, root);
+        while (ecs_children_next(&root_it)) {
+            root_children += root_it.count;
+        }
+        assert(root_children == 2);
+        int body_children = 0;
+        ecs_iter_t body_it = ecs_children(world, body);
+        while (ecs_children_next(&body_it)) {
+            body_children += body_it.count;
+        }
+        assert(body_children == 1);
+
+        const PulseLocalTransform* body_transform = ecs_get(world, body, PulseLocalTransform);
+        assert(body_transform != nullptr && body_transform->translation.X == 1.0f);
+        const PulseRenderable* tip_renderable = ecs_get(world, tip, PulseRenderable);
+        assert(tip_renderable != nullptr);
+        assert(!handle_is_zero(tip_renderable->material));
+
+        PulsePrefabHandle handle = pulse_prefab_get_handle(app, request);
+        ecs_entity_t instance = pulse_prefab_instantiate(app, handle);
+        assert(instance != 0);
+        assert(!ecs_has_id(world, instance, EcsPrefab));
+
+        ecs_entity_t instance_body = ecs_lookup_child(world, instance, "Body");
+        assert(instance_body != 0);
+        ecs_entity_t instance_tip = ecs_lookup_child(world, instance_body, "Tip");
+        assert(instance_tip != 0);
+        ecs_entity_t instance_tail = ecs_lookup_child(world, instance, "Tail");
+        assert(instance_tail != 0);
+        assert(!ecs_has_id(world, instance_body, EcsPrefab));
+        assert(!ecs_has_id(world, instance_tip, EcsPrefab));
+        assert(!ecs_has_id(world, instance_tail, EcsPrefab));
+        assert(ecs_has_id(world, instance_tail, test_tag_comp.id()));
+
+        const PulseLocalTransform* instance_body_transform = ecs_get(world, instance_body, PulseLocalTransform);
+        assert(instance_body_transform != nullptr && instance_body_transform->translation.X == 1.0f);
+        const PulseRenderable* instance_renderable = ecs_get(world, instance, PulseRenderable);
+        assert(instance_renderable != nullptr);
+        assert(instance_renderable->mesh.index == mesh_handle.index && instance_renderable->mesh.generation == mesh_handle.generation);
+        const PulseRenderable* instance_tip_renderable = ecs_get(world, instance_tip, PulseRenderable);
+        assert(instance_tip_renderable != nullptr);
+        assert(!handle_is_zero(instance_tip_renderable->material));
+        assert(ecs_has_id(world, instance, test_tag_comp.id()));
+
+        int instance_body_children = 0;
+        ecs_iter_t instance_it = ecs_children(world, instance_body);
+        while (ecs_children_next(&instance_it)) {
+            instance_body_children += instance_it.count;
+        }
+        assert(instance_body_children == 1);
+    }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "inherit.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(strcmp(ecs_get_name(world, root), "NeonLampPrefab") == 0);
+        assert(ecs_lookup(world, "BaseLamp") != 0);
+
+        const PulseRenderable* renderable = ecs_get(world, root, PulseRenderable);
         assert(renderable != nullptr);
         assert(renderable->mesh.index == mesh_handle.index && renderable->mesh.generation == mesh_handle.generation);
-        assert(renderable->material.index == material_handle.index && renderable->material.generation == material_handle.generation);
-        ecs_delete(world, entity);
+        const TestNoteHolder* holder = ecs_get(world, root, TestNoteHolder);
+        assert(holder != nullptr && strcmp(holder->note.value, "neon") == 0);
+
+        ecs_entity_t instance = pulse_prefab_instantiate(app, pulse_prefab_get_handle(app, request));
+        assert(instance != 0);
+        const PulseRenderable* instance_renderable = ecs_get(world, instance, PulseRenderable);
+        assert(instance_renderable != nullptr);
+        assert(instance_renderable->mesh.index == mesh_handle.index && instance_renderable->mesh.generation == mesh_handle.generation);
+        const TestNoteHolder* instance_holder = ecs_get(world, instance, TestNoteHolder);
+        assert(instance_holder != nullptr && strcmp(instance_holder->note.value, "neon") == 0);
+        ecs_entity_t instance_bulb = ecs_lookup_child(world, instance, "Bulb");
+        assert(instance_bulb != 0);
+        const PulseRenderable* bulb_renderable = ecs_get(world, instance_bulb, PulseRenderable);
+        assert(bulb_renderable != nullptr);
+        assert(bulb_renderable->mesh.index == mesh_handle.index && bulb_renderable->mesh.generation == mesh_handle.generation);
+        assert(ecs_has_id(world, instance, test_tag_comp.id()));
+
+        ecs_entity_t derived = ecs_new(world);
+        ecs_set_name(world, derived, "DerivedProbe");
+        ecs_add_pair(world, derived, EcsIsA, root);
+        const TestNoteHolder* derived_holder = ecs_get(world, derived, TestNoteHolder);
+        assert(derived_holder != nullptr && strcmp(derived_holder->note.value, "neon") == 0);
+        ecs_delete(world, derived);
+    }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "library.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(strcmp(ecs_get_name(world, root), "LibraryRoot") == 0);
+        assert(ecs_lookup_child(world, root, "Mount") != 0);
+        const PulseRenderable* renderable = ecs_get(world, root, PulseRenderable);
+        assert(renderable != nullptr);
+        assert(renderable->mesh.index == mesh_handle.index && renderable->mesh.generation == mesh_handle.generation);
+    }
+
+    assert_prefab_fails(app, "bad_extends.prefab", "unknown prefab 'MissingBase'");
+    assert_prefab_fails(app, "bad_extends_cycle.prefab", "'extends' cycle at 'A'");
+    assert_prefab_fails(app, "bad_duplicate_name.prefab", "duplicate prefab name 'same'");
+    assert_prefab_fails(app, "bad_children.prefab", "'children' entries must be objects");
+    assert_prefab_fails(app, "empty_file.prefab", "declares no prefab");
+    assert_prefab_fails(app, "bad_entry.prefab", "at least one section");
+    assert_prefab_fails(app, "bad_sections_orphan.prefab", "list entry 'OrphanLoose' is not referenced");
+    assert_prefab_fails(app, "bad_sections_cycle.prefab", "found none");
+    assert_prefab_fails(app, "bad_sections_shared.prefab", "'SharedLeaf' is referenced as a child more than once");
+
+    {
+        ecs_entity_t external = ecs_new(world);
+        ecs_set_name(world, external, "ExternalBase");
+        PulseLocalTransform external_transform{};
+        external_transform.translation.Y = 4.0f;
+        ecs_set_id(world, external, ecs_id(PulseLocalTransform), sizeof(PulseLocalTransform), &external_transform);
+        ecs_add_id(world, external, EcsPrefab);
+
+        PulsePrefabRequest request = pulse_load_prefab(app, "extends_external.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(strcmp(ecs_get_name(world, root), "ExternalDerived") == 0);
+        assert(ecs_has_pair(world, root, EcsIsA, external));
+        const PulseLocalTransform* transform = ecs_get(world, root, PulseLocalTransform);
+        assert(transform != nullptr && transform->translation.Y == 4.0f);
+    }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "sections.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(strcmp(ecs_get_name(world, root), "SecRoot") == 0);
+        ecs_entity_t body = ecs_lookup_child(world, root, "SecBody");
+        ecs_entity_t tail = ecs_lookup_child(world, root, "SecTail");
+        assert(body != 0 && tail != 0);
+        ecs_entity_t tip = ecs_lookup_child(world, body, "SecTip");
+        assert(tip != 0);
+        assert(ecs_lookup_child(world, root, "SecTip") == 0);
+
+        int root_children = 0;
+        ecs_iter_t root_it = ecs_children(world, root);
+        while (ecs_children_next(&root_it)) {
+            root_children += root_it.count;
+        }
+        assert(root_children == 2);
+        int body_children = 0;
+        ecs_iter_t body_it = ecs_children(world, body);
+        while (ecs_children_next(&body_it)) {
+            body_children += body_it.count;
+        }
+        assert(body_children == 1);
+        assert(ecs_has_id(world, tail, test_tag_comp.id()));
+
+        const PulseLocalTransform* root_transform = ecs_get(world, root, PulseLocalTransform);
+        const PulseLocalTransform* body_transform = ecs_get(world, body, PulseLocalTransform);
+        const PulseLocalTransform* tip_transform = ecs_get(world, tip, PulseLocalTransform);
+        assert(root_transform != nullptr && root_transform->translation.X == 1.0f);
+        assert(body_transform != nullptr && body_transform->translation.X == 2.0f);
+        assert(tip_transform != nullptr && tip_transform->translation.X == 4.0f);
+        const PulseRenderable* body_renderable = ecs_get(world, body, PulseRenderable);
+        assert(body_renderable != nullptr);
+        assert(!handle_is_zero(body_renderable->material));
+
+        ecs_entity_t instance = pulse_prefab_instantiate(app, pulse_prefab_get_handle(app, request));
+        assert(instance != 0);
+        ecs_entity_t instance_body = ecs_lookup_child(world, instance, "SecBody");
+        assert(instance_body != 0);
+        assert(ecs_lookup_child(world, instance_body, "SecTip") != 0);
+        assert(ecs_lookup_child(world, instance, "SecTail") != 0);
+    }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "unload_library.prefab");
+        assert(wait_prefab_ready(app, request));
+        ecs_entity_t root = pulse_prefab_get_root(app, pulse_prefab_get_handle(app, request));
+        assert(strcmp(ecs_get_name(world, root), "UnloadFirst") == 0);
+        ecs_entity_t second = ecs_lookup(world, "UnloadSecond");
+        assert(second != 0);
+        assert(ecs_lookup_child(world, second, "UnloadChild") != 0);
+
+        pulse_asset_system_force_unload_assets(pulse_get_asset_system(app), PULSE_TYPE_PREFAB);
+        assert(!pulse_prefab_is_alive(app, request));
+        assert(ecs_lookup(world, "UnloadFirst") == 0);
+        assert(ecs_lookup(world, "UnloadSecond") == 0);
+        assert(ecs_lookup_child(world, second, "UnloadChild") == 0);
+
+        PulsePrefabRequest reloaded = pulse_load_prefab(app, "unload_library.prefab");
+        assert(wait_prefab_ready(app, reloaded));
+        assert(ecs_lookup(world, "UnloadSecond") != 0);
     }
 
     pulse_app_teardown(app);

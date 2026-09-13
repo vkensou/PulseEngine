@@ -63,6 +63,9 @@ typedef struct PulsePrefabRequest
 typedef struct PulsePrefabData
 {
     ecs_entity_t         root;
+    [[pulse::optional]] [[pulse::owner]]
+    ecs_entity_t*        entities;
+    uint32_t             entity_count;
 
 } PulsePrefabData;
 
