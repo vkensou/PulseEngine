@@ -100,7 +100,7 @@ enum token_type {
 	TOKEN_OPEN,	// 0 { [
 	TOKEN_CLOSE,	// 1 } ]
 	TOKEN_CONVERTER, // 2 $ ( $name something == [name, something] )
-	TOKEN_MAP,	// 3 = :
+	TOKEN_MAP,	// 3 :
 	TOKEN_LIST,	// 4 ---
 	TOKEN_STRING,	// 5
 	TOKEN_ESCAPESTRING,	// 6
@@ -899,7 +899,7 @@ parse_bracket_map(struct BuildState *B, struct lex_state *LS, int layer, PulseDa
 		ptrdiff_t kfrom = LS->c.from;
 		ptrdiff_t kto = LS->c.to;
 		if (read_token(B, LS) != TOKEN_MAP) {
-			invalid(B, LS, "Need a : or =");
+			invalid(B, LS, "Need a :");
 		}
 		objectid tag = 0;
 		int t = read_token(B, LS);
@@ -1039,10 +1039,16 @@ again:
 		if (token_symbol(LS) != bracket) {
 			invalid(B, LS, "Invalid close bracket");
 		}
-		read_token(B, LS);	// consume }
+		if (bracket == '}') {
+			n->type = PULSE_DATALIST_TYPE_MAP;
+		}
+		read_token(B, LS);
 		return n;
 	case TOKEN_ATOM:
 		if (LS->n.type == TOKEN_MAP) {
+			if (bracket == ']') {
+				invalid(B, LS, "A key value pair needs a table, use { } instead of [ ]");
+			}
 			parse_bracket_map(B, LS, layer, n, bracket);
 			return n;
 		}
@@ -1050,22 +1056,17 @@ again:
 	default:
 		break;
 	}
+	if (bracket == '}') {
+		invalid(B, LS, "A table holds key value pairs, use [ ] for a list");
+	}
 	return parse_bracket_sequence(B, LS, layer, n, bracket);
 }
 
 static PulseDatalist *
 parse_bracket(struct BuildState *B, struct lex_state *LS, int layer, objectid tag) {
 	char bracket = token_symbol(LS);
-	if (bracket == '[') {
-		if (tag) {
-			invalid(B, LS, "[] can't has a tag");
-		}
-		PulseDatalist *n = new_table_0(B);
-		return parse_bracket_(B, LS, layer, n, ']');
-	} else {
-		PulseDatalist *n = new_table(B, layer, tag);
-		return parse_bracket_(B, LS, layer, n, '}');
-	}
+	PulseDatalist *n = new_table(B, layer, tag);
+	return parse_bracket_(B, LS, layer, n, bracket == '[' ? ']' : '}');
 }
 
 static void parse_section(struct BuildState *B, struct lex_state *LS, int layer);
@@ -1199,7 +1200,7 @@ parse_section_map(struct BuildState *B, struct lex_state *LS, int ident, int lay
 		ptrdiff_t kfrom, kto;
 		push_key(LS, &kfrom, &kto);
 		if (read_token(B, LS) != TOKEN_MAP) {
-			invalid(B, LS, "Need a : or =");
+			invalid(B, LS, "Need a :");
 		}
 		objectid tag = 0;
 		int t = read_token(B, LS);
@@ -1793,7 +1794,8 @@ serialize_node(const PulseDatalist *n, SBuf *sb, int depth, const PulseDatalist 
 		return -1;
 	}
 	path[path_len] = n;
-	if (sb_append(sb, "{", 1) != 0)
+	int as_list = n->type == PULSE_DATALIST_TYPE_LIST;
+	if (sb_append(sb, as_list ? "[" : "{", 1) != 0)
 		return -1;
 	int sep = 0;
 	if (emit_entry_list(n, sb, depth, path, path_len + 1, &sep) != 0)
@@ -1802,7 +1804,7 @@ serialize_node(const PulseDatalist *n, SBuf *sb, int depth, const PulseDatalist 
 		if (emit_item_list(n, sb, depth, path, path_len + 1, &sep) != 0)
 			return -1;
 	}
-	return sb_append(sb, "}", 1);
+	return sb_append(sb, as_list ? "]" : "}", 1);
 }
 
 static int

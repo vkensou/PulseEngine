@@ -61,8 +61,8 @@ static void test_sections(void) {
     pulse_datalist_release(v);
 }
 
-static void test_indent_and_braces(void) {
-    static const char text[] = "x :\n\t1 2 3\ny :\n\tdict : \"hello world\"\nz : { foobar }\n";
+static void test_indent_and_brackets(void) {
+    static const char text[] = "x :\n\t1 2 3\ny :\n\tdict : \"hello world\"\nz : [ foobar ]\n";
     PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
     assert(v != nullptr);
     assert(pulse_datalist_get_type(v, nullptr) == PULSE_DATALIST_TYPE_MAP);
@@ -134,8 +134,8 @@ static void test_section_tag_nested(void) {
 }
 
 static void test_section_tag_keeps_shape(void) {
-    static const char tagged[] = "key :\n  &1\n  ---\n  { 7 }\n";
-    static const char plain[] = "key :\n  ---\n  { 7 }\n";
+    static const char tagged[] = "key :\n  &1\n  ---\n  [ 7 ]\n";
+    static const char plain[] = "key :\n  ---\n  [ 7 ]\n";
     PulseDatalist* a = pulse_datalist_create_from_text(tagged, sizeof(tagged) - 1);
     PulseDatalist* b = pulse_datalist_create_from_text(plain, sizeof(plain) - 1);
     assert(a != nullptr && b != nullptr);
@@ -192,7 +192,7 @@ static void test_section_tag_value(void) {
 }
 
 static void test_section_ref_graph(void) {
-    static const char text[] = "--- &1\nx : 1\n--- *1\n--- *2\n--- &2\ny : &3 { 1, 2, 3 }\nz : *1\n---\n*1 *2 *3\n";
+    static const char text[] = "--- &1\nx : 1\n--- *1\n--- *2\n--- &2\ny : &3 [ 1, 2, 3 ]\nz : *1\n---\n*1 *2 *3\n";
     PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
     assert(v != nullptr);
     assert(pulse_datalist_count(v) == 5);
@@ -218,7 +218,7 @@ static void test_section_ref_graph(void) {
 }
 
 static void test_bracket_ref_element(void) {
-    static const char text[] = "--- &1\nname : \"B\"\n--- &2\nname : \"C\"\n---\nx : [ *1, *2 ]\ny : { *1 }\nz : { a : *2 }\n";
+    static const char text[] = "--- &1\nname : \"B\"\n--- &2\nname : \"C\"\n---\nx : [ *1, *2 ]\ny : [ *1 ]\nz : { a : *2 }\n";
     PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
     assert(v != nullptr);
     PulseDatalist* b = pulse_datalist_get(v, 0);
@@ -326,6 +326,59 @@ static void test_errors(void) {
     }
 }
 
+static void test_bracket_type(void) {
+    static const char list_text[] = "x : [ 1 2 3 ]\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(list_text, sizeof(list_text) - 1);
+    assert(v != nullptr);
+    PulseDatalist* x = pulse_datalist_get_obj(v, "x");
+    assert(x != nullptr);
+    assert(pulse_datalist_get_type(x, nullptr) == PULSE_DATALIST_TYPE_LIST);
+    assert(pulse_datalist_count(x) == 3);
+    assert(pulse_datalist_object_count(x) == 0);
+    pulse_datalist_release(v);
+
+    static const char map_text[] = "x : { a : 1 }\n";
+    v = pulse_datalist_create_from_text(map_text, sizeof(map_text) - 1);
+    assert(v != nullptr);
+    x = pulse_datalist_get_obj(v, "x");
+    assert(x != nullptr);
+    assert(pulse_datalist_get_type(x, nullptr) == PULSE_DATALIST_TYPE_MAP);
+    assert(pulse_datalist_object_count(x) == 1);
+    assert(pulse_datalist_get_int(x, "a", -1) == 1);
+    pulse_datalist_release(v);
+
+    static const char empty_text[] = "l : []\nt : {}\n";
+    v = pulse_datalist_create_from_text(empty_text, sizeof(empty_text) - 1);
+    assert(v != nullptr);
+    x = pulse_datalist_get_obj(v, "l");
+    assert(x != nullptr);
+    assert(pulse_datalist_get_type(x, nullptr) == PULSE_DATALIST_TYPE_LIST);
+    x = pulse_datalist_get_obj(v, "t");
+    assert(x != nullptr);
+    assert(pulse_datalist_get_type(x, nullptr) == PULSE_DATALIST_TYPE_MAP);
+    pulse_datalist_release(v);
+
+    static const char tag_text[] = "x : &1 [ 1 2 ]\ny : *1\n";
+    v = pulse_datalist_create_from_text(tag_text, sizeof(tag_text) - 1);
+    assert(v != nullptr);
+    x = pulse_datalist_get_obj(v, "x");
+    assert(x != nullptr);
+    assert(x == pulse_datalist_get_obj(v, "y"));
+    assert(pulse_datalist_get_type(x, nullptr) == PULSE_DATALIST_TYPE_LIST);
+    assert(pulse_datalist_count(x) == 2);
+    pulse_datalist_release(v);
+
+    static const char list_in_map[] = "x : { 1 2 }\n";
+    v = pulse_datalist_create_from_text(list_in_map, sizeof(list_in_map) - 1);
+    assert(v == nullptr);
+    assert(strstr(pulse_datalist_last_error(), "use [ ] for a list") != nullptr);
+
+    static const char map_in_list[] = "x : [ a : 1 ]\n";
+    v = pulse_datalist_create_from_text(map_in_list, sizeof(map_in_list) - 1);
+    assert(v == nullptr);
+    assert(strstr(pulse_datalist_last_error(), "use { } instead of [ ]") != nullptr);
+}
+
 static void test_getters(void) {
     static const char text[] = "i : 3\nd : 1.5\nb : true\ns : hi\n";
     PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
@@ -371,7 +424,7 @@ int main() {
     test_map();
     test_list();
     test_sections();
-    test_indent_and_braces();
+    test_indent_and_brackets();
     test_tag_shared();
     test_tag_forward();
     test_tag_cycle();
@@ -382,6 +435,7 @@ int main() {
     test_section_tag_value();
     test_section_ref_graph();
     test_bracket_ref_element();
+    test_bracket_type();
     test_repeated_key_ref();
     test_multi_key();
     test_parse_list();

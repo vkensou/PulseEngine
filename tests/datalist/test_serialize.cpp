@@ -73,6 +73,15 @@ static void test_to_text_exact(void) {
     assert(strcmp(out, "") == 0);
     pulse_datalist_free_string(out);
     pulse_datalist_release(a);
+
+    static const char bracketed[] = "l : [ 1 2 ]\nt : { x : 1 }\n";
+    a = pulse_datalist_create_from_text(bracketed, sizeof(bracketed) - 1);
+    assert(a != nullptr);
+    out = pulse_datalist_to_text(a, &len);
+    assert(out != nullptr);
+    assert(strcmp(out, "l : [1 2] t : {x : 1}") == 0);
+    pulse_datalist_free_string(out);
+    pulse_datalist_release(a);
 }
 
 static void test_quote(void) {
@@ -104,10 +113,11 @@ int main() {
     test_roundtrip("x : 1\ny : 2\n");
     test_roundtrip("hello \"world\"\n0x1p+0\n2\n0x3\nnil\ntrue\nfalse\n");
     test_roundtrip("---\nx : hello\ny : world\n---\n1 2 3\n");
-    test_roundtrip("x :\n\t1 2 3\ny :\n\tdict : \"hello world\"\nz : { foobar }\n");
+    test_roundtrip("x :\n\t1 2 3\ny :\n\tdict : \"hello world\"\nz : [ foobar ]\n");
     test_roundtrip("multi : { x : 1 }\nmulti : { x : 2 }\nmulti : { x : 3 }\n");
     test_roundtrip("--- $obj\nx : 1\n---\ny : [ 1, 2, 3 ]\n");
-    test_roundtrip("x : \"a b\"\ny : { 1 2 { a : 3 } }\n");
+    test_roundtrip("x : \"a b\"\ny : [ 1 2 { a : 3 } ]\n");
+    test_roundtrip("l : [ 1 2 ]\nt : { x : 1 }\ne : []\nf : {}\n");
     test_to_text_exact();
     test_quote();
     test_file_roundtrip();
