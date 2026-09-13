@@ -1,0 +1,35 @@
+--- &1
+name : "SecRoot"
+components : {
+    PulseLocalTransform : {
+        translation : {
+            X : 1.0
+        }
+    }
+}
+children : [ *2, *3 ]
+--- &2
+name : "SecBody"
+components : {
+    PulseLocalTransform : {
+        translation : {
+            X : 2.0
+        }
+    }
+    PulseRenderable : {
+        material : "quad.material"
+    }
+}
+children : [ *4 ]
+--- &3
+name : "SecTail"
+tags : [ TestTag ]
+--- &4
+name : "SecTip"
+components : {
+    PulseLocalTransform : {
+        translation : {
+            X : 4.0
+        }
+    }
+}

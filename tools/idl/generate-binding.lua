@@ -1,7 +1,8 @@
 -- generate-binding.lua
 -- Unified code generation entry point.
 -- Usage: lua generate-binding.lua <idl_path> <template_path> <binding> <output_path> <prefix> [indent]
---   binding: module suffix for "bindings-<binding>" (e.g. "c" → bindings-c, "zig" → bindings-zig)
+--   binding: module suffix for "bindings-<binding>" (e.g. "c" → bindings-c, "zig" → bindings-zig,
+--            "flecs" → bindings-flecs reflection registration)
 --   prefix : naming prefix string (e.g. "cgpu")
 --   indent : optional, defaults to "\t"
 
@@ -27,18 +28,20 @@ end
 local modname = "bindings-" .. binding
 local gen = require(modname)
 
--- Dispatch: C binding uses template-file API; others use gen()+write() convention
-
 print ("Generating: ", output_path, "from", template_path)
 
-local codes = gen(idl, template_path, output_path, indent or "\t", codegen._naming)
+local codes = gen(idl, template_path, output_path, indent or "\t", codegen._naming, idl_path)
 
-function changed(codes, outputfile)
+local function to_lf(text)
+	return (text:gsub("\r\n", "\n"))
+end
+
+local function changed(codes, outputfile)
 	local out = io.open(outputfile, "rb")
 	if out then
 		local origin = out:read "a"
 		out:close()
-		return origin ~= codes
+		return to_lf(origin) ~= to_lf(codes)
 	end
 	return true
 end
@@ -47,7 +50,7 @@ if not changed(codes, output_path) then
 	print("No change")
 else
 	local out = assert(io.open(output_path, "wb"))
-	out:write(codes)
+	out:write((to_lf(codes):gsub("\n", "\r\n")))
 	out:close()
 	print("Output: " .. output_path)
 end

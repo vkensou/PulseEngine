@@ -1,5 +1,7 @@
 #include "input_internal.h"
 
+#include "pulse_input_reflection.h"
+
 #include <algorithm>
 #include <cstring>
 
@@ -139,14 +141,7 @@ void post_frame_clear_system_run(ecs_iter_t* it) {
 } // namespace
 
 void register_components(ecs_world_t* world) {
-    ecs_id(PulseKeyboardInput) = flecs::_::type<PulseKeyboardInput>::id(world);
-    ecs_id(PulseMouseInput) = flecs::_::type<PulseMouseInput>::id(world);
-    ecs_id(PulseMouseMotion) = flecs::_::type<PulseMouseMotion>::id(world);
-    ecs_id(PulseMouseScroll) = flecs::_::type<PulseMouseScroll>::id(world);
-    ecs_id(PulseKeyEvent) = flecs::_::type<PulseKeyEvent>::id(world);
-    ecs_id(PulseMouseButtonEvent) = flecs::_::type<PulseMouseButtonEvent>::id(world);
-    ecs_id(PulseMouseScrollEvent) = flecs::_::type<PulseMouseScrollEvent>::id(world);
-    ecs_id(PulseMouseMotionEvent) = flecs::_::type<PulseMouseMotionEvent>::id(world);
+    pulse_input_register_reflection(world);
     ecs_id(pulse_input_state_resource) = flecs::_::type<pulse_input_state_resource>::id(world);
 }
 

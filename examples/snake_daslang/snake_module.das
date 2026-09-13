@@ -7,7 +7,6 @@ options strict_smart_pointers = true
 require pulse/flecs_boost public
 require pulse/pulse_components public
 require pulse public
-require cgpu
 require daslib/random
 require daslib/option
 require math
@@ -69,15 +68,12 @@ struct Score {
     value: int
 }
 
-struct SnakeResources {
-    quad: PulseMeshHandle
-    appleMat, snakeHeadMat, snakeBodyMat: PulseMaterialHandle
-    boardMat: PulseMaterialHandle
+struct SnakePrefabs {
+    board, apple, snakeHead, snakeBody: PulsePrefabHandle
 }
 
 struct SnakeAssets {
-    shader: PulseShaderRequest
-    mesh: PulseMeshRequest
+    board, apple, snakeHead, snakeBody: PulsePrefabRequest
 }
 
 struct SnakeMoveIntentEvent {
@@ -130,23 +126,18 @@ def isOpposite(left: Direction4W, right: Direction4W) {
     return (left != right) && isParallel(left, right)
 }
 
-def createRenderable(cmd: CommandBuffer, position: HMM_Vec3, mat: PulseMaterialHandle, mesh: PulseMeshHandle) {
-    let ent = cmd.entity()
-    cmd |> set_entity_component(ent, PulseLocalTransform(translation = position, rotation = HMM_Q_Identity, scale = HMM_V3_One))
-    cmd |> set_entity_component(ent, PulseRenderable(mesh = mesh, material = mat))
+// 由 prefab 模板实例化实体：网格/材质等静态数据写在 .prefab 里，
+// 实例只覆盖运行期才知道的变换。
+def instantiatePrefab(cmd: CommandBuffer, app: PulseAppId, prefab: PulsePrefabHandle, position: HMM_Vec3, scale: HMM_Vec3) {
+    let ent = pulse_prefab_instantiate(app, prefab)
+    cmd |> set_entity_component(ent, PulseLocalTransform(translation = position, rotation = HMM_Q_Identity, scale = scale))
     return ent
 }
 
-def createBoard(cmd: CommandBuffer, position: HMM_Vec3, scale: HMM_Vec3, mat: PulseMaterialHandle, mesh: PulseMeshHandle) {
-    let ent = cmd.entity()
-    cmd |> set_entity_component(ent, PulseLocalTransform(translation = position, rotation = HMM_Q_Identity, scale = scale))
-    cmd |> set_entity_component(ent, PulseRenderable(mesh = mesh, material = mat))
-}
-
-def createSnake(cmd: CommandBuffer, quad: PulseMeshHandle, headMat: PulseMaterialHandle, bodyMat: PulseMaterialHandle, initPos: HMM_Vec3) {
+def createSnake(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, initPos: HMM_Vec3) {
     let snakeInitLength = 3
 
-    let head = createRenderable(cmd, initPos, headMat, quad)
+    let head = instantiatePrefab(cmd, app, prefabs.snakeHead, initPos, HMM_V3_One)
 
     var bodies: array<SnakeBody>
     var poses: array<HMM_Vec3>
@@ -154,7 +145,7 @@ def createSnake(cmd: CommandBuffer, quad: PulseMeshHandle, headMat: PulseMateria
     poses |> push(initPos)
     for (i in 0..snakeInitLength) {
         let bodyPos = HMM_V3(initPos.X - 1.0 - float(i), initPos.Y, initPos.Z)
-        let newBody = createRenderable(cmd, bodyPos, bodyMat, quad)
+        let newBody = instantiatePrefab(cmd, app, prefabs.snakeBody, bodyPos, HMM_V3_One)
         bodies |> push(SnakeBody(position = bodyPos, entity = newBody), 0)
         poses |> push(bodyPos)
     }
@@ -218,21 +209,19 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
     return none(type<HMM_Vec3>)
 }
 
-def createApple(cmd: CommandBuffer, snakeBodyPoses: array<HMM_Vec3>, border: Border, quad: PulseMeshHandle, appleMat: PulseMaterialHandle) {
+def createApple(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, snakeBodyPoses: array<HMM_Vec3>, border: Border) {
     let newPos = getNewApplePosition(snakeBodyPoses, border)
     if (newPos |> is_none) {
         return default<Entity>
     }
 
-    let apple = createRenderable(cmd, unwrap(newPos), appleMat, quad)
-    cmd |> set_entity_component(apple, IsApple())
-    return apple
+    return instantiatePrefab(cmd, app, prefabs.apple, unwrap(newPos), HMM_V3_One)
 }
 
-def createEntities(cmd: CommandBuffer, border: Border, resources: SnakeResources) {
+def createEntities(cmd: CommandBuffer, app: PulseAppId, border: Border, prefabs: SnakePrefabs) {
     cmd |> set_singleton(Score(value = 0))
-    let (_, poses) = createSnake(cmd, resources.quad, resources.snakeHeadMat, resources.snakeBodyMat, HMM_V3(0.0, 0.0, 0.0))
-    createApple(cmd, poses, border, resources.quad, resources.appleMat)
+    let (_, poses) = createSnake(cmd, app, prefabs, HMM_V3(0.0, 0.0, 0.0))
+    createApple(cmd, app, prefabs, poses, border)
 }
 
 def destructEntities(cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, appleQuery: Query<IsApple const>) {
@@ -248,15 +237,15 @@ def destructEntities(cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, a
     }
 }
 
-def createBorder(cmd: CommandBuffer, quad: PulseMeshHandle, borderMat: PulseMaterialHandle, up: int, bottom: int, left: int, right: int) {
+def createBorder(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, up: int, bottom: int, left: int, right: int) {
     let centerX = float(left + right) / 2.0
     let centerY = float(up + bottom) / 2.0
     let width = float(right - left) + 1.0
     let height = float(up - bottom) + 1.0
-    createBoard(cmd, HMM_V3(float(right), centerY, 0.0), HMM_V3(1.0, height, 1.0), borderMat, quad)
-    createBoard(cmd, HMM_V3(float(left), centerY, 0.0), HMM_V3(1.0, height, 1.0), borderMat, quad)
-    createBoard(cmd, HMM_V3(centerX, float(up), 0.0), HMM_V3(width, 1.0, 1.0), borderMat, quad)
-    createBoard(cmd, HMM_V3(centerX, float(bottom), 0.0), HMM_V3(width, 1.0, 1.0), borderMat, quad)
+    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(float(right), centerY, 0.0), HMM_V3(1.0, height, 1.0))
+    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(float(left), centerY, 0.0), HMM_V3(1.0, height, 1.0))
+    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(centerX, float(up), 0.0), HMM_V3(width, 1.0, 1.0))
+    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(centerX, float(bottom), 0.0), HMM_V3(width, 1.0, 1.0))
 
     let border = Border(up = up, bottom = bottom, left = left, right = right)
     cmd |> set_singleton(border)
@@ -322,113 +311,39 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 [system(phase="update", state="UnInitialized|Loading")]
 def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: SystemStateMachine<SnakeGameState>, cmd: CommandBuffer, primaryWindowQuery: Query<PulseWindow const, PulsePrimaryWindow const>) {
     if (state.is_state(SnakeGameState.UnInitialized)) {
-        var blend_attachments = CGPUBlendAttachmentState(
-            enable = false,
-            src_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ONE,
-            dst_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ZERO,
-            src_alpha_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ONE,
-            dst_alpha_factor = ECGPUBlendFactor.CGPU_BLEND_FACTOR_ZERO,
-            blend_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
-            blend_alpha_op = ECGPUBlendOp.CGPU_BLEND_OP_ADD,
-            color_mask = uint(ECGPUColorMaskFlagBits.CGPU_COLOR_MASK_RGBA))
-        let blend_desc = CGPUBlendStateDescriptor(
-            attachment_count = 1u,
-            p_attachments = unsafe(addr(blend_attachments)),
-            alpha_to_coverage = false,
-            independent_blend = false)
-        let depth_desc = CGPUDepthStateDescriptor(
-            depth_test = true,
-            depth_write = true,
-            depth_op = ECGPUCompareOp.CGPU_COMPARE_OP_GREATER_EQUAL,
-            stencil_test = false)
-        let rasterizer_state = CGPURasterizerStateDescriptor(
-            cull_mode = uint(ECGPUCullModeFlagBits.CGPU_CULL_MODE_BACK),
-            front_face = ECGPUFrontFace.CGPU_FRONT_FACE_CLOCK_WISE)
-
-        var shader_props: PulseShaderProperty[3]
-        shader_props[0] = PulseShaderProperty(
-            name = "vpMatrix",
-            _type = EPulseShaderPropertyType.PULSE_SHADER_PROPERTY_TYPE_MAT4,
-            role = EPulseShaderPropertyRole.PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,
-            set = 0u, binding = 0u, offset = 0u, size = 64u)
-        shader_props[1] = PulseShaderProperty(
-            name = "albedo",
-            _type = EPulseShaderPropertyType.PULSE_SHADER_PROPERTY_TYPE_FLOAT4,
-            role = EPulseShaderPropertyRole.PULSE_SHADER_PROPERTY_ROLE_MATERIAL,
-            set = 1u, binding = 0u, offset = 0u, size = 16u)
-        shader_props[2] = PulseShaderProperty(
-            name = "wMatrix",
-            _type = EPulseShaderPropertyType.PULSE_SHADER_PROPERTY_TYPE_MAT4,
-            role = EPulseShaderPropertyRole.PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,
-            set = 2u, binding = 0u, offset = 0u, size = 64u)
-
-        let shader_desc = PulseShaderCreateFromFileDesc(
-            vert_path = "assets/color.vert.spv",
-            frag_path = "assets/color.frag.spv",
-            blend_desc = blend_desc,
-            depth_desc = depth_desc,
-            rasterizer_state = rasterizer_state,
-            properties_count = 3ul,
-            p_properties = unsafe(addr(shader_props[0])))
-
-        assets.get().shader = pulse_create_shader_from_file(app, unsafe(addr(shader_desc)))
-        assets.get().mesh = pulse_load_mesh(app, "assets/Quad.obj")
+        assets.get().board = pulse_load_prefab(app, "assets/board.prefab")
+        assets.get().apple = pulse_load_prefab(app, "assets/apple.prefab")
+        assets.get().snakeHead = pulse_load_prefab(app, "assets/snake_head.prefab")
+        assets.get().snakeBody = pulse_load_prefab(app, "assets/snake_body.prefab")
         state.to(SnakeGameState.Loading)
         return
     }
 
+    let paths = ["assets/board.prefab", "assets/apple.prefab", "assets/snake_head.prefab", "assets/snake_body.prefab"]
+    let requests = [assets.get().board, assets.get().apple, assets.get().snakeHead, assets.get().snakeBody]
+
     let asset_system = pulse_get_asset_system(app)
-    let shader_request = pulse_shader_request_to_asset_request(assets.get().shader)
-    let mesh_request = pulse_mesh_request_to_asset_request(assets.get().mesh)
-    let shader_state = pulse_asset_system_get_state(asset_system, shader_request)
-    let mesh_state = pulse_asset_system_get_state(asset_system, mesh_request)
-    if (shader_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED || mesh_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
-        if (shader_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
-            print("Snake shader load failed.\n")
+    for (i in 0..length(requests)) {
+        let request = pulse_prefab_request_to_asset_request(requests[i])
+        if (pulse_asset_system_get_state(asset_system, request) == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
+            print("Snake prefab load failed: {paths[i]}: {pulse_asset_system_get_error(asset_system, request)}\n")
+            state.to(SnakeGameState.LoadFailed)
+            return
         }
-        if (mesh_state == EPulseAssetState.PULSE_ASSET_STATE_FAILED) {
-            print("Snake mesh load failed.\n")
+    }
+
+    for (request in requests) {
+        if (!pulse_prefab_is_ready(app, request)) {
+            return
         }
-        state.to(SnakeGameState.LoadFailed)
-        return
     }
 
-    if (!pulse_shader_is_ready(app, assets.get().shader) || !pulse_mesh_is_ready(app, assets.get().mesh)) {
-        return
-    }
-
-    var shader = pulse_shader_get_handle(app, assets.get().shader)
-    var quad = pulse_mesh_get_handle(app, assets.get().mesh)
-
-    var boardMat, appleMat, snakeHeadMat, snakeBodyMat: PulseMaterialHandle
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        boardMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, boardMat, "albedo", HMM_V4(1.0, 1.0, 1.0, 1.0))
-    }
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        appleMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, appleMat, "albedo", HMM_V4(1.0, 0.0, 0.0, 0.0))
-    }
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        snakeHeadMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, snakeHeadMat, "albedo", HMM_V4(1.0, 1.0, 0.0, 1.0))
-    }
-    {
-        let mat_desc = PulseMaterialCreateDesc(shader = shader)
-        snakeBodyMat = pulse_create_material(app, unsafe(addr(mat_desc)))
-        pulse_material_set_property_float4(app, snakeBodyMat, "albedo", HMM_V4(0.0, 1.0, 0.0, 1.0))
-    }
-
-    let resources = SnakeResources(
-        quad = quad,
-        appleMat = appleMat,
-        snakeHeadMat = snakeHeadMat,
-        snakeBodyMat = snakeBodyMat,
-        boardMat = boardMat)
-    cmd |> set_singleton(resources)
+    let prefabs = SnakePrefabs(
+        board = pulse_prefab_get_handle(app, assets.get().board),
+        apple = pulse_prefab_get_handle(app, assets.get().apple),
+        snakeHead = pulse_prefab_get_handle(app, assets.get().snakeHead),
+        snakeBody = pulse_prefab_get_handle(app, assets.get().snakeBody))
+    cmd |> set_singleton(prefabs)
 
     let (windowEntity, window, _) = primaryWindowQuery |> first()
     let boardCenterX = 0.5
@@ -442,8 +357,8 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
     let left = roundi(boardCenterX - halfWidth)
     let right = roundi(boardCenterX + halfWidth)
 
-    let border = createBorder(cmd, quad, boardMat, up, bottom, left, right)
-    createEntities(cmd, border, resources)
+    let border = createBorder(cmd, app, prefabs, up, bottom, left, right)
+    createEntities(cmd, app, border, prefabs)
 
     let camera = cmd.entity()
     cmd |> set_entity_component(camera, PulseLocalTransform(translation = HMM_V3(boardCenterX, boardCenterY, cameraZ), rotation = HMM_Q_Identity, scale = HMM_V3_One))
@@ -481,7 +396,7 @@ def scheduleSnakeMoveSystem(timer: Res<PulseTimer const>, snakeMoveWriter: Event
 }
 
 [system(state="Gaming")]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, cmd: CommandBuffer, appleQuery: Query<IsApple const, PulseLocalTransform const>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>, appleEatenEvent: EventWriter<AppleEatenEvent>, gameOverEvent: EventWriter<GameOverEvent>, var snake: SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, cmd: CommandBuffer, app: PulseAppId, appleQuery: Query<IsApple const, PulseLocalTransform const>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>, appleEatenEvent: EventWriter<AppleEatenEvent>, gameOverEvent: EventWriter<GameOverEvent>, var snake: SnakeBodies) {
     let event = snakeMoveIntentEvent.read()
     let delta = event.delta
 
@@ -503,7 +418,7 @@ def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEven
     }
     elif (obstacle == ObstacleType.Apple) {
         snake.bodies[headIdx].position = nextPos
-        let newBody = createRenderable(cmd, headPosition, resources.get().snakeBodyMat, resources.get().quad)
+        let newBody = instantiatePrefab(cmd, app, prefabs.get().snakeBody, headPosition, HMM_V3_One)
         snake.bodies |> push(SnakeBody(position = headPosition, entity = newBody), length(snake.bodies) - 1)
 
         appleEatenEvent |> broadcast(AppleEatenEvent(apple = appleEnt))
@@ -532,14 +447,14 @@ def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, scoreQuery:
 }
 
 [system(state="Gaming")]
-def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
+def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBuffer, app: PulseAppId, snakeQuery: Query<SnakeBodies const>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>) {
     let (_, snakeBodies) = snakeQuery.first()
     var poses: array<HMM_Vec3>
     for (i in 0..length(snakeBodies.bodies)) {
         poses |> push(snakeBodies.bodies[i].position)
     }
 
-    createApple(cmd, poses, borderQuery.get(), resources.get().quad, resources.get().appleMat)
+    createApple(cmd, app, prefabs.get(), poses, borderQuery.get())
 }
 
 [system(state="Gaming")]
@@ -566,11 +481,11 @@ def snakeFpsUISystem(timer: Res<PulseTimer const>) {
 }
 
 [system(state="GameOver")]
-def restartSystem(restartEvent: EventReader<RestartEvent>, cmd: CommandBuffer, state: SystemStateMachine<SnakeGameState>, borderQuery: SingletonQuery<Border const>, resources: SingletonQuery<SnakeResources const>) {
+def restartSystem(restartEvent: EventReader<RestartEvent>, cmd: CommandBuffer, app: PulseAppId, state: SystemStateMachine<SnakeGameState>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>) {
     // 事件观察器运行期间 world 处于 deferred/staging 状态，
     // 与 C++ snake 保持一致：临时挂起 defer，让实体立即创建。
     cmd.defer_suspend()
-    createEntities(cmd, borderQuery.get(), resources.get())
+    createEntities(cmd, app, borderQuery.get(), prefabs.get())
     cmd.defer_resume()
     state.to(SnakeGameState.Gaming)
 }

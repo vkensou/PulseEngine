@@ -1,5 +1,7 @@
 #include "window_internal.h"
 
+#include "pulse_window_reflection.h"
+
 ECS_COMPONENT_DECLARE(PulseWindow);
 ECS_COMPONENT_DECLARE(PulseSdlWindow);
 ECS_TAG_DECLARE(PulsePrimaryWindowId);
@@ -170,15 +172,8 @@ void on_window_remove(ecs_iter_t* it)
 } // namespace
 
 void register_components(ecs_world_t* world) {
-    ecs_id(PulseWindow) = flecs::_::type<PulseWindow>::id(world);
-    ecs_id(PulseSdlWindow) = flecs::_::type<PulseSdlWindow>::id(world);
+    pulse_window_register_reflection(world);
     ecs_id(pulse_window_state_resource) = flecs::_::type<pulse_window_state_resource>::id(world);
-    ecs_id(PulseTextInputEvent) = flecs::_::type<PulseTextInputEvent>::id(world);
-    ecs_id(PulseWindowFocusEvent) = flecs::_::type<PulseWindowFocusEvent>::id(world);
-    ecs_id(PulseWindowMouseHoverEvent) = flecs::_::type<PulseWindowMouseHoverEvent>::id(world);
-    ecs_id(PulsePrimaryWindowId) = PulsePrimaryWindowId = flecs::_::type<PulsePrimaryWindow>::id(world);
-    ecs_id(PulseWindowCloseRequestedId) = PulseWindowCloseRequestedId = flecs::_::type<PulseWindowCloseRequested>::id(world);
-    ecs_id(PulseWindowResizedId) = PulseWindowResizedId = flecs::_::type<PulseWindowResized>::id(world);
 
     ecs_add_pair(world, ecs_id(PulseWindow), EcsWith, ecs_id(PulseSdlWindow));
 

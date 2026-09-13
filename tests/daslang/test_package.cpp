@@ -31,11 +31,13 @@ int main(void)
 
     PulsePackageListEntry entries[] = {
         { "pulse_asset", nullptr },
+        { "pulse_math", nullptr },
+        { "pulse_prefab", nullptr },
         { "pulse_daslang", nullptr },
         { "pkg_das_test", nullptr },
     };
     const char* search_paths[] = { "src", "tests/daslang" };
-    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, search_paths, 2, entries, 3);
+    EPulsePackageLoadResult load_result = pulse_package_loader_load_packages(loader, search_paths, 2, entries, sizeof(entries) / sizeof(entries[0]));
     if (load_result != PULSE_PACKAGE_LOAD_RESULT_OK)
     {
         printf("Package load failed: %s (result=%d)\n", pulse_app_last_error(app), (int)load_result);
@@ -45,6 +47,7 @@ int main(void)
     }
 
     assert(pulse_app_has_plugin(app, "pulse_asset"));
+    assert(pulse_app_has_plugin(app, "pulse_math"));
     assert(pulse_app_has_plugin(app, "pulse_daslang"));
 
     assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);

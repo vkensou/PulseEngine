@@ -37,6 +37,7 @@ static PulseAppId make_transform_app(const char* name) {
     };
     PulseAppId app = pulse_create_app(&app_desc);
     assert(app);
+    assert(pulse_add_math_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     return app;
 }

@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 #include <vector>
+#include <algorithm>
 #include "hash.h"
 #include "rendergraph_compiler_internal.h"
 #include <bit>
@@ -321,6 +322,19 @@ namespace HGEGraphics
 		return texture;
 	}
 
+	ECGPUTextureDimension texture_view_dims(const CGPUTextureInfo* info)
+	{
+		const uint32_t arrayCount = info->array_size_minus_one + 1;
+		if (info->depth > 1)
+			return CGPU_TEXTURE_DIMENSION_3D;
+		if (info->is_cube)
+		{
+			assert(arrayCount % 6 == 0);
+			return arrayCount > 6 ? CGPU_TEXTURE_DIMENSION_CUBE_ARRAY : CGPU_TEXTURE_DIMENSION_CUBE;
+		}
+		return arrayCount > 1 ? CGPU_TEXTURE_DIMENSION_2DARRAY : CGPU_TEXTURE_DIMENSION_2D;
+	}
+
 	void init_texture(PulseTextureData* texture, CGPUDeviceId device, const CGPUTextureDescriptor& desc)
 	{
 		CGPUTextureDescriptor new_desc = desc;
@@ -334,17 +348,12 @@ namespace HGEGraphics
 		texture->states_consistent = true;
 
 		uint32_t arrayCount = texture->handle->info->array_size_minus_one + 1;
-		ECGPUTextureDimension dims = CGPU_TEXTURE_DIMENSION_2D;
-		if (CGPU_RESOURCE_TYPE_TEXTURE_CUBE == (new_desc.descriptors & CGPU_RESOURCE_TYPE_TEXTURE_CUBE))
-			dims = CGPU_TEXTURE_DIMENSION_CUBE;
-		else if (new_desc.depth > 1)
-			dims = CGPU_TEXTURE_DIMENSION_3D;
 		CGPUTextureViewDescriptor view_desc;
 		view_desc.texture = texture->handle;
 		view_desc.format = texture->handle->info->format;
 		view_desc.usages = CGPU_TEXTURE_VIEW_USAGE_SRV;
 		view_desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
-		view_desc.dims = dims;
+		view_desc.dims = texture_view_dims(texture->handle->info);
 		view_desc.base_array_layer = 0;
 		view_desc.array_layer_count = arrayCount;
 		view_desc.base_mip_level = 0;
@@ -352,6 +361,31 @@ namespace HGEGraphics
 		texture->view = cgpu_device_create_texture_view(device, &view_desc);
 		texture->prepared = false;
 		texture->dynamic_handle = {};
+	}
+
+	uint64_t mip_extent(uint64_t size, uint32_t mip_level)
+	{
+		return std::max<uint64_t>(size >> mip_level, 1ull);
+	}
+
+	uint64_t texture_image_size(ECGPUTextureFormat format, uint64_t width, uint64_t height, uint64_t depth, uint32_t mip_level)
+	{
+		const uint64_t block_width = FormatUtil_WidthOfBlock(format);
+		const uint64_t block_height = FormatUtil_HeightOfBlock(format);
+		const uint64_t extent_width = mip_extent(width, mip_level);
+		const uint64_t extent_height = mip_extent(height, mip_level);
+		const uint64_t blocks_x = (extent_width + block_width - 1) / block_width;
+		const uint64_t blocks_y = (extent_height + block_height - 1) / block_height;
+		const uint64_t blocks_z = mip_extent(depth, mip_level);
+		return blocks_x * blocks_y * blocks_z * FormatUtil_BitSizeOfBlock(format) / 8;
+	}
+
+	uint64_t texture_data_size(ECGPUTextureFormat format, uint64_t width, uint64_t height, uint64_t depth, uint32_t mip_levels, uint32_t array_size)
+	{
+		uint64_t total = 0;
+		for (uint32_t mip = 0; mip < mip_levels; ++mip)
+			total += texture_image_size(format, width, height, depth, mip);
+		return total * array_size;
 	}
 
 	PulseTextureData* create_texture(CGPUDeviceId device, const CGPUTextureDescriptor& desc)

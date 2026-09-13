@@ -195,7 +195,7 @@ function typegen.cstructs(typedef)
 end
 
 function typegen.ccomponents(typedef)
-	if typedef.component then
+	if typedef.component and not typedef.external then
 		return add_doxygen(typedef, codegen.gen_component_cdefine(typedef), true)
 	end
 end
@@ -324,37 +324,16 @@ local function add_path(filename)
 	return path .. "/" .. filename
 end
 
-local function change_indent(str, indent)
-	if indent == "\t" then
-		-- strip trailing space only
-		return (str:gsub("(.-)\n", function (line)
-			return line:gsub("([ \t]*)$","\n") end))
-	else
-		return (str:gsub("(.-)\n", function (line)
-			return line:gsub("^(\t*)(.-)[ \t]*$",
-				function (tabs, content)
-					return indent:rep(#tabs) .. content .. "\n"
-				end)
-		end))
-	end
-end
-
 local gen = {}
 
 function gen.apply(idl, tempfile, naming)
-	local f = assert(io.open(tempfile, "rb"))
-	local temp = f:read "a"
-	f:close()
 	local codes_tbl = codes(idl, naming)
 	codes_tbl.source = tempfile
-	return (temp:gsub("$([%l%d_]+)", codes_tbl))
+	return codegen.apply_template(tempfile, codes_tbl)
 end
 
 function gen.gen(idl, tempfile, outputfile, indent, naming)
-	local codes = gen.apply(idl, tempfile, naming)
-	codes = change_indent(codes, indent)
-
-	return codes
+	return codegen.change_indent(gen.apply(idl, tempfile, naming), indent)
 end
 
 return gen.gen

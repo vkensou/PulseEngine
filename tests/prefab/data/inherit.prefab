@@ -1,0 +1,28 @@
+NeonLamp : {
+    extends : "BaseLamp"
+    name : "NeonLampPrefab"
+    components : {
+        TestNoteHolder : {
+            note : "neon"
+        }
+    }
+}
+BaseLamp : {
+    components : {
+        PulseRenderable : {
+            mesh : "Quad.obj"
+            material : "quad.material"
+        }
+    }
+    tags : [ TestTag ]
+    children : [
+        {
+            name : "Bulb"
+            components : {
+                PulseRenderable : {
+                    mesh : "Quad.obj"
+                }
+            }
+        }
+    ]
+}

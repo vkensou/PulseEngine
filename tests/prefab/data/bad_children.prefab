@@ -1,0 +1,4 @@
+name : "BadChildren"
+children : [
+    "not_an_object"
+]

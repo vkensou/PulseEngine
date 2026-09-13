@@ -11,6 +11,7 @@ module;
 
 #include "pulse_app.h"
 #include "app_internal.h"
+#include "pulse_app_reflection.h"
 
 module pulse_app;
 
@@ -98,7 +99,7 @@ AddPluginResult App::validate_plugin(const Plugin& plugin) {
 App::App(const AppDesc& desc)
     : name_(desc.name), enable_rest_api_(desc.enable_rest_api) {
     ecs_world_t* world = world_.c_ptr();
-    ecs_id(PulseTimer) = flecs::_::type<PulseTimer>::id(world);
+    pulse_app_register_reflection(world);
     ecs_id(pulse_app_state_resource) = flecs::_::type<pulse_app_state_resource>::id(world);
 
     PulseTimer time_ctx{};

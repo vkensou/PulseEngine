@@ -5,6 +5,9 @@
   },
   "packages": [
     {
+      "name": "pulse_math"
+    },
+    {
       "name": "pulse_input"
     },
     {
@@ -28,6 +31,9 @@
     },
     {
       "name": "pulse_transform"
+    },
+    {
+      "name": "pulse_prefab"
     },
     {
       "name": "pulse_graphics",

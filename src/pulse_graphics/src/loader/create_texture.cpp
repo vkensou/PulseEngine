@@ -5,11 +5,6 @@
 
 namespace pulse_graphics_internal {
 
-struct TextureLoaderState {
-    bool upload_requested = false;
-    bool upload_completed = false;
-};
-
 // Settings deep-copy: the asset system allocates one block of the returned size and
 // copies the struct bytes to its head; this callback lays out the nested data
 // (name string + pixel data) right after the struct and fixes the pointers into the block.
@@ -70,23 +65,23 @@ EPulseAssetLoaderStatus step_texture_create(
         HGEGraphics::init_texture(texture, device, create_desc->desc);
 
 		if (create_desc->p_pixel_data && create_desc->pixel_data_size > 0) {
-			auto* gstate = state_from_app(ctx->app);
-			if (gstate) {
-                uint64_t staging_size = 0;
-				PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
-				auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, create_desc->generate_mipmaps, &staging_size, &s->upload_completed);
-				if (staging_size < create_desc->pixel_data_size) {
-					*out_error = "texture loader: pixel data size exceeds staging buffer size";
-					return PULSE_ASSET_LOADER_STATUS_FAILED;
-				}
-				memcpy(staging, create_desc->p_pixel_data, create_desc->pixel_data_size);
+			const auto* create_info = texture->handle->info;
+			const uint64_t staging_capacity = HGEGraphics::texture_data_size(create_info->format, create_info->width, create_info->height, create_info->depth, 1, create_info->array_size_minus_one + 1);
+			if (staging_capacity < create_desc->pixel_data_size) {
+				*out_error = "texture loader: pixel data size exceeds staging buffer size";
+				return PULSE_ASSET_LOADER_STATUS_FAILED;
 			}
-			else {
+			auto* gstate = state_from_app(ctx->app);
+			if (!gstate) {
 				return PULSE_ASSET_LOADER_STATUS_FAILED;
 			}
 
-            s->upload_requested = true;
-            return PULSE_ASSET_LOADER_STATUS_PENDING;
+			PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
+			auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, create_desc->generate_mipmaps, nullptr, &s->upload_completed);
+			memcpy(staging, create_desc->p_pixel_data, create_desc->pixel_data_size);
+
+			s->upload_requested = true;
+			return PULSE_ASSET_LOADER_STATUS_PENDING;
 		} else {
 			return PULSE_ASSET_LOADER_STATUS_DONE;
         }

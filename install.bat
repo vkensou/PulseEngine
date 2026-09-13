@@ -20,6 +20,7 @@ xmake install -o "%dest_file%/packages/pulse_input" pulse_input
 xmake install -o "%dest_file%/packages/pulse_asset" pulse_asset
 xmake install -o "%dest_file%/packages/pulse_graphics" pulse_graphics
 xmake install -o "%dest_file%/packages/pulse_transform" pulse_transform
+xmake install -o "%dest_file%/packages/pulse_prefab" pulse_prefab
 xmake install -o "%dest_file%/packages/pulse_renderer" pulse_renderer
 xmake install -o "%dest_file%/packages/pulse_imgui" pulse_imgui
 xmake install -o "%dest_file%/packages/pulse_daslang" pulse_daslang

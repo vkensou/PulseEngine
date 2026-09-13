@@ -1,0 +1,77 @@
+version(1)
+
+typedef "bool"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "void"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From flecs.h
+typedef "ecs_entity_t" { cname = "ecs_entity_t" }
+
+const_value.PrefabPluginDescVersion { value = "1u" }
+
+--- Asset type id range 0x2000+ belongs to pulse_prefab (graphics uses 0x1000+)
+const_value.TypePrefab { value = "UINT64_C(0x2000)" }
+
+struct.PrefabHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.PrefabRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+struct.PrefabData
+    .root "ecs_entity_t"
+    .entities "?*ecs_entity_t" { owner = true }
+    .entityCount "uint32_t"
+    ()
+
+func.AddPrefabPlugin
+    "EPulseAppAddPluginResult"
+    .app "PulseAppId"
+    ()
+
+func.LoadPrefab
+    "PrefabRequest"
+    .app      "PulseAppId"
+    .filepath "cstring"
+    ()
+
+func.PrefabGetHandle
+    "PrefabHandle"
+    .app     "PulseAppId"
+    .request "PrefabRequest"
+    ()
+
+func.PrefabIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "PrefabRequest"
+    ()
+
+func.PrefabIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "PrefabRequest"
+    ()
+
+func.PrefabGetRoot
+    "ecs_entity_t"
+    .app    "PulseAppId"
+    .prefab "PrefabHandle"
+    ()
+
+func.PrefabInstantiate
+    "ecs_entity_t"
+    .app    "PulseAppId"
+    .prefab "PrefabHandle"
+    ()

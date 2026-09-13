@@ -1,0 +1,8 @@
+same : {
+    components : {
+        TestTag : {}
+    }
+}
+alias : {
+    name : "same"
+}

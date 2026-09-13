@@ -1,0 +1,10 @@
+--- &1
+name : "OrphanRoot"
+children : [ *2 ]
+--- &2
+name : "OrphanA"
+children : [ *3 ]
+--- &3
+name : "OrphanB"
+--- &4
+name : "OrphanLoose"

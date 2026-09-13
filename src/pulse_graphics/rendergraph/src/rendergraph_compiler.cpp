@@ -278,11 +278,19 @@ CGPUTextureViewId pulse_render_pass_encoder_resolve_texture_view(PulseRenderPass
 	desc.format = texture->handle->info->format;
 	desc.usages = CGPU_TEXTURE_VIEW_USAGE_SRV;
 	desc.aspects = CGPU_TEXTURE_VIEW_ASPECT_COLOR;
-	desc.dims = texture->handle->info->depth > 1 ? CGPU_TEXTURE_DIMENSION_3D :  CGPU_TEXTURE_DIMENSION_2D;
+	auto* info = texture->handle->info;
+	const bool whole_texture = resourceNode.manageType != ManageType::SubResource;
+	const uint32_t layers = whole_texture ? info->array_size_minus_one + 1 : 1;
+	ECGPUTextureDimension dims = CGPU_TEXTURE_DIMENSION_2D;
+	if (whole_texture)
+		dims = texture_view_dims(info);
+	else if (info->depth > 1)
+		dims = CGPU_TEXTURE_DIMENSION_3D;
+	desc.dims = dims;
 	desc.base_array_layer = resourceNode.arraySlice;
-	desc.array_layer_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->array_size_minus_one + 1 : 1;
+	desc.array_layer_count = layers;
 	desc.base_mip_level = resourceNode.mipLevel;
-	desc.mip_level_count = resourceNode.manageType != ManageType::SubResource ? texture->handle->info->mip_levels : 1;
+	desc.mip_level_count = whole_texture ? info->mip_levels : 1;
 	auto textureView = enc->context->textureViewPool.getResource(desc);
 	return textureView->handle;
 }

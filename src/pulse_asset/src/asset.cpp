@@ -98,9 +98,30 @@ EPulseAssetState AssetSystem::get_state(PulseAssetHandle handle) const {
     return slot ? slot->slot.state : PULSE_ASSET_STATE_EMPTY;
 }
 
+PulseAssetHandle AssetSystem::find_loaded(uint64_t type_id, const char* path) const {
+    if (!type_id || !path || !path[0]) {
+        return invalid_handle();
+    }
+
+    std::pmr::string normalized = AssetIo::normalize_path(path, resource());
+    PulseAssetHandle cached = storage_.find_cached(type_id, normalized);
+    if (is_invalid_handle(cached) || get_state(cached) != PULSE_ASSET_STATE_LOADED) {
+        return invalid_handle();
+    }
+    return cached;
+}
+
 const char* AssetSystem::get_error(PulseAssetHandle handle) const {
     auto slot = storage_.get_slot(handle);
     return slot && !slot->slot.error.empty() ? slot->slot.error.c_str() : nullptr;
+}
+
+const char* AssetSystem::get_path(PulseAssetHandle handle) const {
+    auto slot = storage_.get_slot(handle);
+    if (!slot || slot->slot.source != PULSE_ASSET_LOAD_SOURCE_FILE || slot->slot.path.empty()) {
+        return nullptr;
+    }
+    return slot->slot.path.c_str();
 }
 
 bool AssetSystem::retain(PulseAssetHandle handle, EPulseRetainErrorCode* out_error) {
@@ -249,6 +270,8 @@ PulseAssetHandle AssetSystem::load_impl(const LoadRequest& request) {
     if (!slot) {
         return invalid_handle();
     }
+
+    slot->source = request.source;
 
     auto release_failed_builder = [&]() {
         release(handle, nullptr);

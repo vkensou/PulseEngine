@@ -32,6 +32,57 @@ local function line_number(content, pos)
     return line
 end
 
+local function strip_comments(content)
+    local out = {}
+    local i = 1
+    local len = #content
+    while i <= len do
+        local c = content:sub(i, i)
+        if c == '"' or c == "'" then
+            local j = i + 1
+            while j <= len do
+                local d = content:sub(j, j)
+                if d == "\\" then
+                    j = j + 2
+                elseif d == c then
+                    j = j + 1
+                    break
+                else
+                    j = j + 1
+                end
+            end
+            if j > len then j = len + 1 end
+            out[#out + 1] = content:sub(i, j - 1)
+            i = j
+        elseif c == "/" then
+            local next_char = content:sub(i + 1, i + 1)
+            if next_char == "/" then
+                local j = content:find("\n", i, true) or (len + 1)
+                out[#out + 1] = string.rep(" ", j - i)
+                i = j
+            elseif next_char == "*" then
+                local j = content:find("*/", i + 2, true)
+                local seg_end = j and (j + 1) or len
+                out[#out + 1] = content:sub(i, seg_end):gsub("[^\n]", " ")
+                i = seg_end + 1
+            else
+                out[#out + 1] = "/"
+                i = i + 1
+            end
+        else
+            local j = i
+            while j <= len do
+                local d = content:sub(j, j)
+                if d == "/" or d == '"' or d == "'" then break end
+                j = j + 1
+            end
+            out[#out + 1] = content:sub(i, j - 1)
+            i = j
+        end
+    end
+    return table.concat(out)
+end
+
 -- 宏解析阶段（与 PULSE_ECS_SYSTEM / init、update、imgui 管线对应）
 local PHASE = {
     INIT = "INIT",
@@ -284,6 +335,370 @@ end
 -- 资源注册显示名：CamelCase 转空格分隔（SnakeAssets -> "Snake Assets"）。
 local function resource_display_name(name)
     return name:gsub("(%l)(%u)", "%1 %2")
+end
+
+local REFLECT_MARKS = {
+    { mark = "PULSE_ECS_SINGLETON_COMPONENT", kind = "singleton" },
+    { mark = "PULSE_ECS_COMPONENT", kind = "component" },
+    { mark = "PULSE_ECS_TAG", kind = "tag" },
+    { mark = "PULSE_ECS_EVENT", kind = "event" },
+}
+
+local function match_closing_brace(content, open_idx)
+    local depth = 0
+    local pos = open_idx
+    local len = #content
+    while pos <= len do
+        local c = content:sub(pos, pos)
+        if c == "{" then
+            depth = depth + 1
+        elseif c == "}" then
+            depth = depth - 1
+            if depth == 0 then
+                return pos
+            end
+        end
+        pos = pos + 1
+    end
+    return nil
+end
+
+local function field_base_type(typ)
+    local t = collapse_ws(typ)
+    t = t:gsub("^const%s+", "")
+    t = t:gsub("%s+const$", "")
+    return t
+end
+
+local REFLECT_PRIMITIVES = {
+    ["bool"] = true, ["char"] = true,
+    ["int8_t"] = true, ["uint8_t"] = true,
+    ["int16_t"] = true, ["uint16_t"] = true,
+    ["int32_t"] = true, ["uint32_t"] = true,
+    ["int64_t"] = true, ["uint64_t"] = true,
+    ["float"] = true, ["double"] = true,
+    ["int"] = true, ["unsigned"] = true, ["unsigned int"] = true,
+    ["short"] = true, ["unsigned short"] = true,
+    ["long"] = true, ["unsigned long"] = true,
+    ["long long"] = true, ["unsigned long long"] = true,
+    ["size_t"] = true, ["uintptr_t"] = true, ["intptr_t"] = true,
+}
+
+local REFLECT_MATH_TYPES = {
+    HMM_Vec2 = true, HMM_Vec3 = true, HMM_Vec4 = true, HMM_Quat = true, HMM_Mat4 = true,
+}
+
+local function dim_product(dims)
+    local total = 1
+    for _, d in ipairs(dims) do
+        local n = tonumber(d)
+        if not n then
+            return nil
+        end
+        total = total * n
+    end
+    return total
+end
+
+local function reflect_member_plan(field, enum_index)
+    if field.pointer then
+        return { form = "skip" }
+    end
+    local base = field_base_type(field.type)
+    if base == "flecs::entity" or base == "ecs_entity_t" then
+        local count = 0
+        if #field.dims > 0 then
+            count = dim_product(field.dims)
+            if not count then
+                return { form = "skip" }
+            end
+        end
+        return { form = "entity", count = count }
+    end
+    if REFLECT_MATH_TYPES[base] or enum_index[base] or REFLECT_PRIMITIVES[base] then
+        return { form = "member" }
+    end
+    return { form = "skip" }
+end
+
+local function assert_plain_field_stmt(stmt, header_path, line, struct_name)
+    local depth = 0
+    local i = 1
+    while i <= #stmt do
+        local c = stmt:sub(i, i)
+        if c == ":" and depth == 0 then
+            if stmt:sub(i + 1, i + 1) ~= ":" then
+                gen_error(string.format("%s:%d: 结构体 %s 的成员不支持位域/访问说明符: %s", header_path, line, struct_name, collapse_ws(stmt)))
+            end
+            i = i + 2
+        else
+            if depth == 0 then
+                if c == "=" then
+                    gen_error(string.format("%s:%d: 结构体 %s 的成员不支持默认初始化器: %s", header_path, line, struct_name, collapse_ws(stmt)))
+                elseif c == "&" then
+                    gen_error(string.format("%s:%d: 结构体 %s 的成员不支持引用: %s", header_path, line, struct_name, collapse_ws(stmt)))
+                elseif c == "(" then
+                    gen_error(string.format("%s:%d: 结构体 %s 的成员不支持函数声明/函数指针: %s", header_path, line, struct_name, collapse_ws(stmt)))
+                end
+            end
+            if c == "<" or c == "(" or c == "{" or c == "[" then
+                depth = depth + 1
+            elseif c == ">" or c == ")" or c == "}" or c == "]" then
+                depth = depth - 1
+            end
+            i = i + 1
+        end
+    end
+end
+
+local function split_field_stmt_by_commas(stmt)
+    local parts = {}
+    local depth = 0
+    local start = 1
+    for i = 1, #stmt do
+        local c = stmt:sub(i, i)
+        if c == "<" or c == "(" or c == "{" or c == "[" then
+            depth = depth + 1
+        elseif c == ">" or c == ")" or c == "}" or c == "]" then
+            depth = depth - 1
+        elseif c == "," and depth == 0 then
+            parts[#parts + 1] = stmt:sub(start, i - 1)
+            start = i + 1
+        end
+    end
+    parts[#parts + 1] = stmt:sub(start)
+    return parts
+end
+
+local function find_top_level_last_space(s)
+    local depth = 0
+    local last = nil
+    for i = 1, #s do
+        local c = s:sub(i, i)
+        if c == "<" or c == "(" or c == "{" or c == "[" then
+            depth = depth + 1
+        elseif c == ">" or c == ")" or c == "}" or c == "]" then
+            depth = depth - 1
+        elseif depth == 0 and c:match("%s") then
+            last = i
+        end
+    end
+    return last
+end
+
+local function parse_field_declarator(decl)
+    local t = decl:match("^%s*(.-)%s*$")
+    local pointer = t:match("^%*") ~= nil
+    t = t:gsub("^%*+%s*", "")
+    local name, rest = t:match("^([%w_]+)%s*(.*)$")
+    if not name then
+        return nil
+    end
+    local dims = {}
+    while true do
+        local dim, remaining = rest:match("^%[%s*([%w_]+)%s*%]%s*(.*)$")
+        if not dim then
+            break
+        end
+        dims[#dims + 1] = dim
+        rest = remaining
+    end
+    if rest ~= "" then
+        return nil
+    end
+    return name, dims, pointer
+end
+
+local function parse_struct_fields(body, header_path, line, struct_name)
+    local fields = {}
+    local stmts = {}
+    local depth = 0
+    local start = 1
+    for i = 1, #body do
+        local c = body:sub(i, i)
+        if c == "<" or c == "(" or c == "{" or c == "[" then
+            depth = depth + 1
+        elseif c == ">" or c == ")" or c == "}" or c == "]" then
+            depth = depth - 1
+        elseif depth == 0 and c == ";" then
+            stmts[#stmts + 1] = body:sub(start, i - 1)
+            start = i + 1
+        end
+    end
+    stmts[#stmts + 1] = body:sub(start)
+    for _, stmt in ipairs(stmts) do
+        local trimmed = stmt:match("^%s*(.-)%s*$")
+        if trimmed ~= "" then
+            assert_plain_field_stmt(trimmed, header_path, line, struct_name)
+            local parts = split_field_stmt_by_commas(trimmed)
+            local sep = find_top_level_last_space(parts[1])
+            if not sep then
+                gen_error(string.format("%s:%d: 结构体 %s 的成员声明无法解析（需要 `类型 成员名` 形式）: %s", header_path, line, struct_name, collapse_ws(trimmed)))
+            end
+            local typ = collapse_ws(parts[1]:sub(1, sep - 1))
+            if typ == "" then
+                gen_error(string.format("%s:%d: 结构体 %s 的成员声明缺少类型: %s", header_path, line, struct_name, collapse_ws(trimmed)))
+            end
+            local decls = { parts[1]:sub(sep + 1) }
+            for i = 2, #parts do
+                decls[#decls + 1] = parts[i]
+            end
+            for _, decl in ipairs(decls) do
+                local name, dims, pointer = parse_field_declarator(decl)
+                if not name then
+                    gen_error(string.format("%s:%d: 结构体 %s 的成员声明符无法解析（仅支持 名字 / 名字[尺寸] / *名字）: %s", header_path, line, struct_name, collapse_ws(decl)))
+                end
+                fields[#fields + 1] = { type = typ, name = name, dims = dims, pointer = pointer or typ:find("*", 1, true) ~= nil }
+            end
+        end
+    end
+    return fields
+end
+
+local function parse_reflected_types(content, header_path)
+    local marks = {}
+    for _, entry in ipairs(REFLECT_MARKS) do
+        local pos = 1
+        while true do
+            local s = content:find(entry.mark, pos, true)
+            if not s then
+                break
+            end
+            marks[#marks + 1] = { pos = s, mark = entry.mark, kind = entry.kind }
+            pos = s + #entry.mark
+        end
+    end
+    table.sort(marks, function(a, b) return a.pos < b.pos end)
+    local types = {}
+    local seen = {}
+    for _, m in ipairs(marks) do
+        local line = line_number(content, m.pos)
+        local after = m.pos + #m.mark
+        local _, open, name = content:find("^%s+struct%s+([%w_]+)%s*{", after)
+        if not name then
+            gen_error(string.format("%s:%d: %s 后未找到结构体定义（应紧跟 `struct 名字 {`）", header_path, line, m.mark))
+        end
+        if seen[name] then
+            gen_error(string.format("%s:%d: 结构体 %s 重复标记反射类型宏", header_path, line, name))
+        end
+        local close = match_closing_brace(content, open)
+        if not close then
+            gen_error(string.format("%s:%d: 反射标记的结构体 %s 大括号不匹配", header_path, line, name))
+        end
+        local body = content:sub(open + 1, close - 1)
+        local fields = parse_struct_fields(body, header_path, line, name)
+        if m.kind == "tag" and #fields > 0 then
+            gen_error(string.format("%s:%d: PULSE_ECS_TAG %s 不允许有成员", header_path, line, name))
+        end
+        seen[name] = true
+        types[#types + 1] = { name = name, kind = m.kind, fields = fields }
+    end
+    return types
+end
+
+local function parse_scoped_enums(content, header_path)
+    local enums = {}
+    local seen = {}
+    local pos = 1
+    while true do
+        local s, e, name = content:find("enum%s+class%s+([%w_]+)%s*[:%w_%s]*{", pos)
+        if not s then
+            break
+        end
+        local line = line_number(content, s)
+        local close = content:find("}", e, true)
+        if not close then
+            gen_error(string.format("%s:%d: enum class %s 定义未闭合", header_path, line, name))
+        end
+        if seen[name] then
+            gen_error(string.format("%s:%d: enum class %s 重复定义", header_path, line, name))
+        end
+        seen[name] = true
+        local members = {}
+        for piece in content:sub(e + 1, close - 1):gmatch("[^,]+") do
+            local m = piece:match("^%s*([%w_]+)")
+            if m then
+                members[#members + 1] = m
+            end
+        end
+        enums[#enums + 1] = { name = name, members = members }
+        pos = close + 1
+    end
+    return enums
+end
+
+local function collect_reflection(reflected_types, scoped_enums, state_machine)
+    local enum_index = {}
+    for _, en in ipairs(scoped_enums) do
+        enum_index[en.name] = en
+    end
+    local needed_enums = {}
+    if state_machine and enum_index[state_machine.enum_name] then
+        needed_enums[state_machine.enum_name] = true
+    end
+    local types = {}
+    for _, t in ipairs(reflected_types) do
+        local members = {}
+        for _, f in ipairs(t.fields) do
+            local plan = reflect_member_plan(f, enum_index)
+            plan.field = f
+            if plan.form == "member" and enum_index[field_base_type(f.type)] then
+                needed_enums[field_base_type(f.type)] = true
+            end
+            members[#members + 1] = plan
+        end
+        types[#types + 1] = { name = t.name, kind = t.kind, members = members }
+    end
+    local enums = {}
+    for _, en in ipairs(scoped_enums) do
+        if needed_enums[en.name] then
+            enums[#enums + 1] = en
+        end
+    end
+    return { types = types, enums = enums }
+end
+
+local function reflect_member_line(type_name, plan)
+    local f = plan.field
+    if plan.form == "member" then
+        return string.format('\t\tcomp.member("%s", &%s::%s);', f.name, type_name, f.name)
+    elseif plan.form == "entity" then
+        return string.format('\t\tcomp.member(ecs_id(ecs_entity_t), "%s", %d, offsetof(%s, %s));', f.name, plan.count, type_name, f.name)
+    end
+    return nil
+end
+
+local function generate_reflection_registration(reflection)
+    local output = {}
+    for _, en in ipairs(reflection.enums) do
+        table.insert(output, string.format('\tflecs::component<%s>(moduleContext->world, "%s");', en.name, en.name))
+    end
+    if #reflection.enums > 0 and #reflection.types > 0 then
+        table.insert(output, "")
+    end
+    for _, t in ipairs(reflection.types) do
+        local member_lines = {}
+        for _, plan in ipairs(t.members) do
+            local line = reflect_member_line(t.name, plan)
+            if line then
+                member_lines[#member_lines + 1] = line
+            end
+        end
+        if #member_lines == 0 then
+            table.insert(output, string.format('\tflecs::component<%s>(moduleContext->world, "%s");', t.name, t.name))
+        else
+            table.insert(output, "\t{")
+            table.insert(output, string.format('\t\tauto comp = flecs::component<%s>(moduleContext->world, "%s");', t.name, t.name))
+            for _, line in ipairs(member_lines) do
+                table.insert(output, line)
+            end
+            table.insert(output, "\t}")
+        end
+    end
+    if #reflection.types > 0 then
+        table.insert(output, "")
+    end
+    return output
 end
 
 -- 规范化参数类型，供 classify_param_type 使用 (移除引用和前置 const)。
@@ -863,7 +1278,7 @@ local function parse_systems(content, header_path)
     return systems
 end
 
-local function print_parsed_systems_dump(systems, state_machine, resources)
+local function print_parsed_systems_dump(systems, state_machine, resources, reflection)
     print("========== ECS 解析结果 ==========")
     print(string.format("%d 个系统\n", #systems))
     print("模块入口: importModule")
@@ -883,6 +1298,19 @@ local function print_parsed_systems_dump(systems, state_machine, resources)
         print("资源: " .. table.concat(display, ", "))
     else
         print("资源: (无)")
+    end
+    local enum_display = {}
+    for _, en in ipairs(reflection.enums) do
+        table.insert(enum_display, string.format("%s(%d 常量)", en.name, #en.members))
+    end
+    print("反射枚举: " .. (#enum_display > 0 and table.concat(enum_display, ", ") or "(无)"))
+    print(string.format("反射类型: %d 个", #reflection.types))
+    for _, t in ipairs(reflection.types) do
+        local field_display = {}
+        for _, plan in ipairs(t.members) do
+            field_display[#field_display + 1] = plan.field.type .. " " .. plan.field.name .. " -> " .. plan.form
+        end
+        print(string.format("    %-28s [%s] %s", t.name, t.kind, #field_display > 0 and table.concat(field_display, "; ") or "(无成员)"))
     end
     print("")
     for idx, sys in ipairs(systems) do
@@ -1376,8 +1804,12 @@ local function generate_state_machine_wrapper(state_machine)
     return table.concat(output, "\n")
 end
 
-local function generate_module_registration(systems, state_machine, resources)
+local function generate_module_registration(systems, state_machine, resources, reflection)
     local output = {}
+
+    for _, line in ipairs(generate_reflection_registration(reflection)) do
+        table.insert(output, line)
+    end
 
     -- 资源容器注册（加载请求由资源加载系统自行发起）
     for _, res in ipairs(resources or {}) do
@@ -1515,7 +1947,7 @@ local function generate_module_registration(systems, state_machine, resources)
     return table.concat(output, "\n")
 end
 
-local function generate_module_cpp(module_name, systems, state_machine, resources)
+local function generate_module_cpp(module_name, systems, state_machine, resources, reflection)
     local output = {}
 
     table.insert(output, "#include \"" .. module_name .. "_module.h\"")
@@ -1557,7 +1989,7 @@ local function generate_module_cpp(module_name, systems, state_machine, resource
     table.insert(output, "void importModule(pulse::ModuleContext* moduleContext)")
     table.insert(output, "{")
 
-    local registrations = generate_module_registration(systems, state_machine, resources)
+    local registrations = generate_module_registration(systems, state_machine, resources, reflection)
     for line in registrations:gmatch("[^\n]+") do
         table.insert(output, line)
     end
@@ -1759,14 +2191,17 @@ local function main(...)
     end
 
     print("解析: " .. header_path)
-    local content = read_file(header_path)
+    local content = strip_comments(read_file(header_path))
     local systems = parse_systems(content, header_path)
     local state_machine = parse_state_machine(content)
     local resources = parse_resources(content, header_path)
+    local scoped_enums = parse_scoped_enums(content, header_path)
+    local reflected_types = parse_reflected_types(content, header_path)
     validate_state_tokens(systems, state_machine, header_path)
+    local reflection = collect_reflection(reflected_types, scoped_enums, state_machine)
 
     if mode == "dump" then
-        print_parsed_systems_dump(systems, state_machine, resources)
+        print_parsed_systems_dump(systems, state_machine, resources, reflection)
         print("完成 (dump 模式)。")
         return
     end
@@ -1800,7 +2235,7 @@ local function main(...)
     write_file(out_dir .. module_name .. "_module.h", module_h)
     print("输出: " .. out_dir .. module_name .. "_module.h")
 
-    local module_cpp = generate_module_cpp(module_name, systems, state_machine, resources)
+    local module_cpp = generate_module_cpp(module_name, systems, state_machine, resources, reflection)
     write_file(out_dir .. module_name .. "_module.cpp", module_cpp)
     print("输出: " .. out_dir .. module_name .. "_module.cpp")
 

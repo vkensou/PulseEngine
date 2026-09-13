@@ -7,11 +7,11 @@
 
 #include "pulse_app.h"
 #include "pulse_math.h"
-#include "pulse_graphics.h"
 #include "pulse_transform.h"
 #include "pulse_renderer.h"
 #include "pulse_window.h"
 #include "pulse_input.h"
+#include "pulse_prefab.h"
 
 // ============================================================
 // 游戏状态机
@@ -102,11 +102,9 @@ PULSE_ECS_EVENT
 struct GameOverEvent {};
 
 PULSE_ECS_SINGLETON_COMPONENT
-struct SnakeResources
+struct SnakePrefabs
 {
-	PulseMeshHandle quad;
-	PulseMaterialHandle appleMat, snakeHeadMat, snakeBodyMat;
-	PulseMaterialHandle boardMat;
+	PulsePrefabHandle board, apple, snakeHead, snakeBody;
 };
 
 PULSE_ECS_EVENT
@@ -118,11 +116,12 @@ struct RestartEvent {};
 
 // 异步加载请求容器：loadSnakeResourcesSystem 自行发起请求并持有结果，
 // app 由系统参数注入（pulse_get_app_from_world）。
+// 实体由 .prefab 模板实例化：网格与材质写在 prefab 内，由 prefab loader
+// 负责把引用资产加载到位，游戏侧只等 prefab 就绪。
 PULSE_ECS_RESOURCE
 struct SnakeAssets
 {
-	PulseShaderRequest shader;
-	PulseMeshRequest mesh;
+	PulsePrefabRequest board, apple, snakeHead, snakeBody;
 };
 
 // ============================================================
@@ -139,7 +138,7 @@ PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void scheduleSnakeMoveSystem(pulse::res<const PulseTimer> timer, pulse::event_writer<SnakeMoveIntentEvent> snakeMoveIntentEvent, flecs::entity entity, const Facing4W& direction, SnakeMove& move);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
-void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, pulse::command_buffer& command_buffer, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources, pulse::event_writer<AppleEatenEvent> appleEatenEvent, pulse::event_writer<GameOverEvent> gameOverEvent, SnakeBodies& snake);
+void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, pulse::command_buffer& command_buffer, PulseAppId app, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs, pulse::event_writer<AppleEatenEvent> appleEatenEvent, pulse::event_writer<GameOverEvent> gameOverEvent, SnakeBodies& snake);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void syncSnakeBodyPositionSystem(SnakeBodies& snake);
@@ -151,7 +150,7 @@ PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void increaseScoreSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, Score& score);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
-void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, pulse::command_buffer& command_buffer, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakeResources>& resources);
+void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, pulse::command_buffer& command_buffer, PulseAppId app, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void onGameOverSystem(pulse::event_reader<GameOverEvent> gameOverEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery);
@@ -163,4 +162,4 @@ PULSE_ECS_SYSTEM(PHASE=IMGUI)
 void snakeFpsUISystem(pulse::res<const PulseTimer> timer);
 
 PULSE_ECS_SYSTEM(PHASE=IMGUI, STATE=SnakeGameState::GameOver)
-void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakeResources> resources);
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, PulseAppId app, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs);

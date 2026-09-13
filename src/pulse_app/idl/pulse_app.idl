@@ -175,7 +175,7 @@ component.Timer
     .timeSinceStartup       "float"
     .deltaTimeDouble        "double"
     .timeSinceStartupDouble "double"
-    .fps                    "int32_t"
+    .fps                    "int32_t" { min = 0.0, max = 10000.0 }
     ()
 
 func.CreateApp
