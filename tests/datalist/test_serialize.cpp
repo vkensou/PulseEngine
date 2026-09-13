@@ -95,6 +95,22 @@ static void test_quote(void) {
     pulse_datalist_free_string(q);
 }
 
+static void test_quote_roundtrip(void) {
+    static const char raw[] = "a\\b\tc\nd\1";
+    char* q = pulse_datalist_quote(raw, sizeof(raw) - 1);
+    assert(q != nullptr);
+    char text[128];
+    snprintf(text, sizeof(text), "x : %s\n", q);
+    pulse_datalist_free_string(q);
+    PulseDatalist* v = pulse_datalist_create_from_text(text, strlen(text));
+    assert(v != nullptr);
+    const char* back = pulse_datalist_get_string(v, "x", nullptr);
+    assert(back != nullptr);
+    assert(memcmp(back, raw, sizeof(raw) - 1) == 0);
+    assert(back[sizeof(raw) - 1] == '\0');
+    pulse_datalist_release(v);
+}
+
 static void test_file_roundtrip(void) {
     PulseDatalist* a = pulse_datalist_create_from_text_file("tests/datalist/data/sample.dl");
     assert(a != nullptr);
@@ -120,6 +136,7 @@ int main() {
     test_roundtrip("l : [ 1 2 ]\nt : { x : 1 }\ne : []\nf : {}\n");
     test_to_text_exact();
     test_quote();
+    test_quote_roundtrip();
     test_file_roundtrip();
     printf("test_serialize ok\n");
     return 0;

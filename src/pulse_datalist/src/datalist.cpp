@@ -477,6 +477,7 @@ push_token_string(struct BuildState *B, const char *ptr, size_t sz) {
 				case 'v':
 					buffer[m] = '\v';
 					break;
+				case '\\':
 				case '\'':
 				case '"':
 				case '\n':

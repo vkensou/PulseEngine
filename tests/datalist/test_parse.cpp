@@ -379,6 +379,19 @@ static void test_bracket_type(void) {
     assert(strstr(pulse_datalist_last_error(), "use { } instead of [ ]") != nullptr);
 }
 
+static void test_escapes(void) {
+    static const char text[] = "a : \"x\\\\y\"\nb : \"x\\ty\"\nc : \"x\\x41y\"\nd : \"x\\65y\"\ne : 'x\"y'\nf : \"x\\ny\"\n";
+    PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
+    assert(v != nullptr);
+    assert(strcmp(pulse_datalist_get_string(v, "a", ""), "x\\y") == 0);
+    assert(strcmp(pulse_datalist_get_string(v, "b", ""), "x\ty") == 0);
+    assert(strcmp(pulse_datalist_get_string(v, "c", ""), "xAy") == 0);
+    assert(strcmp(pulse_datalist_get_string(v, "d", ""), "xAy") == 0);
+    assert(strcmp(pulse_datalist_get_string(v, "e", ""), "x\"y") == 0);
+    assert(strcmp(pulse_datalist_get_string(v, "f", ""), "x\ny") == 0);
+    pulse_datalist_release(v);
+}
+
 static void test_getters(void) {
     static const char text[] = "i : 3\nd : 1.5\nb : true\ns : hi\n";
     PulseDatalist* v = pulse_datalist_create_from_text(text, sizeof(text) - 1);
@@ -436,6 +449,7 @@ int main() {
     test_section_ref_graph();
     test_bracket_ref_element();
     test_bracket_type();
+    test_escapes();
     test_repeated_key_ref();
     test_multi_key();
     test_parse_list();
