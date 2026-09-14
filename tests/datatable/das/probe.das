@@ -58,35 +58,46 @@ def probeTableSystem(app : PulseAppId, cmd : CommandBuffer) {
 
     let green = PulseSnakeFindRow(app, "green")
     let blue = PulseSnakeRowAt(app, 1)
-    let drop = PulseSnakeGetDrop(app, green)
     let seven = PulseNumFindRowInt(app, 7)
     let deep_a = PulseDeepFindRow(app, "a")
     let deep_b = PulseDeepFindRow(app, "b")
     let mage = PulseHeroFindRow(app, "mage")
 
     var text_code = 0
-    if (PulseSnakeGetId(app, green) != "green") {
+    if (green == null || blue == null || seven == null || deep_a == null || deep_b == null || mage == null) {
         text_code = 1
-    } elif (PulseSnakeGetId(app, blue) != "blue") {
+    } elif (PulseSnakeRowAt(app, 99) != null) {
         text_code = 2
-    } elif (PulseItemGetId(app, drop) != "apple") {
+    } elif (PulseSnakeFindRow(app, "purple") != null) {
         text_code = 3
-    } elif (PulseSnakeGetPrice(app, green) != "cheap") {
+    } elif (green.id != "green") {
         text_code = 4
-    } elif (PulseNumGetLabel(app, seven) != "seven") {
+    } elif (blue.id != "blue") {
         text_code = 5
-    } elif (PulseSnakeGetId(app, PulseSnakeRowAt(app, 0)) != "green") {
+    } elif (PulseNumRowCount(app) != 2) {
         text_code = 6
-    } elif (PulseDeepGetInnerShellTag(app, deep_a) != "deep") {
+    } elif (seven.title != "seven") {
         text_code = 7
-    } elif (PulseDeepGetInnerShellTag(app, deep_b) != "x") {
+    } elif (green.drop == null) {
         text_code = 8
-    } elif (PulseItemGetId(app, PulseRefdefaultGetLink(app, PulseRefdefaultFindRow(app, "solo"))) != "apple") {
+    } elif (green.drop.id != "apple") {
         text_code = 9
-    } elif (PulseHeroGetElement(app, mage) != "fire") {
+    } elif (green.price != "cheap") {
         text_code = 10
-    } elif (PulseHeroGetElement(app, PulseHeroFindRow(app, "knight")) != "water") {
+    } elif (green.skill.power != double(3.5) || green.skill.radius != int64(2)) {
         text_code = 11
+    } elif (PulseDeepRowAt(app, 0).inner.shell.tag != "deep") {
+        text_code = 12
+    } elif (deep_b.inner.shell.tag != "x") {
+        text_code = 13
+    } elif (PulseRefdefaultFindRow(app, "solo").link.id != "apple") {
+        text_code = 14
+    } elif (mage.element != "fire") {
+        text_code = 15
+    } elif (PulseHeroFindRow(app, "knight").element != "water") {
+        text_code = 16
+    } elif (green.id_length != uint64(5)) {
+        text_code = 17
     }
 
     var error_code = 0
@@ -95,9 +106,9 @@ def probeTableSystem(app : PulseAppId, cmd : CommandBuffer) {
     }
 
     let probe = DasTableProbe(
-        value = int(PulseSnakeGetHp(app, green)) * 1000 + int(PulseSnakeGetSkillRadius(app, green)) * 10 + PulseNumRowCount(app) + int(PulseDeepGetInnerShellRadius(app, deep_b)),
-        power = PulseSnakeGetInterval(app, green) + PulseSnakeGetSkillPower(app, green) + PulseSnakeGetInterval(app, blue) + PulseDeepGetInnerPower(app, deep_a),
-        flag = PulseSnakeGetBig(app, green) && !PulseSnakeGetBig(app, blue),
+        value = int(green.hp) * 1000 + int(green.skill.radius) * 10 + PulseNumRowCount(app) + int(deep_b.inner.shell.radius),
+        power = green.interval + green.skill.power + blue.interval + deep_a.inner.power,
+        flag = green.big && !blue.big,
         text_code = text_code,
         error_code = error_code
     )

@@ -151,10 +151,10 @@ int main(void) {
     assert(nums[1].id == 42);
     const pulse_tables::PulseNumRow* seven = pulse_tables::PulseNumRowTable::GetRow(app, 7);
     assert(seven != nullptr);
-    assert(seven->label == "seven");
+    assert(seven->title == "seven");
     const pulse_tables::PulseNumRow* forty_two = pulse_tables::PulseNumRowTable::GetRow(app, 42);
     assert(forty_two != nullptr);
-    assert(forty_two->label == "none");
+    assert(forty_two->title == "none");
     assert(pulse_tables::PulseNumRowTable::GetRow(app, 8) == nullptr);
     PulseDataTableId num_table = pulse_data_table_system_get(system, num_request);
     assert(num_table != nullptr);

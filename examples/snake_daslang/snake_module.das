@@ -362,7 +362,7 @@ def loadSnakeResourcesSystem(app : PulseAppId, assets : Res<SnakeAssets>, state 
         state.to(SnakeGameState.LoadFailed)
         return
     }
-    let moveInterval = float(PulseSnakeConfigGetMoveInterval(app, configRow))
+    let moveInterval = float(configRow.move_interval)
     cmd |> set_singleton(SnakeConfig(moveInterval = moveInterval))
 
     let prefabs = SnakePrefabs(

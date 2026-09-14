@@ -7,6 +7,12 @@ module snake_tables public
 
 require pulse public
 
+struct PulseSnakeConfigRow {
+    id : string
+    id_length : uint64
+    move_interval : double
+}
+
 var pulse_tables_registered : bool = false
 
 def private PulseSnakeConfigRegisterSchema(app: PulseAppId) : bool {
@@ -26,6 +32,7 @@ def private PulseSnakeConfigRegisterSchema(app: PulseAppId) : bool {
 }
 
 def PulseTablesRegisterSchemas(app: PulseAppId) {
+    static_assert(typeinfo sizeof(type<PulseSnakeConfigRow>) == 24)
     if (pulse_tables_registered) {
         return
     }
@@ -50,18 +57,14 @@ def PulseSnakeConfigRowCount(app: PulseAppId) : int {
     return int(pulse_data_table_row_count(app, "snake_config"))
 }
 
-def PulseSnakeConfigRowAt(app: PulseAppId; index: int) : void? {
-    return pulse_data_table_row_at(app, "snake_config", int64(index))
+def PulseSnakeConfigRowAt(app: PulseAppId; index: int) : PulseSnakeConfigRow? {
+    unsafe {
+        return reinterpret<PulseSnakeConfigRow?>(pulse_data_table_row_at(app, "snake_config", int64(index)))
+    }
 }
 
-def PulseSnakeConfigFindRow(app: PulseAppId; key: string) : void? {
-    return pulse_data_table_find_row(app, "snake_config", key)
-}
-
-def PulseSnakeConfigGetId(app: PulseAppId; row: void?) : string {
-    return pulse_data_table_read_string(app, "snake_config", row, int64(0), int64(-1), int64(-1), int64(-1))
-}
-
-def PulseSnakeConfigGetMoveInterval(app: PulseAppId; row: void?) : double {
-    return pulse_data_table_read_float(app, "snake_config", row, int64(1), int64(-1), int64(-1), int64(-1))
+def PulseSnakeConfigFindRow(app: PulseAppId; key: string) : PulseSnakeConfigRow? {
+    unsafe {
+        return reinterpret<PulseSnakeConfigRow?>(pulse_data_table_find_row(app, "snake_config", key))
+    }
 }

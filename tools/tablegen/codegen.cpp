@@ -249,6 +249,19 @@ public:
     }
 
     bool build(std::vector<std::string>& errors) {
+        if (emit_das_) {
+            for (const Schema& schema : library_.schemas) {
+                if (schema.kind == Kind::Enum) {
+                    continue;
+                }
+                std::string field_name{};
+                std::string reason{};
+                if (!check_das_struct(schema, field_name, reason)) {
+                    errors.push_back(schema.path + ": field '" + field_name + "' " + reason);
+                    return false;
+                }
+            }
+        }
         for (const Schema& schema : library_.schemas) {
             if (schema.kind != Kind::Table) {
                 continue;
@@ -257,13 +270,6 @@ public:
             if (!build_plan(schema, plan)) {
                 errors.push_back(schema.path + ": cannot lay out table '" + schema.name + "'");
                 return false;
-            }
-            if (emit_das_) {
-                std::string collision{};
-                if (!check_das_names(schema, collision)) {
-                    errors.push_back(schema.path + ": field '" + collision + "' collides with a generated table function of table '" + schema.name + "'");
-                    return false;
-                }
             }
             plans_.push_back(std::move(plan));
         }
@@ -934,32 +940,54 @@ private:
         source_ << "}\n";
     }
 
-    bool collect_das_names(const Schema& scope, const std::string& prefix, int depth, std::set<std::string>& names, std::string& collision) const {
-        for (const Field& field : scope.fields) {
-            const std::string name = prefix + pascal_case(field.name);
+    bool das_reserved_word(std::string_view name) const {
+        static const std::string_view reserved[] = {
+            "include", "capture", "for", "while", "if", "static_if", "elif", "static_elif", "else", "finally",
+            "def", "with", "aka", "assume", "let", "var", "uninitialized", "struct", "class", "enum", "try",
+            "recover", "typedef", "typedecl", "label", "goto", "module", "public", "options", "operator",
+            "require", "block", "function", "lambda", "generator", "tuple", "variant", "const", "continue",
+            "where", "cast", "upcast", "pass", "reinterpret", "override", "sealed", "template", "abstract",
+            "expect", "table", "array", "fixed_array", "default", "iterator", "in", "implicit", "explicit",
+            "shared", "private", "smart_ptr", "unsafe", "inscope", "static", "as", "is", "deref", "addr",
+            "null", "return", "yield", "break", "typeinfo", "type", "new", "delete", "true", "false", "auto",
+            "bool", "void", "string", "range64", "urange64", "range", "urange", "int", "int8", "int16", "int64",
+            "int2", "int3", "int4", "uint", "bitfield", "uint8", "uint16", "uint64", "uint2", "uint3", "uint4",
+            "double", "float", "float2", "float3", "float4",
+        };
+        for (std::string_view word : reserved) {
+            if (word == name) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool check_das_struct(const Schema& schema, std::string& field_name, std::string& reason) const {
+        std::set<std::string> names{};
+        for (const Field& field : schema.fields) {
+            if (das_reserved_word(field.name)) {
+                field_name = field.name;
+                reason = "is a daslang reserved word and cannot name a daslang row object field";
+                return false;
+            }
+            if (!names.insert(field.name).second) {
+                field_name = field.name;
+                reason = "is duplicated in the daslang row object";
+                return false;
+            }
             const Schema* nested = library_.find(field.type);
-            if (nested && nested->kind == Kind::Struct) {
-                if (depth < 3 && !collect_das_names(*nested, name, depth + 1, names, collision)) {
-                    return false;
-                }
+            const bool text = field.type == "string" || (nested && nested->kind == Kind::Enum);
+            if (!text) {
                 continue;
             }
-            if (!names.insert(name).second) {
-                collision = field.name;
+            const std::string placeholder = field.name + "_length";
+            if (!names.insert(placeholder).second) {
+                field_name = placeholder;
+                reason = "collides with the string column '" + field.name + "' length placeholder";
                 return false;
             }
         }
         return true;
-    }
-
-    bool check_das_names(const Schema& schema, std::string& collision) const {
-        static const char* reserved[] = { "Load", "IsReady", "GetError", "RowCount", "RowAt", "FindRow", "FindRowInt" };
-        std::set<std::string> names{};
-        const std::string prefix = "Pulse" + pascal_case(schema.name);
-        for (const char* suffix : reserved) {
-            names.insert(prefix + suffix);
-        }
-        return collect_das_names(schema, prefix + "Get", 0, names, collision);
     }
 
     void emit_das() {
@@ -969,6 +997,7 @@ private:
         das_ << "options no_unused_function_arguments = false\n\n";
         das_ << "module " << das_module_ << " public\n\n";
         das_ << "require pulse public\n\n";
+        emit_das_structs();
         das_ << "var pulse_tables_registered : bool = false\n\n";
         for (const TablePlan& plan : plans_) {
             emit_das_register(plan);
@@ -976,6 +1005,51 @@ private:
         emit_das_register_all();
         for (const TablePlan& plan : plans_) {
             emit_das_table(plan);
+        }
+    }
+
+    void emit_das_structs() {
+        for (const Schema* schema : ordered_schemas()) {
+            das_ << "struct " << nested_type_name(*schema) << " {\n";
+            for (const Field& field : schema->fields) {
+                emit_das_struct_field(field);
+            }
+            das_ << "}\n\n";
+        }
+    }
+
+    void emit_das_struct_field(const Field& field) {
+        if (field.type == "int") {
+            das_ << "    " << field.name << " : int64\n";
+            return;
+        }
+        if (field.type == "float") {
+            das_ << "    " << field.name << " : double\n";
+            return;
+        }
+        if (field.type == "bool") {
+            das_ << "    " << field.name << " : bool\n";
+            return;
+        }
+        if (field.type == "ref") {
+            const Schema* target = library_.find(field.ref);
+            das_ << "    " << field.name << " : " << nested_type_name(*target) << "?\n";
+            return;
+        }
+        const Schema* nested = library_.find(field.type);
+        if (field.type == "string" || (nested && nested->kind == Kind::Enum)) {
+            das_ << "    " << field.name << " : string\n";
+            das_ << "    " << field.name << "_length : uint64\n";
+            return;
+        }
+        das_ << "    " << field.name << " : " << nested_type_name(*nested) << "\n";
+    }
+
+    void emit_das_layout_asserts() {
+        for (const Schema* schema : ordered_schemas()) {
+            const std::string type = nested_type_name(*schema);
+            const uint32_t size = schema->kind == Kind::Table ? layouts_.table_rows.at(schema->name) : layouts_.structs.at(schema->name).size;
+            das_ << "    static_assert(typeinfo sizeof(type<" << type << ">) == " << size << ")\n";
         }
     }
 
@@ -1158,6 +1232,7 @@ private:
 
     void emit_das_register_all() {
         das_ << "def PulseTablesRegisterSchemas(app: PulseAppId) {\n";
+        emit_das_layout_asserts();
         das_ << "    if (pulse_tables_registered) {\n";
         das_ << "        return\n";
         das_ << "    }\n";
@@ -1173,10 +1248,19 @@ private:
         das_ << "}\n\n";
     }
 
+    void emit_das_view(const std::string& signature, const std::string& reader, const std::string& name, const std::string& row, const char* argument) {
+        das_ << "def " << signature << " : " << row << "? {\n";
+        das_ << "    unsafe {\n";
+        das_ << "        return reinterpret<" << row << "?>(" << reader << "(app, \"" << name << "\", " << argument << "))\n";
+        das_ << "    }\n";
+        das_ << "}\n\n";
+    }
+
     void emit_das_table(const TablePlan& plan) {
         const Schema& schema = *plan.schema;
         const std::string prefix = "Pulse" + pascal_case(schema.name);
         const std::string name = escape(schema.name);
+        const std::string row = nested_type_name(schema);
         const bool string_key = schema.fields[static_cast<size_t>(schema.key_index)].type != "int";
 
         das_ << "def " << prefix << "Load(app: PulseAppId; path: string = \"" << name << ".datatable\") : PulseAssetRequest {\n";
@@ -1196,80 +1280,13 @@ private:
         das_ << "    return int(pulse_data_table_row_count(app, \"" << name << "\"))\n";
         das_ << "}\n\n";
 
-        das_ << "def " << prefix << "RowAt(app: PulseAppId; index: int) : void? {\n";
-        das_ << "    return pulse_data_table_row_at(app, \"" << name << "\", int64(index))\n";
-        das_ << "}\n\n";
+        emit_das_view(prefix + "RowAt(app: PulseAppId; index: int)", "pulse_data_table_row_at", name, row, "int64(index)");
 
         if (string_key) {
-            das_ << "def " << prefix << "FindRow(app: PulseAppId; key: string) : void? {\n";
-            das_ << "    return pulse_data_table_find_row(app, \"" << name << "\", key)\n";
-            das_ << "}\n\n";
+            emit_das_view(prefix + "FindRow(app: PulseAppId; key: string)", "pulse_data_table_find_row", name, row, "key");
         } else {
-            das_ << "def " << prefix << "FindRowInt(app: PulseAppId; key: int) : void? {\n";
-            das_ << "    return pulse_data_table_find_row_int(app, \"" << name << "\", int64(key))\n";
-            das_ << "}\n\n";
+            emit_das_view(prefix + "FindRowInt(app: PulseAppId; key: int)", "pulse_data_table_find_row_int", name, row, "int64(key)");
         }
-
-        std::vector<int64_t> path{};
-        emit_das_fields(schema, schema, prefix + "Get", path, 0);
-    }
-
-    void emit_das_fields(const Schema& owner, const Schema& scope, const std::string& prefix, std::vector<int64_t>& path, int depth) {
-        for (size_t i = 0; i < scope.fields.size(); ++i) {
-            const Field& field = scope.fields[i];
-            const std::string name = prefix + pascal_case(field.name);
-            const Schema* nested = library_.find(field.type);
-            if (nested && nested->kind == Kind::Struct) {
-                if (depth < 3) {
-                    path.push_back(static_cast<int64_t>(i));
-                    emit_das_fields(owner, *nested, name, path, depth + 1);
-                    path.pop_back();
-                }
-                continue;
-            }
-            emit_das_reader(owner, field, nested, name, path, i);
-        }
-    }
-
-    void emit_das_reader(const Schema& owner, const Field& field, const Schema* nested, const std::string& name, const std::vector<int64_t>& path, size_t index) {
-        const char* reader = "pulse_data_table_read_int";
-        const char* result = "int64";
-        if (field.type == "float") {
-            reader = "pulse_data_table_read_float";
-            result = "double";
-        } else if (field.type == "bool") {
-            reader = "pulse_data_table_read_bool";
-            result = "bool";
-        } else if (field.type == "string") {
-            reader = "pulse_data_table_read_string";
-            result = "string";
-        } else if (field.type == "ref") {
-            reader = "pulse_data_table_read_ref";
-            result = "void?";
-        } else if (nested && nested->kind == Kind::Enum) {
-            reader = "pulse_data_table_read_string";
-            result = "string";
-        } else if (nested && nested->kind == Kind::Table) {
-            reader = "pulse_data_table_read_ref";
-            result = "void?";
-        }
-
-        std::string indices{};
-        for (int level = 0; level < 4; ++level) {
-            indices += ", int64(";
-            if (level < static_cast<int>(path.size())) {
-                indices += std::to_string(path[static_cast<size_t>(level)]);
-            } else if (level == static_cast<int>(path.size())) {
-                indices += std::to_string(index);
-            } else {
-                indices += "-1";
-            }
-            indices += ")";
-        }
-
-        das_ << "def " << name << "(app: PulseAppId; row: void?) : " << result << " {\n";
-        das_ << "    return " << reader << "(app, \"" << escape(owner.name) << "\", row" << indices << ")\n";
-        das_ << "}\n\n";
     }
 
     const Library& library_;

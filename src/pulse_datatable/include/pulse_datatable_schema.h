@@ -129,12 +129,14 @@ struct StringVault {
 
     std::string_view append(std::string_view text) {
         size_t offset = used;
-        if (offset + text.size() <= bytes.size()) {
+        if (offset + text.size() + 1 <= bytes.size()) {
             std::memcpy(bytes.data() + offset, text.data(), text.size());
+            bytes[offset + text.size()] = '\0';
         } else {
             bytes.insert(bytes.end(), text.begin(), text.end());
+            bytes.push_back('\0');
         }
-        used = offset + text.size();
+        used = offset + text.size() + 1;
         return std::string_view(bytes.data() + offset, text.size());
     }
 };

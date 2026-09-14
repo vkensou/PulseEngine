@@ -62,23 +62,37 @@ tools\tablegen\generate.bat
 
 ### daslang
 
-- 每张表一个私有注册函数 `Pulse<名>RegisterSchema(app) : bool`：用 das 的
-  `array<PulseDataTableColumnDesc>`（外加 `array<PulseDataTableStructDesc>` / `array<PulseDataTableEnumDesc>`）
-  按 schema 逐列摆描述符，指针字段用 `unsafe { desc.p_columns = reinterpret<void?>(addr(columns[0])) }`
-  指到数组首元素，然后直接调用 `pulse_data_table_register_schema(app, desc)`。不需要内嵌 schema 文本，
-  也不需要算偏移——引擎在 `fill_row` 为空时自己推导布局并拷贝进系统存储。
+- 非 enum 的 schema 各生成一个 das `struct`（表是 `Pulse<表名>Row`，共享 struct 是 `Pulse<结构名>`），
+  字段逐列镜像 native 行布局：`int`→`int64`、`float`→`double`、`bool`→`bool`、struct 列内嵌同名 das struct、
+  `ref` 列是目标表行对象的指针 `Pulse<目标表>Row?`。
+- 字符串列与枚举列是 das `string` + 紧跟一个 `<字段>_length : uint64`：native 行里这列是 16 字节的
+  `std::string_view`（指针 + 长度），das 的 `string` 只有 8 字节（指向 vault 里以 `\0` 结尾的文本），
+  所以长度字段是布局占位，读文本直接用字段本身（`row.id`），`row.id_length` 是原生长度。
+- 每个类型在 `PulseTablesRegisterSchemas` 里带一条 `static_assert(typeinfo sizeof(type<...>) == N)`，
+  das 侧算出的结构体大小一旦和引擎推导的行大小不一致就编译失败。
 - `PulseTablesRegisterSchemas(app)` 惰性注册全部表、进程内一次性，失败的注册函数打印引擎给出的错误；
   每张表的 `Load` 先调它，游戏代码不需要注册入口。
-- 每张表一组函数：`Pulse<名>Load(app, path = "<名>.datatable") -> PulseAssetRequest`、
-  `Pulse<名>IsReady(app, request)`、`Pulse<名>GetError(app, request)`、`Pulse<名>RowCount/RowAt/FindRow(FindRowInt)`。
-- 请求级查询显式收 `request`，没有隐藏状态：脚本把 `Load` 的返回值存进自己的资源/单例后一直用它。
-  `GetError` 未失败时返回空串，可以直接当失败判定。
-- 每个字段：`Pulse<名>Get<字段>`，嵌套 struct 逐层拼名（`Pulse<名>Get<字段><子字段>`），最多四层。
-- 字符串列返回 das `string`（按值拷贝），枚举列返回名字字符串，`ref` 列返回目标行裸指针，
-  可以继续用目标表的访问器读。
+- 每张表一组函数：`Pulse<表名>Load(app, path = "<表名>.datatable") -> PulseAssetRequest`、
+  `Pulse<表名>IsReady(app, request)`、`Pulse<表名>GetError(app, request)`、
+  `Pulse<表名>RowCount(app)`、`Pulse<表名>RowAt(app, index)`、`Pulse<表名>FindRow(app, key)`
+  （int 主键是 `FindRowInt`）。
+- `RowAt` / `FindRow` 直接把行内存 `reinterpret` 成行对象（`Pulse<表名>Row?`，没有这一行时是 `null`），
+  和 C++ 的 `const Pulse<表名>Row*` 一样是零拷贝的实时视图：
 
-daslang 侧不镜像行内存布局，字段读取走 `pulse` 模块的通用接口，所以行结构体布局变化不会影响脚本。
-daslang 包不需要任何 native 库：注册用的描述符全在 das 侧构造。
+  ```das
+  let row = PulseSnakeConfigFindRow(app, "default")
+  if (row == null) {
+      return
+  }
+  let interval = float(row.move_interval)
+  let skill_power = row.skill.power
+  if (row.drop != null) {
+      let drop_name = row.drop.name
+  }
+  ```
+
+- 行对象指向表自己的存储：字段就是行内存，字符串是 vault 里的文本（不拷贝），`ref` 是目标行地址；
+  只在数据表加载期间有效（卸载/重载后失效），只读——不要往里写。
 
 用法见 `tests/datatable/das/probe.das` 与 `examples/snake_daslang/`。
 
@@ -92,4 +106,5 @@ daslang 包不需要任何 native 库：注册用的描述符全在 das 侧构�
 - 非法 `default`（int 列给小数、bool 列给非 true/false）；struct 列不能带 `default`；
   enum 列的 `default` 必须是该 enum 的白名单值。
 - enum schema 没有 `values`、有空串或重复值；enum schema 与字段混写。
-- 生成的 daslang 访问器重名（例如同表内 `skill_power` 与 `skill.power`），或字段名与表函数重名。
+- 生成 daslang 绑定时：字段名不能是 daslang 保留字（`type`、`label`、`range`…，das 里没法声明这样的字段名），
+  同层字段名与字符串列的 `<字段>_length` 占位不能重名。

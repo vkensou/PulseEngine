@@ -1,6 +1,6 @@
 id:
     type: int
     key: true
-label:
+title:
     type: string
     default: "none"

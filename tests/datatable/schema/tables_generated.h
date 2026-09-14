@@ -95,7 +95,7 @@ static_assert(sizeof(PulseItemRow) == 40, "item layout mismatch");
 struct alignas(8) PulseNumRow
 {
     int64_t id;
-    std::string_view label;
+    std::string_view title;
 };
 static_assert(sizeof(PulseNumRow) == 24, "num layout mismatch");
 

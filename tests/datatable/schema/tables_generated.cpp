@@ -58,7 +58,7 @@ const PulseDataTableColumnDesc pulse_table_item_columns_0_2 = pulse::datatable::
 const std::array<PulseDataTableColumnDesc, 3> pulse_table_item_columns_0 = { pulse_table_item_columns_0_0, pulse_table_item_columns_0_1, pulse_table_item_columns_0_2 };
 
 const PulseDataTableColumnDesc pulse_table_num_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<int64_t>>::value).offset(0).build();
-const PulseDataTableColumnDesc pulse_table_num_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("label").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(8).default_string("none").build();
+const PulseDataTableColumnDesc pulse_table_num_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("title").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(8).default_string("none").build();
 const std::array<PulseDataTableColumnDesc, 2> pulse_table_num_columns_0 = { pulse_table_num_columns_0_0, pulse_table_num_columns_0_1 };
 
 const PulseDataTableColumnDesc pulse_table_ref_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
@@ -796,11 +796,11 @@ bool pulse_table_num_fill_0(const void* context, void* vault_data, const PulseDa
         }
     }
     {
-        const PulseDatalist* value = pulse_datalist_value(node, "label");
+        const PulseDatalist* value = pulse_datalist_value(node, "title");
         if (value && pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_STRING) {
             *error_line = pulse_datalist_line(value);
             *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
-            *out_error = "column 'label' expects a string";
+            *out_error = "column 'title' expects a string";
             return false;
         }
         std::string_view decoded = value ? vault->append(std::string_view(pulse_datalist_get_string(value, nullptr, ""))) : std::string_view("none");
