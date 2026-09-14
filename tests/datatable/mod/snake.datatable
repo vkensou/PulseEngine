@@ -1,0 +1,4 @@
+schema: "snake"
+rows: [
+    { id: "green" interval: 9 hp: 3 big: false drop: "apple" skill: { power: 8 radius: 6 } price: "pricey" }
+]

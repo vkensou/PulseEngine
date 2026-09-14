@@ -1,0 +1,7 @@
+id:
+    type: string
+    key: true
+kind:
+    type: string
+    default: alpha
+    values: [ alpha, beta ]

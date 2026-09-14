@@ -69,6 +69,7 @@ PULSE_DATALIST_API int64_t pulse_datalist_get_int(const PulseDatalist* node, [[p
 PULSE_DATALIST_API double pulse_datalist_get_double(const PulseDatalist* node, [[pulse::optional]] const char* key, double default_value);
 [[pulse::optional]] PULSE_DATALIST_API const char* pulse_datalist_get_string(const PulseDatalist* node, [[pulse::optional]] const char* key, [[pulse::optional]] const char* default_value);
 [[pulse::optional]] PULSE_DATALIST_API PulseDatalist* pulse_datalist_get_obj(const PulseDatalist* node, [[pulse::optional]] const char* key);
+[[pulse::optional]] PULSE_DATALIST_API PulseDatalist* pulse_datalist_value(const PulseDatalist* node, [[pulse::optional]] const char* key);
 PULSE_DATALIST_API size_t pulse_datalist_count(const PulseDatalist* node);
 [[pulse::optional]] PULSE_DATALIST_API PulseDatalist* pulse_datalist_get(const PulseDatalist* node, size_t index);
 PULSE_DATALIST_API size_t pulse_datalist_object_count(const PulseDatalist* node);
@@ -76,6 +77,7 @@ PULSE_DATALIST_API size_t pulse_datalist_object_count(const PulseDatalist* node)
 [[pulse::optional]] PULSE_DATALIST_API PulseDatalist* pulse_datalist_object_value(const PulseDatalist* node, size_t index);
 [[pulse::optional]] PULSE_DATALIST_API char* pulse_datalist_to_text(const PulseDatalist* node, [[pulse::optional]] size_t* out_len);
 [[pulse::optional]] PULSE_DATALIST_API char* pulse_datalist_quote(const char* str, size_t len);
+PULSE_DATALIST_API int32_t pulse_datalist_line(const PulseDatalist* node);
 [[pulse::optional]] PULSE_DATALIST_API const char* pulse_datalist_last_error(void);
 
 #ifdef __cplusplus

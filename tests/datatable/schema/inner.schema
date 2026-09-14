@@ -1,0 +1,5 @@
+power:
+    type: float
+    default: 1
+shell:
+    type: shell

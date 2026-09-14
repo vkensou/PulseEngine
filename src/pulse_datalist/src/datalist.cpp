@@ -82,6 +82,7 @@ struct PulseDatalist {
 	EPulseDatalistType type;
 	PulseDatalist *root;
 	int32_t ref_count;
+	int32_t line;
 	Arena arena;
 	bool b;
 	int64_t i;
@@ -125,6 +126,7 @@ struct lex_state {
 	struct token n;
 	int newline;
 	int aslist;
+	int line;
 };
 
 typedef struct TagEntry {
@@ -141,6 +143,7 @@ struct BuildState {
 	size_t tag_cap;
 	jmp_buf errjmp;
 	char error[ERROR_SIZE];
+	int line;
 };
 
 static void invalid(struct BuildState *B, struct lex_state *LS, const char *err);
@@ -272,9 +275,10 @@ parse_string(struct lex_state *LS) {
 // 0 : invalid source
 // 1 : ok
 static int
-next_token(struct lex_state *LS) {
+next_token(struct BuildState *B, struct lex_state *LS) {
 	const char * ptr = LS->source + LS->position;
 	const char * endptr = LS->source + LS->sz;
+	B->line = LS->line;
 	while (ptr < endptr) {
 		LS->position = ptr - LS->source;
 		if (LS->newline) {
@@ -296,6 +300,7 @@ next_token(struct lex_state *LS) {
 		case '\r':
 		case '\n':
 			LS->newline = 1;
+			++LS->line;
 			++ptr;
 			continue;
 		case ' ':
@@ -371,7 +376,7 @@ read_token(struct BuildState *B, struct lex_state *LS) {
 		invalid(B, LS, "End of data");
 	}
 	LS->c = LS->n;
-	if (!next_token(LS))
+	if (!next_token(B, LS))
 		invalid(B, LS, "Invalid token");
 //	printf("token %d %.*s\n", LS->c.type, (int)(LS->c.to-LS->c.from), LS->source + LS->c.from);
 	return LS->c.type;
@@ -644,6 +649,7 @@ new_table_0(struct BuildState *B) {
 	}
 	n->type = PULSE_DATALIST_TYPE_LIST;
 	n->ref_count = 1;
+	n->line = B->line;
 	n->root = B->root;
 	if (B->root == NULL)
 		B->root = n;
@@ -726,6 +732,7 @@ tag_fill(PulseDatalist *n) {
 	}
 	PulseDatalist *v = n->items[0];
 	n->type = v->type;
+	n->line = v->line;
 	n->b = v->b;
 	n->i = v->i;
 	n->d = v->d;
@@ -1524,7 +1531,9 @@ init_lex(struct BuildState *B, struct lex_state *LS, const char *text, size_t le
 	LS->position = 0;
 	LS->newline = 1;
 	LS->aslist = aslist;
-	if (!next_token(LS))
+	LS->line = 1;
+	B->line = 1;
+	if (!next_token(B, LS))
 		invalid(B, LS, "Invalid token");
 }
 
@@ -1992,6 +2001,11 @@ pulse_datalist_get_string(const PulseDatalist *node, const char *key, const char
 }
 
 PulseDatalist *
+pulse_datalist_value(const PulseDatalist *node, const char *key) {
+	return (PulseDatalist *)resolve(node, key);
+}
+
+PulseDatalist *
 pulse_datalist_get_obj(const PulseDatalist *node, const char *key) {
 	const PulseDatalist *v = resolve(node, key);
 	if (v == NULL)
@@ -2078,6 +2092,13 @@ pulse_datalist_to_text(const PulseDatalist *node, size_t *out_len) {
 	if (out_len != NULL)
 		*out_len = sb.len - 1;
 	return sb.data;
+}
+
+int32_t
+pulse_datalist_line(const PulseDatalist *node) {
+	if (node == NULL)
+		return 0;
+	return node->line;
 }
 
 const char *

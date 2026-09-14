@@ -1,0 +1,2 @@
+schema: "typ"
+rows: [ { id: a count: 1.5 } ]

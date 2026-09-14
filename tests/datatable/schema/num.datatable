@@ -1,0 +1,5 @@
+schema: "num"
+rows: [
+    { id: 7 label: "seven" }
+    { id: 42 }
+]

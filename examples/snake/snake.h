@@ -12,6 +12,9 @@
 #include "pulse_window.h"
 #include "pulse_input.h"
 #include "pulse_prefab.h"
+#include "pulse_datatable.h"
+
+#include "tables_generated.h"
 
 // ============================================================
 // 游戏状态机
@@ -118,10 +121,19 @@ struct RestartEvent {};
 // app 由系统参数注入（pulse_get_app_from_world）。
 // 实体由 .prefab 模板实例化：网格与材质写在 prefab 内，由 prefab loader
 // 负责把引用资产加载到位，游戏侧只等 prefab 就绪。
+// config 是数据表请求：蛇的移动间隔来自 snake_config.datatable。
 PULSE_ECS_RESOURCE
 struct SnakeAssets
 {
 	PulsePrefabRequest board, apple, snakeHead, snakeBody;
+	PulseAssetRequest config;
+};
+
+// 数据表加载结果：表就绪后由 loadSnakeResourcesSystem 写入单例
+PULSE_ECS_SINGLETON_COMPONENT
+struct SnakeConfig
+{
+	float moveInterval;
 };
 
 // ============================================================
@@ -162,4 +174,4 @@ PULSE_ECS_SYSTEM(PHASE=IMGUI)
 void snakeFpsUISystem(pulse::res<const PulseTimer> timer);
 
 PULSE_ECS_SYSTEM(PHASE=IMGUI, STATE=SnakeGameState::GameOver)
-void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, PulseAppId app, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs);
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, PulseAppId app, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs, pulse::singleton_query<const SnakeConfig> configQuery);

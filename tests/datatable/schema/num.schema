@@ -1,0 +1,6 @@
+id:
+    type: int
+    key: true
+label:
+    type: string
+    default: "none"

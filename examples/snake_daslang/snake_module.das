@@ -7,6 +7,7 @@ options strict_smart_pointers = true
 require pulse/flecs_boost public
 require pulse/pulse_components public
 require pulse public
+require pulse_tables public
 require daslib/random
 require daslib/option
 require math
@@ -74,6 +75,11 @@ struct SnakePrefabs {
 
 struct SnakeAssets {
     board, apple, snakeHead, snakeBody: PulsePrefabRequest
+    config: PulseAssetRequest
+}
+
+struct SnakeConfig {
+    moveInterval: float
 }
 
 struct SnakeMoveIntentEvent {
@@ -134,7 +140,7 @@ def instantiatePrefab(cmd: CommandBuffer, app: PulseAppId, prefab: PulsePrefabHa
     return ent
 }
 
-def createSnake(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, initPos: HMM_Vec3) {
+def createSnake(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, initPos: HMM_Vec3, moveInterval: float) {
     let snakeInitLength = 3
 
     let head = instantiatePrefab(cmd, app, prefabs.snakeHead, initPos, HMM_V3_One)
@@ -154,7 +160,7 @@ def createSnake(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, init
     cmd |> set_entity_component(snake, SnakeBodies(bodies <- bodies))
     cmd |> set_entity_component(snake, Facing4W(value = Direction4W.Right))
     cmd |> set_entity_component(snake, SnakeInput(rightKey = 79, upKey = 82, leftKey = 80, downKey = 81))
-    cmd |> set_entity_component(snake, SnakeMove(interval = 1.0, lastTime = 0.0))
+    cmd |> set_entity_component(snake, SnakeMove(interval = moveInterval, lastTime = 0.0))
     return (snake, <- poses)
 }
 
@@ -218,9 +224,9 @@ def createApple(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, snak
     return instantiatePrefab(cmd, app, prefabs.apple, unwrap(newPos), HMM_V3_One)
 }
 
-def createEntities(cmd: CommandBuffer, app: PulseAppId, border: Border, prefabs: SnakePrefabs) {
+def createEntities(cmd: CommandBuffer, app: PulseAppId, border: Border, prefabs: SnakePrefabs, moveInterval: float) {
     cmd |> set_singleton(Score(value = 0))
-    let (_, poses) = createSnake(cmd, app, prefabs, HMM_V3(0.0, 0.0, 0.0))
+    let (_, poses) = createSnake(cmd, app, prefabs, HMM_V3(0.0, 0.0, 0.0), moveInterval)
     createApple(cmd, app, prefabs, poses, border)
 }
 
@@ -315,6 +321,7 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
         assets.get().apple = pulse_load_prefab(app, "assets/apple.prefab")
         assets.get().snakeHead = pulse_load_prefab(app, "assets/snake_head.prefab")
         assets.get().snakeBody = pulse_load_prefab(app, "assets/snake_body.prefab")
+        assets.get().config = PulseSnakeConfigLoad(app, "assets/snake_config.datatable")
         state.to(SnakeGameState.Loading)
         return
     }
@@ -332,11 +339,31 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
         }
     }
 
+    let config_error = PulseSnakeConfigGetError(app, assets.get().config)
+    if (config_error != "") {
+        print("Snake config load failed: {config_error}\n")
+        state.to(SnakeGameState.LoadFailed)
+        return
+    }
+
     for (request in requests) {
         if (!pulse_prefab_is_ready(app, request)) {
             return
         }
     }
+
+    if (!PulseSnakeConfigIsReady(app, assets.get().config)) {
+        return
+    }
+
+    let configRow = PulseSnakeConfigFindRow(app, "default")
+    if (configRow == null) {
+        print("Snake config row 'default' is missing\n")
+        state.to(SnakeGameState.LoadFailed)
+        return
+    }
+    let moveInterval = float(PulseSnakeConfigGetMoveInterval(app, configRow))
+    cmd |> set_singleton(SnakeConfig(moveInterval = moveInterval))
 
     let prefabs = SnakePrefabs(
         board = pulse_prefab_get_handle(app, assets.get().board),
@@ -358,7 +385,7 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
     let right = roundi(boardCenterX + halfWidth)
 
     let border = createBorder(cmd, app, prefabs, up, bottom, left, right)
-    createEntities(cmd, app, border, prefabs)
+    createEntities(cmd, app, border, prefabs, moveInterval)
 
     let camera = cmd.entity()
     cmd |> set_entity_component(camera, PulseLocalTransform(translation = HMM_V3(boardCenterX, boardCenterY, cameraZ), rotation = HMM_Q_Identity, scale = HMM_V3_One))
@@ -481,11 +508,11 @@ def snakeFpsUISystem(timer: Res<PulseTimer const>) {
 }
 
 [system(state="GameOver")]
-def restartSystem(restartEvent: EventReader<RestartEvent>, cmd: CommandBuffer, app: PulseAppId, state: SystemStateMachine<SnakeGameState>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>) {
+def restartSystem(restartEvent: EventReader<RestartEvent>, cmd: CommandBuffer, app: PulseAppId, state: SystemStateMachine<SnakeGameState>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>, configQuery: SingletonQuery<SnakeConfig const>) {
     // 事件观察器运行期间 world 处于 deferred/staging 状态，
     // 与 C++ snake 保持一致：临时挂起 defer，让实体立即创建。
     cmd.defer_suspend()
-    createEntities(cmd, app, borderQuery.get(), prefabs.get())
+    createEntities(cmd, app, borderQuery.get(), prefabs.get(), configQuery.get().moveInterval)
     cmd.defer_resume()
     state.to(SnakeGameState.Gaming)
 }

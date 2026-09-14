@@ -12,7 +12,8 @@
     "pulse_graphics",
     "pulse_renderer",
     "pulse_imgui",
-    "pulse_prefab"
+    "pulse_prefab",
+    "pulse_datatable"
   ],
   "paths": [
     "assets"

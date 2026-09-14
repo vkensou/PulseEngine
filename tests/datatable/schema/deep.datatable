@@ -1,0 +1,5 @@
+schema: "deep"
+rows: [
+    { id: "a" inner: { power: 4.5 shell: { radius: 9 tag: "deep" } } }
+    { id: "b" }
+]

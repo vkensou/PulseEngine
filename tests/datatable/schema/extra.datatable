@@ -1,0 +1,2 @@
+schema: "extra"
+rows: [ { id: a bogus: 1 } ]

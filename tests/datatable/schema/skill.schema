@@ -1,0 +1,6 @@
+power:
+    type: float
+    default: 1
+radius:
+    type: int
+    default: 1

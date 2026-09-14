@@ -1,0 +1,8 @@
+id:
+    type: string
+    key: true
+value:
+    type: float
+    default: 1
+    min: 0
+    max: 10

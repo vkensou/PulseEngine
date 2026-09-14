@@ -1,6 +1,7 @@
 #include "das_pulse.h"
 
 #include <cstring>
+#include <string_view>
 
 #include "daScript/misc/platform.h"
 #include "daScript/ast/ast.h"
@@ -15,6 +16,7 @@
 
 #include "pulse_app.h"
 #include "pulse_asset.h"
+#include "pulse_datatable.h"
 #include "pulse_graphics.h"
 #include "pulse_math.h"
 #include "pulse_prefab.h"
@@ -155,6 +157,165 @@ static ecs_entity_t das_prefab_instantiate(const PulseAppHandle& app, const Puls
 static void das_material_set_property_float4(const PulseAppHandle& app, const PulseMaterialHandle& material, const char* name, const HMM_Vec4& value)
 {
 	pulse_material_set_property_float4(app.app, material, name, value);
+}
+
+struct DasDataTableField
+{
+	const PulseDataTableColumnDesc* column = nullptr;
+	uint32_t offset = 0;
+};
+
+static const PulseDataTableStructDesc* das_data_table_struct(const PulseDataTableSchemaDesc* schema, const char* name)
+{
+	if (!schema || !name) {
+		return nullptr;
+	}
+	for (uint32_t i = 0; i < schema->structs_count; ++i) {
+		if (schema->p_structs[i].name && std::strcmp(schema->p_structs[i].name, name) == 0) {
+			return &schema->p_structs[i];
+		}
+	}
+	return nullptr;
+}
+
+static bool das_data_table_resolve(const PulseDataTableSchemaDesc* schema, int64_t c0, int64_t c1, int64_t c2, int64_t c3, DasDataTableField& out)
+{
+	if (!schema || c0 < 0 || static_cast<uint64_t>(c0) >= schema->columns_count) {
+		return false;
+	}
+	const PulseDataTableColumnDesc* column = &schema->p_columns[c0];
+	uint32_t base = 0;
+	const int64_t path[3] = { c1, c2, c3 };
+	for (int i = 0; i < 3; ++i) {
+		if (path[i] < 0) {
+			break;
+		}
+		if (column->type != PULSE_DATA_TABLE_COLUMN_TYPE_STRUCT || !column->struct_type) {
+			return false;
+		}
+		const PulseDataTableStructDesc* nested = das_data_table_struct(schema, column->struct_type);
+		if (!nested || static_cast<uint64_t>(path[i]) >= nested->columns_count) {
+			return false;
+		}
+		base += column->offset;
+		column = &nested->p_columns[path[i]];
+	}
+	out.column = column;
+	out.offset = base + column->offset;
+	return true;
+}
+
+static const PulseDataTableSchemaDesc* das_data_table_schema(const PulseAppHandle& app, const char* schema)
+{
+	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
+	return system ? pulse_data_table_system_get_schema(system, schema) : nullptr;
+}
+
+static PulseAssetRequest das_data_table_load(const PulseAppHandle& app, const char* schema, const char* path)
+{
+	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
+	if (!system) {
+		return pulse_asset_request_make_invalid();
+	}
+	return pulse_data_table_system_load(system, schema, path);
+}
+
+static bool das_data_table_is_ready(const PulseAppHandle& app, const PulseAssetRequest& request)
+{
+	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
+	return system && pulse_data_table_system_is_ready(system, request);
+}
+
+static char* das_data_table_get_error(const PulseAppHandle& app, const PulseAssetRequest& request, das::Context* context, das::LineInfoArg* at)
+{
+	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
+	const char* error = system ? pulse_data_table_system_get_error(system, request) : nullptr;
+	if (!error) {
+		return context->allocateString("", 0, at);
+	}
+	return context->allocateString(error, static_cast<uint32_t>(std::strlen(error)), at);
+}
+
+static PulseDataTableId das_data_table_table(const PulseAppHandle& app, const char* schema)
+{
+	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
+	return system ? pulse_data_table_system_get_by_name(system, schema) : nullptr;
+}
+
+static int64_t das_data_table_row_count(const PulseAppHandle& app, const char* schema)
+{
+	return static_cast<int64_t>(pulse_data_table_row_count(das_data_table_table(app, schema)));
+}
+
+static void* das_data_table_row_at(const PulseAppHandle& app, const char* schema, int64_t index)
+{
+	PulseDataTableId table = das_data_table_table(app, schema);
+	const PulseDataTableSchemaDesc* desc = das_data_table_schema(app, schema);
+	if (!table || !desc || index < 0) {
+		return nullptr;
+	}
+	uint32_t count = 0;
+	const void* rows = pulse_data_table_rows(table, &count);
+	if (!rows || static_cast<uint64_t>(index) >= count) {
+		return nullptr;
+	}
+	return const_cast<char*>(static_cast<const char*>(rows) + static_cast<size_t>(index) * desc->row_size);
+}
+
+static void* das_data_table_find_row(const PulseAppHandle& app, const char* schema, const char* key)
+{
+	return const_cast<void*>(pulse_data_table_find_row(das_data_table_table(app, schema), key));
+}
+
+static void* das_data_table_find_row_int(const PulseAppHandle& app, const char* schema, int64_t key)
+{
+	return const_cast<void*>(pulse_data_table_find_row_int(das_data_table_table(app, schema), key));
+}
+
+static const void* das_data_table_field(const PulseAppHandle& app, const char* schema, const void* row, int64_t c0, int64_t c1, int64_t c2, int64_t c3)
+{
+	if (!row) {
+		return nullptr;
+	}
+	DasDataTableField field{};
+	if (!das_data_table_resolve(das_data_table_schema(app, schema), c0, c1, c2, c3, field)) {
+		return nullptr;
+	}
+	return static_cast<const char*>(row) + field.offset;
+}
+
+static int64_t das_data_table_read_int(const PulseAppHandle& app, const char* schema, const void* row, int64_t c0, int64_t c1, int64_t c2, int64_t c3)
+{
+	const void* address = das_data_table_field(app, schema, row, c0, c1, c2, c3);
+	return address ? *static_cast<const int64_t*>(address) : 0;
+}
+
+static double das_data_table_read_float(const PulseAppHandle& app, const char* schema, const void* row, int64_t c0, int64_t c1, int64_t c2, int64_t c3)
+{
+	const void* address = das_data_table_field(app, schema, row, c0, c1, c2, c3);
+	return address ? *static_cast<const double*>(address) : 0.0;
+}
+
+static bool das_data_table_read_bool(const PulseAppHandle& app, const char* schema, const void* row, int64_t c0, int64_t c1, int64_t c2, int64_t c3)
+{
+	const void* address = das_data_table_field(app, schema, row, c0, c1, c2, c3);
+	return address ? *static_cast<const bool*>(address) : false;
+}
+
+static char* das_data_table_read_string(const PulseAppHandle& app, const char* schema, const void* row, int64_t c0, int64_t c1, int64_t c2, int64_t c3, das::Context* context, das::LineInfoArg* at)
+{
+	const void* address = das_data_table_field(app, schema, row, c0, c1, c2, c3);
+	if (!address) {
+		return context->allocateString("", 0, at);
+	}
+	const std::string_view* value = static_cast<const std::string_view*>(address);
+	return context->allocateString(value->data(), static_cast<uint32_t>(value->size()), at);
+}
+
+static void* das_data_table_read_ref(const PulseAppHandle& app, const char* schema, const void* row, int64_t c0, int64_t c1, int64_t c2, int64_t c3)
+{
+	const void* address = das_data_table_field(app, schema, row, c0, c1, c2, c3);
+	return address ? const_cast<void*>(*static_cast<const void* const*>(address)) : nullptr;
 }
 
 static void das_text(const char* txt)
@@ -502,6 +663,20 @@ namespace das
 		addExtern<DAS_BIND_FUN(das_prefab_is_ready)>(*this, lib, "pulse_prefab_is_ready", SideEffects::modifyExternal, "pulse_prefab_is_ready")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_prefab_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_prefab_get_handle", SideEffects::modifyExternal, "pulse_prefab_get_handle")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_prefab_instantiate)>(*this, lib, "pulse_prefab_instantiate", SideEffects::worstDefault, "pulse_prefab_instantiate")->args({ "app", "prefab" });
+
+		addExtern<DAS_BIND_FUN(das_data_table_load), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_data_table_load", SideEffects::worstDefault, "pulse_data_table_load")->args({ "app", "schema", "path" });
+		addExtern<DAS_BIND_FUN(das_data_table_is_ready)>(*this, lib, "pulse_data_table_is_ready", SideEffects::modifyExternal, "pulse_data_table_is_ready")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_data_table_get_error)>(*this, lib, "pulse_data_table_get_error", SideEffects::modifyExternal, "pulse_data_table_get_error")->args({ "app", "request", "context", "at" });
+		addExtern<DAS_BIND_FUN(das_data_table_row_count)>(*this, lib, "pulse_data_table_row_count", SideEffects::modifyExternal, "pulse_data_table_row_count")->args({ "app", "schema" });
+		addExtern<DAS_BIND_FUN(das_data_table_row_at)>(*this, lib, "pulse_data_table_row_at", SideEffects::modifyExternal, "pulse_data_table_row_at")->args({ "app", "schema", "index" });
+		addExtern<DAS_BIND_FUN(das_data_table_find_row)>(*this, lib, "pulse_data_table_find_row", SideEffects::modifyExternal, "pulse_data_table_find_row")->args({ "app", "schema", "key" });
+		addExtern<DAS_BIND_FUN(das_data_table_find_row_int)>(*this, lib, "pulse_data_table_find_row_int", SideEffects::modifyExternal, "pulse_data_table_find_row_int")->args({ "app", "schema", "key" });
+
+		addExtern<DAS_BIND_FUN(das_data_table_read_int)>(*this, lib, "pulse_data_table_read_int", SideEffects::none, "pulse_data_table_read_int")->args({ "app", "schema", "row", "c0", "c1", "c2", "c3" });
+		addExtern<DAS_BIND_FUN(das_data_table_read_float)>(*this, lib, "pulse_data_table_read_float", SideEffects::none, "pulse_data_table_read_float")->args({ "app", "schema", "row", "c0", "c1", "c2", "c3" });
+		addExtern<DAS_BIND_FUN(das_data_table_read_bool)>(*this, lib, "pulse_data_table_read_bool", SideEffects::none, "pulse_data_table_read_bool")->args({ "app", "schema", "row", "c0", "c1", "c2", "c3" });
+		addExtern<DAS_BIND_FUN(das_data_table_read_string)>(*this, lib, "pulse_data_table_read_string", SideEffects::none, "pulse_data_table_read_string")->args({ "app", "schema", "row", "c0", "c1", "c2", "c3", "context", "at" });
+		addExtern<DAS_BIND_FUN(das_data_table_read_ref)>(*this, lib, "pulse_data_table_read_ref", SideEffects::none, "pulse_data_table_read_ref")->args({ "app", "schema", "row", "c0", "c1", "c2", "c3" });
 
 		addExtern<DAS_BIND_FUN(das_text)>(*this, lib, "Text", SideEffects::worstDefault, "Text")->args({ "txt" });
 		addExtern<DAS_BIND_FUN(das_button)>(*this, lib, "Button", SideEffects::worstDefault, "Button")->args({ "label" });

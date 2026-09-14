@@ -33,6 +33,7 @@ int main(void)
         { "pulse_asset", nullptr },
         { "pulse_math", nullptr },
         { "pulse_prefab", nullptr },
+        { "pulse_datatable", nullptr },
         { "pulse_daslang", nullptr },
         { "pkg_das_test", nullptr },
     };

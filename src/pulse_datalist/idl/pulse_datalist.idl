@@ -109,6 +109,12 @@ func.DatalistGetObj
     .key "?cstring"
     ()
 
+func.DatalistValue
+    "?*Datalist"
+    .node "*const Datalist"
+    .key "?cstring"
+    ()
+
 func.DatalistCount
     "size_t"
     .node "*const Datalist"
@@ -147,6 +153,11 @@ func.DatalistQuote
     "?*char"
     .str "cstring"
     .len "size_t"
+    ()
+
+func.DatalistLine
+    "int32_t"
+    .node "*const Datalist"
     ()
 
 func.DatalistLastError

@@ -135,9 +135,10 @@ static void restartSystemWrapper(
 	pulse::command_buffer command_buffer(world);
 	auto borderQuery = pulse::singleton_query<const Border>(world);
 	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
+	auto configQuery = pulse::singleton_query<const SnakeConfig>(world);
 	auto state = pulse::system_state_machine<SnakeGameState>(world);
 	auto app = pulse_get_app_from_world(world.c_ptr());
-	restartSystem(restartEvent, command_buffer, app, state, borderQuery, prefabsQuery);
+	restartSystem(restartEvent, command_buffer, app, state, borderQuery, prefabsQuery, configQuery);
 }
 
 void importModule(pulse::ModuleContext* moduleContext)
@@ -178,6 +179,10 @@ void importModule(pulse::ModuleContext* moduleContext)
 	flecs::component<GameOverEvent>(moduleContext->world, "GameOverEvent");
 	flecs::component<SnakePrefabs>(moduleContext->world, "SnakePrefabs");
 	flecs::component<RestartEvent>(moduleContext->world, "RestartEvent");
+	{
+		auto comp = flecs::component<SnakeConfig>(moduleContext->world, "SnakeConfig");
+		comp.member("moveInterval", &SnakeConfig::moveInterval);
+	}
 	pulse::registerResource<SnakeAssets>(moduleContext->world, "Snake Assets", SnakeAssets{});
 	moduleContext->world.set<pulse::StateMachine<SnakeGameState>>(pulse::StateMachine<SnakeGameState>{});
 	auto& stateMachine = moduleContext->world.get_mut<pulse::StateMachine<SnakeGameState>>();

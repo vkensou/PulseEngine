@@ -1,0 +1,5 @@
+schema: "item"
+rows: [
+    { id: "apple" name: "Apple" weight: 0.3 }
+    { id: "rock" name: "Rock" weight: 2.5 }
+]
