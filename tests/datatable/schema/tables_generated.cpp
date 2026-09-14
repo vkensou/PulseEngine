@@ -12,9 +12,11 @@ constexpr const PulseDataTableSchemaDesc* pulse_table_deep_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_dup_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_enm_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_extra_schema_ptr();
+constexpr const PulseDataTableSchemaDesc* pulse_table_hero_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_item_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_num_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_ref_schema_ptr();
+constexpr const PulseDataTableSchemaDesc* pulse_table_refdefault_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_req_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_rng_schema_ptr();
 constexpr const PulseDataTableSchemaDesc* pulse_table_snake_schema_ptr();
@@ -45,6 +47,11 @@ const std::array<PulseDataTableColumnDesc, 2> pulse_table_enm_columns_0 = { puls
 const PulseDataTableColumnDesc pulse_table_extra_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
 const std::array<PulseDataTableColumnDesc, 1> pulse_table_extra_columns_0 = { pulse_table_extra_columns_0_0 };
 
+const PulseDataTableColumnDesc pulse_table_hero_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
+const PulseDataTableColumnDesc pulse_table_hero_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("element").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(16).enum_name("element").column_type(PULSE_DATA_TABLE_COLUMN_TYPE_ENUM).build();
+const PulseDataTableColumnDesc pulse_table_hero_columns_0_2 = pulse::datatable::ColumnDescBuilder{}.name("power").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<double>>::value).offset(32).default_float(1.0).build();
+const std::array<PulseDataTableColumnDesc, 3> pulse_table_hero_columns_0 = { pulse_table_hero_columns_0_0, pulse_table_hero_columns_0_1, pulse_table_hero_columns_0_2 };
+
 const PulseDataTableColumnDesc pulse_table_item_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
 const PulseDataTableColumnDesc pulse_table_item_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("name").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(16).default_string("unnamed").build();
 const PulseDataTableColumnDesc pulse_table_item_columns_0_2 = pulse::datatable::ColumnDescBuilder{}.name("weight").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<double>>::value).offset(32).min(0.0).max(5.0).default_float(0.5).build();
@@ -57,6 +64,10 @@ const std::array<PulseDataTableColumnDesc, 2> pulse_table_num_columns_0 = { puls
 const PulseDataTableColumnDesc pulse_table_ref_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
 const PulseDataTableColumnDesc pulse_table_ref_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("link").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<const ::pulse_tables::PulseItemRow*>>::value).offset(16).ref_name("item").build();
 const std::array<PulseDataTableColumnDesc, 2> pulse_table_ref_columns_0 = { pulse_table_ref_columns_0_0, pulse_table_ref_columns_0_1 };
+
+const PulseDataTableColumnDesc pulse_table_refdefault_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
+const PulseDataTableColumnDesc pulse_table_refdefault_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("link").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<const ::pulse_tables::PulseItemRow*>>::value).offset(16).ref_name("item").build();
+const std::array<PulseDataTableColumnDesc, 2> pulse_table_refdefault_columns_0 = { pulse_table_refdefault_columns_0_0, pulse_table_refdefault_columns_0_1 };
 
 const PulseDataTableColumnDesc pulse_table_req_columns_0_0 = pulse::datatable::ColumnDescBuilder{}.name("id").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<std::string_view>>::value).offset(0).build();
 const PulseDataTableColumnDesc pulse_table_req_columns_0_1 = pulse::datatable::ColumnDescBuilder{}.name("required").column_type(pulse::datatable::ColumnType<pulse::datatable::Bare<int64_t>>::value).offset(16).build();
@@ -90,9 +101,11 @@ bool pulse_table_deep_fill_2(const void* context, void* vault_data, const PulseD
 bool pulse_table_dup_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_enm_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_extra_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
+bool pulse_table_hero_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_item_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_num_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_ref_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
+bool pulse_table_refdefault_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_req_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_rng_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
 bool pulse_table_snake_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
@@ -201,6 +214,33 @@ const PulseDataTableSchemaDesc pulse_table_extra_schema{
     pulse_table_extra_fill_0
 };
 
+const char* pulse_table_hero_enum_names_element[] = {
+    "fire",
+    "water",
+    "earth",
+};
+const PulseDataTableEnumDesc pulse_table_hero_enum_element{"element", pulse_table_hero_enum_names_element, 3u};
+
+const PulseDataTableEnumDesc pulse_table_hero_enums[] = {
+    pulse_table_hero_enum_element,
+};
+
+constexpr const PulseDataTableSchemaDesc* pulse_table_hero_schema_ptr();
+const PulseDataTableSchemaDesc pulse_table_hero_schema{
+    sizeof(PulseDataTableSchemaDesc),
+    PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
+    "hero",
+    pulse_table_hero_columns_0.data(),
+    3u,
+    nullptr,
+    0u,
+    pulse_table_hero_enums,
+    1u,
+    0u,
+    false,
+    pulse_table_hero_fill_0
+};
+
 constexpr const PulseDataTableSchemaDesc* pulse_table_item_schema_ptr();
 const PulseDataTableSchemaDesc pulse_table_item_schema{
     sizeof(PulseDataTableSchemaDesc),
@@ -247,6 +287,22 @@ const PulseDataTableSchemaDesc pulse_table_ref_schema{
     0u,
     false,
     pulse_table_ref_fill_0
+};
+
+constexpr const PulseDataTableSchemaDesc* pulse_table_refdefault_schema_ptr();
+const PulseDataTableSchemaDesc pulse_table_refdefault_schema{
+    sizeof(PulseDataTableSchemaDesc),
+    PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
+    "refdefault",
+    pulse_table_refdefault_columns_0.data(),
+    2u,
+    nullptr,
+    0u,
+    nullptr,
+    0u,
+    0u,
+    false,
+    pulse_table_refdefault_fill_0
 };
 
 constexpr const PulseDataTableSchemaDesc* pulse_table_req_schema_ptr();
@@ -334,9 +390,11 @@ constexpr const PulseDataTableSchemaDesc* pulse_table_deep_schema_ptr() { return
 constexpr const PulseDataTableSchemaDesc* pulse_table_dup_schema_ptr() { return &pulse_table_dup_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_enm_schema_ptr() { return &pulse_table_enm_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_extra_schema_ptr() { return &pulse_table_extra_schema; }
+constexpr const PulseDataTableSchemaDesc* pulse_table_hero_schema_ptr() { return &pulse_table_hero_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_item_schema_ptr() { return &pulse_table_item_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_num_schema_ptr() { return &pulse_table_num_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_ref_schema_ptr() { return &pulse_table_ref_schema; }
+constexpr const PulseDataTableSchemaDesc* pulse_table_refdefault_schema_ptr() { return &pulse_table_refdefault_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_req_schema_ptr() { return &pulse_table_req_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_rng_schema_ptr() { return &pulse_table_rng_schema; }
 constexpr const PulseDataTableSchemaDesc* pulse_table_snake_schema_ptr() { return &pulse_table_snake_schema; }
@@ -589,6 +647,70 @@ bool pulse_table_extra_fill_0(const void* context, void* vault_data, const Pulse
     return true;
 }
 
+bool pulse_table_hero_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
+    const PulseDataTableSchemaDesc* owner = pulse_table_hero_schema_ptr();
+    auto* vault = static_cast<pulse::datatable::StringVault*>(vault_data);
+    (void)vault;
+    (void)context;
+    auto* row = static_cast<::pulse_tables::PulseHeroRow*>(out);
+    {
+        const PulseDatalist* value = pulse_datalist_value(node, "id");
+        if (!value) {
+            *error_line = pulse_datalist_line(node);
+            *error_code = PULSE_DATA_TABLE_ERROR_MISSING_COLUMN;
+            *out_error = "column 'id' is missing";
+            return false;
+        }
+        if (value && pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_STRING) {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
+            *out_error = "column 'id' expects a string";
+            return false;
+        }
+        std::string_view decoded = value ? vault->append(std::string_view(pulse_datalist_get_string(value, nullptr, ""))) : std::string_view("");
+        pulse_data_table_field_set_string(row, &pulse_table_hero_columns_0[0], &decoded, out_error);
+    }
+    {
+        const PulseDatalist* value = pulse_datalist_value(node, "element");
+        if (value && pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_STRING) {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
+            *out_error = "column 'element' expects an enum name";
+            return false;
+        }
+        const char* raw = value ? pulse_datalist_get_string(value, nullptr, "") : "water";
+        if (pulse_data_table_enum_lookup(owner, &pulse_table_hero_columns_0[1], raw) < 0) {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_INVALID_ENUM_VALUE;
+            *out_error = "column 'element' is not in the enum whitelist";
+            return false;
+        }
+        std::string_view decoded = vault->append(std::string_view(raw));
+        pulse_data_table_field_set_string(row, &pulse_table_hero_columns_0[1], &decoded, out_error);
+    }
+    {
+        const PulseDatalist* value = pulse_datalist_value(node, "power");
+        double decoded = value ? pulse_datalist_get_double(value, nullptr, 0.0) : 1.0;
+        if (value) {
+            EPulseDatalistType value_type = pulse_datalist_get_type(value, nullptr);
+            if (value_type != PULSE_DATALIST_TYPE_DOUBLE && value_type != PULSE_DATALIST_TYPE_INT) {
+                *error_line = pulse_datalist_line(value);
+                *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
+                *out_error = "column 'power' expects a float";
+                return false;
+            }
+        }
+        if (!pulse_data_table_field_set_float(row, &pulse_table_hero_columns_0[2], decoded, out_error)) {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_OUT_OF_RANGE;
+            return false;
+        }
+    }
+    (void)error_line;
+    (void)node;
+    return true;
+}
+
 bool pulse_table_item_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
     const PulseDataTableSchemaDesc* owner = pulse_table_item_schema_ptr();
     auto* vault = static_cast<pulse::datatable::StringVault*>(vault_data);
@@ -715,6 +837,44 @@ bool pulse_table_ref_fill_0(const void* context, void* vault_data, const PulseDa
     {
         const PulseDatalist* value = pulse_datalist_value(node, "link");
         const void* resolved = pulse_data_table_fill_context_resolve_ref(context, &pulse_table_ref_columns_0[1], value, out_error);
+        if (value && !resolved) {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_MISSING_REFERENCE;
+            return false;
+        }
+        row->link = resolved ? reinterpret_cast<const ::pulse_tables::PulseItemRow*>(resolved) : nullptr;
+    }
+    (void)error_line;
+    (void)node;
+    return true;
+}
+
+bool pulse_table_refdefault_fill_0(const void* context, void* vault_data, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
+    const PulseDataTableSchemaDesc* owner = pulse_table_refdefault_schema_ptr();
+    auto* vault = static_cast<pulse::datatable::StringVault*>(vault_data);
+    (void)vault;
+    (void)context;
+    auto* row = static_cast<::pulse_tables::PulseRefdefaultRow*>(out);
+    {
+        const PulseDatalist* value = pulse_datalist_value(node, "id");
+        if (!value) {
+            *error_line = pulse_datalist_line(node);
+            *error_code = PULSE_DATA_TABLE_ERROR_MISSING_COLUMN;
+            *out_error = "column 'id' is missing";
+            return false;
+        }
+        if (value && pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_STRING) {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
+            *out_error = "column 'id' expects a string";
+            return false;
+        }
+        std::string_view decoded = value ? vault->append(std::string_view(pulse_datalist_get_string(value, nullptr, ""))) : std::string_view("");
+        pulse_data_table_field_set_string(row, &pulse_table_refdefault_columns_0[0], &decoded, out_error);
+    }
+    {
+        const PulseDatalist* value = pulse_datalist_value(node, "link");
+        const void* resolved = pulse_data_table_fill_context_resolve_ref(context, &pulse_table_refdefault_columns_0[1], value, out_error);
         if (value && !resolved) {
             *error_line = pulse_datalist_line(value);
             *error_code = PULSE_DATA_TABLE_ERROR_MISSING_REFERENCE;
@@ -1040,9 +1200,11 @@ const char* pulse_table_deep_path = nullptr;
 const char* pulse_table_dup_path = nullptr;
 const char* pulse_table_enm_path = nullptr;
 const char* pulse_table_extra_path = nullptr;
+const char* pulse_table_hero_path = nullptr;
 const char* pulse_table_item_path = nullptr;
 const char* pulse_table_num_path = nullptr;
 const char* pulse_table_ref_path = nullptr;
+const char* pulse_table_refdefault_path = nullptr;
 const char* pulse_table_req_path = nullptr;
 const char* pulse_table_rng_path = nullptr;
 const char* pulse_table_snake_path = nullptr;
@@ -1293,6 +1455,55 @@ const PulseExtraRow* PulseExtraRowTable::GetRow(PulseAppId app, const char* key)
     return table ? static_cast<const PulseExtraRow*>(pulse_data_table_find_row(table, key)) : nullptr;
 }
 
+const char* PulseHeroRowTable::DefaultPath() {
+    return "hero.datatable";
+}
+
+PulseAssetRequest PulseHeroRowTable::Load(PulseAppId app, const char* path) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    if (!system) {
+        return pulse_asset_request_make_invalid();
+    }
+    if (path) {
+        pulse_table_hero_path = path;
+    }
+    const char* resolved = pulse_table_hero_path ? pulse_table_hero_path : DefaultPath();
+    pulse_table_hero_path = resolved;
+    return pulse_data_table_system_load(system, "hero", resolved);
+}
+
+bool PulseHeroRowTable::IsReady(PulseAppId app) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+}
+
+const char* PulseHeroRowTable::GetError(PulseAppId app) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+}
+
+const PulseHeroRow* PulseHeroRowTable::Rows(PulseAppId app, uint32_t& out_count) {
+    out_count = 0;
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    if (!system) {
+        return nullptr;
+    }
+    PulseDataTableId table = pulse_data_table_system_get(system, Load(app, nullptr));
+    if (!table) {
+        return nullptr;
+    }
+    return static_cast<const PulseHeroRow*>(pulse_data_table_rows(table, &out_count));
+}
+
+const PulseHeroRow* PulseHeroRowTable::GetRow(PulseAppId app, const char* key) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    if (!system) {
+        return nullptr;
+    }
+    PulseDataTableId table = pulse_data_table_system_get(system, Load(app, nullptr));
+    return table ? static_cast<const PulseHeroRow*>(pulse_data_table_find_row(table, key)) : nullptr;
+}
+
 const char* PulseItemRowTable::DefaultPath() {
     return "item.datatable";
 }
@@ -1438,6 +1649,55 @@ const PulseRefRow* PulseRefRowTable::GetRow(PulseAppId app, const char* key) {
     }
     PulseDataTableId table = pulse_data_table_system_get(system, Load(app, nullptr));
     return table ? static_cast<const PulseRefRow*>(pulse_data_table_find_row(table, key)) : nullptr;
+}
+
+const char* PulseRefdefaultRowTable::DefaultPath() {
+    return "refdefault.datatable";
+}
+
+PulseAssetRequest PulseRefdefaultRowTable::Load(PulseAppId app, const char* path) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    if (!system) {
+        return pulse_asset_request_make_invalid();
+    }
+    if (path) {
+        pulse_table_refdefault_path = path;
+    }
+    const char* resolved = pulse_table_refdefault_path ? pulse_table_refdefault_path : DefaultPath();
+    pulse_table_refdefault_path = resolved;
+    return pulse_data_table_system_load(system, "refdefault", resolved);
+}
+
+bool PulseRefdefaultRowTable::IsReady(PulseAppId app) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+}
+
+const char* PulseRefdefaultRowTable::GetError(PulseAppId app) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+}
+
+const PulseRefdefaultRow* PulseRefdefaultRowTable::Rows(PulseAppId app, uint32_t& out_count) {
+    out_count = 0;
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    if (!system) {
+        return nullptr;
+    }
+    PulseDataTableId table = pulse_data_table_system_get(system, Load(app, nullptr));
+    if (!table) {
+        return nullptr;
+    }
+    return static_cast<const PulseRefdefaultRow*>(pulse_data_table_rows(table, &out_count));
+}
+
+const PulseRefdefaultRow* PulseRefdefaultRowTable::GetRow(PulseAppId app, const char* key) {
+    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+    if (!system) {
+        return nullptr;
+    }
+    PulseDataTableId table = pulse_data_table_system_get(system, Load(app, nullptr));
+    return table ? static_cast<const PulseRefdefaultRow*>(pulse_data_table_find_row(table, key)) : nullptr;
 }
 
 const char* PulseReqRowTable::DefaultPath() {
@@ -1641,6 +1901,12 @@ EPulseResult RegisterSchemas(PulseDataTableSystemId system) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     {
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_declares_other_schema, nullptr);
+        if (result != PULSE_RESULT_OK) {
+            return result;
+        }
+    }
+    {
         EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_deep_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
@@ -1665,6 +1931,12 @@ EPulseResult RegisterSchemas(PulseDataTableSystemId system) {
         }
     }
     {
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_hero_schema, nullptr);
+        if (result != PULSE_RESULT_OK) {
+            return result;
+        }
+    }
+    {
         EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_item_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
@@ -1678,6 +1950,12 @@ EPulseResult RegisterSchemas(PulseDataTableSystemId system) {
     }
     {
         EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_ref_schema, nullptr);
+        if (result != PULSE_RESULT_OK) {
+            return result;
+        }
+    }
+    {
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_refdefault_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
@@ -1702,12 +1980,6 @@ EPulseResult RegisterSchemas(PulseDataTableSystemId system) {
     }
     {
         EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_typ_schema, nullptr);
-        if (result != PULSE_RESULT_OK) {
-            return result;
-        }
-    }
-    {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_declares_other_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }

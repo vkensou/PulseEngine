@@ -3,7 +3,7 @@ options indenting = 4
 options no_unused_block_arguments = false
 options no_unused_function_arguments = false
 
-module pulse_tables public
+module das_tables public
 
 require pulse public
 
@@ -19,23 +19,6 @@ def private PulseDeclaresOtherRegisterSchema(app: PulseAppId) : bool {
     let error = pulse_data_table_register_schema(app, desc)
     if (error != "") {
         print("Data table schema 'declares_other' failed to register: {error}\n")
-        return false
-    }
-    return true
-}
-
-def private PulseItemRegisterSchema(app: PulseAppId) : bool {
-    var columns : array<PulseDataTableColumnDesc>
-    columns |> push <| PulseDataTableColumnDesc(name = "id", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_STRING)
-    columns |> push <| PulseDataTableColumnDesc(name = "name", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_STRING, has_default = true, default_string = "unnamed")
-    columns |> push <| PulseDataTableColumnDesc(name = "weight", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_FLOAT, has_default = true, default_float = double(0.5), has_min = true, min_value = double(0.0), has_max = true, max_value = double(5.0))
-    var desc = PulseDataTableSchemaDesc(name = "item", columns_count = uint64(length(columns)), key_column = uint(0))
-    unsafe {
-        desc.p_columns = reinterpret<void?>(addr(columns[0]))
-    }
-    let error = pulse_data_table_register_schema(app, desc)
-    if (error != "") {
-        print("Data table schema 'item' failed to register: {error}\n")
         return false
     }
     return true
@@ -126,6 +109,51 @@ def private PulseExtraRegisterSchema(app: PulseAppId) : bool {
     let error = pulse_data_table_register_schema(app, desc)
     if (error != "") {
         print("Data table schema 'extra' failed to register: {error}\n")
+        return false
+    }
+    return true
+}
+
+def private PulseHeroRegisterSchema(app: PulseAppId) : bool {
+    var element : array<string>
+    element |> push <| "fire"
+    element |> push <| "water"
+    element |> push <| "earth"
+    var enum_element = PulseDataTableEnumDesc(name = "element", values_count = uint64(length(element)))
+    unsafe {
+        enum_element.p_values = reinterpret<void?>(addr(element[0]))
+    }
+    var enums : array<PulseDataTableEnumDesc>
+    enums |> push <| enum_element
+    var columns : array<PulseDataTableColumnDesc>
+    columns |> push <| PulseDataTableColumnDesc(name = "id", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_STRING)
+    columns |> push <| PulseDataTableColumnDesc(name = "element", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_ENUM, has_default = true, default_string = "water", enum_type = "element")
+    columns |> push <| PulseDataTableColumnDesc(name = "power", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_FLOAT, has_default = true, default_float = double(1.0))
+    var desc = PulseDataTableSchemaDesc(name = "hero", columns_count = uint64(length(columns)), enums_count = uint64(length(enums)), key_column = uint(0))
+    unsafe {
+        desc.p_columns = reinterpret<void?>(addr(columns[0]))
+        desc.p_enums = reinterpret<void?>(addr(enums[0]))
+    }
+    let error = pulse_data_table_register_schema(app, desc)
+    if (error != "") {
+        print("Data table schema 'hero' failed to register: {error}\n")
+        return false
+    }
+    return true
+}
+
+def private PulseItemRegisterSchema(app: PulseAppId) : bool {
+    var columns : array<PulseDataTableColumnDesc>
+    columns |> push <| PulseDataTableColumnDesc(name = "id", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_STRING)
+    columns |> push <| PulseDataTableColumnDesc(name = "name", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_STRING, has_default = true, default_string = "unnamed")
+    columns |> push <| PulseDataTableColumnDesc(name = "weight", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_FLOAT, has_default = true, default_float = double(0.5), has_min = true, min_value = double(0.0), has_max = true, max_value = double(5.0))
+    var desc = PulseDataTableSchemaDesc(name = "item", columns_count = uint64(length(columns)), key_column = uint(0))
+    unsafe {
+        desc.p_columns = reinterpret<void?>(addr(columns[0]))
+    }
+    let error = pulse_data_table_register_schema(app, desc)
+    if (error != "") {
+        print("Data table schema 'item' failed to register: {error}\n")
         return false
     }
     return true
@@ -274,11 +302,12 @@ def PulseTablesRegisterSchemas(app: PulseAppId) {
         return
     }
     var ok = PulseDeclaresOtherRegisterSchema(app)
-    ok = ok && PulseItemRegisterSchema(app)
     ok = ok && PulseDeepRegisterSchema(app)
     ok = ok && PulseDupRegisterSchema(app)
     ok = ok && PulseEnmRegisterSchema(app)
     ok = ok && PulseExtraRegisterSchema(app)
+    ok = ok && PulseHeroRegisterSchema(app)
+    ok = ok && PulseItemRegisterSchema(app)
     ok = ok && PulseNumRegisterSchema(app)
     ok = ok && PulseRefRegisterSchema(app)
     ok = ok && PulseRefdefaultRegisterSchema(app)
@@ -448,6 +477,43 @@ def PulseExtraFindRow(app: PulseAppId; key: string) : void? {
 
 def PulseExtraGetId(app: PulseAppId; row: void?) : string {
     return pulse_data_table_read_string(app, "extra", row, int64(0), int64(-1), int64(-1), int64(-1))
+}
+
+def PulseHeroLoad(app: PulseAppId; path: string = "hero.datatable") : PulseAssetRequest {
+    PulseTablesRegisterSchemas(app)
+    return pulse_data_table_load(app, "hero", path)
+}
+
+def PulseHeroIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+    return pulse_data_table_is_ready(app, request)
+}
+
+def PulseHeroGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+    return pulse_data_table_get_error(app, request)
+}
+
+def PulseHeroRowCount(app: PulseAppId) : int {
+    return int(pulse_data_table_row_count(app, "hero"))
+}
+
+def PulseHeroRowAt(app: PulseAppId; index: int) : void? {
+    return pulse_data_table_row_at(app, "hero", int64(index))
+}
+
+def PulseHeroFindRow(app: PulseAppId; key: string) : void? {
+    return pulse_data_table_find_row(app, "hero", key)
+}
+
+def PulseHeroGetId(app: PulseAppId; row: void?) : string {
+    return pulse_data_table_read_string(app, "hero", row, int64(0), int64(-1), int64(-1), int64(-1))
+}
+
+def PulseHeroGetElement(app: PulseAppId; row: void?) : string {
+    return pulse_data_table_read_string(app, "hero", row, int64(1), int64(-1), int64(-1), int64(-1))
+}
+
+def PulseHeroGetPower(app: PulseAppId; row: void?) : double {
+    return pulse_data_table_read_float(app, "hero", row, int64(2), int64(-1), int64(-1), int64(-1))
 }
 
 def PulseItemLoad(app: PulseAppId; path: string = "item.datatable") : PulseAssetRequest {

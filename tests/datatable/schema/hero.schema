@@ -1,0 +1,9 @@
+id:
+    type: string
+    key: true
+element:
+    type: element
+    default: water
+power:
+    type: float
+    default: 1

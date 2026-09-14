@@ -176,6 +176,24 @@ int main(void) {
     assert(deep_b->inner.shell.radius == 2);
     assert(deep_b->inner.shell.tag == "x");
 
+    PulseAssetRequest hero_request = pulse_tables::PulseHeroRowTable::Load(app, "hero.datatable");
+    assert(pulse_asset_request_is_valid(hero_request));
+    assert(wait_ready(app, hero_request));
+    const pulse_tables::PulseHeroRow* mage = pulse_tables::PulseHeroRowTable::GetRow(app, "mage");
+    assert(mage != nullptr);
+    assert(mage->element == "fire");
+    assert(mage->power > 3.49 && mage->power < 3.51);
+    const pulse_tables::PulseHeroRow* knight = pulse_tables::PulseHeroRowTable::GetRow(app, "knight");
+    assert(knight != nullptr);
+    assert(knight->element == "water");
+    assert(knight->power > 0.99 && knight->power < 1.01);
+    const PulseDataTableSchemaDesc* hero_schema = pulse_data_table_system_get_schema(system, "hero");
+    assert(hero_schema != nullptr);
+    assert(hero_schema->enums_count == 1);
+    assert(hero_schema->p_enums[0].values_count == 3);
+    assert(strcmp(hero_schema->p_enums[0].name, "element") == 0);
+    assert(strcmp(hero_schema->p_enums[0].p_values[0], "fire") == 0);
+
     assert(pulse_data_table_system_get(system, pulse_asset_request_make_invalid()) == nullptr);
     assert(pulse_data_table_get_name(nullptr) == nullptr);
     assert(pulse_data_table_row_count(nullptr) == 0);

@@ -4,26 +4,26 @@ options no_unused_block_arguments = false
 options no_unused_function_arguments = false
 
 require pulse/flecs_boost public
-require pulse_tables public
+require das_tables public
 
 struct DasTableProbe {
-    value: int
-    power: double
-    flag: bool
-    text_code: int
-    error_code: int
+    value : int
+    power : double
+    flag : bool
+    text_code : int
+    error_code : int
 }
 
 var probe_sent = false
 var probe_frames = 0
 
 [export]
-def importModule(var ctx: ModuleContext) {
+def importModule(var ctx : ModuleContext) {
     ctx |> register_system(@@probeTableSystem)
 }
 
 [system(phase="update")]
-def probeTableSystem(app: PulseAppId, cmd: CommandBuffer) {
+def probeTableSystem(app : PulseAppId, cmd : CommandBuffer) {
     if (probe_sent) {
         return
     }
@@ -34,8 +34,9 @@ def probeTableSystem(app: PulseAppId, cmd: CommandBuffer) {
     let num_request = PulseNumLoad(app)
     let deep_request = PulseDeepLoad(app)
     let refdefault_request = PulseRefdefaultLoad(app)
+    let hero_request = PulseHeroLoad(app)
 
-    if (!PulseSnakeIsReady(app, snake_request) || !PulseNumIsReady(app, num_request) || !PulseDeepIsReady(app, deep_request) || !PulseRefdefaultIsReady(app, refdefault_request)) {
+    if (!PulseSnakeIsReady(app, snake_request) || !PulseNumIsReady(app, num_request) || !PulseDeepIsReady(app, deep_request) || !PulseRefdefaultIsReady(app, refdefault_request) || !PulseHeroIsReady(app, hero_request)) {
         if (probe_frames < 300) {
             return
         }
@@ -61,6 +62,7 @@ def probeTableSystem(app: PulseAppId, cmd: CommandBuffer) {
     let seven = PulseNumFindRowInt(app, 7)
     let deep_a = PulseDeepFindRow(app, "a")
     let deep_b = PulseDeepFindRow(app, "b")
+    let mage = PulseHeroFindRow(app, "mage")
 
     var text_code = 0
     if (PulseSnakeGetId(app, green) != "green") {
@@ -81,6 +83,10 @@ def probeTableSystem(app: PulseAppId, cmd: CommandBuffer) {
         text_code = 8
     } elif (PulseItemGetId(app, PulseRefdefaultGetLink(app, PulseRefdefaultFindRow(app, "solo"))) != "apple") {
         text_code = 9
+    } elif (PulseHeroGetElement(app, mage) != "fire") {
+        text_code = 10
+    } elif (PulseHeroGetElement(app, PulseHeroFindRow(app, "knight")) != "water") {
+        text_code = 11
     }
 
     var error_code = 0

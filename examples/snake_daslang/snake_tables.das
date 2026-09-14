@@ -3,13 +3,13 @@ options indenting = 4
 options no_unused_block_arguments = false
 options no_unused_function_arguments = false
 
-module pulse_tables public
+module snake_tables public
 
 require pulse public
 
 var pulse_tables_registered : bool = false
 
-def private PulseSnakeConfigRegisterSchema(app: PulseAppId) : string {
+def private PulseSnakeConfigRegisterSchema(app: PulseAppId) : bool {
     var columns : array<PulseDataTableColumnDesc>
     columns |> push <| PulseDataTableColumnDesc(name = "id", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_STRING)
     columns |> push <| PulseDataTableColumnDesc(name = "move_interval", column_type = EPulseDataTableColumnType.PULSE_DATA_TABLE_COLUMN_TYPE_FLOAT, has_default = true, default_float = double(1.0), has_min = true, min_value = double(0.05), has_max = true, max_value = double(10.0))
@@ -17,19 +17,20 @@ def private PulseSnakeConfigRegisterSchema(app: PulseAppId) : string {
     unsafe {
         desc.p_columns = reinterpret<void?>(addr(columns[0]))
     }
-    return pulse_data_table_register_schema(app, desc)
+    let error = pulse_data_table_register_schema(app, desc)
+    if (error != "") {
+        print("Data table schema 'snake_config' failed to register: {error}\n")
+        return false
+    }
+    return true
 }
 
 def PulseTablesRegisterSchemas(app: PulseAppId) {
     if (pulse_tables_registered) {
         return
     }
-    let error = PulseSnakeConfigRegisterSchema(app)
-    if (error != "") {
-        print("Data table schema 'snake_config' failed to register: {error}\n")
-        return
-    }
-    pulse_tables_registered = true
+    var ok = PulseSnakeConfigRegisterSchema(app)
+    pulse_tables_registered = ok
 }
 
 def PulseSnakeConfigLoad(app: PulseAppId; path: string = "snake_config.datatable") : PulseAssetRequest {

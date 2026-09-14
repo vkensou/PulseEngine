@@ -19,9 +19,11 @@ struct PulseDeepRow;
 struct PulseDupRow;
 struct PulseEnmRow;
 struct PulseExtraRow;
+struct PulseHeroRow;
 struct PulseItemRow;
 struct PulseNumRow;
 struct PulseRefRow;
+struct PulseRefdefaultRow;
 struct PulseReqRow;
 struct PulseRngRow;
 struct PulseSkill;
@@ -74,6 +76,14 @@ struct alignas(8) PulseExtraRow
 };
 static_assert(sizeof(PulseExtraRow) == 16, "extra layout mismatch");
 
+struct alignas(8) PulseHeroRow
+{
+    std::string_view id;
+    std::string_view element;
+    double power;
+};
+static_assert(sizeof(PulseHeroRow) == 40, "hero layout mismatch");
+
 struct alignas(8) PulseItemRow
 {
     std::string_view id;
@@ -95,6 +105,13 @@ struct alignas(8) PulseRefRow
     const PulseItemRow* link;
 };
 static_assert(sizeof(PulseRefRow) == 24, "ref layout mismatch");
+
+struct alignas(8) PulseRefdefaultRow
+{
+    std::string_view id;
+    const PulseItemRow* link;
+};
+static_assert(sizeof(PulseRefdefaultRow) == 24, "refdefault layout mismatch");
 
 struct alignas(8) PulseReqRow
 {
@@ -186,6 +203,16 @@ struct PulseExtraRowTable
     static const char* DefaultPath();
 };
 
+struct PulseHeroRowTable
+{
+    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static bool IsReady(PulseAppId app);
+    static const char* GetError(PulseAppId app);
+    static const PulseHeroRow* Rows(PulseAppId app, uint32_t& out_count);
+    static const PulseHeroRow* GetRow(PulseAppId app, const char* key);
+    static const char* DefaultPath();
+};
+
 struct PulseItemRowTable
 {
     static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
@@ -213,6 +240,16 @@ struct PulseRefRowTable
     static const char* GetError(PulseAppId app);
     static const PulseRefRow* Rows(PulseAppId app, uint32_t& out_count);
     static const PulseRefRow* GetRow(PulseAppId app, const char* key);
+    static const char* DefaultPath();
+};
+
+struct PulseRefdefaultRowTable
+{
+    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static bool IsReady(PulseAppId app);
+    static const char* GetError(PulseAppId app);
+    static const PulseRefdefaultRow* Rows(PulseAppId app, uint32_t& out_count);
+    static const PulseRefdefaultRow* GetRow(PulseAppId app, const char* key);
     static const char* DefaultPath();
 };
 

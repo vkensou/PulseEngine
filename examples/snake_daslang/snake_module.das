@@ -7,7 +7,7 @@ options strict_smart_pointers = true
 require pulse/flecs_boost public
 require pulse/pulse_components public
 require pulse public
-require pulse_tables public
+require snake_tables public
 require daslib/random
 require daslib/option
 require math
@@ -37,57 +37,57 @@ enum Direction4W {
 // ============================================================
 
 struct Facing4W {
-    value: Direction4W
+    value : Direction4W
 }
 
 struct SnakeMove {
-    interval: float
-    lastTime: float
+    interval : float
+    lastTime : float
 }
 
 struct SnakeInput {
-    rightKey, upKey, leftKey, downKey: int
+    rightKey, upKey, leftKey, downKey : int
 }
 
 struct IsApple {
 }
 
 struct SnakeBody {
-    position: HMM_Vec3
-    entity: Entity
+    position : HMM_Vec3
+    entity : Entity
 }
 
 struct SnakeBodies {
-    bodies: array<SnakeBody>
+    bodies : array<SnakeBody>
 }
 
 struct Border {
-    up, bottom, left, right: int
+    up, bottom, left, right : int
 }
 
 struct Score {
-    value: int
+    value : int
 }
 
 struct SnakePrefabs {
-    board, apple, snakeHead, snakeBody: PulsePrefabHandle
+    board, apple, snakeHead, snakeBody : PulsePrefabHandle
 }
 
 struct SnakeAssets {
-    board, apple, snakeHead, snakeBody: PulsePrefabRequest
-    config: PulseAssetRequest
+    board, apple, snakeHead, snakeBody : PulsePrefabRequest
+    config : PulseAssetRequest
 }
 
 struct SnakeConfig {
-    moveInterval: float
+    moveInterval : float
 }
 
 struct SnakeMoveIntentEvent {
-    delta: HMM_Vec3
+    delta : HMM_Vec3
 }
 
 struct AppleEatenEvent {
-    apple: Entity
+    apple : Entity
 }
 
 struct GameOverEvent {}
@@ -105,11 +105,11 @@ def operator ==(a, b : HMM_Vec3) {
     return a.X == b.X && a.Y == b.Y && a.Z == b.Z
 }
 
-def operator+(a, b: HMM_Vec3) {
+def operator +(a, b : HMM_Vec3) {
     return HMM_V3(a.X + b.X, a.Y + b.Y, a.Z + b.Z)
 }
 
-def toDelta(direction: Direction4W) {
+def toDelta(direction : Direction4W) {
     if (direction == Direction4W.Right) {
         return HMM_V3(1.0, 0.0, 0.0)
     }
@@ -124,29 +124,29 @@ def toDelta(direction: Direction4W) {
     }
 }
 
-def isParallel(left: Direction4W, right: Direction4W) {
+def isParallel(left : Direction4W, right : Direction4W) {
     return ((int(left) % 2) == (int(right) % 2))
 }
 
-def isOpposite(left: Direction4W, right: Direction4W) {
+def isOpposite(left : Direction4W, right : Direction4W) {
     return (left != right) && isParallel(left, right)
 }
 
 // 由 prefab 模板实例化实体：网格/材质等静态数据写在 .prefab 里，
 // 实例只覆盖运行期才知道的变换。
-def instantiatePrefab(cmd: CommandBuffer, app: PulseAppId, prefab: PulsePrefabHandle, position: HMM_Vec3, scale: HMM_Vec3) {
+def instantiatePrefab(cmd : CommandBuffer, app : PulseAppId, prefab : PulsePrefabHandle, position : HMM_Vec3, scale : HMM_Vec3) {
     let ent = pulse_prefab_instantiate(app, prefab)
     cmd |> set_entity_component(ent, PulseLocalTransform(translation = position, rotation = HMM_Q_Identity, scale = scale))
     return ent
 }
 
-def createSnake(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, initPos: HMM_Vec3, moveInterval: float) {
+def createSnake(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, initPos : HMM_Vec3, moveInterval : float) {
     let snakeInitLength = 3
 
     let head = instantiatePrefab(cmd, app, prefabs.snakeHead, initPos, HMM_V3_One)
 
-    var bodies: array<SnakeBody>
-    var poses: array<HMM_Vec3>
+    var bodies : array<SnakeBody>
+    var poses : array<HMM_Vec3>
     bodies |> push(SnakeBody(position = initPos, entity = head))
     poses |> push(initPos)
     for (i in 0..snakeInitLength) {
@@ -164,14 +164,14 @@ def createSnake(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, init
     return (snake, <- poses)
 }
 
-def random_range(var seed : int4&, min: int, max: int) {
+def random_range(var seed : int4&, min : int, max : int) {
     var value = random_int(seed)
     value %= (max - min)
     value += min
     return value
 }
 
-def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
+def getNewApplePosition(snakeBodyPoses : array<HMM_Vec3>, border : Border) {
     let left = border.left
     let right = border.right
     let bottom = border.bottom
@@ -185,7 +185,7 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
 
     var s1 = random_seed(13141516)
 
-    var used: array<HMM_Vec3>
+    var used : array<HMM_Vec3>
     for (i in 0..length(snakeBodyPoses)) {
         used |> push(snakeBodyPoses[i])
     }
@@ -215,7 +215,7 @@ def getNewApplePosition(snakeBodyPoses: array<HMM_Vec3>, border: Border) {
     return none(type<HMM_Vec3>)
 }
 
-def createApple(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, snakeBodyPoses: array<HMM_Vec3>, border: Border) {
+def createApple(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, snakeBodyPoses : array<HMM_Vec3>, border : Border) {
     let newPos = getNewApplePosition(snakeBodyPoses, border)
     if (newPos |> is_none) {
         return default<Entity>
@@ -224,13 +224,13 @@ def createApple(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, snak
     return instantiatePrefab(cmd, app, prefabs.apple, unwrap(newPos), HMM_V3_One)
 }
 
-def createEntities(cmd: CommandBuffer, app: PulseAppId, border: Border, prefabs: SnakePrefabs, moveInterval: float) {
+def createEntities(cmd : CommandBuffer, app : PulseAppId, border : Border, prefabs : SnakePrefabs, moveInterval : float) {
     cmd |> set_singleton(Score(value = 0))
     let (_, poses) = createSnake(cmd, app, prefabs, HMM_V3(0.0, 0.0, 0.0), moveInterval)
     createApple(cmd, app, prefabs, poses, border)
 }
 
-def destructEntities(cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, appleQuery: Query<IsApple const>) {
+def destructEntities(cmd : CommandBuffer, snakeQuery : Query<SnakeBodies const>, appleQuery : Query<IsApple const>) {
     snakeQuery |> for_each() $(entity, snake) {
         for (i in 0..length(snake.bodies)) {
             cmd |> destruct(snake.bodies[i].entity)
@@ -243,7 +243,7 @@ def destructEntities(cmd: CommandBuffer, snakeQuery: Query<SnakeBodies const>, a
     }
 }
 
-def createBorder(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, up: int, bottom: int, left: int, right: int) {
+def createBorder(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, up : int, bottom : int, left : int, right : int) {
     let centerX = float(left + right) / 2.0
     let centerY = float(up + bottom) / 2.0
     let width = float(right - left) + 1.0
@@ -258,7 +258,7 @@ def createBorder(cmd: CommandBuffer, app: PulseAppId, prefabs: SnakePrefabs, up:
     return border
 }
 
-def getInputDirection(input: SnakeInput, keyboardState: PulseKeyboardInput) {
+def getInputDirection(input : SnakeInput, keyboardState : PulseKeyboardInput) {
     let right = keyboardState.just_pressed[input.rightKey]
     let up = keyboardState.just_pressed[input.upKey]
     let left = keyboardState.just_pressed[input.leftKey]
@@ -288,7 +288,7 @@ enum ObstacleType {
     Border
 }
 
-def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border, applePos: Option<HMM_Vec3>) : ObstacleType {
+def queryCollideObstacle(nextPos : HMM_Vec3, snake : SnakeBodies&, border : Border, applePos : Option<HMM_Vec3>) : ObstacleType {
     let left = border.left
     let right = border.right
     let bottom = border.bottom
@@ -315,7 +315,7 @@ def queryCollideObstacle(nextPos: HMM_Vec3, snake: SnakeBodies&, border: Border,
 // ============================================================
 
 [system(phase="update", state="UnInitialized|Loading")]
-def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: SystemStateMachine<SnakeGameState>, cmd: CommandBuffer, primaryWindowQuery: Query<PulseWindow const, PulsePrimaryWindow const>) {
+def loadSnakeResourcesSystem(app : PulseAppId, assets : Res<SnakeAssets>, state : SystemStateMachine<SnakeGameState>, cmd : CommandBuffer, primaryWindowQuery : Query<PulseWindow const, PulsePrimaryWindow const>) {
     if (state.is_state(SnakeGameState.UnInitialized)) {
         assets.get().board = pulse_load_prefab(app, "assets/board.prefab")
         assets.get().apple = pulse_load_prefab(app, "assets/apple.prefab")
@@ -396,7 +396,7 @@ def loadSnakeResourcesSystem(app: PulseAppId, assets: Res<SnakeAssets>, state: S
 }
 
 [system(phase="update", state="Gaming")]
-def handleSnakeInputSystem(keyboard: Res<PulseKeyboardInput const>, input: SnakeInput, var direction: Facing4W, var move: SnakeMove) {
+def handleSnakeInputSystem(keyboard : Res<PulseKeyboardInput const>, input : SnakeInput, var direction : Facing4W, var move : SnakeMove) {
     let keyInput = getInputDirection(input, keyboard.get())
     if (keyInput |> is_some) {
         let value = keyInput |> unwrap
@@ -408,7 +408,7 @@ def handleSnakeInputSystem(keyboard: Res<PulseKeyboardInput const>, input: Snake
 }
 
 [system(phase="update", state="Gaming")]
-def scheduleSnakeMoveSystem(timer: Res<PulseTimer const>, snakeMoveWriter: EventWriter<SnakeMoveIntentEvent>, entity: Entity, direction: Facing4W, var move: SnakeMove) {
+def scheduleSnakeMoveSystem(timer : Res<PulseTimer const>, snakeMoveWriter : EventWriter<SnakeMoveIntentEvent>, entity : Entity, direction : Facing4W, var move : SnakeMove) {
     move.lastTime += timer.get().delta_time
     if (move.lastTime < move.interval) {
         return
@@ -423,7 +423,7 @@ def scheduleSnakeMoveSystem(timer: Res<PulseTimer const>, snakeMoveWriter: Event
 }
 
 [system(state="Gaming")]
-def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEvent>, cmd: CommandBuffer, app: PulseAppId, appleQuery: Query<IsApple const, PulseLocalTransform const>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>, appleEatenEvent: EventWriter<AppleEatenEvent>, gameOverEvent: EventWriter<GameOverEvent>, var snake: SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent : EventReader<SnakeMoveIntentEvent>, cmd : CommandBuffer, app : PulseAppId, appleQuery : Query<IsApple const, PulseLocalTransform const>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>, appleEatenEvent : EventWriter<AppleEatenEvent>, gameOverEvent : EventWriter<GameOverEvent>, var snake : SnakeBodies) {
     let event = snakeMoveIntentEvent.read()
     let delta = event.delta
 
@@ -456,7 +456,7 @@ def executeSnakeMoveSystem(snakeMoveIntentEvent: EventReader<SnakeMoveIntentEven
 }
 
 [system(phase="update", state="Gaming")]
-def syncSnakeBodyPositionSystem(var snake: SnakeBodies, cmd: CommandBuffer) {
+def syncSnakeBodyPositionSystem(var snake : SnakeBodies, cmd : CommandBuffer) {
     for (i in 0..length(snake.bodies)) {
         let body = snake.bodies[i]
         cmd |> set_entity_component(body.entity, PulseLocalTransform(translation = body.position, rotation = HMM_Q_Identity, scale = HMM_V3_One))
@@ -464,19 +464,19 @@ def syncSnakeBodyPositionSystem(var snake: SnakeBodies, cmd: CommandBuffer) {
 }
 
 [system(state="Gaming")]
-def eatAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBuffer) {
+def eatAppleSystem(eventAppleEat : EventReader<AppleEatenEvent>, cmd : CommandBuffer) {
     cmd.destruct(eventAppleEat.read().apple)
 }
 
 [system(state="Gaming")]
-def increaseScoreSystem(eventAppleEat: EventReader<AppleEatenEvent>, scoreQuery: SingletonQuery<Score>) {
+def increaseScoreSystem(eventAppleEat : EventReader<AppleEatenEvent>, scoreQuery : SingletonQuery<Score>) {
     scoreQuery.get().value += 1
 }
 
 [system(state="Gaming")]
-def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBuffer, app: PulseAppId, snakeQuery: Query<SnakeBodies const>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>) {
+def spawnAppleSystem(eventAppleEat : EventReader<AppleEatenEvent>, cmd : CommandBuffer, app : PulseAppId, snakeQuery : Query<SnakeBodies const>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>) {
     let (_, snakeBodies) = snakeQuery.first()
-    var poses: array<HMM_Vec3>
+    var poses : array<HMM_Vec3>
     for (i in 0..length(snakeBodies.bodies)) {
         poses |> push(snakeBodies.bodies[i].position)
     }
@@ -485,13 +485,13 @@ def spawnAppleSystem(eventAppleEat: EventReader<AppleEatenEvent>, cmd: CommandBu
 }
 
 [system(state="Gaming")]
-def onGameOverSystem(eventGameOver: EventReader<GameOverEvent>, cmd: CommandBuffer, state: SystemStateMachine<SnakeGameState>, snakeQuery: Query<SnakeBodies const>, appleQuery: Query<IsApple const>) {
+def onGameOverSystem(eventGameOver : EventReader<GameOverEvent>, cmd : CommandBuffer, state : SystemStateMachine<SnakeGameState>, snakeQuery : Query<SnakeBodies const>, appleQuery : Query<IsApple const>) {
     state.to(SnakeGameState.GameOver)
     destructEntities(cmd, snakeQuery, appleQuery)
 }
 
 [system(phase="imgui", state="Gaming|GameOver")]
-def snakeUISystem(score: Score, primaryWindowQuery: Query<PulseWindow const, PulsePrimaryWindow const>, state: SystemStateMachine<SnakeGameState>, keyboard: Res<PulseKeyboardInput const>, restartEvent: EventWriter<RestartEvent>) {
+def snakeUISystem(score : Score, primaryWindowQuery : Query<PulseWindow const, PulsePrimaryWindow const>, state : SystemStateMachine<SnakeGameState>, keyboard : Res<PulseKeyboardInput const>, restartEvent : EventWriter<RestartEvent>) {
     if (state.is_state(SnakeGameState.Gaming)) {
         Text("{score.value}")
     }
@@ -503,12 +503,12 @@ def snakeUISystem(score: Score, primaryWindowQuery: Query<PulseWindow const, Pul
 }
 
 [system(phase="imgui")]
-def snakeFpsUISystem(timer: Res<PulseTimer const>) {
+def snakeFpsUISystem(timer : Res<PulseTimer const>) {
     Text("FPS: {timer.get().fps}")
 }
 
 [system(state="GameOver")]
-def restartSystem(restartEvent: EventReader<RestartEvent>, cmd: CommandBuffer, app: PulseAppId, state: SystemStateMachine<SnakeGameState>, borderQuery: SingletonQuery<Border const>, prefabs: SingletonQuery<SnakePrefabs const>, configQuery: SingletonQuery<SnakeConfig const>) {
+def restartSystem(restartEvent : EventReader<RestartEvent>, cmd : CommandBuffer, app : PulseAppId, state : SystemStateMachine<SnakeGameState>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>, configQuery : SingletonQuery<SnakeConfig const>) {
     // 事件观察器运行期间 world 处于 deferred/staging 状态，
     // 与 C++ snake 保持一致：临时挂起 defer，让实体立即创建。
     cmd.defer_suspend()
@@ -522,7 +522,7 @@ def restartSystem(restartEvent: EventReader<RestartEvent>, cmd: CommandBuffer, a
 // ============================================================
 
 [export]
-def importModule(var ctx: ModuleContext) {
+def importModule(var ctx : ModuleContext) {
     state_machine_init(ctx.world, ctx.updatePipeline, type<SnakeGameState>, SnakeGameState.UnInitialized)
     register_resource(ctx.world, type<SnakeAssets>)
 
