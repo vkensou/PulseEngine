@@ -87,7 +87,7 @@ struct.DataTable()
 id "DataTableSystemId"
 id "DataTableId"
 
---- Schema of a shared struct type, used to fill nested struct columns
+--- Schema of a shared struct type, used to fill nested struct columns; size and align are filled in by the register call
 struct.DataTableStructDesc
     .name           "cstring"
     .size           "uint32_t"
@@ -99,15 +99,9 @@ struct.DataTableStructDesc
 struct.DataTableEnumDesc
     .name           "cstring"
     .values         "[]const cstring"
-    .count          "uint32_t"
     ()
 
---- Function pointer: maps an enum name to its integer value
-funcptr.DataTableEnumDecodeFn
-    "int32_t"
-    .value          "cstring"
-
---- Function pointer: fills a row field by field, including references and nested structs
+--- Function pointer: fills a row field by field, including references and nested structs; null selects the engine generic filler, which also derives the whole byte layout from the column descriptors
 funcptr.DataTableFillRowFn
     "bool"
     .context        "*const anyopaque"
@@ -118,13 +112,7 @@ funcptr.DataTableFillRowFn
     .errorCode      "DataTableError::Enum" { out = true }
     .outError       "cstring" { out = true }
 
---- Overrides for a referenced table: a struct column holds a prefix of the target row
-struct.DataTableColumnInjection
-    .column         "uint32_t"
-    .field          "uint32_t"
-    ()
-
---- Column schema: storage layout plus validation rules
+--- Column schema: value type plus validation rules; the byte offset is filled in by the register call
 struct.DataTableColumnDesc
     .name           "cstring"
     .type           "DataTableColumnType::Enum"
@@ -141,7 +129,6 @@ struct.DataTableColumnDesc
     .structType     "?cstring"
     .refType        "?cstring"
     .enumType       "?cstring"
-    .injections     "[]const DataTableColumnInjection"
     ()
 
 --- Schema of one table type
@@ -149,14 +136,11 @@ struct.DataTableSchemaDesc
     .structSize     "uint32_t"
     .version        "uint32_t"
     .name           "cstring"
-    .rowSize        "uint32_t"
-    .rowAlign       "uint32_t"
     .columns        "[]const DataTableColumnDesc"
     .structs        "[]const DataTableStructDesc"
     .enums          "[]const DataTableEnumDesc"
     .keyColumn      "uint32_t"
     .keyIsInt       "bool"
-    .keyField       "uint32_t"
     .fillRow        "DataTableFillRowFn"
     ()
 
@@ -177,9 +161,11 @@ func.GetDataTableSystem
     .app   "PulseAppId"
     ()
 
+--- Registers a schema. The system copies every descriptor value (including all strings), so caller storage may be temporary. With desc->fill_row null the engine derives the byte layout (column offsets, struct sizes and alignments, key flag, numeric default cross values) from the descriptors and fills rows generically; with a custom fill_row the descriptor offsets and struct sizes are the caller's own layout. Struct and whitelist types live in the embedded p_structs / p_enums arrays. out_error receives a message owned by the system on failure
 func.DataTableSystem.RegisterSchema { mut }
     "EPulseResult"
     .desc           "*const DataTableSchemaDesc"
+    .outError       "cstring" { out = true }
     ()
 
 func.DataTableSystem.Load { mut }
@@ -226,6 +212,12 @@ func.DataTableGetName
 func.DataTableRowCount
     "uint32_t"
     .table          "DataTableId"
+    ()
+
+func.DataTableRowAt
+    "?*const anyopaque"
+    .table          "DataTableId"
+    .index          "uint32_t"
     ()
 
 func.DataTableFindRow

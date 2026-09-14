@@ -266,7 +266,8 @@ EPulseAssetLoaderStatus step_data_table_load(void* state, const PulseAssetLoadTa
             fill.owner = table;
             fill.row = r;
             fill.dependencies = &load_state->dependencies;
-            if (!schema->fill_row(&fill, &table->vault, row_node, destination, &error_line, &fill_error, &fill_message)) {
+            bool filled = schema->fill_row ? schema->fill_row(&fill, &table->vault, row_node, destination, &error_line, &fill_error, &fill_message) : generic_fill_row(schema, &fill, &table->vault, row_node, destination, &error_line, &fill_error, &fill_message);
+            if (!filled) {
                 std::string text = fill_message ? fill_message : data_table_error_text(fill_error);
                 std::snprintf(buffer, sizeof(buffer), "line %d: %s", error_line > 0 ? error_line : pulse_datalist_line(row_node), text.c_str());
                 result = fail_reason(*registry, fill_error, buffer, out_error);

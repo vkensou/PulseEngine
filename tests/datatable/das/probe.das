@@ -33,8 +33,9 @@ def probeTableSystem(app: PulseAppId, cmd: CommandBuffer) {
     let snake_request = PulseSnakeLoad(app)
     let num_request = PulseNumLoad(app)
     let deep_request = PulseDeepLoad(app)
+    let refdefault_request = PulseRefdefaultLoad(app)
 
-    if (!PulseSnakeIsReady(app, snake_request) || !PulseNumIsReady(app, num_request) || !PulseDeepIsReady(app, deep_request)) {
+    if (!PulseSnakeIsReady(app, snake_request) || !PulseNumIsReady(app, num_request) || !PulseDeepIsReady(app, deep_request) || !PulseRefdefaultIsReady(app, refdefault_request)) {
         if (probe_frames < 300) {
             return
         }
@@ -78,6 +79,8 @@ def probeTableSystem(app: PulseAppId, cmd: CommandBuffer) {
         text_code = 7
     } elif (PulseDeepGetInnerShellTag(app, deep_b) != "x") {
         text_code = 8
+    } elif (PulseItemGetId(app, PulseRefdefaultGetLink(app, PulseRefdefaultFindRow(app, "solo"))) != "apple") {
+        text_code = 9
     }
 
     var error_code = 0

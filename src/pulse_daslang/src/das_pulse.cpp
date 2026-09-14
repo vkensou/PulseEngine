@@ -211,6 +211,25 @@ static const PulseDataTableSchemaDesc* das_data_table_schema(const PulseAppHandl
 	return system ? pulse_data_table_system_get_schema(system, schema) : nullptr;
 }
 
+static char* das_data_table_register_schema(const PulseAppHandle& app, const PulseDataTableSchemaDesc& desc, das::Context* context, das::LineInfoArg* at)
+{
+	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
+	if (!system) {
+		const char* message = "data table system is not available";
+		return context->allocateString(message, static_cast<uint32_t>(std::strlen(message)), at);
+	}
+	PulseDataTableSchemaDesc owned = desc;
+	owned.struct_size = sizeof(PulseDataTableSchemaDesc);
+	owned.version = PULSE_DATA_TABLE_PLUGIN_DESC_VERSION;
+	owned.fill_row = nullptr;
+	const char* error = nullptr;
+	if (pulse_data_table_system_register_schema(system, &owned, &error) != PULSE_RESULT_OK) {
+		const char* message = error ? error : "data table schema could not be registered";
+		return context->allocateString(message, static_cast<uint32_t>(std::strlen(message)), at);
+	}
+	return context->allocateString("", 0, at);
+}
+
 static PulseAssetRequest das_data_table_load(const PulseAppHandle& app, const char* schema, const char* path)
 {
 	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
@@ -249,17 +268,10 @@ static int64_t das_data_table_row_count(const PulseAppHandle& app, const char* s
 
 static void* das_data_table_row_at(const PulseAppHandle& app, const char* schema, int64_t index)
 {
-	PulseDataTableId table = das_data_table_table(app, schema);
-	const PulseDataTableSchemaDesc* desc = das_data_table_schema(app, schema);
-	if (!table || !desc || index < 0) {
+	if (index < 0) {
 		return nullptr;
 	}
-	uint32_t count = 0;
-	const void* rows = pulse_data_table_rows(table, &count);
-	if (!rows || static_cast<uint64_t>(index) >= count) {
-		return nullptr;
-	}
-	return const_cast<char*>(static_cast<const char*>(rows) + static_cast<size_t>(index) * desc->row_size);
+	return const_cast<void*>(pulse_data_table_row_at(das_data_table_table(app, schema), static_cast<uint32_t>(index)));
 }
 
 static void* das_data_table_find_row(const PulseAppHandle& app, const char* schema, const char* key)
@@ -535,6 +547,92 @@ struct PulseMaterialCreateDescAnnotation final : das::ManagedStructureAnnotation
 };
 
 // ============================================================
+// Data table descriptor annotations (das builds schemas for
+// pulse_data_table_system_register_schema; struct_size, version
+// and fill_row are stamped by the binding, offsets and sizes are
+// derived by the engine)
+// ============================================================
+
+DAS_BASE_BIND_ENUM(EPulseDataTableColumnType, EPulseDataTableColumnType,
+	PULSE_DATA_TABLE_COLUMN_TYPE_INT,
+	PULSE_DATA_TABLE_COLUMN_TYPE_FLOAT,
+	PULSE_DATA_TABLE_COLUMN_TYPE_BOOL,
+	PULSE_DATA_TABLE_COLUMN_TYPE_STRING,
+	PULSE_DATA_TABLE_COLUMN_TYPE_ENUM,
+	PULSE_DATA_TABLE_COLUMN_TYPE_STRUCT,
+	PULSE_DATA_TABLE_COLUMN_TYPE_REF);
+
+DAS_BIND_ENUM_CAST(EPulseDataTableColumnType);
+
+MAKE_TYPE_FACTORY(PulseDataTableColumnDesc, PulseDataTableColumnDesc);
+struct PulseDataTableColumnDescAnnotation final : das::ManagedStructureAnnotation<PulseDataTableColumnDesc>
+{
+	PulseDataTableColumnDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseDataTableColumnDesc", ml, "PulseDataTableColumnDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(name)>("name");
+		addField<DAS_BIND_MANAGED_FIELD(type)>("column_type");
+		addField<DAS_BIND_MANAGED_FIELD(offset)>("offset");
+		addField<DAS_BIND_MANAGED_FIELD(min_value)>("min_value");
+		addField<DAS_BIND_MANAGED_FIELD(max_value)>("max_value");
+		addField<DAS_BIND_MANAGED_FIELD(has_min)>("has_min");
+		addField<DAS_BIND_MANAGED_FIELD(has_max)>("has_max");
+		addField<DAS_BIND_MANAGED_FIELD(has_default)>("has_default");
+		addField<DAS_BIND_MANAGED_FIELD(default_int)>("default_int");
+		addField<DAS_BIND_MANAGED_FIELD(default_float)>("default_float");
+		addField<DAS_BIND_MANAGED_FIELD(default_bool)>("default_bool");
+		addField<DAS_BIND_MANAGED_FIELD(default_string)>("default_string");
+		addField<DAS_BIND_MANAGED_FIELD(struct_type)>("struct_type");
+		addField<DAS_BIND_MANAGED_FIELD(ref_type)>("ref_type");
+		addField<DAS_BIND_MANAGED_FIELD(enum_type)>("enum_type");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseDataTableStructDesc, PulseDataTableStructDesc);
+struct PulseDataTableStructDescAnnotation final : das::ManagedStructureAnnotation<PulseDataTableStructDesc>
+{
+	PulseDataTableStructDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseDataTableStructDesc", ml, "PulseDataTableStructDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(name)>("name");
+		addField<DAS_BIND_MANAGED_FIELD(size)>("size");
+		addField<DAS_BIND_MANAGED_FIELD(align)>("align");
+		addFieldEx("p_columns", "p_columns", (off_t)offsetof(PulseDataTableStructDesc, p_columns), makeType<void*>(*mlib));
+		addField<DAS_BIND_MANAGED_FIELD(columns_count)>("columns_count");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseDataTableEnumDesc, PulseDataTableEnumDesc);
+struct PulseDataTableEnumDescAnnotation final : das::ManagedStructureAnnotation<PulseDataTableEnumDesc>
+{
+	PulseDataTableEnumDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseDataTableEnumDesc", ml, "PulseDataTableEnumDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(name)>("name");
+		addFieldEx("p_values", "p_values", (off_t)offsetof(PulseDataTableEnumDesc, p_values), makeType<void*>(*mlib));
+		addField<DAS_BIND_MANAGED_FIELD(values_count)>("values_count");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseDataTableSchemaDesc, PulseDataTableSchemaDesc);
+struct PulseDataTableSchemaDescAnnotation final : das::ManagedStructureAnnotation<PulseDataTableSchemaDesc>
+{
+	PulseDataTableSchemaDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseDataTableSchemaDesc", ml, "PulseDataTableSchemaDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(name)>("name");
+		addFieldEx("p_columns", "p_columns", (off_t)offsetof(PulseDataTableSchemaDesc, p_columns), makeType<void*>(*mlib));
+		addField<DAS_BIND_MANAGED_FIELD(columns_count)>("columns_count");
+		addFieldEx("p_structs", "p_structs", (off_t)offsetof(PulseDataTableSchemaDesc, p_structs), makeType<void*>(*mlib));
+		addField<DAS_BIND_MANAGED_FIELD(structs_count)>("structs_count");
+		addFieldEx("p_enums", "p_enums", (off_t)offsetof(PulseDataTableSchemaDesc, p_enums), makeType<void*>(*mlib));
+		addField<DAS_BIND_MANAGED_FIELD(enums_count)>("enums_count");
+		addField<DAS_BIND_MANAGED_FIELD(key_column)>("key_column");
+		addField<DAS_BIND_MANAGED_FIELD(key_is_int)>("key_is_int");
+	}
+};
+
+// ============================================================
 // Shader descriptor annotations
 // ============================================================
 
@@ -631,6 +729,11 @@ namespace das
 		addAnnotation(new PulsePrefabHandleAnnotation(lib));
 		addAnnotation(new PulseAssetRequestAnnotation(lib));
 		addAnnotation(new PulseMaterialCreateDescAnnotation(lib));
+		addEnumeration(new EnumerationEPulseDataTableColumnType());
+		addAnnotation(new PulseDataTableColumnDescAnnotation(lib));
+		addAnnotation(new PulseDataTableStructDescAnnotation(lib));
+		addAnnotation(new PulseDataTableEnumDescAnnotation(lib));
+		addAnnotation(new PulseDataTableSchemaDescAnnotation(lib));
 
 		addExtern<DAS_BIND_FUN(HMM_V3), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V3", SideEffects::none, "HMM_V3")->args({ "x", "y", "z" });
 		addExtern<DAS_BIND_FUN(HMM_V4), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "HMM_V4", SideEffects::none, "HMM_V4")->args({ "x", "y", "z", "w" });
@@ -664,6 +767,7 @@ namespace das
 		addExtern<DAS_BIND_FUN(das_prefab_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_prefab_get_handle", SideEffects::modifyExternal, "pulse_prefab_get_handle")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_prefab_instantiate)>(*this, lib, "pulse_prefab_instantiate", SideEffects::worstDefault, "pulse_prefab_instantiate")->args({ "app", "prefab" });
 
+		addExtern<DAS_BIND_FUN(das_data_table_register_schema)>(*this, lib, "pulse_data_table_register_schema", SideEffects::modifyExternal, "pulse_data_table_register_schema")->args({ "app", "desc", "context", "at" });
 		addExtern<DAS_BIND_FUN(das_data_table_load), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_data_table_load", SideEffects::worstDefault, "pulse_data_table_load")->args({ "app", "schema", "path" });
 		addExtern<DAS_BIND_FUN(das_data_table_is_ready)>(*this, lib, "pulse_data_table_is_ready", SideEffects::modifyExternal, "pulse_data_table_is_ready")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_data_table_get_error)>(*this, lib, "pulse_data_table_get_error", SideEffects::modifyExternal, "pulse_data_table_get_error")->args({ "app", "request", "context", "at" });

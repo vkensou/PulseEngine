@@ -5,14 +5,14 @@
 
 namespace pulse::datatable {
 
-static uint32_t align_up(uint32_t value, uint32_t alignment) {
+uint32_t align_up(uint32_t value, uint32_t alignment) {
     if (alignment <= 1) {
         return value;
     }
     return (value + alignment - 1u) / alignment * alignment;
 }
 
-static uint32_t column_align(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column) {
+uint32_t column_align(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column) {
     switch (column.type) {
     case PULSE_DATA_TABLE_COLUMN_TYPE_INT:
         return alignof(int64_t);
@@ -35,7 +35,7 @@ static uint32_t column_align(const PulseDataTableSchemaDesc* schema, const Pulse
     }
 }
 
-static uint32_t column_size(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column) {
+uint32_t column_size(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column) {
     switch (column.type) {
     case PULSE_DATA_TABLE_COLUMN_TYPE_INT:
         return sizeof(int64_t);
@@ -332,6 +332,182 @@ bool check_column(const PulseDataTableSchemaDesc* schema, const PulseDataTableCo
         message = "unknown column type";
         return false;
     }
+}
+
+namespace {
+
+const char* intern_fill_error(const void* context, const char* message) {
+    const auto* fill = static_cast<const FillContext*>(context);
+    if (!fill || !fill->owner) {
+        return message;
+    }
+    auto* owner = static_cast<Table*>(fill->owner);
+    return owner->registry ? owner->registry->intern_error(message) : message;
+}
+
+bool fail_missing_column(const void* context, const PulseDataTableColumnDesc& column, int32_t line, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
+    char buffer[256];
+    std::snprintf(buffer, sizeof(buffer), "column '%s' is missing", column.name);
+    *error_line = line;
+    *error_code = PULSE_DATA_TABLE_ERROR_MISSING_COLUMN;
+    *out_error = intern_fill_error(context, buffer);
+    return false;
+}
+
+bool fail_column_type(const void* context, const PulseDataTableColumnDesc& column, int32_t line, const char* expectation, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
+    char buffer[256];
+    std::snprintf(buffer, sizeof(buffer), "column '%s' expects %s", column.name, expectation);
+    *error_line = line;
+    *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
+    *out_error = intern_fill_error(context, buffer);
+    return false;
+}
+
+bool fill_columns(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc* columns, size_t columns_count, const void* context, StringVault* vault, const PulseDatalist* node, uint8_t* row, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
+    for (size_t i = 0; i < columns_count; ++i) {
+        const PulseDataTableColumnDesc& column = columns[i];
+        const PulseDatalist* value = pulse_datalist_value(node, column.name);
+        switch (column.type) {
+        case PULSE_DATA_TABLE_COLUMN_TYPE_INT: {
+            int64_t decoded = 0;
+            if (!value) {
+                if (!column.has_default) {
+                    return fail_missing_column(context, column, pulse_datalist_line(node), error_line, error_code, out_error);
+                }
+                decoded = column.default_int;
+            } else if (pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_INT) {
+                return fail_column_type(context, column, pulse_datalist_line(value), "an int", error_line, error_code, out_error);
+            } else {
+                decoded = pulse_datalist_get_int(value, nullptr, 0);
+            }
+            if (!pulse_data_table_field_set_int(row, &column, decoded, out_error)) {
+                *error_line = pulse_datalist_line(value);
+                *error_code = PULSE_DATA_TABLE_ERROR_OUT_OF_RANGE;
+                return false;
+            }
+            break;
+        }
+        case PULSE_DATA_TABLE_COLUMN_TYPE_FLOAT: {
+            double decoded = 0.0;
+            if (!value) {
+                if (!column.has_default) {
+                    return fail_missing_column(context, column, pulse_datalist_line(node), error_line, error_code, out_error);
+                }
+                decoded = column.default_float;
+            } else {
+                EPulseDatalistType value_type = pulse_datalist_get_type(value, nullptr);
+                if (value_type != PULSE_DATALIST_TYPE_DOUBLE && value_type != PULSE_DATALIST_TYPE_INT) {
+                    return fail_column_type(context, column, pulse_datalist_line(value), "a float", error_line, error_code, out_error);
+                }
+                decoded = pulse_datalist_get_double(value, nullptr, 0.0);
+            }
+            if (!pulse_data_table_field_set_float(row, &column, decoded, out_error)) {
+                *error_line = pulse_datalist_line(value);
+                *error_code = PULSE_DATA_TABLE_ERROR_OUT_OF_RANGE;
+                return false;
+            }
+            break;
+        }
+        case PULSE_DATA_TABLE_COLUMN_TYPE_BOOL: {
+            bool decoded = false;
+            if (!value) {
+                if (!column.has_default) {
+                    return fail_missing_column(context, column, pulse_datalist_line(node), error_line, error_code, out_error);
+                }
+                decoded = column.default_bool;
+            } else if (pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_BOOL) {
+                return fail_column_type(context, column, pulse_datalist_line(value), "a bool", error_line, error_code, out_error);
+            } else {
+                decoded = pulse_datalist_get_bool(value, nullptr, false);
+            }
+            pulse_data_table_field_set_bool(row, &column, decoded, out_error);
+            break;
+        }
+        case PULSE_DATA_TABLE_COLUMN_TYPE_STRING:
+        case PULSE_DATA_TABLE_COLUMN_TYPE_ENUM: {
+            if (!value) {
+                if (!column.has_default) {
+                    return fail_missing_column(context, column, pulse_datalist_line(node), error_line, error_code, out_error);
+                }
+                std::string_view decoded(column.default_string ? column.default_string : "");
+                pulse_data_table_field_set_string(row, &column, &decoded, out_error);
+                break;
+            }
+            if (pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_STRING) {
+                return fail_column_type(context, column, pulse_datalist_line(value), "a string", error_line, error_code, out_error);
+            }
+            std::string_view decoded = vault->append(std::string_view(pulse_datalist_get_string(value, nullptr, "")));
+            pulse_data_table_field_set_string(row, &column, &decoded, out_error);
+            break;
+        }
+        case PULSE_DATA_TABLE_COLUMN_TYPE_STRUCT: {
+            const PulseDataTableStructDesc* desc = find_struct(schema, column.struct_type ? column.struct_type : "");
+            if (!desc) {
+                *error_line = pulse_datalist_line(value);
+                *error_code = PULSE_DATA_TABLE_ERROR_SCHEMA_IS_NOT_REGISTERED;
+                *out_error = intern_fill_error(context, "struct type is not declared in the schema");
+                return false;
+            }
+            if (!value) {
+                if (!fill_columns(schema, desc->p_columns, desc->columns_count, context, vault, nullptr, row + column.offset, error_line, error_code, out_error)) {
+                    return false;
+                }
+                break;
+            }
+            if (pulse_datalist_get_type(value, nullptr) != PULSE_DATALIST_TYPE_MAP) {
+                return fail_column_type(context, column, pulse_datalist_line(value), "a nested table", error_line, error_code, out_error);
+            }
+            if (!fill_columns(schema, desc->p_columns, desc->columns_count, context, vault, value, row + column.offset, error_line, error_code, out_error)) {
+                return false;
+            }
+            break;
+        }
+        case PULSE_DATA_TABLE_COLUMN_TYPE_REF: {
+            if (!value) {
+                if (!column.has_default) {
+                    return fail_missing_column(context, column, pulse_datalist_line(node), error_line, error_code, out_error);
+                }
+                const char* ref_error = nullptr;
+                const void* resolved = resolve_ref_by_key(context, &column, column.default_string ? column.default_string : "", &ref_error);
+                if (!resolved) {
+                    *error_line = pulse_datalist_line(node);
+                    *error_code = PULSE_DATA_TABLE_ERROR_MISSING_REFERENCE;
+                    *out_error = intern_fill_error(context, ref_error ? ref_error : data_table_error_text(PULSE_DATA_TABLE_ERROR_MISSING_REFERENCE));
+                    return false;
+                }
+                *reinterpret_cast<const void**>(row + column.offset) = resolved;
+                break;
+            }
+            const void* resolved = pulse_data_table_fill_context_resolve_ref(context, &column, value, out_error);
+            if (!resolved) {
+                *error_line = pulse_datalist_line(value);
+                *error_code = PULSE_DATA_TABLE_ERROR_MISSING_REFERENCE;
+                return false;
+            }
+            *reinterpret_cast<const void**>(row + column.offset) = resolved;
+            break;
+        }
+        default: {
+            *error_line = pulse_datalist_line(value);
+            *error_code = PULSE_DATA_TABLE_ERROR_TYPE_MISMATCH;
+            *out_error = intern_fill_error(context, "unknown column type");
+            return false;
+        }
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+bool generic_fill_row(const PulseDataTableSchemaDesc* schema, const void* context, void* vault, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error) {
+    if (!schema) {
+        *error_line = pulse_datalist_line(node);
+        *error_code = PULSE_DATA_TABLE_ERROR_SCHEMA_IS_NOT_REGISTERED;
+        *out_error = "schema is not registered";
+        return false;
+    }
+    return fill_columns(schema, schema->p_columns, schema->columns_count, context, static_cast<StringVault*>(vault), node, static_cast<uint8_t*>(out), error_line, error_code, out_error);
 }
 
 } // namespace pulse::datatable

@@ -110,14 +110,7 @@ struct PulseDataTableColumnDesc;
 typedef struct PulseDataTableColumnDesc PulseDataTableColumnDesc;
 
 /**
- * Function pointer: maps an enum name to its integer value
- *
- * @param[in] value
- *
- */
-typedef int32_t (*PulseProcDataTableEnumDecodeFn)(const char* value);
-/**
- * Function pointer: fills a row field by field, including references and nested structs
+ * Function pointer: fills a row field by field, including references and nested structs; null selects the engine generic filler, which also derives the whole byte layout from the column descriptors
  *
  * @param[in] context
  * @param[in] vault
@@ -148,7 +141,7 @@ struct PulseDataTable;
 typedef struct PulseDataTable PulseDataTable;
 
 /**
- * Schema of a shared struct type, used to fill nested struct columns
+ * Schema of a shared struct type, used to fill nested struct columns; size and align are filled in by the register call
  *
  */
 typedef struct PulseDataTableStructDesc
@@ -168,23 +161,11 @@ typedef struct PulseDataTableEnumDesc
 {
     const char*          name;
     Pulse_Array(const char*, values);
-    uint32_t             count;
 
 } PulseDataTableEnumDesc;
 
 /**
- * Overrides for a referenced table: a struct column holds a prefix of the target row
- *
- */
-typedef struct PulseDataTableColumnInjection
-{
-    uint32_t             column;
-    uint32_t             field;
-
-} PulseDataTableColumnInjection;
-
-/**
- * Column schema: storage layout plus validation rules
+ * Column schema: value type plus validation rules; the byte offset is filled in by the register call
  *
  */
 typedef struct PulseDataTableColumnDesc
@@ -207,7 +188,6 @@ typedef struct PulseDataTableColumnDesc
     const char*          ref_type;
     [[pulse::optional]]
     const char*          enum_type;
-    Pulse_Array(const PulseDataTableColumnInjection, injections);
 
 } PulseDataTableColumnDesc;
 
@@ -220,14 +200,11 @@ typedef struct PulseDataTableSchemaDesc
     uint32_t             struct_size;
     uint32_t             version;
     const char*          name;
-    uint32_t             row_size;
-    uint32_t             row_align;
     Pulse_Array(const PulseDataTableColumnDesc, columns);
     Pulse_Array(const PulseDataTableStructDesc, structs);
     Pulse_Array(const PulseDataTableEnumDesc, enums);
     uint32_t             key_column;
     bool                 key_is_int;
-    uint32_t             key_field;
     PulseProcDataTableFillRowFn fill_row;
 
 } PulseDataTableSchemaDesc;
@@ -241,7 +218,15 @@ typedef struct PulseDataTableSchemaDesc
 PULSE_DATATABLE_API PulseDataTablePluginDesc pulse_data_table_plugin_desc_default(void);
 PULSE_DATATABLE_API EPulseAppAddPluginResult pulse_add_data_table_plugin(PulseAppId app, const PulseDataTablePluginDesc* desc);
 [[pulse::optional]] PULSE_DATATABLE_API PulseDataTableSystemId pulse_get_data_table_system(PulseAppId app);
-PULSE_DATATABLE_API EPulseResult pulse_data_table_system_register_schema(PulseDataTableSystemId _this, const PulseDataTableSchemaDesc* desc);
+
+/**
+ * Registers a schema. The system copies every descriptor value (including all strings), so caller storage may be temporary. With desc->fill_row null the engine derives the byte layout (column offsets, struct sizes and alignments, key flag, numeric default cross values) from the descriptors and fills rows generically; with a custom fill_row the descriptor offsets and struct sizes are the caller's own layout. Struct and whitelist types live in the embedded p_structs / p_enums arrays. out_error receives a message owned by the system on failure
+ *
+ * @param[in] desc
+ * @param[out] outError
+ *
+ */
+PULSE_DATATABLE_API EPulseResult pulse_data_table_system_register_schema(PulseDataTableSystemId _this, const PulseDataTableSchemaDesc* desc, [[pulse::out]] const char** out_error);
 PULSE_DATATABLE_API PulseAssetRequest pulse_data_table_system_load(PulseDataTableSystemId _this, const char* schema, const char* path);
 PULSE_DATATABLE_API bool pulse_data_table_system_is_ready(Const_PulseDataTableSystemId _this, PulseAssetRequest request);
 PULSE_DATATABLE_API bool pulse_data_table_system_is_alive(Const_PulseDataTableSystemId _this, PulseAssetRequest request);
@@ -251,6 +236,7 @@ PULSE_DATATABLE_API bool pulse_data_table_system_is_alive(Const_PulseDataTableSy
 [[pulse::optional]] PULSE_DATATABLE_API const PulseDataTableSchemaDesc* pulse_data_table_system_get_schema(Const_PulseDataTableSystemId _this, const char* schema);
 [[pulse::optional]] PULSE_DATATABLE_API const char* pulse_data_table_get_name(PulseDataTableId table);
 PULSE_DATATABLE_API uint32_t pulse_data_table_row_count(PulseDataTableId table);
+[[pulse::optional]] PULSE_DATATABLE_API const void* pulse_data_table_row_at(PulseDataTableId table, uint32_t index);
 [[pulse::optional]] PULSE_DATATABLE_API const void* pulse_data_table_find_row(PulseDataTableId table, const char* key);
 [[pulse::optional]] PULSE_DATATABLE_API const void* pulse_data_table_find_row_int(PulseDataTableId table, int64_t key);
 [[pulse::optional]] PULSE_DATATABLE_API const void* pulse_data_table_rows(PulseDataTableId table, [[pulse::out]] uint32_t* out_count);

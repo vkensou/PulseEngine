@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <memory>
 #include <memory_resource>
 #include <string>
 #include <string_view>
@@ -20,6 +21,31 @@ constexpr const char* kPluginName = "pulse_datatable";
 
 struct TableSlot;
 class Registry;
+
+struct OwnedSchema {
+    std::deque<std::string> strings{};
+    std::vector<PulseDataTableColumnDesc> columns{};
+    std::deque<std::vector<PulseDataTableColumnDesc>> struct_columns{};
+    std::vector<PulseDataTableStructDesc> structs{};
+    std::vector<PulseDataTableEnumDesc> enums{};
+    std::deque<std::vector<const char*>> enum_values{};
+    PulseDataTableSchemaDesc desc{};
+
+    const char* intern(std::string_view text) {
+        strings.emplace_back(text);
+        return strings.back().c_str();
+    }
+
+    const char** intern_values(const char* const* values, size_t count) {
+        std::vector<const char*> pointers;
+        pointers.reserve(count);
+        for (size_t i = 0; i < count; ++i) {
+            pointers.push_back(intern(values[i] ? values[i] : ""));
+        }
+        enum_values.push_back(std::move(pointers));
+        return enum_values.back().data();
+    }
+};
 
 struct Table {
     const PulseDataTableSchemaDesc* schema = nullptr;
@@ -71,7 +97,7 @@ public:
     std::pmr::memory_resource* resource() const;
     void bind(PulseAppId app_id, PulseAssetSystemId asset_system_id);
 
-    EPulseResult register_schema(const PulseDataTableSchemaDesc* desc);
+    EPulseResult register_schema(const PulseDataTableSchemaDesc* desc, const char** out_error);
     const PulseDataTableSchemaDesc* find_schema(std::string_view name) const;
 
     Table* create_table(PulseAssetHandle handle, const PulseDataTableSchemaDesc* schema);
@@ -92,6 +118,7 @@ private:
     PulseAppId app_ = nullptr;
     PulseAssetSystemId asset_system_ = nullptr;
     std::pmr::unordered_map<std::pmr::string, const PulseDataTableSchemaDesc*> schemas_;
+    std::vector<std::unique_ptr<OwnedSchema>> owned_;
     std::unordered_map<uint32_t, Table*> slots_{};
     std::unordered_map<TableSlot*, Table*> live_{};
     std::vector<Table*> table_order_{};
@@ -111,11 +138,17 @@ bool decode_bool(const PulseDatalist* node, bool default_value, bool& out);
 bool decode_string(const PulseDatalist* node, const char* default_value, std::string_view& out);
 bool decode_enum(const PulseDataTableEnumDesc* enum_desc, const PulseDatalist* node, std::string_view& out, const char*& message);
 
+uint32_t align_up(uint32_t value, uint32_t alignment);
+uint32_t column_align(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column);
+uint32_t column_size(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column);
 uint32_t table_row_size(const PulseDataTableSchemaDesc* schema);
 const char* data_table_error_text(EPulseDataTableError error);
 
 bool check_range(const PulseDataTableColumnDesc& column, double value, EPulseDataTableError& error, const char*& message);
 bool check_column(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc& column, const PulseDatalist* node, EPulseDataTableError& error, const char*& message);
+
+bool generic_fill_row(const PulseDataTableSchemaDesc* schema, const void* context, void* vault, const PulseDatalist* node, void* out, int32_t* error_line, EPulseDataTableError* error_code, const char** out_error);
+const void* resolve_ref_by_key(const void* context, const PulseDataTableColumnDesc* column, std::string_view key, const char** out_error);
 
 EPulseResult register_data_table_type(PulseAssetSystemId asset_system, Registry* registry);
 EPulseResult register_data_table_loader(PulseAssetSystemId asset_system, Registry* registry);

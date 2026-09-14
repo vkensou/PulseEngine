@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "type": "daslang",
   "script_file": "snake_module.das",
-  "library": "snake_daslang_tables",
-  "entry": "pulse_package_register",
   "assets": true,
   "dependencies": [
     "pulse_window",

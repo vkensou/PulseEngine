@@ -97,7 +97,7 @@ int main(void) {
     assert(schema->columns_count == 7);
     assert(schema->key_column == 0);
     assert(!schema->key_is_int);
-    assert(schema->row_size == 80);
+    assert(schema->p_columns[6].offset == 64);
 
     PulseAssetRequest snake_request = pulse_tables::PulseSnakeRowTable::Load(app, "snake.datatable");
     assert(pulse_asset_request_is_valid(snake_request));

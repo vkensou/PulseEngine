@@ -6,6 +6,62 @@
 
 using namespace pulse::datatable;
 
+namespace pulse::datatable {
+
+const void* resolve_ref_by_key(const void* context, const PulseDataTableColumnDesc* column, std::string_view key, const char** out_error) {
+    const auto* fill = static_cast<const FillContext*>(context);
+    if (!fill || !fill->owner || !column) {
+        if (out_error) {
+            *out_error = "fill context is not available";
+        }
+        return nullptr;
+    }
+    auto* owner = static_cast<Table*>(fill->owner);
+    if (!owner->schema) {
+        if (out_error) {
+            *out_error = "fill context schema is not available";
+        }
+        return nullptr;
+    }
+    if (key.empty()) {
+        if (out_error) {
+            *out_error = "reference column expects a string key";
+        }
+        return nullptr;
+    }
+    Registry* registry = owner->registry;
+    if (!registry) {
+        if (out_error) {
+            *out_error = "data table registry is not available";
+        }
+        return nullptr;
+    }
+    const PulseDataTableSchemaDesc* target_schema = registry->find_schema(column->ref_type ? column->ref_type : "");
+    if (!target_schema) {
+        if (out_error) {
+            *out_error = "referenced schema is not registered";
+        }
+        return nullptr;
+    }
+    Table* target = registry->find_table(column->ref_type ? column->ref_type : "");
+    if (!target) {
+        if (out_error) {
+            *out_error = "referenced table is not loaded";
+        }
+        return nullptr;
+    }
+    const void* found = pulse_data_table_find_row(reinterpret_cast<PulseDataTableId>(target->slot), std::string(key).c_str());
+    if (!found) {
+        if (out_error) {
+            *out_error = "referenced row does not exist";
+        }
+        return nullptr;
+    }
+    return found;
+}
+
+} // namespace pulse::datatable
+
 namespace {
 
 Registry* to_registry(PulseDataTableSystemId system) {
@@ -20,9 +76,15 @@ const TableSlot* to_table(PulseDataTableId table) {
 
 extern "C" {
 
-EPulseResult pulse_data_table_system_register_schema(PulseDataTableSystemId _this, const PulseDataTableSchemaDesc* desc) {
+EPulseResult pulse_data_table_system_register_schema(PulseDataTableSystemId _this, const PulseDataTableSchemaDesc* desc, const char** out_error) {
     Registry* registry = to_registry(_this);
-    return registry ? registry->register_schema(desc) : PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    if (!registry) {
+        if (out_error) {
+            *out_error = "data table system is invalid";
+        }
+        return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    return registry->register_schema(desc, out_error);
 }
 
 PulseAssetRequest pulse_data_table_system_load(PulseDataTableSystemId _this, const char* schema, const char* path) {
@@ -98,6 +160,15 @@ const void* pulse_data_table_rows(PulseDataTableId table, uint32_t* out_count) {
     return owner && owner->row_count > 0 ? owner->rows.data() : nullptr;
 }
 
+const void* pulse_data_table_row_at(PulseDataTableId table, uint32_t index) {
+    const TableSlot* self = to_table(table);
+    const Table* owner = self ? self->table : nullptr;
+    if (!owner || index >= owner->row_count) {
+        return nullptr;
+    }
+    return owner->rows.data() + static_cast<size_t>(index) * table_row_size(owner->schema);
+}
+
 const void* pulse_data_table_find_row(PulseDataTableId table, const char* key) {
     const TableSlot* self = to_table(table);
     if (!self || !self->table || !key || self->schema->key_is_int) {
@@ -168,56 +239,14 @@ bool pulse_data_table_field_set_string(void* row, const PulseDataTableColumnDesc
 }
 
 const void* pulse_data_table_fill_context_resolve_ref(const void* context, const PulseDataTableColumnDesc* column, const PulseDatalist* node, const char** out_error) {
-    const auto* fill = static_cast<const FillContext*>(context);
-    if (!fill || !fill->owner || !column || !node || !fill->dependencies) {
-        if (out_error) {
-            *out_error = "fill context is not available";
-        }
-        return nullptr;
-    }
-    auto* owner = static_cast<Table*>(fill->owner);
-    if (!owner->schema) {
-        if (out_error) {
-            *out_error = "fill context schema is not available";
-        }
-        return nullptr;
-    }
     std::string_view key{};
-    if (!decode_string(node, nullptr, key) || key.empty()) {
+    if (!node || !decode_string(node, nullptr, key)) {
         if (out_error) {
             *out_error = "reference column expects a string key";
         }
         return nullptr;
     }
-    Registry* registry = owner->registry;
-    if (!registry) {
-        if (out_error) {
-            *out_error = "data table registry is not available";
-        }
-        return nullptr;
-    }
-    const PulseDataTableSchemaDesc* target_schema = registry->find_schema(column->ref_type ? column->ref_type : "");
-    if (!target_schema) {
-        if (out_error) {
-            *out_error = "referenced schema is not registered";
-        }
-        return nullptr;
-    }
-    Table* target = registry->find_table(column->ref_type ? column->ref_type : "");
-    if (!target) {
-        if (out_error) {
-            *out_error = "referenced table is not loaded";
-        }
-        return nullptr;
-    }
-    const void* found = pulse_data_table_find_row(reinterpret_cast<PulseDataTableId>(target->slot), std::string(key).c_str());
-    if (!found) {
-        if (out_error) {
-            *out_error = "referenced row does not exist";
-        }
-        return nullptr;
-    }
-    return found;
+    return resolve_ref_by_key(context, column, key, out_error);
 }
 
 int32_t pulse_data_table_enum_lookup(const PulseDataTableSchemaDesc* schema, const PulseDataTableColumnDesc* column, const char* value) {

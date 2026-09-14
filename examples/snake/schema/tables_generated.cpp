@@ -20,8 +20,6 @@ const PulseDataTableSchemaDesc pulse_table_snake_config_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "snake_config",
-    24u,
-    8u,
     pulse_table_snake_config_columns_0.data(),
     2u,
     nullptr,
@@ -30,7 +28,6 @@ const PulseDataTableSchemaDesc pulse_table_snake_config_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_snake_config_fill_0
 };
 
@@ -144,7 +141,7 @@ EPulseResult RegisterSchemas(PulseDataTableSystemId system) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_snake_config_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_snake_config_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }

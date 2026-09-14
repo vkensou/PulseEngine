@@ -109,8 +109,6 @@ const PulseDataTableSchemaDesc pulse_table_declares_other_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "declares_other",
-    16u,
-    8u,
     pulse_table_declares_other_columns_0.data(),
     1u,
     nullptr,
@@ -119,7 +117,6 @@ const PulseDataTableSchemaDesc pulse_table_declares_other_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_declares_other_fill_0
 };
 
@@ -134,8 +131,6 @@ const PulseDataTableSchemaDesc pulse_table_deep_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "deep",
-    48u,
-    8u,
     pulse_table_deep_columns_0.data(),
     2u,
     pulse_table_deep_structs,
@@ -144,7 +139,6 @@ const PulseDataTableSchemaDesc pulse_table_deep_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_deep_fill_0
 };
 
@@ -153,8 +147,6 @@ const PulseDataTableSchemaDesc pulse_table_dup_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "dup",
-    16u,
-    8u,
     pulse_table_dup_columns_0.data(),
     1u,
     nullptr,
@@ -163,7 +155,6 @@ const PulseDataTableSchemaDesc pulse_table_dup_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_dup_fill_0
 };
 
@@ -183,8 +174,6 @@ const PulseDataTableSchemaDesc pulse_table_enm_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "enm",
-    32u,
-    8u,
     pulse_table_enm_columns_0.data(),
     2u,
     nullptr,
@@ -193,7 +182,6 @@ const PulseDataTableSchemaDesc pulse_table_enm_schema{
     1u,
     0u,
     false,
-    0u,
     pulse_table_enm_fill_0
 };
 
@@ -202,8 +190,6 @@ const PulseDataTableSchemaDesc pulse_table_extra_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "extra",
-    16u,
-    8u,
     pulse_table_extra_columns_0.data(),
     1u,
     nullptr,
@@ -212,7 +198,6 @@ const PulseDataTableSchemaDesc pulse_table_extra_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_extra_fill_0
 };
 
@@ -221,8 +206,6 @@ const PulseDataTableSchemaDesc pulse_table_item_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "item",
-    40u,
-    8u,
     pulse_table_item_columns_0.data(),
     3u,
     nullptr,
@@ -231,7 +214,6 @@ const PulseDataTableSchemaDesc pulse_table_item_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_item_fill_0
 };
 
@@ -240,8 +222,6 @@ const PulseDataTableSchemaDesc pulse_table_num_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "num",
-    24u,
-    8u,
     pulse_table_num_columns_0.data(),
     2u,
     nullptr,
@@ -250,7 +230,6 @@ const PulseDataTableSchemaDesc pulse_table_num_schema{
     0u,
     0u,
     true,
-    0u,
     pulse_table_num_fill_0
 };
 
@@ -259,8 +238,6 @@ const PulseDataTableSchemaDesc pulse_table_ref_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "ref",
-    24u,
-    8u,
     pulse_table_ref_columns_0.data(),
     2u,
     nullptr,
@@ -269,7 +246,6 @@ const PulseDataTableSchemaDesc pulse_table_ref_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_ref_fill_0
 };
 
@@ -278,8 +254,6 @@ const PulseDataTableSchemaDesc pulse_table_req_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "req",
-    24u,
-    8u,
     pulse_table_req_columns_0.data(),
     2u,
     nullptr,
@@ -288,7 +262,6 @@ const PulseDataTableSchemaDesc pulse_table_req_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_req_fill_0
 };
 
@@ -297,8 +270,6 @@ const PulseDataTableSchemaDesc pulse_table_rng_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "rng",
-    24u,
-    8u,
     pulse_table_rng_columns_0.data(),
     2u,
     nullptr,
@@ -307,7 +278,6 @@ const PulseDataTableSchemaDesc pulse_table_rng_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_rng_fill_0
 };
 
@@ -332,8 +302,6 @@ const PulseDataTableSchemaDesc pulse_table_snake_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "snake",
-    80u,
-    8u,
     pulse_table_snake_columns_0.data(),
     7u,
     pulse_table_snake_structs,
@@ -342,7 +310,6 @@ const PulseDataTableSchemaDesc pulse_table_snake_schema{
     1u,
     0u,
     false,
-    0u,
     pulse_table_snake_fill_0
 };
 
@@ -351,8 +318,6 @@ const PulseDataTableSchemaDesc pulse_table_typ_schema{
     sizeof(PulseDataTableSchemaDesc),
     PULSE_DATA_TABLE_PLUGIN_DESC_VERSION,
     "typ",
-    24u,
-    8u,
     pulse_table_typ_columns_0.data(),
     2u,
     nullptr,
@@ -361,7 +326,6 @@ const PulseDataTableSchemaDesc pulse_table_typ_schema{
     0u,
     0u,
     false,
-    0u,
     pulse_table_typ_fill_0
 };
 
@@ -1677,73 +1641,73 @@ EPulseResult RegisterSchemas(PulseDataTableSystemId system) {
         return PULSE_RESULT_ERROR_INVALID_ARGUMENT;
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_declares_other_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_deep_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_deep_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_dup_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_dup_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_enm_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_enm_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_extra_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_extra_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_item_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_item_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_num_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_num_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_ref_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_ref_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_req_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_req_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_rng_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_rng_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_snake_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_snake_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_typ_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
     }
     {
-        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_typ_schema);
+        EPulseResult result = pulse_data_table_system_register_schema(system, &pulse_table_declares_other_schema, nullptr);
         if (result != PULSE_RESULT_OK) {
             return result;
         }
