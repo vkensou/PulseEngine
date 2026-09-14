@@ -1631,41 +1631,46 @@ local function generate_event_wrapper(system)
         table.insert(output, "\tpulse::command_buffer command_buffer(world);")
     end
 
+    local lam_arg = nil
+    if inner_each then
+        local comp_param = first_component_param(system)
+        lam_arg = comp_param and comp_param.name or "elem"
+    end
+
+    local call_args = {}
+    for _, p in ipairs(system.params) do
+        local k = classify_param_type(p.type)
+        if k == KIND.EVENT_READER then
+            table.insert(call_args, er_name)
+        elseif k == KIND.COMMAND_BUFFER then
+            table.insert(call_args, "command_buffer")
+        elseif k == KIND.EVENT_WRITER then
+            table.insert(call_args, event_writer_var_name(p))
+        elseif k == KIND.SINGLETON_QUERY then
+            table.insert(call_args, singleton_query_local_name(p))
+        elseif k == KIND.FLECS_QUERY then
+            table.insert(call_args, p.name)
+        elseif k == KIND.SYSTEM_STATE_MACHINE then
+            table.insert(call_args, p.name)
+        elseif k == KIND.PULSE_APP_ID then
+            table.insert(call_args, p.name)
+        elseif k == KIND.COMPONENT then
+            table.insert(call_args, inner_each and lam_arg or p.name)
+        end
+    end
+    local arg_str = table.concat(call_args, ", ")
+
     if inner_each then
         local sp = sig_params[1]
         local qinner = extract_template_type(sp.type)
         if not qinner then
             error("`inner_each`: 错误的查询类型 " .. sp.type)
         end
-        local comp_param = first_component_param(system)
-        local lam_arg = comp_param and comp_param.name or "elem"
         table.insert(output, string.format("\t%s.each([&](%s& %s)", sp.name, qinner, lam_arg))
         table.insert(output, "\t\t{")
-        table.insert(output, string.format("\t\t\t%s(%s, %s);", system.name, er_name, lam_arg))
+        table.insert(output, string.format("\t\t\t%s(%s);", system.name, arg_str))
         table.insert(output, "\t\t});")
     else
-        local call_args = {}
-        for _, p in ipairs(system.params) do
-            local k = classify_param_type(p.type)
-            if k == KIND.EVENT_READER then
-                table.insert(call_args, er_name)
-            elseif k == KIND.COMMAND_BUFFER then
-                table.insert(call_args, "command_buffer")
-            elseif k == KIND.EVENT_WRITER then
-                table.insert(call_args, event_writer_var_name(p))
-            elseif k == KIND.SINGLETON_QUERY then
-                table.insert(call_args, singleton_query_local_name(p))
-            elseif k == KIND.FLECS_QUERY then
-                table.insert(call_args, p.name)
-            elseif k == KIND.SYSTEM_STATE_MACHINE then
-                table.insert(call_args, p.name)
-            elseif k == KIND.PULSE_APP_ID then
-                table.insert(call_args, p.name)
-            elseif k == KIND.COMPONENT then
-                table.insert(call_args, p.name)
-            end
-        end
-        local arg_str = table.concat(call_args, ", ")
         table.insert(output, string.format("\t%s(%s);", system.name, arg_str))
     end
     table.insert(output, "}")
