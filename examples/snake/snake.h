@@ -150,7 +150,7 @@ PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void scheduleSnakeMoveSystem(pulse::res<const PulseTimer> timer, pulse::event_writer<SnakeMoveIntentEvent> snakeMoveIntentEvent, flecs::entity entity, const Facing4W& direction, SnakeMove& move);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
-void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, pulse::command_buffer& command_buffer, PulseAppId app, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs, pulse::event_writer<AppleEatenEvent> appleEatenEvent, pulse::event_writer<GameOverEvent> gameOverEvent, SnakeBodies& snake);
+void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveIntentEvent, pulse::command_buffer& command_buffer, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs, pulse::event_writer<AppleEatenEvent> appleEatenEvent, pulse::event_writer<GameOverEvent> gameOverEvent, SnakeBodies& snake);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void syncSnakeBodyPositionSystem(SnakeBodies& snake);
@@ -162,7 +162,7 @@ PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void increaseScoreSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, Score& score);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
-void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, pulse::command_buffer& command_buffer, PulseAppId app, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs);
+void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> appleEatenEvent, pulse::command_buffer& command_buffer, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs);
 
 PULSE_ECS_SYSTEM(PHASE=UPDATE, STATE=SnakeGameState::Gaming)
 void onGameOverSystem(pulse::event_reader<GameOverEvent> gameOverEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery);
@@ -174,4 +174,4 @@ PULSE_ECS_SYSTEM(PHASE=IMGUI)
 void snakeFpsUISystem(pulse::res<const PulseTimer> timer);
 
 PULSE_ECS_SYSTEM(PHASE=IMGUI, STATE=SnakeGameState::GameOver)
-void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, PulseAppId app, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs, pulse::singleton_query<const SnakeConfig> configQuery);
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs, pulse::singleton_query<const SnakeConfig> configQuery);

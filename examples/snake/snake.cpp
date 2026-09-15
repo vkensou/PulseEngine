@@ -34,9 +34,9 @@ bool isOpposite(Direction4W left, Direction4W right)
 
 // 由 prefab 模板实例化实体：网格/材质等静态数据写在 .prefab 里，
 // 实例只覆盖运行期才知道的变换。
-flecs::entity instantiatePrefab(PulseAppId app, PulsePrefabHandle prefab, HMM_Vec3 position, HMM_Vec3 scale)
+flecs::entity instantiatePrefab(pulse::command_buffer& command_buffer, PulsePrefabHandle prefab, HMM_Vec3 position, HMM_Vec3 scale)
 {
-	auto ent = flecs::entity(pulse_app_world(app), pulse_prefab_instantiate(app, prefab));
+	auto ent = command_buffer.instantiate(prefab);
 	ent.set<PulseLocalTransform>({ .translation = position, .rotation = HMM_Q_Identity, .scale = scale });
 	return ent;
 }
@@ -95,29 +95,29 @@ std::optional<HMM_Vec3> getNewApplePosition(const std::vector<SnakeBody>& snake,
 	return {};
 }
 
-flecs::entity createApple(PulseAppId app, const SnakePrefabs& prefabs, const std::vector<SnakeBody>& snake, const Border& border)
+flecs::entity createApple(pulse::command_buffer& command_buffer, const SnakePrefabs& prefabs, const std::vector<SnakeBody>& snake, const Border& border)
 {
 	auto newPos = getNewApplePosition(snake, border);
 	if (!newPos.has_value())
 		return {};
 
-	return instantiatePrefab(app, prefabs.apple, newPos.value(), HMM_V3_One);
+	return instantiatePrefab(command_buffer, prefabs.apple, newPos.value(), HMM_V3_One);
 }
 
 // 返回蛇实体与身体列表：实体创建是 deferred 的（系统内），不能事后
 // 再 get 身体数据，所以直接随返回值带出。
-std::pair<flecs::entity, std::vector<SnakeBody>> createSnake(pulse::command_buffer& command_buffer, PulseAppId app, const SnakePrefabs& prefabs, HMM_Vec3 initPos, float moveInterval)
+std::pair<flecs::entity, std::vector<SnakeBody>> createSnake(pulse::command_buffer& command_buffer, const SnakePrefabs& prefabs, HMM_Vec3 initPos, float moveInterval)
 {
 	int snakeInitLength = 3;
 
-	auto head = instantiatePrefab(app, prefabs.snakeHead, initPos, HMM_V3_One);
+	auto head = instantiatePrefab(command_buffer, prefabs.snakeHead, initPos, HMM_V3_One);
 
 	std::vector<SnakeBody> bodies;
 	bodies.push_back({ .position = initPos, .entity = head });
 	for (int i = 0; i < 3; ++i)
 	{
 		auto bodyPos = HMM_V3(initPos.X - 1 - i, initPos.Y, initPos.Z);
-		auto newBody = instantiatePrefab(app, prefabs.snakeBody, bodyPos, HMM_V3_One);
+		auto newBody = instantiatePrefab(command_buffer, prefabs.snakeBody, bodyPos, HMM_V3_One);
 		bodies.insert(bodies.begin(), { .position = bodyPos, .entity = newBody });
 	}
 
@@ -130,28 +130,28 @@ std::pair<flecs::entity, std::vector<SnakeBody>> createSnake(pulse::command_buff
 	return { snake, std::move(bodies) };
 }
 
-Border createBorder(pulse::command_buffer& command_buffer, PulseAppId app, const SnakePrefabs& prefabs, int up, int bottom, int left, int right)
+Border createBorder(pulse::command_buffer& command_buffer, const SnakePrefabs& prefabs, int up, int bottom, int left, int right)
 {
 	auto centerX = (left + right) / 2.0f;
 	auto centerY = (up + bottom) / 2.0f;
 	auto width = right - left + 1;
 	auto height = up - bottom + 1;
-	instantiatePrefab(app, prefabs.board, HMM_V3(right, centerY, 0), HMM_V3(1, height, 1));
-	instantiatePrefab(app, prefabs.board, HMM_V3(left, centerY, 0), HMM_V3(1, height, 1));
-	instantiatePrefab(app, prefabs.board, HMM_V3(centerX, up, 0), HMM_V3(width, 1, 1));
-	instantiatePrefab(app, prefabs.board, HMM_V3(centerX, bottom, 0), HMM_V3(width, 1, 1));
+	instantiatePrefab(command_buffer, prefabs.board, HMM_V3(right, centerY, 0), HMM_V3(1, height, 1));
+	instantiatePrefab(command_buffer, prefabs.board, HMM_V3(left, centerY, 0), HMM_V3(1, height, 1));
+	instantiatePrefab(command_buffer, prefabs.board, HMM_V3(centerX, up, 0), HMM_V3(width, 1, 1));
+	instantiatePrefab(command_buffer, prefabs.board, HMM_V3(centerX, bottom, 0), HMM_V3(width, 1, 1));
 
 	Border border = { .up = up, .bottom = bottom, .left = left,  .right = right };
 	command_buffer.set_singleton<Border>(border);
 	return border;
 }
 
-void createEntities(pulse::command_buffer& command_buffer, PulseAppId app, const Border& border, const SnakePrefabs& prefabs, float moveInterval)
+void createEntities(pulse::command_buffer& command_buffer, const Border& border, const SnakePrefabs& prefabs, float moveInterval)
 {
 	command_buffer.set_singleton<Score>({ .value = 0 });
-	auto [snake, bodies] = createSnake(command_buffer, app, prefabs, HMM_V3(0, 0, 0), moveInterval);
+	auto [snake, bodies] = createSnake(command_buffer, prefabs, HMM_V3(0, 0, 0), moveInterval);
 	(void)snake;
-	createApple(app, prefabs, bodies, border);
+	createApple(command_buffer, prefabs, bodies, border);
 }
 
 void destructEntities(flecs::query<SnakeBodies>& snakeQuery, flecs::query<IsApple>& appleQuery)
@@ -361,8 +361,8 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 	// 注意：系统运行期间（stage）不能 defer_suspend 后直接创建实体，
 	// 会让结构变更绕过 staging 直接改 readonly 主 world 导致死锁。
 	// 这里让实体创建走正常的 deferred 路径（系统结束 merge 时生效）。
-	Border border = createBorder(command_buffer, app, prefabs, up, bottom, left, right);
-	createEntities(command_buffer, app, border, prefabs, (float)configRow->move_interval);
+	Border border = createBorder(command_buffer, prefabs, up, bottom, left, right);
+	createEntities(command_buffer, border, prefabs, (float)configRow->move_interval);
 
 	auto camera = command_buffer.entity();
 	camera.set<PulseLocalTransform>({ .translation = HMM_V3(boardCenterX, boardCenterY, cameraZ), .rotation = HMM_Q_Identity, .scale = HMM_V3_One });
@@ -398,7 +398,7 @@ void scheduleSnakeMoveSystem(pulse::res<const PulseTimer> timer, pulse::event_wr
 	snakeMoveWriter.send<SnakeBodies>(entity, { .delta = delta });
 }
 
-void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveReader, pulse::command_buffer& command_buffer, PulseAppId app, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs, pulse::event_writer<AppleEatenEvent> appleEatWriter, pulse::event_writer<GameOverEvent> gameOverWriter, SnakeBodies& snake)
+void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveReader, pulse::command_buffer& command_buffer, flecs::query<const IsApple, const PulseLocalTransform>& appleQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs, pulse::event_writer<AppleEatenEvent> appleEatWriter, pulse::event_writer<GameOverEvent> gameOverWriter, SnakeBodies& snake)
 {
 	auto& head = snake.bodies.back();
 
@@ -429,7 +429,7 @@ void executeSnakeMoveSystem(pulse::event_reader<SnakeMoveIntentEvent> snakeMoveR
 	else if (obstacle.Type() == ObstacleType::Apple)
 	{
 		head.position = nextPos;
-		auto newBody = instantiatePrefab(app, prefabs.get().snakeBody, headPosition, HMM_V3_One);
+		auto newBody = instantiatePrefab(command_buffer, prefabs.get().snakeBody, headPosition, HMM_V3_One);
 		snake.bodies.insert(snake.bodies.end() - 1, { .position = headPosition , .entity = newBody });
 
 		AppleEatenEvent appleEat = { .apple = appleEnt };
@@ -462,12 +462,12 @@ void increaseScoreSystem(pulse::event_reader<AppleEatenEvent> eventAppleEat, Sco
 	score.value += 1;
 }
 
-void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> eventAppleEat, pulse::command_buffer& command_buffer, PulseAppId app, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs)
+void spawnAppleSystem(pulse::event_reader<AppleEatenEvent> eventAppleEat, pulse::command_buffer& command_buffer, flecs::query<const SnakeBodies>& snakeQuery, pulse::singleton_query<const Border>& borderQuery, pulse::singleton_query<const SnakePrefabs>& prefabs)
 {
 	auto snakeEnt = snakeQuery.first();
 	if (snakeEnt.is_alive())
 	{
-		createApple(app, prefabs.get(), snakeEnt.get<SnakeBodies>().bodies, borderQuery.get());
+		createApple(command_buffer, prefabs.get(), snakeEnt.get<SnakeBodies>().bodies, borderQuery.get());
 	}
 }
 
@@ -498,8 +498,8 @@ void snakeFpsUISystem(pulse::res<const PulseTimer> timer)
 	ImGui::Text("FPS: %d", timer.get().fps);
 }
 
-void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, PulseAppId app, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs, pulse::singleton_query<const SnakeConfig> configQuery)
+void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs, pulse::singleton_query<const SnakeConfig> configQuery)
 {
-	createEntities(command_buffer, app, borderQuery.get(), prefabs.get(), configQuery.get().moveInterval);
+	createEntities(command_buffer, borderQuery.get(), prefabs.get(), configQuery.get().moveInterval);
 	state.to(SnakeGameState::Gaming);
 }

@@ -55,9 +55,8 @@ static void executeSnakeMoveSystemWrapper(
 	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
 	auto appleEatenEvent = pulse::event_writer<AppleEatenEvent>(world);
 	auto gameOverEvent = pulse::event_writer<GameOverEvent>(world);
-	auto app = pulse_get_app_from_world(world.c_ptr());
 	pulse::command_buffer command_buffer(world);
-	executeSnakeMoveSystem(snakeMoveIntentEvent, command_buffer, app, appleQuery, borderQuery, prefabsQuery, appleEatenEvent, gameOverEvent, snake);
+	executeSnakeMoveSystem(snakeMoveIntentEvent, command_buffer, appleQuery, borderQuery, prefabsQuery, appleEatenEvent, gameOverEvent, snake);
 }
 static void syncSnakeBodyPositionSystemWrapper(
 	flecs::iter& it, size_t i
@@ -92,8 +91,7 @@ static void spawnAppleSystemWrapper(
 	pulse::command_buffer command_buffer(world);
 	auto borderQuery = pulse::singleton_query<const Border>(world);
 	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
-	auto app = pulse_get_app_from_world(world.c_ptr());
-	spawnAppleSystem(appleEatenEvent, command_buffer, app, snakeQuery, borderQuery, prefabsQuery);
+	spawnAppleSystem(appleEatenEvent, command_buffer, snakeQuery, borderQuery, prefabsQuery);
 }
 static void onGameOverSystemWrapper(
 	pulse::event_reader<GameOverEvent> gameOverEvent, flecs::world& world
@@ -137,8 +135,7 @@ static void restartSystemWrapper(
 	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
 	auto configQuery = pulse::singleton_query<const SnakeConfig>(world);
 	auto state = pulse::system_state_machine<SnakeGameState>(world);
-	auto app = pulse_get_app_from_world(world.c_ptr());
-	restartSystem(restartEvent, command_buffer, app, state, borderQuery, prefabsQuery, configQuery);
+	restartSystem(restartEvent, command_buffer, state, borderQuery, prefabsQuery, configQuery);
 }
 
 void importModule(pulse::ModuleContext* moduleContext)
