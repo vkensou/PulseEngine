@@ -134,16 +134,16 @@ def isOpposite(left : Direction4W, right : Direction4W) {
 
 // 由 prefab 模板实例化实体：网格/材质等静态数据写在 .prefab 里，
 // 实例只覆盖运行期才知道的变换。
-def instantiatePrefab(cmd : CommandBuffer, app : PulseAppId, prefab : PulsePrefabHandle, position : HMM_Vec3, scale : HMM_Vec3) {
-    let ent = pulse_prefab_instantiate(app, prefab)
+def instantiatePrefab(cmd : CommandBuffer, prefab : PulsePrefabHandle, position : HMM_Vec3, scale : HMM_Vec3) {
+    let ent = cmd |> instantiate(prefab)
     cmd |> set_entity_component(ent, PulseLocalTransform(translation = position, rotation = HMM_Q_Identity, scale = scale))
     return ent
 }
 
-def createSnake(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, initPos : HMM_Vec3, moveInterval : float) {
+def createSnake(cmd : CommandBuffer, prefabs : SnakePrefabs, initPos : HMM_Vec3, moveInterval : float) {
     let snakeInitLength = 3
 
-    let head = instantiatePrefab(cmd, app, prefabs.snakeHead, initPos, HMM_V3_One)
+    let head = instantiatePrefab(cmd, prefabs.snakeHead, initPos, HMM_V3_One)
 
     var bodies : array<SnakeBody>
     var poses : array<HMM_Vec3>
@@ -151,7 +151,7 @@ def createSnake(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, i
     poses |> push(initPos)
     for (i in 0..snakeInitLength) {
         let bodyPos = HMM_V3(initPos.X - 1.0 - float(i), initPos.Y, initPos.Z)
-        let newBody = instantiatePrefab(cmd, app, prefabs.snakeBody, bodyPos, HMM_V3_One)
+        let newBody = instantiatePrefab(cmd, prefabs.snakeBody, bodyPos, HMM_V3_One)
         bodies |> push(SnakeBody(position = bodyPos, entity = newBody), 0)
         poses |> push(bodyPos)
     }
@@ -215,19 +215,19 @@ def getNewApplePosition(snakeBodyPoses : array<HMM_Vec3>, border : Border) {
     return none(type<HMM_Vec3>)
 }
 
-def createApple(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, snakeBodyPoses : array<HMM_Vec3>, border : Border) {
+def createApple(cmd : CommandBuffer, prefabs : SnakePrefabs, snakeBodyPoses : array<HMM_Vec3>, border : Border) {
     let newPos = getNewApplePosition(snakeBodyPoses, border)
     if (newPos |> is_none) {
         return default<Entity>
     }
 
-    return instantiatePrefab(cmd, app, prefabs.apple, unwrap(newPos), HMM_V3_One)
+    return instantiatePrefab(cmd, prefabs.apple, unwrap(newPos), HMM_V3_One)
 }
 
-def createEntities(cmd : CommandBuffer, app : PulseAppId, border : Border, prefabs : SnakePrefabs, moveInterval : float) {
+def createEntities(cmd : CommandBuffer, border : Border, prefabs : SnakePrefabs, moveInterval : float) {
     cmd |> set_singleton(Score(value = 0))
-    let (_, poses) = createSnake(cmd, app, prefabs, HMM_V3(0.0, 0.0, 0.0), moveInterval)
-    createApple(cmd, app, prefabs, poses, border)
+    let (_, poses) = createSnake(cmd, prefabs, HMM_V3(0.0, 0.0, 0.0), moveInterval)
+    createApple(cmd, prefabs, poses, border)
 }
 
 def destructEntities(cmd : CommandBuffer, snakeQuery : Query<SnakeBodies const>, appleQuery : Query<IsApple const>) {
@@ -243,15 +243,15 @@ def destructEntities(cmd : CommandBuffer, snakeQuery : Query<SnakeBodies const>,
     }
 }
 
-def createBorder(cmd : CommandBuffer, app : PulseAppId, prefabs : SnakePrefabs, up : int, bottom : int, left : int, right : int) {
+def createBorder(cmd : CommandBuffer, prefabs : SnakePrefabs, up : int, bottom : int, left : int, right : int) {
     let centerX = float(left + right) / 2.0
     let centerY = float(up + bottom) / 2.0
     let width = float(right - left) + 1.0
     let height = float(up - bottom) + 1.0
-    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(float(right), centerY, 0.0), HMM_V3(1.0, height, 1.0))
-    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(float(left), centerY, 0.0), HMM_V3(1.0, height, 1.0))
-    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(centerX, float(up), 0.0), HMM_V3(width, 1.0, 1.0))
-    instantiatePrefab(cmd, app, prefabs.board, HMM_V3(centerX, float(bottom), 0.0), HMM_V3(width, 1.0, 1.0))
+    instantiatePrefab(cmd, prefabs.board, HMM_V3(float(right), centerY, 0.0), HMM_V3(1.0, height, 1.0))
+    instantiatePrefab(cmd, prefabs.board, HMM_V3(float(left), centerY, 0.0), HMM_V3(1.0, height, 1.0))
+    instantiatePrefab(cmd, prefabs.board, HMM_V3(centerX, float(up), 0.0), HMM_V3(width, 1.0, 1.0))
+    instantiatePrefab(cmd, prefabs.board, HMM_V3(centerX, float(bottom), 0.0), HMM_V3(width, 1.0, 1.0))
 
     let border = Border(up = up, bottom = bottom, left = left, right = right)
     cmd |> set_singleton(border)
@@ -384,8 +384,8 @@ def loadSnakeResourcesSystem(app : PulseAppId, assets : Res<SnakeAssets>, state 
     let left = roundi(boardCenterX - halfWidth)
     let right = roundi(boardCenterX + halfWidth)
 
-    let border = createBorder(cmd, app, prefabs, up, bottom, left, right)
-    createEntities(cmd, app, border, prefabs, moveInterval)
+    let border = createBorder(cmd, prefabs, up, bottom, left, right)
+    createEntities(cmd, border, prefabs, moveInterval)
 
     let camera = cmd.entity()
     cmd |> set_entity_component(camera, PulseLocalTransform(translation = HMM_V3(boardCenterX, boardCenterY, cameraZ), rotation = HMM_Q_Identity, scale = HMM_V3_One))
@@ -423,7 +423,7 @@ def scheduleSnakeMoveSystem(timer : Res<PulseTimer const>, snakeMoveWriter : Eve
 }
 
 [system(state="Gaming")]
-def executeSnakeMoveSystem(snakeMoveIntentEvent : EventReader<SnakeMoveIntentEvent>, cmd : CommandBuffer, app : PulseAppId, appleQuery : Query<IsApple const, PulseLocalTransform const>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>, appleEatenEvent : EventWriter<AppleEatenEvent>, gameOverEvent : EventWriter<GameOverEvent>, var snake : SnakeBodies) {
+def executeSnakeMoveSystem(snakeMoveIntentEvent : EventReader<SnakeMoveIntentEvent>, cmd : CommandBuffer, appleQuery : Query<IsApple const, PulseLocalTransform const>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>, appleEatenEvent : EventWriter<AppleEatenEvent>, gameOverEvent : EventWriter<GameOverEvent>, var snake : SnakeBodies) {
     let event = snakeMoveIntentEvent.read()
     let delta = event.delta
 
@@ -445,7 +445,7 @@ def executeSnakeMoveSystem(snakeMoveIntentEvent : EventReader<SnakeMoveIntentEve
     }
     elif (obstacle == ObstacleType.Apple) {
         snake.bodies[headIdx].position = nextPos
-        let newBody = instantiatePrefab(cmd, app, prefabs.get().snakeBody, headPosition, HMM_V3_One)
+        let newBody = instantiatePrefab(cmd, prefabs.get().snakeBody, headPosition, HMM_V3_One)
         snake.bodies |> push(SnakeBody(position = headPosition, entity = newBody), length(snake.bodies) - 1)
 
         appleEatenEvent |> broadcast(AppleEatenEvent(apple = appleEnt))
@@ -474,14 +474,14 @@ def increaseScoreSystem(eventAppleEat : EventReader<AppleEatenEvent>, scoreQuery
 }
 
 [system(state="Gaming")]
-def spawnAppleSystem(eventAppleEat : EventReader<AppleEatenEvent>, cmd : CommandBuffer, app : PulseAppId, snakeQuery : Query<SnakeBodies const>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>) {
+def spawnAppleSystem(eventAppleEat : EventReader<AppleEatenEvent>, cmd : CommandBuffer, snakeQuery : Query<SnakeBodies const>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>) {
     let (_, snakeBodies) = snakeQuery.first()
     var poses : array<HMM_Vec3>
     for (i in 0..length(snakeBodies.bodies)) {
         poses |> push(snakeBodies.bodies[i].position)
     }
 
-    createApple(cmd, app, prefabs.get(), poses, borderQuery.get())
+    createApple(cmd, prefabs.get(), poses, borderQuery.get())
 }
 
 [system(state="Gaming")]
@@ -508,12 +508,8 @@ def snakeFpsUISystem(timer : Res<PulseTimer const>) {
 }
 
 [system(state="GameOver")]
-def restartSystem(restartEvent : EventReader<RestartEvent>, cmd : CommandBuffer, app : PulseAppId, state : SystemStateMachine<SnakeGameState>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>, configQuery : SingletonQuery<SnakeConfig const>) {
-    // 事件观察器运行期间 world 处于 deferred/staging 状态，
-    // 与 C++ snake 保持一致：临时挂起 defer，让实体立即创建。
-    cmd.defer_suspend()
-    createEntities(cmd, app, borderQuery.get(), prefabs.get(), configQuery.get().moveInterval)
-    cmd.defer_resume()
+def restartSystem(restartEvent : EventReader<RestartEvent>, cmd : CommandBuffer, state : SystemStateMachine<SnakeGameState>, borderQuery : SingletonQuery<Border const>, prefabs : SingletonQuery<SnakePrefabs const>, configQuery : SingletonQuery<SnakeConfig const>) {
+    createEntities(cmd, borderQuery.get(), prefabs.get(), configQuery.get().moveInterval)
     state.to(SnakeGameState.Gaming)
 }
 

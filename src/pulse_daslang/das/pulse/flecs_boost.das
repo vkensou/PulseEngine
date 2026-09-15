@@ -13,6 +13,7 @@ require flecs_query public
 require flecs_state_machine public
 require flecs_resource public
 require daslib/class_boost
+require pulse public
 
 typedef Entity = uint64
 
@@ -30,52 +31,57 @@ def system_term_inout(var world : World; t : type<auto(T)>) {
 
 struct CommandBuffer {
     @safe_when_uninitialized world : World
+    @safe_when_uninitialized app : PulseAppId
 }
 
-def entity(self: CommandBuffer) {
+def entity(self : CommandBuffer) {
     return ecs_entity_create(self.world)
 }
 
-def destruct(self: CommandBuffer; entity: Entity) {
+def instantiate(self : CommandBuffer, prefab : PulsePrefabHandle) {
+    return pulse_prefab_instantiate(self.app, prefab)
+}
+
+def destruct(self : CommandBuffer; entity : Entity) {
     ecs_entity_destruct(self.world, entity)
 }
 
-def set_singleton(self: CommandBuffer; component: auto(T)) {
+def set_singleton(self : CommandBuffer; component : auto(T)) {
     ecs_entity_set(self.world, get_single_holder(self.world), component)
 }
 
-def set_entity_component(self: CommandBuffer; entity: Entity; component: auto(T)) {
+def set_entity_component(self : CommandBuffer; entity : Entity; component : auto(T)) {
     ecs_entity_set(self.world, entity, component)
 }
 
-def defer_suspend(self: CommandBuffer) {
+def defer_suspend(self : CommandBuffer) {
     ecs_defer_suspend(self.world)
 }
 
-def defer_resume(self: CommandBuffer) {
+def defer_resume(self : CommandBuffer) {
     ecs_defer_resume(self.world)
 }
 
-def private ecs_entity_create(var world: World) {
+def private ecs_entity_create(var world : World) {
     return create_entity(world)
 }
 
-def private ecs_entity_destruct(var world: World, entity: Entity) {
+def private ecs_entity_destruct(var world : World, entity : Entity) {
     destruct_entity(world, entity)
 }
 
-def ecs_observe(var world: World, callback: function<(var iter: Iter?):void>, eventType: type<auto(EventType)>) {
+def ecs_observe(var world : World, callback : function<(var iter : Iter?) : void>, eventType : type<auto(EventType)>) {
     observe(world, callback, ecs_component(world, eventType), "pulse.EventTag")
 }
 
-def ecs_query_entity_set(query: auto(Query), entity: Entity, component: auto(T)) {
+def ecs_query_entity_set(query : auto(Query), entity : Entity, component : auto(T)) {
     unsafe {
         let p = addr(component)
         set_component_from_query(query.query_, entity, ecs_component(query.world, component), typeinfo sizeof(type<T>), p)
     }
 }
 
-def ecs_query_entity_get(var query: auto(Query), entity: Entity, component: type<auto(T)>) {
+def ecs_query_entity_get(var query : auto(Query), entity : Entity, component : type<auto(T)>) {
     unsafe {
         let p = get_component_from_query(query.query_, entity, ecs_component(query.world, type<T>))
         return reinterpret<T?>(p)
