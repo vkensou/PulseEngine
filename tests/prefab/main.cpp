@@ -25,6 +25,24 @@ struct TestNoteHolder {
 
 struct TestTag {};
 
+struct DeferInstantiateCtx {
+    PulseAppId app;
+    PulsePrefabHandle handle;
+    ecs_entity_t root;
+    ecs_entity_t instance;
+    bool owns_is_a_while_deferred;
+    bool has_is_a_while_deferred;
+
+    void run() {
+        ecs_world_t* world = pulse_app_world(app);
+        assert(ecs_is_deferred(world));
+        assert(ecs_world_get_flags(world) & EcsWorldReadonly);
+        instance = pulse_prefab_instantiate(app, handle);
+        owns_is_a_while_deferred = ecs_owns_pair(world, instance, EcsIsA, root);
+        has_is_a_while_deferred = ecs_has_pair(world, instance, EcsIsA, root);
+    }
+};
+
 ECS_COMPONENT_DECLARE(TestNoteHolder);
 
 static const char kRenderableJson[] = "{\"components\":{\"PulseRenderable\":{\"mesh\":\"Quad.obj\", \"material\":\"quad.material\"}}}";
@@ -477,6 +495,26 @@ int main(void) {
         PulsePrefabRequest reloaded = pulse_load_prefab(app, "unload_library.prefab");
         assert(wait_prefab_ready(app, reloaded));
         assert(ecs_lookup(world, "UnloadSecond") != 0);
+    }
+
+    {
+        PulsePrefabRequest request = pulse_load_prefab(app, "hierarchy.prefab");
+        assert(wait_prefab_ready(app, request));
+        PulsePrefabHandle handle = pulse_prefab_get_handle(app, request);
+        ecs_entity_t root = pulse_prefab_get_root(app, handle);
+        assert(root != 0);
+
+        DeferInstantiateCtx defer_ctx = { app, handle, root, 0, false, false };
+        ecs_readonly_begin(world, false);
+        defer_ctx.run();
+        ecs_readonly_end(world);
+
+        assert(defer_ctx.instance != 0);
+        assert(!defer_ctx.owns_is_a_while_deferred);
+        assert(!defer_ctx.has_is_a_while_deferred);
+        assert(ecs_is_alive(world, defer_ctx.instance));
+        assert(ecs_has_pair(world, defer_ctx.instance, EcsIsA, root));
+        assert(ecs_lookup_child(world, defer_ctx.instance, "Body") != 0);
     }
 
     pulse_app_teardown(app);

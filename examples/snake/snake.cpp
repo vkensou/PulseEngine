@@ -500,8 +500,6 @@ void snakeFpsUISystem(pulse::res<const PulseTimer> timer)
 
 void restartSystem(pulse::event_reader<RestartEvent> restartEvent, pulse::command_buffer& command_buffer, PulseAppId app, pulse::system_state_machine<SnakeGameState> state, pulse::singleton_query<const Border> borderQuery, pulse::singleton_query<const SnakePrefabs> prefabs, pulse::singleton_query<const SnakeConfig> configQuery)
 {
-	command_buffer.defer_suspend();
 	createEntities(command_buffer, app, borderQuery.get(), prefabs.get(), configQuery.get().moveInterval);
-	command_buffer.defer_resume();
 	state.to(SnakeGameState::Gaming);
 }

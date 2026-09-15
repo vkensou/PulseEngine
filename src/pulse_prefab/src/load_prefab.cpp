@@ -989,9 +989,7 @@ ecs_entity_t pulse_prefab_instantiate(PulseAppId app, PulsePrefabHandle prefab) 
         return 0;
     }
 
-    ecs_entity_t instance = ecs_new(world);
-    ecs_add_pair(world, instance, EcsIsA, root);
-    return instance;
+    return ecs_new_w_pair(world, EcsIsA, root);
 }
 
 } // extern "C"
