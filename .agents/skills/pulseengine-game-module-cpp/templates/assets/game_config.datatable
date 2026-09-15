@@ -1,0 +1,4 @@
+schema: "game_config"
+rows: [
+    { id: "default" ball_speed: 2 win_score: 100 }
+]
