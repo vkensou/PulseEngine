@@ -199,6 +199,9 @@ typedef struct PulseWindow
 PULSE_WINDOW_API extern ECS_COMPONENT_DECLARE(PulseWindow);
 ```
 
+组件的 flecs 反射由 `flecs` binding 生成，字段可用 `noreflex` / `min` / `max` 等标注控制，见
+[flecs 反射生成](#flecs-反射生成)。
+
 ### ECS Tag
 
 标签是空结构体（不允许有字段），实体符号统一带 `Id` 后缀：
@@ -380,6 +383,82 @@ typedef struct PulseShaderCreateFromBinaryDesc
 
 ---
 
+## flecs 反射生成
+
+同一份 idl 还能生成 flecs 的组件反射注册代码，输出路径由命令行指定（约定为
+`src/pulse_<module>/src/pulse_<module>_reflection.h`）：
+
+```bat
+lua generate-binding.lua <idl> temp.flecs_reflection.h flecs <output.h> <prefix> [indent]
+```
+
+示例（pulse_transform）：
+
+```bat
+lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl temp.flecs_reflection.h flecs ..\..\src\pulse_transform\src\pulse_transform_reflection.h Pulse "    "
+```
+
+生成一个内联函数，函数名由 idl 文件名推导（`pulse_<module>_register_reflection`）：注册 idl 中所有
+`component`/`tag` 的 ecs id（`ecs_id(PulseX) = comp.id()`，tag 为
+`ecs_id(PulseXId) = PulseXId = comp.id()`），并按 idl 声明顺序添加成员反射。
+
+```c
+inline void pulse_transform_register_reflection(ecs_world_t* world) {
+    {
+        flecs::component<PulseLocalTransform> comp(world, "PulseLocalTransform");
+        ecs_id(PulseLocalTransform) = comp.id();
+        comp.member("translation", &PulseLocalTransform::translation);
+        ...
+    }
+}
+```
+
+模块在自己的组件注册函数里调用它即可，生命周期钩子、`EcsWith` 等逻辑仍留在手写代码中：
+
+```cpp
+#include "pulse_transform_reflection.h"
+
+void register_components(ecs_world_t* world) {
+    pulse_transform_register_reflection(world);
+    ecs_add_pair(world, ecs_id(PulseLocalTransform), EcsWith, ecs_id(PulseWorldTransform));
+}
+```
+
+### 反射规则与标注
+
+成员名取 idl 字段的 C 成员名（`justPressed` → `just_pressed`）。默认全部反射，例外如下：
+
+| 情况 | 生成结果 |
+|------|----------|
+| 指针 / 切片 / 可空 / `cstring`（`*T`、`[]T`、`?*T`） | 自动跳过，C 反射无法表达 |
+| `ecs_entity_t` 字段（含数组） | 按 flecs 引用生成：`comp.member(ecs_id(ecs_entity_t), name, count, offsetof(...))` |
+| 非实体类型的固定数组 `[N] T` | 成员指针形式，flecs 自动推导元素类型与长度 |
+| `{ entity = true }` | 字段类型不是 `ecs_entity_t`，但语义是实体引用 |
+| `{ min = .., max = .. }` | 追加 `.range(min, max)`，供编辑器/数值校验使用 |
+| 字段 `{ noreflex = true }` | 不反射该字段 |
+| 组件 `{ noreflex = true }` | 只注册 id，不反射任何成员 |
+| 组件 `{ external = true }` | 类型由外部头文件定义：不生成 C 结构体与 `ECS_COMPONENT_DECLARE`，只生成反射，字段名按 idl 原样使用 |
+
+`external` 用于把第三方/外部定义的 C 结构体纳入反射，例如 pulse_math 中的 HandmadeMath 类型：
+
+```lua
+component.HMM_Vec3 { external = true }
+    .X "float"
+    .Y "float"
+    .Z "float"
+    ()
+
+component.Camera
+    .windowEntity "ecs_entity_t"
+    .fov          "float" { min = 0.0, max = 180.0 }
+    .reserved     "uint32_t" { noreflex = true }
+    ()
+```
+
+已接入反射生成的模块见 `tools/idl/generate.bat`；模块按需把自己的 `flecs` 生成命令加进去。
+
+---
+
 ## 模板占位符
 
 模板文件（`temp.<module>.h`）使用 `$` 占位符标记生成内容的插入位置：
@@ -445,9 +524,10 @@ $c99decl
 1. 在模块目录下创建 `idl/` 子目录
 2. 编写 `<module>.idl`（类型 + 函数定义）
 3. 编写 `temp.<module>.h`（模板，含 `$` 占位符）
-4. 在 `tools/idl/generate.bat` 中添加生成命令
-5. 运行 `generate.bat` 生成 `include/<module>.h`
-6. 生成的头文件**不要手动编辑**（下次生成会覆盖）
+4. 在 `tools/idl/generate.bat` 中添加生成命令（需要 ECS 组件反射的，再加一条 `flecs` 生成命令）
+5. 运行 `generate.bat` 生成 `include/<module>.h` 与 `src/<module>_reflection.h`
+6. 在模块的组件注册函数中调用生成的 `pulse_<module>_register_reflection(world)`
+7. 生成的头文件**不要手动编辑**（下次生成会覆盖）
 
 ---
 

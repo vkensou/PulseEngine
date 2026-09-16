@@ -1,0 +1,7 @@
+id:
+    type: string
+    key: true
+link:
+    type: ref
+    ref: item
+    default: apple

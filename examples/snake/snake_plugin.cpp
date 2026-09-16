@@ -67,6 +67,8 @@ EPulseAppAddPluginResult pulse_add_snake_plugin(PulseAppId app)
         "pulse_graphics",
         "pulse_renderer",
         "pulse_imgui",
+        "pulse_prefab",
+        "pulse_datatable",
     };
 
     PulsePluginDesc plugin_desc = {
@@ -78,7 +80,7 @@ EPulseAppAddPluginResult pulse_add_snake_plugin(PulseAppId app)
         .build = snake_plugin_build,
         .post_build = nullptr,
         .shutdown = snake_plugin_shutdown,
-        .dependency_count = 7,
+        .dependency_count = 9,
         .dependencies = snake_dependencies,
     };
 

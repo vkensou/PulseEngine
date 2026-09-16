@@ -1,0 +1,6 @@
+radius:
+    type: int
+    default: 2
+tag:
+    type: string
+    default: "x"

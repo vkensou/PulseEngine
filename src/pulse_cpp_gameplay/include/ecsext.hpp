@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <memory>
 #include <vector>
+#include "pulse_prefab.h"
 
 // ECS组件
 #define PULSE_ECS_COMPONENT
@@ -166,6 +167,7 @@ namespace pulse
 		explicit command_buffer(flecs::world& world)
 			: world(world)
 		{
+            app = pulse_get_app_from_world(world.c_ptr());
 		}
 
 		void add_singleton(flecs::id_t component) const
@@ -207,6 +209,11 @@ namespace pulse
 			return world.entity<Args...>(std::forward<Args>(args)...);
 		}
 
+        flecs::entity instantiate(PulsePrefabHandle prefab) const
+        {
+            return flecs::entity(world, pulse_prefab_instantiate(app, prefab));
+        }
+
 		void destruct(flecs::entity entity) const
 		{
 			entity.destruct();
@@ -224,6 +231,7 @@ namespace pulse
 
 	private:
 		flecs::world& world;
+        PulseAppId app;
 	};
 
 	struct EventRegisterBase

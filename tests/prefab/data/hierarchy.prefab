@@ -1,0 +1,39 @@
+name : "HierarchyRoot"
+components : {
+    PulseRenderable : {
+        mesh : "Quad.obj"
+        material : "quad.material"
+    }
+    TestTag : {}
+}
+children : [
+    {
+        name : "Body"
+        components : {
+            PulseLocalTransform : {
+                translation : {
+                    X : 1.0
+                    Y : 0.0
+                    Z : 0.0
+                }
+            }
+            PulseRenderable : {
+                mesh : "Quad.obj"
+            }
+        }
+        children : [
+            {
+                name : "Tip"
+                components : {
+                    PulseRenderable : {
+                        material : "quad.material"
+                    }
+                }
+            }
+        ]
+    }
+    {
+        name : "Tail"
+        tags : [ TestTag ]
+    }
+]

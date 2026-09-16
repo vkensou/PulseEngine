@@ -1,0 +1,22 @@
+{
+    "name": "<game>",
+    "version": "1.0.0",
+    "type": "daslang",
+    "script_file": "<game>_module.das",
+    "assets": true,
+    "dependencies": [
+        "pulse_window",
+        "pulse_input",
+        "pulse_asset",
+        "pulse_transform",
+        "pulse_graphics",
+        "pulse_renderer",
+        "pulse_imgui",
+        "pulse_daslang",
+        "pulse_prefab",
+        "pulse_datatable"
+    ],
+    "paths": [
+        "assets"
+    ]
+}

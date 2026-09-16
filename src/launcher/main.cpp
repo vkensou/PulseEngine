@@ -57,7 +57,8 @@ int SDL_main(int argc, char** argv)
     assert(app != nullptr);
 
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
-    assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    auto add_vfs_result = pulse_add_vfs_plugin(app, &vfs_desc);
+    assert(add_vfs_result == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     PulsePackageLoaderId loader = pulse_package_loader_create(app);
     assert(loader != nullptr);

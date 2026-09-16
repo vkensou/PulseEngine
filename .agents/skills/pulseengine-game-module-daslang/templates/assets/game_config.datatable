@@ -1,0 +1,4 @@
+schema: "game_config"
+rows: [
+    { id: "default" move_interval: 1 }
+]

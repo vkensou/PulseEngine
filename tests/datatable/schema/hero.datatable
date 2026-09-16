@@ -1,0 +1,5 @@
+schema: "hero"
+rows: [
+    { id: "mage" element: "fire" power: 3.5 }
+    { id: "knight" }
+]

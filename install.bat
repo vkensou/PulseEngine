@@ -15,14 +15,17 @@ rd /s /q "%dest_file%\lib"
 
 copy "src\launcher\launcher.manifest.json" "%dest_file%"
 
+xmake install -o "%dest_file%/packages/pulse_math" pulse_math
 xmake install -o "%dest_file%/packages/pulse_window" pulse_window
 xmake install -o "%dest_file%/packages/pulse_input" pulse_input
 xmake install -o "%dest_file%/packages/pulse_asset" pulse_asset
 xmake install -o "%dest_file%/packages/pulse_graphics" pulse_graphics
 xmake install -o "%dest_file%/packages/pulse_transform" pulse_transform
+xmake install -o "%dest_file%/packages/pulse_prefab" pulse_prefab
 xmake install -o "%dest_file%/packages/pulse_renderer" pulse_renderer
 xmake install -o "%dest_file%/packages/pulse_imgui" pulse_imgui
 xmake install -o "%dest_file%/packages/pulse_daslang" pulse_daslang
+xmake install -o "%dest_file%/packages/pulse_datatable" pulse_datatable
 xmake install -o "%dest_file%/packages/snake" example-snake
 xcopy "examples\snake_daslang\*.*" "%dest_file%\packages\snake_daslang" /e /i /y
 

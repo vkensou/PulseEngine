@@ -1,0 +1,286 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "double"
+typedef "int8_t"
+typedef "int32_t"
+typedef "int64_t"
+typedef "uint8_t"
+typedef "uint16_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uintptr_t"
+typedef "va_list"
+typedef "void"
+typedef "anyopaque"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From pulse_asset.h
+typedef "PulseAssetSystemId"
+typedef "PulseAssetRequest"
+
+--- From pulse_datalist.h
+typedef "PulseDatalist"
+
+const_value.DataTablePluginDescVersion { value = "1u" }
+
+--- Asset type id range 0x3000+ belongs to pulse_datatable (graphics uses 0x1000+, pulse_prefab and pulse_daslang use 0x2000+)
+const_value.TypeDataTable { value = "UINT64_C(0x3000)" }
+
+--- Loader step results, reported through the asset system
+enum.DataTableLoaderStatus { underscore }
+    .Pending
+    .Done
+    .Failed
+    ()
+
+--- Column storage type
+enum.DataTableColumnType { underscore }
+    .Int
+    .Float
+    .Bool
+    .String
+    .Enum
+    .Struct
+    .Ref
+    ()
+
+--- Failure reasons reported through pulse_data_table_system_get_error
+enum.DataTableError { underscore }
+    .SystemIsInvalid
+    .PathIsEmpty
+    .NoSchemaForType
+    .SchemaIsNotRegistered
+    .ParseFailed
+    .RootIsNotTable
+    .SchemaFieldMissing
+    .RowsFieldMissing
+    .RowIsNotTable
+    .MissingColumn
+    .UnknownColumn
+    .TypeMismatch
+    .OutOfRange
+    .InvalidEnumValue
+    .DuplicateKey
+    .MissingReference
+    .ReferenceSchemaMismatch
+    .OutOfMemory
+    ()
+
+--- Plugin descriptor
+struct.DataTablePluginDesc
+    .structSize "uint32_t"
+    .version    "uint32_t"
+    ()
+
+struct.DataTableSystem()
+struct.DataTable()
+
+id "DataTableSystemId"
+id "DataTableId"
+
+--- Schema of a shared struct type, used to fill nested struct columns; size and align are filled in by the register call
+struct.DataTableStructDesc
+    .name           "cstring"
+    .size           "uint32_t"
+    .align          "uint32_t"
+    .columns        "[]const DataTableColumnDesc"
+    ()
+
+--- Schema of an enum type, used to map strings to integer values
+struct.DataTableEnumDesc
+    .name           "cstring"
+    .values         "[]const cstring"
+    ()
+
+--- Function pointer: fills a row field by field, including references and nested structs; null selects the engine generic filler, which also derives the whole byte layout from the column descriptors
+funcptr.DataTableFillRowFn
+    "bool"
+    .context        "*const anyopaque"
+    .vault          "*anyopaque"
+    .node           "*const PulseDatalist"
+    .out            "*anyopaque"
+    .errorLine      "int32_t" { out = true }
+    .errorCode      "DataTableError::Enum" { out = true }
+    .outError       "cstring" { out = true }
+
+--- Column schema: value type plus validation rules; the byte offset is filled in by the register call
+struct.DataTableColumnDesc
+    .name           "cstring"
+    .type           "DataTableColumnType::Enum"
+    .offset         "uint32_t"
+    .minValue       "double"
+    .maxValue       "double"
+    .hasMin         "bool"
+    .hasMax         "bool"
+    .hasDefault     "bool"
+    .defaultInt     "int64_t"
+    .defaultFloat   "double"
+    .defaultBool    "bool"
+    .defaultString  "cstring"
+    .structType     "?cstring"
+    .refType        "?cstring"
+    .enumType       "?cstring"
+    ()
+
+--- Schema of one table type
+struct.DataTableSchemaDesc
+    .structSize     "uint32_t"
+    .version        "uint32_t"
+    .name           "cstring"
+    .columns        "[]const DataTableColumnDesc"
+    .structs        "[]const DataTableStructDesc"
+    .enums          "[]const DataTableEnumDesc"
+    .keyColumn      "uint32_t"
+    .keyIsInt       "bool"
+    .fillRow        "DataTableFillRowFn"
+    ()
+
+--- Functions
+
+func.DataTablePluginDescDefault
+    "DataTablePluginDesc"
+    ()
+
+func.AddDataTablePlugin
+    "EPulseAppAddPluginResult"
+    .app   "PulseAppId"
+    .desc  "*const DataTablePluginDesc"
+    ()
+
+func.GetDataTableSystem
+    "?DataTableSystemId"
+    .app   "PulseAppId"
+    ()
+
+--- Registers a schema. The system copies every descriptor value (including all strings), so caller storage may be temporary. With desc->fill_row null the engine derives the byte layout (column offsets, struct sizes and alignments, key flag, numeric default cross values) from the descriptors and fills rows generically; with a custom fill_row the descriptor offsets and struct sizes are the caller's own layout. Struct and whitelist types live in the embedded p_structs / p_enums arrays. out_error receives a message owned by the system on failure
+func.DataTableSystem.RegisterSchema { mut }
+    "EPulseResult"
+    .desc           "*const DataTableSchemaDesc"
+    .outError       "cstring" { out = true }
+    ()
+
+func.DataTableSystem.Load { mut }
+    "PulseAssetRequest"
+    .schema         "cstring"
+    .path           "cstring"
+    ()
+
+func.DataTableSystem.IsReady
+    "bool"
+    .request        "PulseAssetRequest"
+    ()
+
+func.DataTableSystem.IsAlive
+    "bool"
+    .request        "PulseAssetRequest"
+    ()
+
+func.DataTableSystem.GetError
+    "?cstring"
+    .request        "PulseAssetRequest"
+    ()
+
+func.DataTableSystem.Get { mut }
+    "?DataTableId"
+    .request        "PulseAssetRequest"
+    ()
+
+func.DataTableSystem.GetByName
+    "?DataTableId"
+    .schema         "cstring"
+    ()
+
+func.DataTableSystem.GetSchema
+    "?*const DataTableSchemaDesc"
+    .schema         "cstring"
+    ()
+
+func.DataTableGetName
+    "?cstring"
+    .table          "DataTableId"
+    ()
+
+func.DataTableRowCount
+    "uint32_t"
+    .table          "DataTableId"
+    ()
+
+func.DataTableRowAt
+    "?*const anyopaque"
+    .table          "DataTableId"
+    .index          "uint32_t"
+    ()
+
+func.DataTableFindRow
+    "?*const anyopaque"
+    .table          "DataTableId"
+    .key            "cstring"
+    ()
+
+func.DataTableFindRowInt
+    "?*const anyopaque"
+    .table          "DataTableId"
+    .key            "int64_t"
+    ()
+
+func.DataTableRows
+    "?*const anyopaque"
+    .table          "DataTableId"
+    .outCount       "uint32_t" { out = true }
+    ()
+
+func.DataTableFieldSetInt
+    "bool"
+    .row            "*anyopaque"
+    .column         "*const DataTableColumnDesc"
+    .value          "int64_t"
+    .outError       "cstring" { out = true }
+    ()
+
+func.DataTableFieldSetFloat
+    "bool"
+    .row            "*anyopaque"
+    .column         "*const DataTableColumnDesc"
+    .value          "double"
+    .outError       "cstring" { out = true }
+    ()
+
+func.DataTableFieldSetBool
+    "bool"
+    .row            "*anyopaque"
+    .column         "*const DataTableColumnDesc"
+    .value          "bool"
+    .outError       "cstring" { out = true }
+    ()
+
+func.DataTableFieldSetString
+    "bool"
+    .row            "*anyopaque"
+    .column         "*const DataTableColumnDesc"
+    .value          "*const anyopaque"
+    .outError       "cstring" { out = true }
+    ()
+
+func.DataTableFillContextResolveRef
+    "?*const anyopaque"
+    .context        "*const anyopaque"
+    .column         "*const DataTableColumnDesc"
+    .node           "*const PulseDatalist"
+    .outError       "cstring" { out = true }
+    ()
+
+func.DataTableEnumLookup
+    "int32_t"
+    .schema         "*const DataTableSchemaDesc"
+    .column         "*const DataTableColumnDesc"
+    .value          "cstring"
+    ()

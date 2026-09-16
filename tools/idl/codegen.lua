@@ -497,7 +497,11 @@ function codegen.nameconversion(all_types, all_funcs)
 			elseif v.args then
 				v.cname = codegen._naming.U .. "Proc" .. name
 			elseif v.struct then
-				v.cname = codegen._naming.U .. name
+				if v.external then
+					v.cname = name
+				else
+					v.cname = codegen._naming.U .. name
+				end
 			elseif v.const_value then
 				v.cname = codegen._naming.U_ .. camelcase_to_underscorecase(name):upper()
 			elseif v.cases then
@@ -570,8 +574,15 @@ function codegen.nameconversion(all_types, all_funcs)
 
 	for _,v in ipairs(all_types) do
 		if v.struct then
+			local verbatim = v.external
 			for _, item in ipairs(v.struct) do
-				item.cname= convert_membername(item.name)
+				if not item.cname then
+					if verbatim then
+						item.cname = item.name
+					else
+						item.cname = convert_membername(item.name)
+					end
+				end
 				convert_arg(all_types, item, v)
 			end
 		elseif v.args then
@@ -1397,6 +1408,27 @@ function codegen.gen_id(id)
 	assert(id.id, "Not a id")
 	local template = codegen._naming.define_object .. "($NAME)"
 	return (template:gsub("$(%u+)", { NAME = id.cname:match "(.-)_t$" }))
+end
+
+function codegen.change_indent(str, indent)
+	if indent == "\t" then
+		return (str:gsub("(.-)\n", function (line)
+			return line:gsub("([ \t]*)$","\n") end))
+	else
+		return (str:gsub("(.-)\n", function (line)
+			return line:gsub("^(\t*)(.-)[ \t]*$",
+				function (tabs, content)
+					return indent:rep(#tabs) .. content .. "\n"
+				end)
+		end))
+	end
+end
+
+function codegen.apply_template(tempfile, values)
+	local f = assert(io.open(tempfile, "rb"), "cannot open " .. tempfile)
+	local temp = f:read "a"
+	f:close()
+	return (temp:gsub("$([%l%d_]+)", values))
 end
 
 local idl = require "idl"

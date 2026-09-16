@@ -64,6 +64,8 @@ EPulseAppAddPluginResult pulse_add_transform_plugin(PulseAppId app) {
 
     auto* state = new pulse_transform_plugin_state();
 
+    const char* transform_dependencies[] = { "pulse_math" };
+
     PulsePluginDesc plugin_desc = {
         .struct_size = sizeof(PulsePluginDesc),
         .version = PULSE_PLUGIN_DESC_VERSION,
@@ -73,8 +75,8 @@ EPulseAppAddPluginResult pulse_add_transform_plugin(PulseAppId app) {
         .build = transform_plugin_build,
         .post_build = transform_plugin_post_build,
         .shutdown = transform_plugin_shutdown,
-        .dependency_count = 0,
-        .dependencies = nullptr,
+        .dependency_count = 1,
+        .dependencies = transform_dependencies,
     };
 
     EPulseAppAddPluginResult result = pulse_app_add_plugin(app, &plugin_desc);

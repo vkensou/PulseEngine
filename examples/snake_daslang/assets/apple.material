@@ -1,0 +1,7 @@
+shader : "assets/color.shader"
+properties : [ 
+    {
+        name : "albedo"
+        type : "float4"
+        value : [ 1.0, 0.0, 0.0, 0.0 ]
+    } ]

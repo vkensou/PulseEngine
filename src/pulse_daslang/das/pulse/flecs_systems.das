@@ -60,7 +60,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
             }
 
             if (is_command_buffer_type(arg._type)) {
-                wrapper_fn_body |> push <| qmacro_expr(${ var cmd = CommandBuffer(world = world); })                                                                                                                                                              
+                wrapper_fn_body |> push <| qmacro_expr(${ var cmd = CommandBuffer(world = world, app = pulse_get_app_from_world(world)); })
                 wrapper_fn_call_args |> push <| qmacro(cmd)
                 continue
             }
@@ -95,10 +95,10 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 let is_const = arg._type.flags.constant
                 if (is_const) {
                     wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_ptr_name) = ecs_get_res(world, type<$t(res_generic_type)>); })
-                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name): $t(arg._type) = struct<$t(arg._type)>(value_ptr = unsafe(reinterpret<$t(res_generic_type)?>($i(res_ptr_name)))); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ let $i(res_name) : $t(arg._type) = struct<$t(arg._type)>(value_ptr = unsafe(reinterpret<$t(res_generic_type)?>($i(res_ptr_name)))); })
                 } else {
                     wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_ptr_name) = ecs_get_mut_res(world, type<$t(res_generic_type)>); })
-                    wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_name): $t(arg._type) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
+                    wrapper_fn_body |> push <| qmacro_expr(${ var $i(res_name) : $t(arg._type) = struct<$t(arg._type)>(value_ptr = $i(res_ptr_name)); })
                 }
                 wrapper_fn_call_args |> push <| qmacro($i(res_name))
                 continue
@@ -170,10 +170,10 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 for (qt in query_types) {
                     register_query_macro.arguments |> push <| clone_expression(qt)
                 }
-                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = $e(register_query_call);})
+                register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = $e(register_query_call); })
                 var event_query_call = clone_expression(register_query_call)
-                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = $e(event_query_call);})
-                wrapper_fn_body |> push <| qmacro_expr(${let $i(fi_name) = system_state.$f(fi_name);})
+                event_register_fn_body_exprs |> push <| qmacro_expr(${system_state.$f(arg.name) = $e(event_query_call); })
+                wrapper_fn_body |> push <| qmacro_expr(${let $i(fi_name) = system_state.$f(fi_name); })
                 wrapper_fn_call_args |> push <| qmacro($i(fi_name))
                 continue
             }
@@ -213,11 +213,11 @@ class FlecsSystemMacro : AstFunctionAnnotation {
 
         if (length(system_state_class.fields) > 0) {
             compiling_module() |> add_structure(system_state_class)
-            wrapper_fn_body |> push(qmacro_expr(${var system_state = ecs_entity_get_mut(world, ecs_component(world, type<$t(system_state_class)>), type<$t(system_state_class)>);}), 1)
-            register_fn_body_exprs |> push(qmacro_expr(${var system_state = default<$t(system_state_class)>;}), 0)
-            register_fn_body_exprs |> push <| qmacro_expr(${ecs_entity_set(ctx.world, ecs_component(ctx.world, type<$t(system_state_class)>), system_state);})
-            event_register_fn_body_exprs |> push(qmacro_expr(${var system_state = default<$t(system_state_class)>;}), 0)
-            event_register_fn_body_exprs |> push <| qmacro_expr(${ecs_entity_set(ctx.world, ecs_component(ctx.world, type<$t(system_state_class)>), system_state);})
+            wrapper_fn_body |> push(qmacro_expr(${var system_state = ecs_entity_get_mut(world, ecs_component(world, type<$t(system_state_class)>), type<$t(system_state_class)>); }), 1)
+            register_fn_body_exprs |> push(qmacro_expr(${var system_state = default<$t(system_state_class)>; }), 0)
+            register_fn_body_exprs |> push <| qmacro_expr(${ecs_entity_set(ctx.world, ecs_component(ctx.world, type<$t(system_state_class)>), system_state); })
+            event_register_fn_body_exprs |> push(qmacro_expr(${var system_state = default<$t(system_state_class)>; }), 0)
+            event_register_fn_body_exprs |> push <| qmacro_expr(${ecs_entity_set(ctx.world, ecs_component(ctx.world, type<$t(system_state_class)>), system_state); })
         }
 
         if (is_entity_system && !is_event_system) {
@@ -234,7 +234,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
                 }
             }
         } elif (is_entity_system && is_event_system) {
-            wrapper_fn_batch_exprs |> push <| qmacro_expr(${let i = 0;})
+            wrapper_fn_batch_exprs |> push <| qmacro_expr(${let i = 0; })
             wrapper_fn_batch_exprs |> push <| qmacro($c("_::{func.name}")($a(wrapper_fn_call_args)))
             wrapper_fn_body |> push <| qmacro_block() {
                 unsafe {
@@ -364,7 +364,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return true
     }
 
-    def make_register_expr(call_name: string; wrapper_name: string; desc_name: string; entity_name: string; at: LineInfo; keep_entity: bool) : ExpressionPtr {
+    def make_register_expr(call_name : string; wrapper_name : string; desc_name : string; entity_name : string; at : LineInfo; keep_entity : bool) : ExpressionPtr {
         var call_expr = make_call(at, call_name)
         var call = call_expr as ExprCall
         call.arguments |> push <| qmacro(ctx.world)
@@ -413,7 +413,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (type_name == "PulseAppId") || (type_name == "PulseAppId const") || (type_name == "PulseAppId -const") || (type_name == "pulse::PulseAppId") || (type_name == "pulse::PulseAppId const") || (type_name == "pulse::PulseAppId -const")
     }
 
-    def is_state_machine_type(arg: VariablePtr) {
+    def is_state_machine_type(arg : VariablePtr) {
         let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
             return (false, "")
@@ -446,7 +446,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, "")
     }
 
-    def is_res_type(arg: VariablePtr) {
+    def is_res_type(arg : VariablePtr) {
         let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
             return (false, default<TypeDeclPtr>, "")
@@ -479,7 +479,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_single_query_type(arg: VariablePtr) {
+    def is_single_query_type(arg : VariablePtr) {
         let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
             return (false, default<TypeDeclPtr>, "")
@@ -512,7 +512,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_event_writer_type(arg: VariablePtr) {
+    def is_event_writer_type(arg : VariablePtr) {
         let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
             return (false, default<TypeDeclPtr>, "")
@@ -545,7 +545,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_event_reader_type(arg: VariablePtr) {
+    def is_event_reader_type(arg : VariablePtr) {
         let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || !(arg_type.dimExpr[0] is ExprConstString)) {
             return (false, default<TypeDeclPtr>, "")
@@ -578,7 +578,7 @@ class FlecsSystemMacro : AstFunctionAnnotation {
         return (true, (arg_type.dimExpr[1] as ExprTypeDecl).typeexpr, "")
     }
 
-    def is_query_type(arg: VariablePtr) {
+    def is_query_type(arg : VariablePtr) {
         let arg_type = arg._type
         if (arg_type.baseType != Type.typeMacro || length(arg_type.dimExpr) < 2) {
             return (false, "")
@@ -659,7 +659,7 @@ class FlecsRegisterSystemMacro : AstCallMacro {
         macro_verify(expr.arguments[1] is ExprAddr, prog, expr.at,
             "third argument must an addr of function, not {expr.arguments[1].__rtti}")
 
-        assume ctx = expr.arguments[0]        
+        assume ctx = expr.arguments[0]
         assume addrOfFunc = expr.arguments[1] as ExprAddr
         assume target = addrOfFunc.target
         let registerfunc = "{target}`register"

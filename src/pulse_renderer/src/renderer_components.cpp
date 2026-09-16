@@ -1,5 +1,7 @@
 #include "renderer_internal.h"
 
+#include "pulse_renderer_reflection.h"
+
 #include <string.h>
 
 ECS_COMPONENT_DECLARE(PulseCamera);
@@ -10,9 +12,8 @@ ECS_COMPONENT_DECLARE(pulse_renderer_state_resource);
 namespace pulse_renderer_internal {
 
 void register_renderer_components(ecs_world_t* world) {
-    ecs_id(PulseCamera) = flecs::_::type<PulseCamera>::id(world);
-    ecs_id(PulseLight) = flecs::_::type<PulseLight>::id(world);
-    ecs_id(PulseRenderable) = flecs::_::type<PulseRenderable>::id(world);
+    pulse_renderer_register_reflection(world);
+
     ecs_id(pulse_renderer_state_resource) = flecs::_::type<pulse_renderer_state_resource>::id(world);
 }
 

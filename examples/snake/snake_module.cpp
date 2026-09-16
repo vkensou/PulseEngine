@@ -52,11 +52,11 @@ static void executeSnakeMoveSystemWrapper(
 )
 {
 	auto borderQuery = pulse::singleton_query<const Border>(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
 	auto appleEatenEvent = pulse::event_writer<AppleEatenEvent>(world);
 	auto gameOverEvent = pulse::event_writer<GameOverEvent>(world);
 	pulse::command_buffer command_buffer(world);
-	executeSnakeMoveSystem(snakeMoveIntentEvent, command_buffer, appleQuery, borderQuery, resourcesQuery, appleEatenEvent, gameOverEvent, snake);
+	executeSnakeMoveSystem(snakeMoveIntentEvent, command_buffer, appleQuery, borderQuery, prefabsQuery, appleEatenEvent, gameOverEvent, snake);
 }
 static void syncSnakeBodyPositionSystemWrapper(
 	flecs::iter& it, size_t i
@@ -90,8 +90,8 @@ static void spawnAppleSystemWrapper(
 {
 	pulse::command_buffer command_buffer(world);
 	auto borderQuery = pulse::singleton_query<const Border>(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
-	spawnAppleSystem(appleEatenEvent, command_buffer, snakeQuery, borderQuery, resourcesQuery);
+	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
+	spawnAppleSystem(appleEatenEvent, command_buffer, snakeQuery, borderQuery, prefabsQuery);
 }
 static void onGameOverSystemWrapper(
 	pulse::event_reader<GameOverEvent> gameOverEvent, flecs::world& world
@@ -132,13 +132,54 @@ static void restartSystemWrapper(
 {
 	pulse::command_buffer command_buffer(world);
 	auto borderQuery = pulse::singleton_query<const Border>(world);
-	auto resourcesQuery = pulse::singleton_query<const SnakeResources>(world);
+	auto prefabsQuery = pulse::singleton_query<const SnakePrefabs>(world);
+	auto configQuery = pulse::singleton_query<const SnakeConfig>(world);
 	auto state = pulse::system_state_machine<SnakeGameState>(world);
-	restartSystem(restartEvent, command_buffer, state, borderQuery, resourcesQuery);
+	restartSystem(restartEvent, command_buffer, state, borderQuery, prefabsQuery, configQuery);
 }
 
 void importModule(pulse::ModuleContext* moduleContext)
 {
+	flecs::component<SnakeGameState>(moduleContext->world, "SnakeGameState");
+	flecs::component<Direction4W>(moduleContext->world, "Direction4W");
+	{
+		auto comp = flecs::component<Facing4W>(moduleContext->world, "Facing4W");
+		comp.member("value", &Facing4W::value);
+	}
+	{
+		auto comp = flecs::component<SnakeMove>(moduleContext->world, "SnakeMove");
+		comp.member("interval", &SnakeMove::interval);
+		comp.member("lastTime", &SnakeMove::lastTime);
+	}
+	{
+		auto comp = flecs::component<Border>(moduleContext->world, "Border");
+		comp.member("up", &Border::up);
+		comp.member("bottom", &Border::bottom);
+		comp.member("left", &Border::left);
+		comp.member("right", &Border::right);
+	}
+	{
+		auto comp = flecs::component<Score>(moduleContext->world, "Score");
+		comp.member("value", &Score::value);
+	}
+	flecs::component<SnakeInput>(moduleContext->world, "SnakeInput");
+	flecs::component<SnakeBodies>(moduleContext->world, "SnakeBodies");
+	flecs::component<IsApple>(moduleContext->world, "IsApple");
+	{
+		auto comp = flecs::component<AppleEatenEvent>(moduleContext->world, "AppleEatenEvent");
+		comp.member(ecs_id(ecs_entity_t), "apple", 0, offsetof(AppleEatenEvent, apple));
+	}
+	{
+		auto comp = flecs::component<SnakeMoveIntentEvent>(moduleContext->world, "SnakeMoveIntentEvent");
+		comp.member("delta", &SnakeMoveIntentEvent::delta);
+	}
+	flecs::component<GameOverEvent>(moduleContext->world, "GameOverEvent");
+	flecs::component<SnakePrefabs>(moduleContext->world, "SnakePrefabs");
+	flecs::component<RestartEvent>(moduleContext->world, "RestartEvent");
+	{
+		auto comp = flecs::component<SnakeConfig>(moduleContext->world, "SnakeConfig");
+		comp.member("moveInterval", &SnakeConfig::moveInterval);
+	}
 	pulse::registerResource<SnakeAssets>(moduleContext->world, "Snake Assets", SnakeAssets{});
 	moduleContext->world.set<pulse::StateMachine<SnakeGameState>>(pulse::StateMachine<SnakeGameState>{});
 	auto& stateMachine = moduleContext->world.get_mut<pulse::StateMachine<SnakeGameState>>();

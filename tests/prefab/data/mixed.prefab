@@ -1,0 +1,7 @@
+name : "MixedPrefab"
+components : {
+    PulseRenderable : {
+        mesh : "Quad.obj"
+        material : "missing.material"
+    }
+}

@@ -1,9 +1,5 @@
 # ECS Module 代码生成规则
 
-## 0. 需要注意的点
-
-- 不要在头文件的注释里写`PULSE_ECS_COMPONENT`/`PULSE_ECS_SINGLETON_COMPONENT`/`PULSE_ECS_EVENT`/`PULSE_ECS_SYSTEM`/`PULSE_ECS_STATE_MACHINE`/`PULSE_ECS_RESOURCE`等宏，目前生成器还无法正确处理注释
-
 ## 1. 输入
 
 - 读取 `.h` 头文件
@@ -190,3 +186,59 @@ PulsePlugin：
   只用于读取 packageinfo 的 name 与依赖信息；`package.json` 本身保持 JSON 格式，
   不影响其他 Python/加载器工具。
 - 生成的插件文件与手写版本允许存在小幅风格差异，保证可编译、可运行即可。
+
+## 9. 反射注册生成
+
+生成器解析 `PULSE_ECS_COMPONENT` / `PULSE_ECS_SINGLETON_COMPONENT` / `PULSE_ECS_TAG` / `PULSE_ECS_EVENT` 标记的结构体，在 `importModule` 开头生成 **flecs 原生** 反射注册（不依赖任何自研辅助头）。`PULSE_ECS_RESOURCE` 不参与反射（由 `registerResource` 注册为稀疏单例）。
+
+注册顺序：先枚举、后标记类型（均按头文件声明顺序）。
+
+### 9.1 枚举
+
+头文件中声明的 `enum class`，被某个标记类型的成员引用、或作为 `PULSE_ECS_STATE_MACHINE` 状态枚举时，生成：
+
+```cpp
+flecs::component<Direction4W>(moduleContext->world, "Direction4W");
+```
+
+枚举常量由 flecs 编译期自动反射。未被任何成员引用的枚举不注册。
+
+### 9.2 结构体
+
+无成员（或全部成员被跳过）时：
+
+```cpp
+flecs::component<T>(moduleContext->world, "T");
+```
+
+有可反射成员时：
+
+```cpp
+{
+    auto comp = flecs::component<T>(moduleContext->world, "T");
+    comp.member("interval", &T::interval);
+    comp.member(ecs_id(ecs_f32_t), "delta", 3, offsetof(T, delta));
+}
+```
+
+### 9.3 成员形态映射
+
+按成员类型（去掉 `const` 前缀后）判定：
+
+| 成员类型 | 生成形态 |
+|---|---|
+| 数值/布尔/字符等基础类型 | `comp.member("f", &T::f)` |
+| 头文件声明的 `enum class` | `comp.member("f", &T::f)`（枚举先注册） |
+| `HMM_Vec2/3/4`、`HMM_Quat`、`HMM_Mat4` | `comp.member("f", &T::f)`（引用 `pulse_math` 注册的 HMM struct 元类型，序列化形态 `{X,Y,Z}`，与引擎组件一致） |
+| `flecs::entity`、`ecs_entity_t` | `comp.member(ecs_id(ecs_entity_t), "f", N, offsetof(T, f))`，标量 N=0 |
+| 以上基础类型/枚举/math 类型的定长数组 | `comp.member("f", &T::f)`（flecs 自动带 count） |
+| 其他（std::vector、指针、句柄、嵌套结构体等） | 跳过，不生成成员；若全部跳过则该组件无 struct 反射 |
+
+HMM 成员类型与引擎组件（`PulseLocalTransform` 等）同形态：按指针成员注册，序列化依赖 `pulse_math` 插件注册的 struct 元类型；gameplay 模块通过包依赖声明保证 `pulse_math` 先加载。
+
+### 9.4 成员声明限制
+
+- 仅支持 `type name;`、`type a, b, c;`、`name[尺寸]`（尺寸须为字面数字，math/entity 数组形态需要）。
+- 位域、引用成员、函数声明/函数指针成员、默认成员初始化器、访问说明符：直接报错。
+- `PULSE_ECS_TAG` 标记的结构体不允许有成员，否则报错。
+- 同一结构体重复标记报错。

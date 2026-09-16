@@ -18,11 +18,14 @@ void register_graphics_asset_types_and_loaders(PulseAssetSystemId asset_system, 
     register_shader_library_load_loader(asset_system, device);
     register_shader_library_create_loader(asset_system, device);
     register_shader_create_loaders(asset_system, device);
+    register_shader_load_loader(asset_system, device);
     register_compute_shader_create_loaders(asset_system, device);
+    register_compute_shader_load_loader(asset_system, device);
     register_texture_create_loader(asset_system, device);
     register_texture_load_loader(asset_system, device);
     register_buffer_create_loader(asset_system, device);
     register_material_create_loader(asset_system, device);
+    register_material_load_loader(asset_system, device);
     register_mesh_create_loader(asset_system, device);
     register_mesh_load_loader(asset_system, device);
     register_sampler_create_loader(asset_system, device);

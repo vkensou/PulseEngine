@@ -321,9 +321,20 @@ func.AssetSystem.GetError
     .request "AssetRequest"
     ()
 
+func.AssetSystem.GetPath
+    "?cstring"
+    .handle  "AssetHandle"
+    ()
+
 func.AssetSystem.GetHandle
     "AssetHandle"
     .request "AssetRequest"
+    ()
+
+func.AssetSystem.FindLoaded
+    "AssetHandle"
+    .typeId "uint64_t"
+    .path   "cstring"
     ()
 
 func.AssetSystem.Cancel { mut }

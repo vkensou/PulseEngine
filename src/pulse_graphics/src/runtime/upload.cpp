@@ -32,20 +32,13 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
             if (!pulse_rgtexture_handle_is_valid(tex_rh)) break;
             if (entry.data && entry.data_size > 0) {
                 auto* info = tex->handle->info;
-                auto mipedSize = [](uint64_t s, uint64_t m) { return std::max<uint64_t>(s >> m, 1ull); };
-                uint32_t tex_comp = FormatUtil_BitSizeOfBlock(info->format) / 8;
-                uint32_t blockW = FormatUtil_WidthOfBlock(info->format);
-                uint32_t blockH = FormatUtil_HeightOfBlock(info->format);
+                const uint32_t array_size = info->array_size_minus_one + 1;
                 const uint8_t* src = static_cast<const uint8_t*>(entry.data);
 
                 for (uint8_t mip = 0; mip < entry.source_mip_levels; ++mip) {
-                    uint64_t mipW = mipedSize(info->width, mip);
-                    uint64_t mipH = mipedSize(info->height, mip);
-                    uint64_t blocksW = std::max<uint64_t>((mipW + blockW - 1) / blockW, 1ull);
-                    uint64_t blocksH = std::max<uint64_t>((mipH + blockH - 1) / blockH, 1ull);
-                    uint64_t mipSize = blocksW * blocksH * tex_comp;
+                    uint64_t mipSize = HGEGraphics::texture_image_size(info->format, info->width, info->height, info->depth, mip);
 
-                    for (uint32_t slice = 0; slice < info->array_size_minus_one + 1; ++slice) {
+                    for (uint32_t slice = 0; slice < array_size; ++slice) {
                         pulse_render_graph_add_uploadtexturepass_ex(
                             graph, "tex_up", tex_rh,
                             mip, slice, mipSize, 0,
@@ -123,19 +116,7 @@ uint8_t* queue_staging_texture_full(
     bool* completed)
 {
     auto* info = texture->handle->info;
-    uint32_t tex_comp = FormatUtil_BitSizeOfBlock(info->format) / 8;
-    uint32_t blockW = FormatUtil_WidthOfBlock(info->format);
-    uint32_t blockH = FormatUtil_HeightOfBlock(info->format);
-    auto mipedSize = [](uint64_t s, uint64_t m) { return std::max<uint64_t>(s >> m, 1ull); };
-
-    uint64_t totalSize = 0;
-    for (uint8_t mip = 0; mip < source_mip_levels; ++mip) {
-        uint64_t mipW = mipedSize(info->width, mip);
-        uint64_t mipH = mipedSize(info->height, mip);
-        uint64_t blocksW = std::max<uint64_t>((mipW + blockW - 1) / blockW, 1ull);
-        uint64_t blocksH = std::max<uint64_t>((mipH + blockH - 1) / blockH, 1ull);
-        totalSize += blocksW * blocksH * tex_comp * (info->array_size_minus_one + 1);
-    }
+    const uint64_t totalSize = HGEGraphics::texture_data_size(info->format, info->width, info->height, info->depth, source_mip_levels, info->array_size_minus_one + 1);
 
     auto* ptr = static_cast<uint8_t*>(gstate->staging_pool.allocate(totalSize, alignof(std::max_align_t)));
 

@@ -1,0 +1,11 @@
+id:
+    type: string
+    key: true
+name:
+    type: string
+    default: unnamed
+weight:
+    type: float
+    default: 0.5
+    min: 0
+    max: 5

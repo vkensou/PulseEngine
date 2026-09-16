@@ -1,0 +1,5 @@
+schema: "dup"
+rows: [
+    { id: a }
+    { id: a }
+]

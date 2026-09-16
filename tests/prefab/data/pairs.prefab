@@ -1,0 +1,4 @@
+name : "PairsPrefab"
+pairs : {
+    TestPairRel : "TestPairTarget"
+}

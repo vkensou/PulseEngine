@@ -1,0 +1,23 @@
+id:
+    type: string
+    key: true
+interval:
+    type: float
+    default: 1
+    min: 0.1
+    max: 10
+hp:
+    type: int
+    default: 100
+    min: 1
+big:
+    type: bool
+    default: false
+drop:
+    type: ref
+    ref: item
+skill:
+    type: skill
+price:
+    type: string
+    values: [ cheap, normal, pricey ]

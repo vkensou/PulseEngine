@@ -222,11 +222,11 @@ bool resolve_package(const char* entry_name, const std::string& host_dir, Resolv
     const char* script_file = pulse_config_get_string(cfg, "script_file", nullptr);
     if (script_file && script_file[0]) out.script_file = script_file;
 
-    if (out.type == "native") {
+    const char* library = pulse_config_get_string(cfg, "library", nullptr);
+    if (out.type == "native" || (library && library[0])) {
         const char* entry_symbol = pulse_config_get_string(cfg, "entry", nullptr);
         if (entry_symbol && entry_symbol[0]) out.entry_symbol = entry_symbol;
 
-        const char* library = pulse_config_get_string(cfg, "library", nullptr);
         const bool library_absolute = library && library[0] && (library[0] == '/' || library[0] == '\\' || library[1] == ':');
         if (library_absolute) {
             out.library_path = library;
@@ -574,39 +574,40 @@ EPulsePackageLoadResult load_packages_impl(PulsePackageLoader* loader, const cha
                 runtime->second,
             };
             script_packages.push_back(std::move(entry));
-            continue;
         }
 
-        PulsePackageRegisterFn fn = nullptr;
-        void* lib = nullptr;
+        if (pe.resolved.type == "native" || !pe.resolved.library_path.empty()) {
+            PulsePackageRegisterFn fn = nullptr;
+            void* lib = nullptr;
 
-        if (!pe.resolved.library_path.empty()) {
-            lib = open_package_library(pe.resolved.library_path.c_str());
-            if (!lib) {
+            if (!pe.resolved.library_path.empty()) {
+                lib = open_package_library(pe.resolved.library_path.c_str());
+                if (!lib) {
 #ifdef _WIN32
-                printf("Load library %s failed: %d\n", pe.resolved.library_path.c_str(), GetLastError());
+                    printf("Load library %s failed: %d\n", pe.resolved.library_path.c_str(), GetLastError());
 #endif
-                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
+                    return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
+                }
+                void* symbol = find_package_register(lib, pe.resolved.entry_symbol.c_str());
+                if (!symbol) {
+                    close_package_library(lib);
+                    return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND);
+                }
+                fn = reinterpret_cast<PulsePackageRegisterFn>(symbol);
+            } else {
+                auto it = static_packages.find(pe.entry->name ? pe.entry->name : "");
+                if (it == static_packages.end()) return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
+                fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
             }
-            void* symbol = find_package_register(lib, pe.resolved.entry_symbol.c_str());
-            if (!symbol) {
-                close_package_library(lib);
-                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_ENTRY_NOT_FOUND);
-            }
-            fn = reinterpret_cast<PulsePackageRegisterFn>(symbol);
-        } else {
-            auto it = static_packages.find(pe.entry->name ? pe.entry->name : "");
-            if (it == static_packages.end()) return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_LIBRARY_NOT_FOUND);
-            fn = reinterpret_cast<PulsePackageRegisterFn>(it->second);
-        }
 
-        if (fn(app, pe.entry->config) != PULSE_RESULT_OK) {
-            if (lib) close_package_library(lib);
-            return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
-        }
-        if (lib) {
-            register_script_runtimes(loader, lib);
-            loader->library_handles.push_back(lib);
+            if (fn(app, pe.entry->config) != PULSE_RESULT_OK) {
+                if (lib) close_package_library(lib);
+                return fail(PULSE_PACKAGE_LOAD_RESULT_ERROR_REGISTER_FAILED);
+            }
+            if (lib) {
+                register_script_runtimes(loader, lib);
+                loader->library_handles.push_back(lib);
+            }
         }
     }
 

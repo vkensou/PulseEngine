@@ -1,0 +1,2 @@
+schema: "rng"
+rows: [ { id: a value: 99 } ]

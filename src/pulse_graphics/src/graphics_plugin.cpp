@@ -149,6 +149,7 @@ EPulsePluginBuildResult graphic_plugin_build(PulseAppId app, void* ctx) {
 
     ecs_id(pulse_graphics_state_resource) = flecs::_::type<pulse_graphics_state_resource>::id(world);
     register_components(world);
+    register_asset_reflection(world);
 
     pulse_graphics_state_resource res{ state };
     ecs_singleton_set_ptr(world, pulse_graphics_state_resource, &res);
