@@ -69,6 +69,22 @@ int main() {
     assert(cjk_stats.eviction_count == 0);
     assert(cjk_stats.page_count == 2);
 
+    assert(pulse_font_page_count(app) == 2);
+    assert(pulse_font_page_version(app, 9) == 0);
+    const PulseFontPagePixels missing_view = pulse_font_page_pixels(app, 9);
+    assert(missing_view.p_pixels == nullptr);
+    assert(missing_view.pixels_size == 0);
+    const PulseFontPagePixels page0_view = pulse_font_page_pixels(app, 0);
+    assert(page0_view.pixels_size == 2048u * 2048u);
+    assert(static_cast<const uint8_t*>(page0_view.p_pixels)[4242] == pulse_font_atlas_sample(app, 0, 98, 2));
+    const uint64_t page0_version = pulse_font_page_version(app, 0);
+    assert(page0_version > 0);
+    const uint64_t page1_version = pulse_font_page_version(app, 1);
+    assert(page1_version > 0);
+    pulse_font_prewarm(app, chain, "G", 48.0f);
+    assert(pulse_font_page_version(app, 0) == page0_version + 1);
+    assert(pulse_font_page_version(app, 1) == page1_version);
+
     pulse_destroy_app(app);
 
     PulseFontPluginDesc small = font_desc_for(256, 1);
@@ -97,6 +113,11 @@ int main() {
     assert(pulse_font_atlas_sample(small_app, 0, 0, 0) <= 255);
     assert(pulse_font_atlas_sample(small_app, 9, 0, 0) == 0);
     assert(pulse_font_atlas_sample(small_app, 0, 4096, 0) == 0);
+    const uint64_t small_version = pulse_font_page_version(small_app, 0);
+    assert(small_version == 1 + 52 + 3);
+    pulse_font_prewarm(small_app, small_chain, "A", 48.0f);
+    assert(pulse_font_page_version(small_app, 0) == small_version + 1);
+    assert(pulse_font_atlas_stats(small_app).rasterize_count == 53);
     pulse_destroy_app(small_app);
 
     printf("font atlas tests passed\n");

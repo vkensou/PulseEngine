@@ -58,7 +58,7 @@ struct atlas_page {
     uint32_t grid_y = 0;
     uint32_t slot_size = 0;
     uint64_t last_used = 0;
-    bool dirty = true;
+    uint64_t version = 0;
     std::vector<uint8_t> pixels;
     std::vector<uint32_t> free_slots;
     std::vector<uint32_t> slot_entries;
@@ -69,6 +69,7 @@ struct font_page_gpu {
     PulseTextureHandle handle{};
     bool requested = false;
     bool ready = false;
+    uint64_t last_uploaded_version = 0;
 };
 
 struct font_draw_record {

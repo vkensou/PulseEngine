@@ -282,6 +282,7 @@ void reset_page_slots(pulse_font_plugin_state* state, atlas_page& page, uint32_t
     page.grid_x = state->desc.atlas_width / slot_size;
     page.grid_y = state->desc.atlas_height / slot_size;
     std::fill(page.pixels.begin(), page.pixels.end(), 0);
+    ++page.version;
     const uint32_t slot_count = page.grid_x * page.grid_y;
     page.slot_entries.assign(slot_count, kInvalidIndex);
     page.free_slots.clear();
@@ -299,12 +300,8 @@ uint32_t page_create(pulse_font_plugin_state* state, uint32_t tier) {
     atlas_page page{};
     page.pixels.assign((size_t)state->desc.atlas_width * state->desc.atlas_height, 0);
     reset_page_slots(state, page, tier);
-    page.dirty = true;
     state->pages.push_back(std::move(page));
-    state->render.pages.resize(state->pages.size());
-    const uint32_t page_index = (uint32_t)state->pages.size() - 1;
-    render_ensure_page(state, page_index);
-    return page_index;
+    return (uint32_t)state->pages.size() - 1;
 }
 
 uint32_t page_evict_lru(pulse_font_plugin_state* state, uint32_t tier) {
@@ -328,7 +325,6 @@ uint32_t page_evict_lru(pulse_font_plugin_state* state, uint32_t tier) {
         free_entry(state, entry_index);
     }
     reset_page_slots(state, page, tier);
-    page.dirty = true;
     page.last_used = ++state->tick;
     ++state->eviction_count;
     return victim;
@@ -413,7 +409,7 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
         uint8_t* dest = page.pixels.data() + (size_t)(slot_y + y) * page_width + slot_x;
         std::memcpy(dest, slot_pixels.data() + (size_t)y * slot_size, slot_size);
     }
-    page.dirty = true;
+    ++page.version;
     table_insert(state, entry_index);
     return &entry;
 }
@@ -425,7 +421,6 @@ void atlas_shutdown(pulse_font_plugin_state* state) {
     state->table_used = 0;
     state->table_occupied = 0;
     state->pages.clear();
-    state->render.pages.clear();
 }
 
 }

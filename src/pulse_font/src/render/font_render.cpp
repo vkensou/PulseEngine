@@ -1,4 +1,4 @@
-#include "font_internal.h"
+#include "../font_internal.h"
 
 #include "pulse_asset.h"
 #include "pulse_graphics.h"
@@ -119,6 +119,9 @@ void font_record_callback(PulseAppId app, PulseRenderGraphId graph, void* user_d
         return;
     }
     font_render_state& render = state->render;
+    for (uint32_t i = 0; i < state->pages.size(); ++i) {
+        render_ensure_page(state, i);
+    }
     render.gpu_instances.clear();
     render.groups.clear();
     render.record_groups.clear();
@@ -157,16 +160,16 @@ void font_record_callback(PulseAppId app, PulseRenderGraphId graph, void* user_d
             }
             gpu.handle = pulse_texture_get_handle(app, gpu.request);
             gpu.ready = true;
-            page.dirty = true;
+            gpu.last_uploaded_version = 0;
         }
-        if (!page.dirty) {
+        if (gpu.last_uploaded_version == page.version) {
             continue;
         }
         PulseRGTextureHandle texture = pulse_render_graph_import_texture(graph, gpu.handle);
         if (!pulse_rgtexture_handle_is_valid(texture)) {
             continue;
         }
-        page.dirty = false;
+        gpu.last_uploaded_version = page.version;
         pulse_render_graph_add_uploadtexturepass_ex(graph, "PulseFontAtlasUpload", texture, 0, 0, page.pixels.size(), 0, page.pixels.data(), nullptr, 0, nullptr);
     }
     for (const font_draw_record& record : render.records) {
@@ -423,8 +426,8 @@ void render_ensure_page(pulse_font_plugin_state* state, uint32_t page) {
     if (!state->app || !pulse_get_renderer(state->app)) {
         return;
     }
-    if (page >= state->render.pages.size()) {
-        return;
+    if (state->render.pages.size() <= page) {
+        state->render.pages.resize((size_t)page + 1);
     }
     font_page_gpu& gpu = state->render.pages[page];
     if (gpu.requested) {

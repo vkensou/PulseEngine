@@ -111,6 +111,20 @@ typedef struct PulseAtlasStats
 } PulseAtlasStats;
 
 /**
+ * 图集页 CPU 像素只读视图，R8，长度 = plugin desc 的 atlas_width × atlas_height
+ *
+ */
+typedef struct PulseFontPagePixels
+{
+    Pulse_Blob(pixels);
+
+} PulseFontPagePixels;
+
+/**
+ * ===== 渲染出口区块 =====
+ * 本区块的类型与函数整体属于文字渲染出口，将来从 pulse_font 整体迁出到独立渲染包；
+ * GPU 侧跨包消费图集走上方 FontPageCount / FontPagePixels / FontPageVersion。
+ * FontPluginDesc 的 recordPriority 亦属本区块，受结构体约束留在原处。
  * 一条 glyph 的绘制数据，page 相同的实例会被合进同一次 draw
  *
  */
@@ -263,6 +277,32 @@ PULSE_FONT_API PulseAtlasStats pulse_font_atlas_stats(PulseAppId app);
  *
  */
 PULSE_FONT_API uint8_t pulse_font_atlas_sample(PulseAppId app, uint32_t page, uint32_t x, uint32_t y);
+
+/**
+ * 当前图集页数
+ *
+ * @param[in] app
+ *
+ */
+PULSE_FONT_API uint32_t pulse_font_page_count(PulseAppId app);
+
+/**
+ * 图集页 CPU 像素，借用插件内存不拷贝，页不存在返回空视图
+ *
+ * @param[in] app
+ * @param[in] page
+ *
+ */
+PULSE_FONT_API PulseFontPagePixels pulse_font_page_pixels(PulseAppId app, uint32_t page);
+
+/**
+ * 页内容版本号，页创建与该页每次像素写入（光栅化、淘汰重置）各加一
+ *
+ * @param[in] app
+ * @param[in] page
+ *
+ */
+PULSE_FONT_API uint64_t pulse_font_page_version(PulseAppId app, uint32_t page);
 
 /**
  * 本帧提交一批 glyph 实例，按 page 分组各一次 draw
