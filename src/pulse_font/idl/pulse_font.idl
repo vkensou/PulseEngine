@@ -1,0 +1,241 @@
+version(1)
+
+typedef "bool"
+typedef "float"
+typedef "int32_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "uint8_t"
+typedef "anyopaque"
+typedef "void"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+const_value.FontPluginDescVersion { value = "1u" }
+
+--- Font handle 0 表示无效
+const_value.FontIdNone { value = "0u" }
+
+--- 注册字体上限，含 fallback 兜底字体，超出即失败
+const_value.FontMaxCount { value = "64u" }
+
+struct.FontPluginDesc
+    .structSize     "uint32_t"
+    .version        "uint32_t"
+    .atlasWidth     "uint32_t"
+    .atlasHeight    "uint32_t"
+    .maxAtlasCount  "uint32_t"
+    .sdfPadding     "uint32_t"
+    .recordPriority "int32_t"
+    ()
+
+--- 垂直度量，单位为目标字号的像素
+struct.VerticalMetrics
+    .ascent  "float"
+    .descent "float"
+    .lineGap "float"
+    .height  "float"
+    ()
+
+--- 字形在 SDF 图集中的位置与摆放信息，y 轴向下，相对笔尖基线原点
+struct.Glyph
+    .valid   "bool"
+    .page    "uint32_t"
+    .x0      "float"
+    .y0      "float"
+    .x1      "float"
+    .y1      "float"
+    .u0      "float"
+    .v0      "float"
+    .u1      "float"
+    .v1      "float"
+    .advance "float"
+    ()
+
+--- 图集运行状态
+struct.AtlasStats
+    .pageCount     "uint32_t"
+    .glyphCount    "uint32_t"
+    .slotCount     "uint32_t"
+    .evictionCount "uint64_t"
+    .rasterizeCount "uint64_t"
+    ()
+
+--- 一条 glyph 的绘制数据，page 相同的实例会被合进同一次 draw
+struct.GlyphInstance
+    .x      "float"
+    .y      "float"
+    .width  "float"
+    .height "float"
+    .u0     "float"
+    .v0     "float"
+    .u1     "float"
+    .v1     "float"
+    .r      "float"
+    .g      "float"
+    .b      "float"
+    .a      "float"
+    .page   "uint32_t"
+    ()
+
+--- 局部像素坐标到 NDC 的仿射变换
+struct.Transform
+    .scaleX     "float"
+    .scaleY     "float"
+    .translateX "float"
+    .translateY "float"
+    ()
+
+--- 裁剪矩形，与实例同处局部像素坐标
+struct.Scissor
+    .x       "float"
+    .y       "float"
+    .width   "float"
+    .height  "float"
+    .enabled "bool"
+    ()
+
+struct.DrawDesc
+    .instances "[]const GlyphInstance"
+    .transform "Transform"
+    .scissor   "Scissor"
+    ()
+
+func.FontPluginDescDefault
+    "FontPluginDesc"
+    ()
+
+func.AddFontPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    .desc "*const FontPluginDesc"
+    ()
+
+--- 从内存字节流注册字体，TTC 按 faceIndex 展开，返回字体 id
+func.FontRegister
+    "uint32_t"
+    .app       "PulseAppId"
+    .memory    "[]const anyopaque"
+    .faceIndex "uint32_t"
+    ()
+
+--- 从 VFS 路径注册字体
+func.FontRegisterFile
+    "uint32_t"
+    .app       "PulseAppId"
+    .path      "cstring"
+    .faceIndex "uint32_t"
+    ()
+
+--- 字节流里的 face 数量
+func.FontFaceCount
+    "uint32_t"
+    .app    "PulseAppId"
+    .memory "[]const anyopaque"
+    ()
+
+func.FontCount
+    "uint32_t"
+    .app "PulseAppId"
+    ()
+
+func.FontFamilyName
+    "?cstring"
+    .app  "PulseAppId"
+    .font "uint32_t"
+    ()
+
+func.FontFindFamily
+    "uint32_t"
+    .app    "PulseAppId"
+    .family "cstring"
+    ()
+
+--- 按顺序尝试的字体链，排版层只认链
+func.FontCreateChain
+    "uint32_t"
+    .app   "PulseAppId"
+    .fonts "[]const uint32_t"
+    ()
+
+func.FontDestroyChain
+    "void"
+    .app   "PulseAppId"
+    .chain "uint32_t"
+    ()
+
+--- 返回链上提供该 codepoint 的字体 id，全缺返回 0
+func.FontResolveCodepoint
+    "uint32_t"
+    .app       "PulseAppId"
+    .chain     "uint32_t"
+    .codepoint "uint32_t"
+    ()
+
+func.FontAdvance
+    "float"
+    .app       "PulseAppId"
+    .chain     "uint32_t"
+    .codepoint "uint32_t"
+    .size      "float"
+    ()
+
+func.FontKerning
+    "float"
+    .app   "PulseAppId"
+    .chain "uint32_t"
+    .first "uint32_t"
+    .second "uint32_t"
+    .size  "float"
+    ()
+
+func.FontVerticalMetrics
+    "VerticalMetrics"
+    .app   "PulseAppId"
+    .chain "uint32_t"
+    .size  "float"
+    ()
+
+--- 取字形并确保其已进图集
+func.FontGlyph
+    "Glyph"
+    .app       "PulseAppId"
+    .chain     "uint32_t"
+    .codepoint "uint32_t"
+    .size      "float"
+    ()
+
+--- 批量光栅化一段 UTF-8 文本用到的字符
+func.FontPrewarm
+    "void"
+    .app   "PulseAppId"
+    .chain "uint32_t"
+    .text  "cstring"
+    .size  "float"
+    ()
+
+func.FontAtlasStats
+    "AtlasStats"
+    .app "PulseAppId"
+    ()
+
+--- 调试用：读取图集页单个像素
+func.FontAtlasSample
+    "uint8_t"
+    .app  "PulseAppId"
+    .page "uint32_t"
+    .x    "uint32_t"
+    .y    "uint32_t"
+    ()
+
+--- 本帧提交一批 glyph 实例，按 page 分组各一次 draw
+func.FontSubmit
+    "EPulseResult"
+    .app  "PulseAppId"
+    .desc "*const DrawDesc"
+    ()

@@ -1097,6 +1097,15 @@ func.RenderPassEncoder.DrawProcedure { mut }
     .vertexCount "uint32_t"
     ()
 
+func.RenderPassEncoder.DrawInstanced { mut }
+    "void"
+    .material  "MaterialHandle"
+    .mesh      "MeshHandle"
+    .vertexCount "uint32_t"
+    .instanceCount "uint32_t"
+    .firstInstance "uint32_t"
+    ()
+
 func.RenderPassEncoder.Dispatch { mut }
     "void"
     .computeShader "ComputeShaderHandle"

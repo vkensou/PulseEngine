@@ -12,6 +12,7 @@
 .\lua54.exe generate-binding.lua ..\..\src\pulse_transform\idl\pulse_transform.idl ..\..\src\pulse_transform\idl\temp.pulse_transform.h c ..\..\src\pulse_transform\include\pulse_transform.h Pulse "    " PULSE_TRANSFORM_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_renderer\idl\pulse_renderer.idl ..\..\src\pulse_renderer\idl\temp.pulse_renderer.h c ..\..\src\pulse_renderer\include\pulse_renderer.h Pulse "    " PULSE_RENDERER_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_imgui\idl\pulse_imgui.idl ..\..\src\pulse_imgui\idl\temp.pulse_imgui.h c ..\..\src\pulse_imgui\include\pulse_imgui.h Pulse "    " PULSE_IMGUI_API
+.\lua54.exe generate-binding.lua ..\..\src\pulse_font\idl\pulse_font.idl ..\..\src\pulse_font\idl\temp.pulse_font.h c ..\..\src\pulse_font\include\pulse_font.h Pulse "    " PULSE_FONT_API
 .\lua54.exe generate-binding.lua ..\..\src\pulse_daslang\idl\pulse_daslang.idl ..\..\src\pulse_daslang\idl\temp.pulse_daslang.h c ..\..\src\pulse_daslang\include\pulse_daslang.h Pulse "    " PULSE_DASLANG_API
 
 .\lua54.exe generate-binding.lua ..\..\src\pulse_app\idl\pulse_app.idl temp.flecs_reflection.h flecs ..\..\src\pulse_app\src\pulse_app_reflection.h Pulse "    "

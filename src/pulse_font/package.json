@@ -1,0 +1,10 @@
+{
+  "name": "pulse_font",
+  "version": "1.0.0",
+  "library": "pulse_font",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "pulse_vfs",
+    "pulse_graphics"
+  ]
+}

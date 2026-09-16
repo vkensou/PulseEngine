@@ -1200,6 +1200,18 @@ namespace HGEGraphics
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);
 	}
 
+	void draw_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t vertex_count, uint32_t instance_count, uint32_t first_instance)
+	{
+		if (!mesh->prepared || !material || vertex_count == 0 || instance_count == 0)
+			return;
+		auto shader = material->shader.ptr;
+		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
+		update_material(encoder, material);
+		update_descriptor_set(encoder, shader->root_sig, true);
+		update_mesh(encoder, mesh);
+		cgpu_render_pass_encoder_draw_instanced(encoder->encoder, vertex_count, 0, instance_count, first_instance);
+	}
+
 	void update_compute_pipeline(RenderPassEncoder* encoder, PulseComputeShaderData* shader)
 	{
 		auto pipeline = encoder->context->computePipelinePool.getComputePipeline(shader);

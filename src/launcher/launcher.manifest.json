@@ -49,6 +49,9 @@
       "name": "pulse_imgui"
     },
     {
+      "name": "pulse_font"
+    },
+    {
       "name": "pulse_daslang"
     },
     {
