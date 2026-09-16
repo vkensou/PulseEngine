@@ -11,6 +11,7 @@ module pulse_components public
 require pulse public
 require pulse/flecs_boost public
 
+// ECS Res
 struct PulseTimer {
     delta_time: float
     time_since_startup: float
@@ -19,12 +20,14 @@ struct PulseTimer {
     fps: int
 }
 
+// ECS Res
 struct PulseKeyboardInput {
     pressed: bool[512]
     just_pressed: bool[512]
     just_released: bool[512]
 }
 
+// ECS Component
 struct PulseWindow {
     struct_size: uint
     title: string
@@ -34,15 +37,18 @@ struct PulseWindow {
     external_graphics_context: bool
 }
 
+// ECS Tag
 struct PulsePrimaryWindow {
 }
 
+// ECS Component
 struct PulseLocalTransform {
     translation: HMM_Vec3
     rotation: HMM_Quat
     scale: HMM_Vec3
 }
 
+// ECS Component
 struct PulseCamera {
     window_entity: Entity
     fov: float
@@ -50,6 +56,7 @@ struct PulseCamera {
     far_plane: float
 }
 
+// ECS Component
 struct PulseRenderable {
     mesh: PulseMeshHandle
     material: PulseMaterialHandle

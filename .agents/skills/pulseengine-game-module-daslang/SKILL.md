@@ -1,13 +1,15 @@
 ---
 name: pulseengine-game-module-daslang
-description: 在 PulseEngine 仓库（E:\myroom\projects\PulseEngine）里用 daslang 写游戏模块（pulse 游戏包）时使用。自包含模板：用 scripts/new_game.ps1 一键生成骨架 → 填游戏逻辑 → tablegen 生成数据表绑定 → generate_module 生成模块/插件代码 → launcher.manifest.json 接入 → 跑 launcher 验证窗口标题。
+description: 在当前仓库里用 daslang 写游戏模块（pulse 游戏包）时使用。自包含完整模板。
 ---
 
 # PulseEngine daslang 游戏模块开发
 
+本文提到的命令、文档的目录均是相对于仓库根目录，而非当前skill目录。其他文件如`templates`等则是在当前skill目录。
+
 PulseEngine是模块化的。各个功能包括游戏逻辑都是独立的包。游戏模块只需要包括游戏自身逻辑和资源。由宿主 **launcher** 在运行时按清单动态加载和启动。
 
-本 skill 自带完整模板，**不需要阅读仓库里现有的 snake_daslang 源码**——模块骨架、prefab/数据表接入、实体创建、状态机、UI 系统全部内嵌在 `templates/` 里。
+本 skill 自带完整模板————模块骨架、prefab/数据表接入、实体创建、状态机、UI 系统全部内嵌在 `templates/` 里。**不需要阅读仓库里现有的 snake_daslang 源码**，有问题直接问用户。
 
 ## 游戏运行模型
 
@@ -39,7 +41,7 @@ launcher.exe                    宿主链接核心包 pulse_app / pulse_package_
 ### 第 0 步：一键生成骨架
 
 ```sh
-pwsh -File .agents/skills/pulseengine-game-module-daslang/scripts/new_game.ps1 -Name bounce -DisplayName Bounce
+pwsh -File .agents/skills/pulseengine-game-module-daslang/scripts/new_game.ps1 -Name <game>
 ```
 脚本会将模板文件拷贝到指定目录，并替换占位符。
 
@@ -47,32 +49,42 @@ pwsh -File .agents/skills/pulseengine-game-module-daslang/scripts/new_game.ps1 -
 
 根据要做的游戏自行设计游戏逻辑
 
-### 第 2 步：
+### 第 2 步：系统实现（`<game>_module.das`）
 
-引擎是基于ECS（flecs）的，所以实现游戏逻辑时需要合理划分组件、系统。同时引擎参考了bevy，所以也提供了一些bevy的概念。下面举例详述：
+引擎是基于ECS（flecs）的，所以实现游戏逻辑时需要合理划分组件、系统。同时引擎参考了bevy，所以也提供了一些类似bevy的基础设施。详见： [ECS基础设施-daslang](docs/ECS基础设施-daslang.md)
+暂时不要设置PulseWindow组件的title。
 
-ECS组件：
-```
-struct SnakeMove {
-    interval : float
-    lastTime : float
-}
-```
+### 第 3 步：数据表
 
-ECS标签（tag）：
-```
-struct IsApple {}
+数据表和数据schema是分开的，详细文档在 [数据表文档](docs/v0.3/数据表方案.md)。引擎提供工具（tablegen）生成数据绑定代码，方便使用。工具使用方法如下：
+
+```sh
+xmake build tablegen
+build\windows\x64\debug\tablegen.exe --out-das examples\<game>\<game>_tables.h examples\<game>\schema\<game>_config.schema
 ```
 
-ECS事件：
-```
-struct AppleEatenEvent {
-    apple : Entity
-}
+### 第 4 步：接进launcher（宿主）
+
+开发期宿主就是仓库里的 `launcher`，它只加载 `src/launcher/launcher.manifest.json` 里列出的包：
+
+1. `packages` 数组末尾加 `{ "name": "<game>" }`。
+2. **一次只跑一个游戏**：把其它游戏包条目（`snake` / `snake_daslang`）删掉；你依赖的插件条目都要列出来。
+3. 窗口初始标题/尺寸在 `pulse_window` 条目的 `config.primary_window`。
+
+### 第 5 步：构建
+
+```sh
+xmake build
 ```
 
+daslang包本身不需要构建，但launcher、native包需要构建。launcher对各个可选包没有直接依赖关系，所以最好一次性构建整个工程。
+
+### 第 6 步：运行与验证
+
+正常来说运行下面命令即可
+
+```sh
+xmake run launcher
 ```
-[system(phase="update", state="UnInitialized|Loading")]
-def loadSnakeResourcesSystem(app : PulseAppId, assets : Res<SnakeAssets>, state : SystemStateMachine<SnakeGameState>, cmd : CommandBuffer, primaryWindowQuery : Query<PulseWindow const, PulsePrimaryWindow const>) {
-}
-```
+
+但AI操作带窗口的程序不方便，使用skill `test-tool-for-program-with-window`。
