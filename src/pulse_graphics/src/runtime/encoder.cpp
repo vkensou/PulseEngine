@@ -29,6 +29,18 @@ void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* encoder, PulseMateri
     HGEGraphics::draw(cpp_encoder, mat, m);
 }
 
+void pulse_render_pass_encoder_draw_instanced(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t instance_count, uint32_t first_instance) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, material);
+    if (!mat) return;
+    PulseMeshData* m = pulse_graphics_internal::internal_borrow_mesh(as, mesh);
+    if (!m) return;
+    HGEGraphics::draw_instanced(cpp_encoder, mat, m, instance_count, first_instance);
+}
+
 void pulse_render_pass_encoder_draw_submesh(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx) {
     auto* cpp_encoder = to_cpp_encoder(encoder);
     PulseAssetSystemId as = asset_system_from_encoder(encoder);
@@ -41,17 +53,7 @@ void pulse_render_pass_encoder_draw_submesh(PulseRenderPassEncoder* encoder, Pul
     HGEGraphics::draw_submesh(cpp_encoder, mat, m, idx_count, first_idx, vtx_count, first_vtx);
 }
 
-void pulse_render_pass_encoder_draw_procedure(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, ECGPUPrimitiveTopology topology, uint32_t vertex_count) {
-    auto* cpp_encoder = to_cpp_encoder(encoder);
-    PulseAssetSystemId as = asset_system_from_encoder(encoder);
-    if (!cpp_encoder || !as) return;
-
-    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, material);
-    if (!mat) return;
-    HGEGraphics::draw_procedure(cpp_encoder, mat, topology, vertex_count);
-}
-
-void pulse_render_pass_encoder_draw_instanced(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t vertex_count, uint32_t instance_count, uint32_t first_instance) {
+void pulse_render_pass_encoder_draw_submesh_instanced   (PulseRenderPassEncoder* encoder, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx, uint32_t instance_count, uint32_t first_instance) {
     auto* cpp_encoder = to_cpp_encoder(encoder);
     PulseAssetSystemId as = asset_system_from_encoder(encoder);
     if (!cpp_encoder || !as) return;
@@ -60,7 +62,17 @@ void pulse_render_pass_encoder_draw_instanced(PulseRenderPassEncoder* encoder, P
     if (!mat) return;
     PulseMeshData* m = pulse_graphics_internal::internal_borrow_mesh(as, mesh);
     if (!m) return;
-    HGEGraphics::draw_instanced(cpp_encoder, mat, m, vertex_count, instance_count, first_instance);
+    HGEGraphics::draw_submesh_instanced(cpp_encoder, mat, m, idx_count, first_idx, vtx_count, first_vtx, instance_count, first_instance);
+}
+
+void pulse_render_pass_encoder_draw_procedure(PulseRenderPassEncoder* encoder, PulseMaterialHandle material, ECGPUPrimitiveTopology topology, uint32_t vertex_count) {
+    auto* cpp_encoder = to_cpp_encoder(encoder);
+    PulseAssetSystemId as = asset_system_from_encoder(encoder);
+    if (!cpp_encoder || !as) return;
+
+    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, material);
+    if (!mat) return;
+    HGEGraphics::draw_procedure(cpp_encoder, mat, topology, vertex_count);
 }
 
 void pulse_render_pass_encoder_dispatch(PulseRenderPassEncoder* encoder, PulseComputeShaderHandle compute_shader, uint32_t x, uint32_t y, uint32_t z) {

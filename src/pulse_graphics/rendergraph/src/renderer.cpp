@@ -1174,6 +1174,21 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, mesh->vertices_count, 0);
 	}
 
+	void draw_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t instance_count, uint32_t first_instance)
+	{
+		if (!mesh->prepared || !material || instance_count == 0)
+			return;
+		auto shader = material->shader.ptr;
+		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
+		update_material(encoder, material);
+		update_descriptor_set(encoder, shader->root_sig, true);
+		update_mesh(encoder, mesh);
+		if (encoder->last_index_buffer)
+			cgpu_render_pass_encoder_draw_indexed_instanced(encoder->encoder, mesh->index_count, 0, instance_count, first_instance, 0);
+		else
+            cgpu_render_pass_encoder_draw_instanced(encoder->encoder, mesh->vertices_count, 0, instance_count, first_instance);
+	}
+
 	void draw_submesh(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex)
 	{
 		if (!mesh->prepared || !material)
@@ -1189,6 +1204,21 @@ namespace HGEGraphics
 			cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, first_vertex);
 	}
 
+	void draw_submesh_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex, uint32_t instance_count, uint32_t first_instance)
+	{
+		if (!mesh->prepared || !material || instance_count == 0)
+			return;
+		auto shader = material->shader.ptr;
+		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
+		update_material(encoder, material);
+		update_descriptor_set(encoder, shader->root_sig, true);
+		update_mesh(encoder, mesh);
+		if (encoder->last_index_buffer)
+			cgpu_render_pass_encoder_draw_indexed_instanced(encoder->encoder, index_count, first_index, instance_count, first_instance, first_vertex);
+		else
+			cgpu_render_pass_encoder_draw_instanced(encoder->encoder, vertex_count, first_vertex, instance_count, first_instance);
+	}
+
 	void draw_procedure(RenderPassEncoder* encoder, PulseMaterialData* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count)
 	{
 		if (!material)
@@ -1198,18 +1228,6 @@ namespace HGEGraphics
 		update_material(encoder, material);
 		update_descriptor_set(encoder, shader->root_sig, true);
 		cgpu_render_pass_encoder_draw(encoder->encoder, vertex_count, 0);
-	}
-
-	void draw_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t vertex_count, uint32_t instance_count, uint32_t first_instance)
-	{
-		if (!mesh->prepared || !material || vertex_count == 0 || instance_count == 0)
-			return;
-		auto shader = material->shader.ptr;
-		update_render_pipeline(encoder, shader, mesh->prim_topology, mesh->vertex_layout);
-		update_material(encoder, material);
-		update_descriptor_set(encoder, shader->root_sig, true);
-		update_mesh(encoder, mesh);
-		cgpu_render_pass_encoder_draw_instanced(encoder->encoder, vertex_count, 0, instance_count, first_instance);
 	}
 
 	void update_compute_pipeline(RenderPassEncoder* encoder, PulseComputeShaderData* shader)

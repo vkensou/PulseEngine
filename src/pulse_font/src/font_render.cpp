@@ -57,7 +57,7 @@ void draw_record_executable(PulseRenderPassEncoder* encoder, void* userdata) {
     pulse_render_pass_encoder_set_global_sampler(encoder, data->sampler, 0, 1);
     for (uint32_t i = 0; i < data->group_count; ++i) {
         pulse_render_pass_encoder_set_global_texture(encoder, data->page_textures[i], 0, 0);
-        pulse_render_pass_encoder_draw_instanced(encoder, data->material, data->mesh, 6, data->groups[i].count, data->groups[i].first);
+        pulse_render_pass_encoder_draw_submesh_instanced(encoder, data->material, data->mesh, 0, 0, 6, 0, data->groups[i].count, data->groups[i].first);
     }
 }
 

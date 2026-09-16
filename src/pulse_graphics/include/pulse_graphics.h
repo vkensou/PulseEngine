@@ -900,9 +900,10 @@ PULSE_GRAPHICS_API void pulse_compute_pass_builder_set_executable(PulseComputePa
  *
  */
 PULSE_GRAPHICS_API void pulse_render_pass_encoder_draw(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh);
+PULSE_GRAPHICS_API void pulse_render_pass_encoder_draw_instanced(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t instance_count, uint32_t first_instance);
 PULSE_GRAPHICS_API void pulse_render_pass_encoder_draw_submesh(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx);
+PULSE_GRAPHICS_API void pulse_render_pass_encoder_draw_submesh_instanced(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t idx_count, uint32_t first_idx, uint32_t vtx_count, uint32_t first_vtx, uint32_t instance_count, uint32_t first_instance);
 PULSE_GRAPHICS_API void pulse_render_pass_encoder_draw_procedure(PulseRenderPassEncoder* _this, PulseMaterialHandle material, ECGPUPrimitiveTopology topology, uint32_t vertex_count);
-PULSE_GRAPHICS_API void pulse_render_pass_encoder_draw_instanced(PulseRenderPassEncoder* _this, PulseMaterialHandle material, PulseMeshHandle mesh, uint32_t vertex_count, uint32_t instance_count, uint32_t first_instance);
 PULSE_GRAPHICS_API void pulse_render_pass_encoder_dispatch(PulseRenderPassEncoder* _this, PulseComputeShaderHandle compute_shader, uint32_t x, uint32_t y, uint32_t z);
 PULSE_GRAPHICS_API void pulse_render_pass_encoder_set_global_texture(PulseRenderPassEncoder* _this, PulseTextureHandle texture, uint32_t set, uint32_t binding);
 PULSE_GRAPHICS_API void pulse_render_pass_encoder_set_global_buffer(PulseRenderPassEncoder* _this, PulseGraphicsBufferHandle buffer, uint32_t set, uint32_t binding);

@@ -1080,6 +1080,14 @@ func.RenderPassEncoder.Draw { mut }
     .mesh     "MeshHandle"
     ()
 
+func.RenderPassEncoder.DrawInstanced { mut }
+    "void"
+    .material  "MaterialHandle"
+    .mesh      "MeshHandle"
+    .instanceCount "uint32_t"
+    .firstInstance "uint32_t"
+    ()
+
 func.RenderPassEncoder.DrawSubmesh { mut }
     "void"
     .material "MaterialHandle"
@@ -1090,20 +1098,23 @@ func.RenderPassEncoder.DrawSubmesh { mut }
     .firstVtx "uint32_t"
     ()
 
+func.RenderPassEncoder.DrawSubmeshInstanced { mut }
+    "void"
+    .material "MaterialHandle"
+    .mesh     "MeshHandle"
+    .idxCount "uint32_t"
+    .firstIdx "uint32_t"
+    .vtxCount "uint32_t"
+    .firstVtx "uint32_t"
+    .instanceCount "uint32_t"
+    .firstInstance "uint32_t"
+    ()
+
 func.RenderPassEncoder.DrawProcedure { mut }
     "void"
     .material  "MaterialHandle"
     .topology  "ECGPUPrimitiveTopology"
     .vertexCount "uint32_t"
-    ()
-
-func.RenderPassEncoder.DrawInstanced { mut }
-    "void"
-    .material  "MaterialHandle"
-    .mesh      "MeshHandle"
-    .vertexCount "uint32_t"
-    .instanceCount "uint32_t"
-    .firstInstance "uint32_t"
     ()
 
 func.RenderPassEncoder.Dispatch { mut }

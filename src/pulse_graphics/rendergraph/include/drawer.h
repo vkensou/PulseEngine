@@ -20,9 +20,10 @@ namespace HGEGraphics
 	void draw_submesh(RenderPassEncoder* encoder, PulseShaderData* shader, PulseMeshData* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
 	void draw_procedure(RenderPassEncoder* encoder, PulseShaderData* shader, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
 	void draw(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh);
+	void draw_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t instance_count, uint32_t first_instance);
 	void draw_submesh(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex);
+	void draw_submesh_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t index_count, uint32_t first_index, uint32_t vertex_count, uint32_t first_vertex, uint32_t instance_count, uint32_t first_instance);
 	void draw_procedure(RenderPassEncoder* encoder, PulseMaterialData* material, ECGPUPrimitiveTopology mesh_topology, uint32_t vertex_count);
-	void draw_instanced(RenderPassEncoder* encoder, PulseMaterialData* material, PulseMeshData* mesh, uint32_t vertex_count, uint32_t instance_count, uint32_t first_instance);
 	void dispatch(RenderPassEncoder* encoder, PulseComputeShaderData* shader, uint32_t thread_x, uint32_t thread_y, uint32_t thread_z);
 	void set_global_texture(RenderPassEncoder* encoder, PulseTextureData* texture, int set, int slot);
 	void set_global_texture_handle(RenderPassEncoder* encoder, PulseRGTextureHandle texture, int set, int slot);
