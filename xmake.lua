@@ -619,7 +619,7 @@ target("test-font-window")
     add_deps("pulse_font")
     add_files("tests/font/font_window.cpp")
     add_files("tests/helper/msvc_headless_asserts.c")
-    add_rules("pulse.window_title_test", {title = "font-window-rendered", wait = 20, close_timeout_ms = 8000})
+    add_rules("pulse.window_screenshot_test", {baseline = "tests/font/baseline.png", wait = 5, threshold = 0.995})
     add_tests("default", {group = "font-window", rundir = "$(projectdir)"})
 
 target("test-renderer")
