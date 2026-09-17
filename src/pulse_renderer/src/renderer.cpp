@@ -4,8 +4,6 @@
 #include <string.h>
 #include <cmath>
 #include <utility>
-#include "hash.h"
-#include <optional>
 
 namespace pulse_renderer_internal {
 
@@ -79,44 +77,22 @@ void extract_cameras_system(ecs_iter_t* it) {
         for (const auto& desc : state->list_registry) {
             view.lists.emplace_back(&packet.pool);
             view.lists.back().desc = desc;
+            view.lists.back().init_feature_data((uint32_t)state->features.size());
         }
     }
 }
 
-// CollectRenderablesSystem: iterates all Renderable + WorldTransform entities,
-//   adds DrawItem to the default list of every active camera view.
-void collect_renderables_system(ecs_iter_t* it) {
-    pulse_renderer_state* state =
-        static_cast<pulse_renderer_state*>(it->ctx);
+void extract_features_system(ecs_iter_t* it) {
+    auto* state = static_cast<pulse_renderer_state*>(it->ctx);
     if (!state) return;
-
     FrameRenderPacket& packet = state->write_packet();
-    if (packet.views.empty()) return;
-
-    PulseRenderable* renderables = ecs_field(it, PulseRenderable, 0);
-    PulseWorldTransform* world_transforms = ecs_field(it, PulseWorldTransform, 1);
-
-    for (int i = 0; i < it->count; ++i) {
-        ecs_entity_t entity = it->entities[i];
-        PulseRenderable& renderable = renderables[i];
-        HMM_Mat4& world_mat = world_transforms[i].value;
-
-        PulseShaderHandle shader = pulse_material_get_shader(state->app, renderable.material);
-
-        DrawItem item = {};
-        item.entity = entity;
-        item.mesh = renderable.mesh;
-        item.material = renderable.material;
-        item.shader = shader;
-        item.world_matrix = world_mat;
-
-        for (auto& view : packet.views) {
-            for (auto& list : view.lists) {
-                // TODO: condition
-                if (true) {
-                    item.submission_index = (uint32_t)list.items.size();
-                    list.items.push_back(item);
-                }
+    for (uint32_t view_index = 0; view_index < (uint32_t)packet.views.size(); ++view_index) {
+        RendererView& view = packet.views[view_index];
+        for (uint32_t list_id = 0; list_id < (uint32_t)view.lists.size(); ++list_id) {
+            for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
+                const RenderFeature& feature = state->features[feature_id];
+                FeatureExtractContext ctx{ state, view_index, list_id, feature_id };
+                feature.extract(state->app, it->world, ctx, feature.userdata);
             }
         }
     }
@@ -196,11 +172,13 @@ struct ViewPassData {
     const pulse_renderer_state* state;
 };
 
-// Helper: get the property name mapped to a given data source type
-static const char* get_mapped_name(const pulse_renderer_state* state, EPulseRendererPropertyType type) {
-    if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT && state->property_names[(int)type])
-        return state->property_names[(int)type];
-    return nullptr;
+void draw_item_default(PulseAppId app, PulseRenderPassEncoder* encoder, const RendererView& view, const DrawItem& item) {
+    for (size_t i = item.ubo_start; i < item.ubo_end; ++i) {
+        const auto& col = view.ubo_columns[i];
+        const auto& block = view.blocks[col.block_ref.index];
+        pulse_render_pass_encoder_set_global_buffer_offset(encoder, block.gpu_handle, (uint32_t)col.set, col.binding, col.block_ref.offset, col.block_ref.size);
+    }
+    pulse_render_pass_encoder_draw(encoder, item.material, item.mesh);
 }
 
 static void render_view_executable(PulseRenderPassEncoder* encoder, void* userdata) {
@@ -215,124 +193,15 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
             if (item.shader.index == 0)
                 continue;
 
-            for (size_t i = item.ubo_start; i < item.ubo_end; ++i) {
-                const auto& col = view.ubo_columns[i];
-                const auto& block = view.blocks[col.block_ref.index];
-                pulse_render_pass_encoder_set_global_buffer_offset(
-                    encoder, block.gpu_handle, (uint32_t)col.set, col.binding,
-                    col.block_ref.offset, col.block_ref.size);
+            const RenderFeature& feature = pass_data->state->features[item.feature_id];
+            if (feature.draw) {
+                FeatureDrawContext ctx{ pass_data->state, &view, &list, &item };
+                feature.draw(app, encoder, ctx, feature.userdata);
+            } else {
+                draw_item_default(app, encoder, view, item);
             }
-
-            pulse_render_pass_encoder_draw(encoder, item.material, item.mesh);
         }
     }
-}
-
-// Align a byte size up to the given byte alignment (e.g. UBO offset alignment)
-static uint32_t align_up(uint32_t value, uint32_t alignment) {
-    return (value + alignment - 1) / alignment * alignment;
-}
-
-static GpuBlockRef alloc_gpu_block(RendererView& view, UboBlockCache& ubo_cache, uint32_t frame_index, uint32_t size, uint32_t ubo_alignment) {
-    size = align_up(size, ubo_alignment);
-    for (size_t i = 0; i < view.blocks.size(); ++i) {
-        size_t index = view.blocks.size() - i - 1;
-        auto& block = view.blocks[index];
-        if (block.size >= block.used + size) {
-            auto offset = block.used;
-            auto ptr = block.cpu_data + offset;
-            block.used += size;
-            return { index, offset, size, ptr };
-        }
-    }
-
-    view.blocks.emplace_back();
-    auto& block = view.blocks.back();
-    block.cpu_data = ubo_cache.acquire(size, frame_index, block.size);
-    block.used = 0;
-    auto offset = block.used;
-    auto ptr = block.cpu_data + offset;
-    block.used += size;
-    return { view.blocks.size() - 1, offset, size, ptr };
-}
-
-static std::optional<size_t> find_cached_ubo_column(
-    RendererView& view,
-    DrawItem& item,
-    const PulseUboInfo& info
-    ) {
-    for (size_t i = 0; i < view.ubo_columns.size(); ++i) {
-        auto& col = view.ubo_columns[i];
-        if (col.layout_hash == info.layout_hash && !info.per_draw
-            && ((!info.material_managed) || (col.material.index == item.material.index && col.material.generation == item.material.generation))) {
-            return i;
-        }
-    }
-    return {};
-}
-
-static size_t build_ubo_column_for_shader2(
-    PulseAppId app,
-    const pulse_renderer_state* state,
-    RendererView& view,
-    UboBlockCache& ubo_cache,
-    uint32_t frame_index,
-    HMM_Mat4& vp,
-    DrawItem& item,
-    PulseShaderHandle shader,
-    uint32_t ubo_info_index,
-    const PulseUboInfo& info,
-    uint32_t ubo_alignment)
-{
-    uint32_t ubo_size = info.size;
-    ubo_size = align_up(ubo_size, ubo_alignment);
-
-    RendererUboColumn col = {};
-    col.material = item.material;
-    col.shader = shader;
-    col.ubo_info_index = ubo_info_index;
-    col.layout_hash = info.layout_hash;
-    col.set = info.set;
-    col.binding = info.binding;
-
-    // 尝试重用
-    if (!info.per_draw)
-    {
-        auto s = find_cached_ubo_column(view, item, info);
-        // 找到了
-        if (s.has_value()) {
-            auto& cachedCol = view.ubo_columns[s.value()];
-            col.block_ref = cachedCol.block_ref;
-            view.ubo_columns.push_back(std::move(col));
-            return view.ubo_columns.size() - 1;
-        }
-    }
-
-    // 分配
-    col.block_ref = alloc_gpu_block(view, ubo_cache, frame_index, info.size, ubo_alignment);
-
-    // copy from
-    if (info.material_managed) {
-        auto mat_ubo_data = pulse_material_get_ubo_column(app, item.material, ubo_info_index);
-        memcpy(col.block_ref.ptr, mat_ubo_data, info.size);
-    }
-
-    // copy renderer property
-    for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
-        const auto& prop = pulse_shader_get_shader_property(app, shader, p);
-        if (!prop.name || prop.set != info.set || prop.binding != info.binding) continue;
-        if (prop.role != PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) continue;
-
-        if (prop.type == PULSE_SHADER_PROPERTY_TYPE_MAT4 && strcmp(prop.name, get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX)) == 0) {
-            memcpy(col.block_ref.ptr + prop.offset, &vp, prop.size);
-        }
-        else if (prop.type == PULSE_SHADER_PROPERTY_TYPE_MAT4 && strcmp(prop.name, get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX)) == 0) {
-            memcpy(col.block_ref.ptr + prop.offset, &item.world_matrix, prop.size);
-        }
-    }
-
-    view.ubo_columns.push_back(std::move(col));
-    return view.ubo_columns.size() - 1;
 }
 
 static void record_renderer_callback(
@@ -347,7 +216,8 @@ static void record_renderer_callback(
     FrameRenderPacket& packet = state->read_packet_mutable();
     if (packet.views.empty()) return;
 
-    for (auto& view : packet.views) {
+    for (uint32_t view_index = 0; view_index < (uint32_t)packet.views.size(); ++view_index) {
+        RendererView& view = packet.views[view_index];
         if (view.window_entity == 0) continue;
 
         PulseRGTextureHandle target_handle =
@@ -355,25 +225,16 @@ static void record_renderer_callback(
         if (!pulse_rgtexture_handle_is_valid(target_handle))
             continue;
 
-        // Build renderer-managed UBO columns per unique shader
         view.ubo_columns.clear();
 
         HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
 
-        for (auto& list : view.lists) {
-            for (auto& item : list.items) {
-                PulseShaderHandle shader = item.shader;
-                if (shader.index == 0) continue;
-                size_t ubo_start = 0, ubo_count = 0;
-                for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
-                    const auto& info = pulse_shader_get_ubo_info(app, shader, u);
-                    if (!info.renderer_managed) continue;
-                    auto buffer_alloc = build_ubo_column_for_shader2(app, state, view, packet.ubo_cache, state->frame_index, vp, item, shader, u, info, state->ubo_alignment);
-                    if (ubo_count == 0) ubo_start = buffer_alloc;
-                    ++ubo_count;
-                }
-                item.ubo_start = ubo_start;
-                item.ubo_end = ubo_start + ubo_count;
+        for (uint32_t list_id = 0; list_id < (uint32_t)view.lists.size(); ++list_id) {
+            for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
+                const RenderFeature& feature = state->features[feature_id];
+                if (!feature.prepare) continue;
+                FeaturePrepareContext ctx{ state, app, graph, view_index, list_id, feature_id, vp };
+                feature.prepare(ctx, feature.userdata);
             }
         }
 
@@ -453,29 +314,24 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
         state->extract_cameras_system = entity;
     }
 
-    // CollectRenderables: Renderable + WorldTransform → DrawItem
     {
         ecs_entity_desc_t entity_desc = {};
-        entity_desc.name = "PulseRendererCollectRenderables";
+        entity_desc.name = "PulseRendererExtractFeatures";
         ecs_entity_t entity = ecs_entity_init(world, &entity_desc);
 
         ecs_system_desc_t desc = {};
         desc.entity = entity;
         desc.phase = EcsPostUpdate;
-        desc.query.terms[0].id = ecs_id(PulseRenderable);
-        desc.query.terms[0].inout = EcsIn;
-        desc.query.terms[1].id = ecs_id(PulseWorldTransform);
-        desc.query.terms[1].inout = EcsIn;
-        desc.callback = collect_renderables_system;
+        desc.callback = extract_features_system;
         desc.ctx = state;
+        desc.immediate = true;
         ecs_system_init(world, &desc);
 
-        // Must run after ExtractCameras
         if (prev_system != 0) {
             ecs_add_pair(world, entity, EcsDependsOn, prev_system);
         }
         prev_system = entity;
-        state->collect_renderables_system = entity;
+        state->extract_features_system = entity;
     }
 
     // SortAndPack: sorts + swaps double buffers
@@ -492,10 +348,11 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
         desc.immediate = true;  // run system — no query terms needed
         ecs_system_init(world, &desc);
 
-        // Must run after CollectRenderables
+        // Must run after ExtractFeatures
         if (prev_system != 0) {
             ecs_add_pair(world, entity, EcsDependsOn, prev_system);
         }
+        prev_system = entity;
         state->sort_and_pack_system = entity;
     }
 
@@ -513,7 +370,7 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
         desc.immediate = true;  // run system — no query terms needed
         ecs_system_init(world, &desc);
 
-        // Must run after CollectRenderables
+        // Must run after SortAndPack
         if (prev_system != 0) {
             ecs_add_pair(world, entity, EcsDependsOn, prev_system);
         }
@@ -543,6 +400,8 @@ EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
 
     // Register ECS components
     register_renderer_components(world);
+
+    install_renderable_feature(state, world);
 
     // Store state as singleton for later retrieval
     pulse_renderer_state_resource state_res = {};
@@ -605,12 +464,17 @@ void renderer_plugin_shutdown(PulseAppId app, void* ctx) {
     // Delete ECS systems whose ctx points at state
     if (world && state->extract_cameras_system && ecs_is_alive(world, state->extract_cameras_system))
         ecs_delete(world, state->extract_cameras_system);
-    if (world && state->collect_renderables_system && ecs_is_alive(world, state->collect_renderables_system))
-        ecs_delete(world, state->collect_renderables_system);
+    if (world && state->extract_features_system && ecs_is_alive(world, state->extract_features_system))
+        ecs_delete(world, state->extract_features_system);
     if (world && state->sort_and_pack_system && ecs_is_alive(world, state->sort_and_pack_system))
         ecs_delete(world, state->sort_and_pack_system);
     if (world && state->packets_swap_system && ecs_is_alive(world, state->packets_swap_system))
         ecs_delete(world, state->packets_swap_system);
+
+    for (auto& feature : state->features) {
+        shutdown_renderable_feature(feature.userdata);
+    }
+    state->features.clear();
 
     // Remove the state singleton
     if (world && ecs_id(pulse_renderer_state_resource) != 0) {
