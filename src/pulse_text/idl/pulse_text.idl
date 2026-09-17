@@ -1,0 +1,115 @@
+version(1)
+
+typedef "bool"
+typedef "float"
+typedef "int32_t"
+typedef "uint32_t"
+typedef "uint64_t"
+typedef "void"
+typedef "size_t"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseResult"
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From pulse_font.h
+typedef "PulseGlyphInstance" { cname = "PulseGlyphInstance" }
+
+const_value.TextPluginDescVersion { value = "1u" }
+
+--- 排版块 id 0 表示无效
+const_value.TextBlockIdNone { value = "0u" }
+
+--- 水平对齐
+enum.TextAlignH { underscore }
+    .Left
+    .Center
+    .Right
+    ()
+
+--- 垂直对齐
+enum.TextAlignV { underscore }
+    .Top
+    .Middle
+    .Bottom
+    ()
+
+--- RGBA 颜色，分量 0..1
+struct.TextColor
+    .r "float"
+    .g "float"
+    .b "float"
+    .a "float"
+    ()
+
+--- 排版块参数；lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
+struct.TextBlockDesc
+    .chain      "uint32_t"
+    .size       "float"
+    .color      "TextColor"
+    .alignH     "TextAlignH::Enum"
+    .alignV     "TextAlignV::Enum"
+    .lineHeight "float"
+    ()
+
+--- 排版结果；instances 矩形相对盒子原点、y 轴向下，调用方叠加 transform 后交给 pulse_font_submit
+struct.TextLayout
+    .instances  "[]const PulseGlyphInstance"
+    .width      "float"
+    .height     "float"
+    .lineCount  "uint32_t"
+    .outOfBox   "bool"
+    ()
+
+--- 排版尺寸结果
+struct.TextMeasure
+    .width     "float"
+    .height    "float"
+    .lineCount "uint32_t"
+    ()
+
+func.AddTextPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    ()
+
+--- 创建排版块，参数非法返回 0
+func.TextBlockCreate
+    "uint32_t"
+    .app  "PulseAppId"
+    .desc "*const TextBlockDesc"
+    ()
+
+func.TextBlockDestroy
+    "void"
+    .app   "PulseAppId"
+    .block "uint32_t"
+    ()
+
+--- 在 boxWidth × boxHeight 的盒子里排版 utf8 文本，产出 glyph 实例流；boxWidth <= 0 不按宽度断行，boxHeight <= 0 不按高度截断；结果归调用方所有，用完调 pulse_text_layout_free 释放
+func.TextBlockLayout
+    "?*TextLayout" { ret = { owner = true } }
+    .app       "PulseAppId"
+    .block     "uint32_t"
+    .text      "cstring"
+    .boxWidth  "float"
+    .boxHeight "float"
+    ()
+
+--- 只算尺寸不产实例，与 layout 共用同一套断行实现；boxWidth <= 0 为自然尺寸
+func.TextBlockMeasure
+    "TextMeasure"
+    .app      "PulseAppId"
+    .block    "uint32_t"
+    .text     "cstring"
+    .boxWidth "float"
+    ()
+
+--- 释放 pulse_text_block_layout 的结果
+func.TextLayoutFree
+    "void"
+    .app    "PulseAppId"
+    .layout "*TextLayout" { owner = true }
+    ()
