@@ -598,7 +598,7 @@ for _, test_file in ipairs(os.files("tests/font/test_*.cpp")) do
         add_includedirs("tests/font")
         add_deps("pulse_app")
         add_deps("pulse_config")
-        add_deps("pulse_vfs")
+        add_deps("pulse_asset")
         add_deps("pulse_font")
         add_files(test_file)
         add_files("tests/helper/msvc_headless_asserts.c")

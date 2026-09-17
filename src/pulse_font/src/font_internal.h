@@ -2,7 +2,6 @@
 
 #include "pulse_font.h"
 #include "pulse_graphics.h"
-#include "pulse_vfs.h"
 
 #include "stb_truetype.h"
 
@@ -22,9 +21,24 @@ constexpr uint32_t kMissingGlyphCodepoint = 0xFFFFFFFFu;
 
 struct font_face {
     stbtt_fontinfo info{};
-    std::vector<uint8_t> data;
-    uint32_t face_index = 0;
     std::string family;
+    PulseAssetHandle asset{};
+    bool occupied = false;
+};
+
+struct font_asset_impl {
+    std::vector<uint8_t> bytes;
+    stbtt_fontinfo info{};
+    std::string family;
+};
+
+struct PulseFontAssetData {
+    font_asset_impl* impl = nullptr;
+    PulseAssetHandle self{};
+};
+
+struct PulseFontLoadSettings {
+    uint32_t face_index = 0;
 };
 
 struct font_chain_slot {
@@ -110,6 +124,7 @@ struct pulse_font_plugin_state {
     PulseAppId app = nullptr;
     PulseFontPluginDesc desc{};
     std::vector<font_face> fonts;
+    std::vector<uint32_t> free_fonts;
     std::vector<font_chain_slot> chains;
     std::vector<uint32_t> free_chains;
     std::vector<glyph_entry> entries;
@@ -151,9 +166,17 @@ int32_t font_glyph_index(const font_face& face, uint32_t codepoint);
 float font_advance_raw(const font_face& face, uint32_t codepoint, float size);
 float font_kerning_raw(const font_face& face, uint32_t first, uint32_t second, float size);
 uint32_t font_tier_for_size(float size);
+uint32_t font_occupied_count(pulse_font_plugin_state* state);
+uint32_t font_slot_of(pulse_font_plugin_state* state, PulseFontHandle handle);
+PulseFontHandle font_handle_of(pulse_font_plugin_state* state, uint32_t font);
+
+void register_font_type(PulseAssetSystemId asset_system, PulseAppId app);
+void register_font_load_loader(PulseAssetSystemId asset_system);
+void font_registry_release(pulse_font_plugin_state* state, PulseAssetHandle handle);
 
 const glyph_entry* atlas_find_glyph(pulse_font_plugin_state* state, const glyph_key& key);
 const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const glyph_key& key);
+void atlas_purge_font(pulse_font_plugin_state* state, uint32_t font);
 void atlas_shutdown(pulse_font_plugin_state* state);
 
 void render_ensure_page(pulse_font_plugin_state* state, uint32_t page);

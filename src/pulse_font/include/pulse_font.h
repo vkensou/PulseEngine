@@ -18,6 +18,8 @@
 #include "pulse_platform.h"
 #include "pulse_app.h"
 
+#include "pulse_asset.h"
+
 #if defined(PULSE_FONT_MODULE_BUILD)
 #  define PULSE_FONT_API PULSE_EXPORT
 #else
@@ -42,6 +44,11 @@ extern "C" {
  */
 #define PULSE_FONT_MAX_COUNT 64u
 
+/**
+ * Asset type id range 0x4000+ belongs to pulse_font (graphics 0x1000+, prefab 0x2000, datatable 0x3000)
+ *
+ */
+#define PULSE_TYPE_FONT UINT64_C(0x4000)
 
 
 
@@ -50,6 +57,29 @@ extern "C" {
 
 
 
+
+
+/**
+ * 字体资产凭证，index/generation 即 asset handle 坐标，{0,0} 表示无效
+ *
+ */
+typedef struct PulseFontHandle
+{
+    uint32_t             index;
+    uint32_t             generation;
+
+} PulseFontHandle;
+
+/**
+ * 字体加载请求
+ *
+ */
+typedef struct PulseFontRequest
+{
+    uint32_t             index;
+    uint32_t             generation;
+
+} PulseFontRequest;
 
 typedef struct PulseFontPluginDesc
 {
@@ -186,40 +216,72 @@ typedef struct PulseDrawDesc
 
 
 
+// ---- inline helpers for asset handle types ----
+
+PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
+
 PULSE_FONT_API PulseFontPluginDesc pulse_font_plugin_desc_default(void);
 PULSE_FONT_API EPulseAppAddPluginResult pulse_add_font_plugin(PulseAppId app, const PulseFontPluginDesc* desc);
 
 /**
- * 从内存字节流注册字体，TTC 按 faceIndex 展开，返回字体 id
- *
- * @param[in] app
- * @param[in] memory
- * @param[in] faceIndex
- *
- */
-PULSE_FONT_API uint32_t pulse_font_register(PulseAppId app, Pulse_Blob_Param(memory), uint32_t face_index);
-
-/**
- * 从 VFS 路径注册字体
+ * 发起异步字体加载（内部走 pulse_asset），is_ready 后用 acquire 取字体 id
  *
  * @param[in] app
  * @param[in] path
  * @param[in] faceIndex
  *
  */
-PULSE_FONT_API uint32_t pulse_font_register_file(PulseAppId app, const char* path, uint32_t face_index);
+PULSE_FONT_API PulseFontRequest pulse_font_load(PulseAppId app, const char* path, uint32_t face_index);
 
 /**
- * 字节流里的 face 数量
+ * 从内存字节流发起异步字体加载，name 用于扩展名判定（如 "latin.ttf"）
  *
  * @param[in] app
+ * @param[in] name
  * @param[in] memory
+ * @param[in] faceIndex
  *
  */
-PULSE_FONT_API uint32_t pulse_font_face_count(PulseAppId app, Pulse_Blob_Param(memory));
+PULSE_FONT_API PulseFontRequest pulse_font_load_from_memory(PulseAppId app, const char* name, Pulse_Blob_Param(memory), uint32_t face_index);
+
+/**
+ * 加载是否完成（asset 状态为 LOADED）
+ *
+ * @param[in] app
+ * @param[in] request
+ *
+ */
+PULSE_FONT_API bool pulse_font_is_ready(PulseAppId app, PulseFontRequest request);
+
+/**
+ * 加载是否仍在进行或资产仍存活
+ *
+ * @param[in] app
+ * @param[in] request
+ *
+ */
+PULSE_FONT_API bool pulse_font_is_alive(PulseAppId app, PulseFontRequest request);
+
+/**
+ * 加载失败原因，无错误返回 null
+ *
+ * @param[in] app
+ * @param[in] request
+ *
+ */
+[[pulse::optional]] PULSE_FONT_API const char* pulse_font_get_error(PulseAppId app, PulseFontRequest request);
+
+/**
+ * ready 后取字体凭证，同时登记进字体注册表；未 ready 返回无效 handle；同一资产重复调用幂等
+ *
+ * @param[in] app
+ * @param[in] request
+ *
+ */
+PULSE_FONT_API PulseFontHandle pulse_font_get_handle(PulseAppId app, PulseFontRequest request);
 PULSE_FONT_API uint32_t pulse_font_count(PulseAppId app);
-[[pulse::optional]] PULSE_FONT_API const char* pulse_font_family_name(PulseAppId app, uint32_t font);
-PULSE_FONT_API uint32_t pulse_font_find_family(PulseAppId app, const char* family);
+[[pulse::optional]] PULSE_FONT_API const char* pulse_font_family_name(PulseAppId app, PulseFontHandle font);
+PULSE_FONT_API PulseFontHandle pulse_font_find_family(PulseAppId app, const char* family);
 
 /**
  * 按顺序尝试的字体链，排版层只认链
@@ -228,18 +290,18 @@ PULSE_FONT_API uint32_t pulse_font_find_family(PulseAppId app, const char* famil
  * @param[in] fonts
  *
  */
-PULSE_FONT_API uint32_t pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const uint32_t, fonts));
+PULSE_FONT_API uint32_t pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFontHandle, fonts));
 PULSE_FONT_API void pulse_font_destroy_chain(PulseAppId app, uint32_t chain);
 
 /**
- * 返回链上提供该 codepoint 的字体 id，全缺返回 0
+ * 返回链上提供该 codepoint 的字体凭证，全缺返回无效 handle
  *
  * @param[in] app
  * @param[in] chain
  * @param[in] codepoint
  *
  */
-PULSE_FONT_API uint32_t pulse_font_resolve_codepoint(PulseAppId app, uint32_t chain, uint32_t codepoint);
+PULSE_FONT_API PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, uint32_t chain, uint32_t codepoint);
 PULSE_FONT_API float pulse_font_advance(PulseAppId app, uint32_t chain, uint32_t codepoint, float size);
 PULSE_FONT_API float pulse_font_kerning(PulseAppId app, uint32_t chain, uint32_t first, uint32_t second, float size);
 PULSE_FONT_API PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, uint32_t chain, float size);

@@ -18,6 +18,8 @@
 #include "pulse_platform.h"
 #include "pulse_app.h"
 
+#include "pulse_asset.h"
+
 #if defined(PULSE_FONT_MODULE_BUILD)
 #  define PULSE_FONT_API PULSE_EXPORT
 #else
@@ -43,6 +45,10 @@ $cstructs
 $ccomponents
 
 $ctags
+
+// ---- inline helpers for asset handle types ----
+
+PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
 
 $c99decl
 

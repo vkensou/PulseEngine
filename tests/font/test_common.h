@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "pulse_app.h"
+#include "pulse_asset.h"
 #include "pulse_font.h"
 #include "pulse_vfs.h"
 
@@ -30,6 +31,8 @@ static PulseAppId make_font_app(const char* name, const PulseFontPluginDesc* des
     PulseVfsPluginDesc vfs_desc = pulse_vfs_plugin_desc_default();
     assert(pulse_add_vfs_plugin(app, &vfs_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_vfs_mount("tests/font/data", "/", false));
+    PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
+    assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_font_plugin_desc_default().struct_size == sizeof(PulseFontPluginDesc));
     assert(pulse_add_font_plugin(app, desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
@@ -49,21 +52,35 @@ static std::vector<uint8_t> read_test_file(const char* path) {
     return data;
 }
 
-static uint32_t register_latin(PulseAppId app) {
-    const std::vector<uint8_t> bytes = read_test_file("tests/font/data/latin.ttf");
-    const uint32_t font = pulse_font_register(app, bytes.data(), bytes.size(), 0);
-    assert(font != PULSE_FONT_ID_NONE);
+static void pump_font_request(PulseAppId app, PulseFontRequest request) {
+    assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(request)));
+    while (!pulse_font_is_ready(app, request) && pulse_font_is_alive(app, request)) {
+        assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
+    }
+}
+
+static PulseFontHandle load_font_memory(PulseAppId app, const char* name, const std::vector<uint8_t>& bytes) {
+    const PulseFontRequest request = pulse_font_load_from_memory(app, name, bytes.data(), bytes.size(), 0);
+    pump_font_request(app, request);
+    assert(pulse_font_is_ready(app, request));
+    const PulseFontHandle font = pulse_font_get_handle(app, request);
+    assert(pulse_asset_handle_is_valid(pulse_font_to_handle(font)));
     return font;
 }
 
-static uint32_t register_cjk(PulseAppId app) {
-    const std::vector<uint8_t> bytes = read_test_file("tests/font/data/cjk.ttf");
-    const uint32_t font = pulse_font_register(app, bytes.data(), bytes.size(), 0);
-    assert(font != PULSE_FONT_ID_NONE);
-    return font;
+static void unload_font(PulseAppId app, PulseFontHandle font) {
+    pulse_asset_system_release(pulse_get_asset_system(app), pulse_font_to_handle(font), nullptr);
 }
 
-static uint32_t make_chain(PulseAppId app, const uint32_t* fonts, size_t count) {
+static PulseFontHandle register_latin(PulseAppId app) {
+    return load_font_memory(app, "latin.ttf", read_test_file("tests/font/data/latin.ttf"));
+}
+
+static PulseFontHandle register_cjk(PulseAppId app) {
+    return load_font_memory(app, "cjk.ttf", read_test_file("tests/font/data/cjk.ttf"));
+}
+
+static uint32_t make_chain(PulseAppId app, const PulseFontHandle* fonts, size_t count) {
     const uint32_t chain = pulse_font_create_chain(app, fonts, count);
     assert(chain != PULSE_FONT_ID_NONE);
     return chain;

@@ -24,6 +24,12 @@ constexpr const char* kDoneTitle = "font-window-rendered";
 
 struct font_window_state {
     uint32_t chain = PULSE_FONT_ID_NONE;
+    PulseFontRequest latin_request{};
+    PulseFontRequest cjk_request{};
+    PulseFontHandle latin_font{};
+    PulseFontHandle cjk_font{};
+    bool fonts_requested = false;
+    bool fonts_ready = false;
     bool initialized = false;
     int32_t frames = 0;
     ecs_entity_t window = 0;
@@ -121,16 +127,42 @@ void init_system_run(ecs_iter_t* it) {
     if (!app) {
         return;
     }
-    const uint32_t latin = pulse_font_register_file(app, "latin.ttf", 0);
-    const uint32_t cjk = pulse_font_register_file(app, "cjk.ttf", 0);
-    assert(latin != PULSE_FONT_ID_NONE);
-    assert(cjk != PULSE_FONT_ID_NONE);
+
+    PulseRenderRecordCallbackDesc callback_desc{};
+    callback_desc.callback = clear_record_callback;
+    callback_desc.user_data = state;
+    callback_desc.priority = kFontRecordPriority - 10;
+    assert(pulse_add_render_record_callback(app, &callback_desc) == PULSE_RESULT_OK);
+
+    state->window = ecs_lookup(it->world, kWindowTitle);
+    assert(state->window != 0);
+    state->initialized = true;
+}
+
+void prepare_fonts(PulseAppId app, font_window_state* state) {
+    if (!state->fonts_requested) {
+        state->latin_request = pulse_font_load(app, "latin.ttf", 0);
+        state->cjk_request = pulse_font_load(app, "cjk.ttf", 0);
+        assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(state->latin_request)));
+        assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(state->cjk_request)));
+        state->fonts_requested = true;
+        return;
+    }
+    if (!pulse_font_is_ready(app, state->latin_request) || !pulse_font_is_ready(app, state->cjk_request)) {
+        assert(pulse_font_is_alive(app, state->latin_request));
+        assert(pulse_font_is_alive(app, state->cjk_request));
+        return;
+    }
+    state->latin_font = pulse_font_get_handle(app, state->latin_request);
+    state->cjk_font = pulse_font_get_handle(app, state->cjk_request);
+    assert(pulse_asset_handle_is_valid(pulse_font_to_handle(state->latin_font)));
+    assert(pulse_asset_handle_is_valid(pulse_font_to_handle(state->cjk_font)));
     assert(pulse_font_count(app) == 2);
-    const uint32_t fonts[] = { latin, cjk };
+    const PulseFontHandle fonts[] = { state->latin_font, state->cjk_font };
     state->chain = pulse_font_create_chain(app, fonts, 2);
     assert(state->chain != PULSE_FONT_ID_NONE);
-    assert(pulse_font_resolve_codepoint(app, state->chain, 0x4E2D) == cjk);
-    assert(pulse_font_resolve_codepoint(app, state->chain, 'A') == latin);
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 0x4E2D)), pulse_font_to_handle(state->cjk_font)));
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 'A')), pulse_font_to_handle(state->latin_font)));
 
     pulse_font_prewarm(app, state->chain, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93", 64.0f);
     pulse_font_prewarm(app, state->chain, "12px: Sphinx of black quartz, judge my vow. AV To Wa", 24.0f);
@@ -146,15 +178,7 @@ void init_system_run(ecs_iter_t* it) {
     assert(missing.valid);
     assert(fabsf(missing.advance - 48.0f * 0.8f) < 1e-4f);
 
-    PulseRenderRecordCallbackDesc callback_desc{};
-    callback_desc.callback = clear_record_callback;
-    callback_desc.user_data = state;
-    callback_desc.priority = kFontRecordPriority - 10;
-    assert(pulse_add_render_record_callback(app, &callback_desc) == PULSE_RESULT_OK);
-
-    state->window = ecs_lookup(it->world, kWindowTitle);
-    assert(state->window != 0);
-    state->initialized = true;
+    state->fonts_ready = true;
 }
 
 void submit_system_run(ecs_iter_t* it) {
@@ -165,6 +189,12 @@ void submit_system_run(ecs_iter_t* it) {
     PulseAppId app = pulse_get_app_from_world(it->world);
     if (!app) {
         return;
+    }
+    if (!state->fonts_ready) {
+        prepare_fonts(app, state);
+        if (!state->fonts_ready) {
+            return;
+        }
     }
     std::vector<PulseGlyphInstance> instances;
     const glyph_run runs[] = {
@@ -283,6 +313,12 @@ int main(void) {
         fprintf(stderr, "run failed: result=%d error=%s\n", (int)result, error ? error : "(none)");
         fflush(stderr);
         return 1;
+    }
+
+    if (state.fonts_ready) {
+        pulse_font_destroy_chain(app, state.chain);
+        pulse_asset_system_release(pulse_get_asset_system(app), pulse_font_to_handle(state.latin_font), nullptr);
+        pulse_asset_system_release(pulse_get_asset_system(app), pulse_font_to_handle(state.cjk_font), nullptr);
     }
 
     pulse_destroy_app(app);

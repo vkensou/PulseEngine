@@ -7,9 +7,9 @@ static bool same_rect(const PulseGlyph& a, const PulseGlyph& b) {
 int main() {
     PulseAppId app = make_font_app("t-font-atlas", nullptr);
 
-    const uint32_t latin = register_latin(app);
-    const uint32_t cjk = register_cjk(app);
-    const uint32_t fonts[] = { latin, cjk };
+    const PulseFontHandle latin = register_latin(app);
+    const PulseFontHandle cjk = register_cjk(app);
+    const PulseFontHandle fonts[] = { latin, cjk };
     const uint32_t chain = make_chain(app, fonts, 2);
 
     const PulseGlyph glyph_48 = pulse_font_glyph(app, chain, 'A', 48.0f);
@@ -89,7 +89,7 @@ int main() {
 
     PulseFontPluginDesc small = font_desc_for(256, 1);
     PulseAppId small_app = make_font_app("t-font-atlas-small", &small);
-    const uint32_t small_latin = register_latin(small_app);
+    const PulseFontHandle small_latin = register_latin(small_app);
     const uint32_t small_chain = make_chain(small_app, &small_latin, 1);
     std::vector<uint32_t> codepoints;
     for (uint32_t c = 'A'; c <= 'Z'; ++c) {

@@ -24,6 +24,21 @@ const_value.FontIdNone { value = "0u" }
 --- 注册字体上限，含 fallback 兜底字体，超出即失败
 const_value.FontMaxCount { value = "64u" }
 
+--- Asset type id range 0x4000+ belongs to pulse_font (graphics 0x1000+, prefab 0x2000, datatable 0x3000)
+const_value.TypeFont { value = "UINT64_C(0x4000)" }
+
+--- 字体资产凭证，index/generation 即 asset handle 坐标，{0,0} 表示无效
+struct.FontHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+--- 字体加载请求
+struct.FontRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
 struct.FontPluginDesc
     .structSize     "uint32_t"
     .version        "uint32_t"
@@ -81,27 +96,49 @@ func.AddFontPlugin
     .desc "*const FontPluginDesc"
     ()
 
---- 从内存字节流注册字体，TTC 按 faceIndex 展开，返回字体 id
-func.FontRegister
-    "uint32_t"
-    .app       "PulseAppId"
-    .memory    "[]const anyopaque"
-    .faceIndex "uint32_t"
-    ()
-
---- 从 VFS 路径注册字体
-func.FontRegisterFile
-    "uint32_t"
+--- 发起异步字体加载（内部走 pulse_asset），is_ready 后用 acquire 取字体 id
+func.FontLoad
+    "FontRequest"
     .app       "PulseAppId"
     .path      "cstring"
     .faceIndex "uint32_t"
     ()
 
---- 字节流里的 face 数量
-func.FontFaceCount
-    "uint32_t"
-    .app    "PulseAppId"
-    .memory "[]const anyopaque"
+--- 从内存字节流发起异步字体加载，name 用于扩展名判定（如 "latin.ttf"）
+func.FontLoadFromMemory
+    "FontRequest"
+    .app       "PulseAppId"
+    .name      "cstring"
+    .memory    "[]const anyopaque"
+    .faceIndex "uint32_t"
+    ()
+
+--- 加载是否完成（asset 状态为 LOADED）
+func.FontIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "FontRequest"
+    ()
+
+--- 加载是否仍在进行或资产仍存活
+func.FontIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "FontRequest"
+    ()
+
+--- 加载失败原因，无错误返回 null
+func.FontGetError
+    "?cstring"
+    .app     "PulseAppId"
+    .request "FontRequest"
+    ()
+
+--- ready 后取字体凭证，同时登记进字体注册表；未 ready 返回无效 handle；同一资产重复调用幂等
+func.FontGetHandle
+    "FontHandle"
+    .app     "PulseAppId"
+    .request "FontRequest"
     ()
 
 func.FontCount
@@ -112,11 +149,11 @@ func.FontCount
 func.FontFamilyName
     "?cstring"
     .app  "PulseAppId"
-    .font "uint32_t"
+    .font "FontHandle"
     ()
 
 func.FontFindFamily
-    "uint32_t"
+    "FontHandle"
     .app    "PulseAppId"
     .family "cstring"
     ()
@@ -125,7 +162,7 @@ func.FontFindFamily
 func.FontCreateChain
     "uint32_t"
     .app   "PulseAppId"
-    .fonts "[]const uint32_t"
+    .fonts "[]const FontHandle"
     ()
 
 func.FontDestroyChain
@@ -134,9 +171,9 @@ func.FontDestroyChain
     .chain "uint32_t"
     ()
 
---- 返回链上提供该 codepoint 的字体 id，全缺返回 0
+--- 返回链上提供该 codepoint 的字体凭证，全缺返回无效 handle
 func.FontResolveCodepoint
-    "uint32_t"
+    "FontHandle"
     .app       "PulseAppId"
     .chain     "uint32_t"
     .codepoint "uint32_t"

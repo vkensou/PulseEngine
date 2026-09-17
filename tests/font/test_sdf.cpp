@@ -7,7 +7,7 @@ static const uint8_t kExpectedColumn[64] = { 0, 16, 32, 48, 64, 80, 96, 112, 143
 int main() {
     PulseAppId app = make_font_app("t-font-sdf", nullptr);
 
-    const uint32_t latin = register_latin(app);
+    const PulseFontHandle latin = register_latin(app);
     const uint32_t chain = make_chain(app, &latin, 1);
 
     const PulseGlyph box = pulse_font_glyph(app, chain, 0x1FFFF, 48.0f);

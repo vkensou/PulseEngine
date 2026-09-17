@@ -414,6 +414,22 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
     return &entry;
 }
 
+void atlas_purge_font(pulse_font_plugin_state* state, uint32_t font) {
+    for (uint32_t i = 0; i < state->entries.size(); ++i) {
+        glyph_entry& entry = state->entries[i];
+        if (!entry.occupied || entry.key.font != font) {
+            continue;
+        }
+        table_remove(state, entry.key);
+        if (entry.page != kInvalidIndex) {
+            atlas_page& page = state->pages[entry.page];
+            page.slot_entries[entry.slot] = kInvalidIndex;
+            page.free_slots.push_back(entry.slot);
+        }
+        free_entry(state, i);
+    }
+}
+
 void atlas_shutdown(pulse_font_plugin_state* state) {
     state->entries.clear();
     state->free_entries.clear();
