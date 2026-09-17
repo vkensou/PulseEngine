@@ -75,11 +75,16 @@ void extract_cameras_system(ecs_iter_t* it) {
         view.far_plane = cam.far_plane;
         view.width = width;
         view.height = height;
+
+        for (const auto& desc : state->list_registry) {
+            view.lists.emplace_back(&packet.pool);
+            view.lists.back().desc = desc;
+        }
     }
 }
 
 // CollectRenderablesSystem: iterates all Renderable + WorldTransform entities,
-//   adds RenderObject to every active camera view.
+//   adds DrawItem to the default list of every active camera view.
 void collect_renderables_system(ecs_iter_t* it) {
     pulse_renderer_state* state =
         static_cast<pulse_renderer_state*>(it->ctx);
@@ -97,28 +102,51 @@ void collect_renderables_system(ecs_iter_t* it) {
         HMM_Mat4& world_mat = world_transforms[i].value;
 
         PulseShaderHandle shader = pulse_material_get_shader(state->app, renderable.material);
-        uint64_t sort_key =
-            (static_cast<uint64_t>(shader.index & 0xFFFFu) << 48) |
-            (static_cast<uint64_t>(renderable.material.index & 0xFFFFu) << 32) |
-            static_cast<uint64_t>(renderable.mesh.index);
 
-        RenderObject obj = {
-            .sort_key = sort_key,
-            .entity = entity,
-            .mesh = renderable.mesh,
-            .material = renderable.material,
-            .shader = shader,
-            .world_matrix = world_mat,
-        };
+        DrawItem item = {};
+        item.entity = entity;
+        item.mesh = renderable.mesh;
+        item.material = renderable.material;
+        item.shader = shader;
+        item.world_matrix = world_mat;
 
-        // Add to all views (v0.1: no frustum culling)
         for (auto& view : packet.views) {
-            view.render_objects.push_back(obj);
+            for (auto& list : view.lists) {
+                // TODO: condition
+                if (true) {
+                    item.submission_index = (uint32_t)list.items.size();
+                    list.items.push_back(item);
+                }
+            }
         }
     }
 }
 
-// SortAndPackSystem: sorts render objects per view and swaps double buffers.
+static float compute_view_depth(const HMM_Mat4& view_matrix, const HMM_Mat4& world_matrix) {
+    auto t = HMM_M4GetTranslate(world_matrix);
+    return view_matrix[0].Z * t.X + view_matrix[1].Z * t.Y + view_matrix[2].Z * t.Z + view_matrix[3].Z;
+}
+
+static bool compare_items(const DrawItem& a, const DrawItem& b, uint32_t flags) {
+    if (flags & PULSE_SORT_SHADER) {
+        if (a.shader.index != b.shader.index) return a.shader.index < b.shader.index;
+    }
+    if (flags & PULSE_SORT_MATERIAL) {
+        if (a.material.index != b.material.index) return a.material.index < b.material.index;
+    }
+    if (flags & PULSE_SORT_MESH) {
+        if (a.mesh.index != b.mesh.index) return a.mesh.index < b.mesh.index;
+    }
+    if (flags & PULSE_SORT_DEPTH_FRONT_TO_BACK) {
+        if (a.view_depth != b.view_depth) return a.view_depth < b.view_depth;
+    }
+    if (flags & PULSE_SORT_DEPTH_BACK_TO_FRONT) {
+        if (a.view_depth != b.view_depth) return a.view_depth > b.view_depth;
+    }
+    return a.submission_index < b.submission_index;
+}
+
+// SortAndPackSystem: sorts renderer list items per view and swaps double buffers.
 void sort_and_pack_system(ecs_iter_t* it) {
     pulse_renderer_state* state =
         static_cast<pulse_renderer_state*>(it->ctx);
@@ -126,12 +154,18 @@ void sort_and_pack_system(ecs_iter_t* it) {
 
     FrameRenderPacket& packet = state->write_packet();
 
-    // Sort render objects in each view by sort key
     for (auto& view : packet.views) {
-        std::sort(view.render_objects.begin(), view.render_objects.end(),
-            [](const RenderObject& a, const RenderObject& b) {
-                return a.sort_key < b.sort_key;
+        for (auto& list : view.lists) {
+            const uint32_t flags = list.desc.sort_flags;
+            if (flags & (PULSE_SORT_DEPTH_FRONT_TO_BACK | PULSE_SORT_DEPTH_BACK_TO_FRONT)) {
+                for (auto& item : list.items) {
+                    item.view_depth = compute_view_depth(view.view_matrix, item.world_matrix);
+                }
+            }
+            std::sort(list.items.begin(), list.items.end(), [flags](const DrawItem& a, const DrawItem& b) {
+                return compare_items(a, b, flags);
             });
+        }
     }
 }
 
@@ -176,28 +210,21 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
     const RendererView& view = *pass_data->view;
     PulseAppId app = pass_data->app;
 
-    size_t obj_count = view.render_objects.size();
-    if (obj_count == 0) return;
+    for (const RendererList& list : view.lists) {
+        for (const DrawItem& item : list.items) {
+            if (item.shader.index == 0)
+                continue;
 
-    for (size_t idx = 0; idx < obj_count; ++idx) {
-        const RenderObject& obj = view.render_objects[idx];
+            for (size_t i = item.ubo_start; i < item.ubo_end; ++i) {
+                const auto& col = view.ubo_columns[i];
+                const auto& block = view.blocks[col.block_ref.index];
+                pulse_render_pass_encoder_set_global_buffer_offset(
+                    encoder, block.gpu_handle, (uint32_t)col.set, col.binding,
+                    col.block_ref.offset, col.block_ref.size);
+            }
 
-        PulseMaterialHandle material = obj.material;
-        PulseMeshHandle mesh = obj.mesh;
-
-        PulseShaderHandle shader = obj.shader;
-        if (shader.index == 0)
-            continue;
-
-        for (size_t i = obj.ubo_start; i < obj.ubo_end; ++i) {
-            const auto& col = view.ubo_columns[i];
-            const auto& block = view.blocks[col.block_ref.index];
-            pulse_render_pass_encoder_set_global_buffer_offset(
-                encoder, block.gpu_handle, (uint32_t)col.set, col.binding,
-                col.block_ref.offset, col.block_ref.size);
+            pulse_render_pass_encoder_draw(encoder, item.material, item.mesh);
         }
-
-        pulse_render_pass_encoder_draw(encoder, material, mesh);
     }
 }
 
@@ -231,13 +258,13 @@ static GpuBlockRef alloc_gpu_block(RendererView& view, UboBlockCache& ubo_cache,
 
 static std::optional<size_t> find_cached_ubo_column(
     RendererView& view,
-    RenderObject& obj,
+    DrawItem& item,
     const PulseUboInfo& info
     ) {
     for (size_t i = 0; i < view.ubo_columns.size(); ++i) {
         auto& col = view.ubo_columns[i];
         if (col.layout_hash == info.layout_hash && !info.per_draw
-            && ((!info.material_managed) || (col.material.index == obj.material.index && col.material.generation == obj.material.generation))) {
+            && ((!info.material_managed) || (col.material.index == item.material.index && col.material.generation == item.material.generation))) {
             return i;
         }
     }
@@ -251,7 +278,7 @@ static size_t build_ubo_column_for_shader2(
     UboBlockCache& ubo_cache,
     uint32_t frame_index,
     HMM_Mat4& vp,
-    RenderObject& obj,
+    DrawItem& item,
     PulseShaderHandle shader,
     uint32_t ubo_info_index,
     const PulseUboInfo& info,
@@ -261,7 +288,7 @@ static size_t build_ubo_column_for_shader2(
     ubo_size = align_up(ubo_size, ubo_alignment);
 
     RendererUboColumn col = {};
-    col.material = obj.material;
+    col.material = item.material;
     col.shader = shader;
     col.ubo_info_index = ubo_info_index;
     col.layout_hash = info.layout_hash;
@@ -271,7 +298,7 @@ static size_t build_ubo_column_for_shader2(
     // 尝试重用
     if (!info.per_draw)
     {
-        auto s = find_cached_ubo_column(view, obj, info);
+        auto s = find_cached_ubo_column(view, item, info);
         // 找到了
         if (s.has_value()) {
             auto& cachedCol = view.ubo_columns[s.value()];
@@ -286,7 +313,7 @@ static size_t build_ubo_column_for_shader2(
 
     // copy from
     if (info.material_managed) {
-        auto mat_ubo_data = pulse_material_get_ubo_column(app, obj.material, ubo_info_index);
+        auto mat_ubo_data = pulse_material_get_ubo_column(app, item.material, ubo_info_index);
         memcpy(col.block_ref.ptr, mat_ubo_data, info.size);
     }
 
@@ -300,7 +327,7 @@ static size_t build_ubo_column_for_shader2(
             memcpy(col.block_ref.ptr + prop.offset, &vp, prop.size);
         }
         else if (prop.type == PULSE_SHADER_PROPERTY_TYPE_MAT4 && strcmp(prop.name, get_mapped_name(state, PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX)) == 0) {
-            memcpy(col.block_ref.ptr + prop.offset, &obj.world_matrix, prop.size);
+            memcpy(col.block_ref.ptr + prop.offset, &item.world_matrix, prop.size);
         }
     }
 
@@ -333,19 +360,21 @@ static void record_renderer_callback(
 
         HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
 
-        for (auto& obj : view.render_objects) {
-            PulseShaderHandle shader = obj.shader;
-            if (shader.index == 0) continue;
-            size_t ubo_start = 0, ubo_count = 0;
-            for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
-                const auto& info = pulse_shader_get_ubo_info(app, shader, u);
-                if (!info.renderer_managed) continue;
-                auto buffer_alloc = build_ubo_column_for_shader2(app, state, view, packet.ubo_cache, state->frame_index, vp, obj, shader, u, info, state->ubo_alignment);
-                if (ubo_count == 0) ubo_start = buffer_alloc;
-                ++ubo_count;
+        for (auto& list : view.lists) {
+            for (auto& item : list.items) {
+                PulseShaderHandle shader = item.shader;
+                if (shader.index == 0) continue;
+                size_t ubo_start = 0, ubo_count = 0;
+                for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(app, shader); ++u) {
+                    const auto& info = pulse_shader_get_ubo_info(app, shader, u);
+                    if (!info.renderer_managed) continue;
+                    auto buffer_alloc = build_ubo_column_for_shader2(app, state, view, packet.ubo_cache, state->frame_index, vp, item, shader, u, info, state->ubo_alignment);
+                    if (ubo_count == 0) ubo_start = buffer_alloc;
+                    ++ubo_count;
+                }
+                item.ubo_start = ubo_start;
+                item.ubo_end = ubo_start + ubo_count;
             }
-            obj.ubo_start = ubo_start;
-            obj.ubo_end = ubo_start + ubo_count;
         }
 
         for (auto& block : view.blocks) {
@@ -424,7 +453,7 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state) {
         state->extract_cameras_system = entity;
     }
 
-    // CollectRenderables: Renderable + WorldTransform → RenderObject
+    // CollectRenderables: Renderable + WorldTransform → DrawItem
     {
         ecs_entity_desc_t entity_desc = {};
         entity_desc.name = "PulseRendererCollectRenderables";
@@ -509,6 +538,8 @@ EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
 
     state->app = app;
     state->assetSystem = pulse_get_asset_system(app);
+
+    state->register_render_list({ "Default", kDefaultListSortFlags });
 
     // Register ECS components
     register_renderer_components(world);

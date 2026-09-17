@@ -11,19 +11,44 @@
 
 namespace pulse_renderer_internal {
 
-// ============================================================
-// Per-object render data (sorted for minimal state switch)
-// ============================================================
-struct RenderObject {
-    // packed: shader_index(16)<<48 | material_index(16)<<32 | mesh_index(32)
-    // sort priority: shader first, then material, then mesh
-    uint64_t sort_key;
+enum EPulseSortFlag : uint32_t {
+    PULSE_SORT_NONE = 0,
+    PULSE_SORT_SHADER = 1u << 0,
+    PULSE_SORT_MATERIAL = 1u << 1,
+    PULSE_SORT_MESH = 1u << 2,
+    PULSE_SORT_DEPTH_FRONT_TO_BACK = 1u << 3,
+    PULSE_SORT_DEPTH_BACK_TO_FRONT = 1u << 4,
+    PULSE_SORT_SUBMISSION_ORDER = 1u << 5,
+};
+
+constexpr uint32_t kDefaultListSortFlags = PULSE_SORT_SHADER | PULSE_SORT_MATERIAL | PULSE_SORT_MESH | PULSE_SORT_SUBMISSION_ORDER;
+
+constexpr uint32_t kDrawItemMaxTextures = 4;
+
+struct DrawItem {
     ecs_entity_t entity;
     PulseMeshHandle mesh;
     PulseMaterialHandle material;
-    PulseShaderHandle shader;   // cached from material (used for sort key & draw)
-    HMM_Mat4 world_matrix;      // cached from transform
+    PulseShaderHandle shader;
+    HMM_Mat4 world_matrix;
     size_t ubo_start{0}, ubo_end{0};
+    float view_depth{0.0f};
+    uint32_t submission_index{0};
+    uint32_t instance_first{0};
+    uint32_t instance_count{0};
+    PulseTextureHandle textures[kDrawItemMaxTextures];
+    uint32_t texture_count{0};
+};
+
+struct RendererListDesc {
+    const char* name;
+    uint32_t sort_flags;
+};
+
+struct RendererList {
+    RendererListDesc desc{};
+    std::pmr::vector<DrawItem> items;
+    explicit RendererList(std::pmr::memory_resource* resource) : items(resource) {}
 };
 
 // ============================================================
@@ -100,7 +125,7 @@ struct RendererView {
     float far_plane;
     int width;
     int height;
-    std::pmr::vector<RenderObject> render_objects;
+    std::pmr::vector<RendererList> lists;
     std::pmr::vector<RendererUboColumn> ubo_columns;
     std::pmr::vector<GpuBlock> blocks;
 
@@ -108,7 +133,7 @@ struct RendererView {
         : camera_entity(0), window_entity(0),
           view_matrix{}, proj_matrix{},
           fov(0), near_plane(0), far_plane(0), width(0), height(0),
-          render_objects(resource), ubo_columns(resource), blocks(resource) {}
+          lists(resource), ubo_columns(resource), blocks(resource) {}
 };
 
 // ============================================================
@@ -140,6 +165,13 @@ struct pulse_renderer_state {
     uint32_t frame_index{0};
 
     bool record_callback_registered = false;
+
+    std::vector<RendererListDesc> list_registry;
+
+    uint32_t register_render_list(const RendererListDesc& desc) {
+        list_registry.push_back(desc);
+        return (uint32_t)list_registry.size() - 1;
+    }
 
     // ECS system entities (ctx points at this state; deleted on shutdown)
     ecs_entity_t extract_cameras_system = 0;
