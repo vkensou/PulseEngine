@@ -48,6 +48,22 @@ extern "C" {
 #define PULSE_ASSET_INVALID_INDEX 0u
 
 
+#define PULSE_DEFINE_ASSET_HANDLE_CONVERSION(name, type_enum, handle_type) \
+    static inline PulseAssetHandle pulse_##name##_to_handle(handle_type v) { \
+        PulseAssetHandle h = { type_enum, v.index, v.generation }; \
+        return h; \
+    }
+
+#define PULSE_DEFINE_ASSET_REQUEST_CONVERSION(name, type_enum, request_type) \
+    static inline PulseAssetRequest pulse_##name##_request_to_asset_request(request_type r) { \
+        PulseAssetRequest out = { type_enum, r.index, r.generation }; \
+        return out; \
+    }
+
+#define PULSE_DEFINE_ASSET_CONVERSIONS(name, type_enum, handle_type, request_type) \
+    PULSE_DEFINE_ASSET_HANDLE_CONVERSION(name, type_enum, handle_type) \
+    PULSE_DEFINE_ASSET_REQUEST_CONVERSION(name, type_enum, request_type)
+
 typedef uint32_t EPulseFlags;
 typedef uint64_t EPulseFlags64;
 

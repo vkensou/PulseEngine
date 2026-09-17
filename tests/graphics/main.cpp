@@ -185,7 +185,7 @@ static void request_ktx_probes(PulseAppId app, std::vector<ktx_probe>& probes) {
 }
 
 static void update_ktx_probes(PulseAppId app, std::vector<ktx_probe>& probes) {
-    const PulseAssetSystemId system = pulse_get_graphics_asset_system(app);
+    const PulseAssetSystemId system = pulse_get_asset_system(app);
     for (ktx_probe& probe : probes) {
         if (probe.resolved) {
             continue;

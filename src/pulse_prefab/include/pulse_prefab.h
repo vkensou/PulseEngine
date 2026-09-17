@@ -74,14 +74,7 @@ typedef struct PulsePrefabData
 
 // ---- inline helpers for asset handle types ----
 
-static inline PulseAssetHandle pulse_prefab_to_handle(PulsePrefabHandle prefab) {
-    PulseAssetHandle h = { PULSE_TYPE_PREFAB, prefab.index, prefab.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_prefab_request_to_asset_request(PulsePrefabRequest prefab) {
-    PulseAssetRequest r = { PULSE_TYPE_PREFAB, prefab.index, prefab.generation };
-    return r;
-}
+PULSE_DEFINE_ASSET_CONVERSIONS(prefab,          PULSE_TYPE_PREFAB,          PulsePrefabHandle,          PulsePrefabRequest)
 
 PULSE_PREFAB_API EPulseAppAddPluginResult pulse_add_prefab_plugin(PulseAppId app);
 PULSE_PREFAB_API PulsePrefabRequest pulse_load_prefab(PulseAppId app, const char* filepath);
