@@ -24,10 +24,14 @@ constexpr const char* kDoneTitle = "font-window-rendered";
 
 struct font_window_state {
     uint32_t chain = PULSE_FONT_ID_NONE;
+    uint32_t bitmap_chain = PULSE_FONT_ID_NONE;
+    uint32_t default_chain = PULSE_FONT_ID_NONE;
     PulseFontRequest latin_request{};
     PulseFontRequest cjk_request{};
+    PulseFontRequest proggy_request{};
     PulseFontHandle latin_font{};
     PulseFontHandle cjk_font{};
+    PulseFontHandle proggy_font{};
     bool fonts_requested = false;
     bool fonts_ready = false;
     bool initialized = false;
@@ -143,31 +147,45 @@ void prepare_fonts(PulseAppId app, font_window_state* state) {
     if (!state->fonts_requested) {
         state->latin_request = pulse_font_load(app, "latin.ttf", 0);
         state->cjk_request = pulse_font_load(app, "cjk.ttf", 0);
+        state->proggy_request = pulse_font_load(app, "ProggyVector.fnt", 0);
         assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(state->latin_request)));
         assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(state->cjk_request)));
+        assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(state->proggy_request)));
         state->fonts_requested = true;
         return;
     }
-    if (!pulse_font_is_ready(app, state->latin_request) || !pulse_font_is_ready(app, state->cjk_request)) {
+    if (!pulse_font_is_ready(app, state->latin_request) || !pulse_font_is_ready(app, state->cjk_request) || !pulse_font_is_ready(app, state->proggy_request)) {
         assert(pulse_font_is_alive(app, state->latin_request));
         assert(pulse_font_is_alive(app, state->cjk_request));
+        assert(pulse_font_is_alive(app, state->proggy_request));
         return;
     }
     state->latin_font = pulse_font_get_handle(app, state->latin_request);
     state->cjk_font = pulse_font_get_handle(app, state->cjk_request);
+    state->proggy_font = pulse_font_get_handle(app, state->proggy_request);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(state->latin_font)));
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(state->cjk_font)));
-    assert(pulse_font_count(app) == 2);
+    assert(pulse_asset_handle_is_valid(pulse_font_to_handle(state->proggy_font)));
+    const PulseFontHandle default_font = pulse_font_default(app);
+    assert(pulse_asset_handle_is_valid(pulse_font_to_handle(default_font)));
+    assert(pulse_font_count(app) == 4);
     const PulseFontHandle fonts[] = { state->latin_font, state->cjk_font };
     state->chain = pulse_font_create_chain(app, fonts, 2);
+    state->bitmap_chain = pulse_font_create_chain(app, &state->proggy_font, 1);
+    state->default_chain = pulse_font_create_chain(app, &default_font, 1);
     assert(state->chain != PULSE_FONT_ID_NONE);
+    assert(state->bitmap_chain != PULSE_FONT_ID_NONE);
+    assert(state->default_chain != PULSE_FONT_ID_NONE);
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 0x4E2D)), pulse_font_to_handle(state->cjk_font)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 'A')), pulse_font_to_handle(state->latin_font)));
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->default_chain, 'A')), pulse_font_to_handle(default_font)));
 
     pulse_font_prewarm(app, state->chain, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93", 64.0f);
     pulse_font_prewarm(app, state->chain, "12px: Sphinx of black quartz, judge my vow. AV To Wa", 24.0f);
     pulse_font_prewarm(app, state->chain, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B\xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC +230", 48.0f);
     pulse_font_prewarm(app, state->chain, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text", 24.0f);
+    pulse_font_prewarm(app, state->bitmap_chain, "Bitmap SDF: Proggy 0123", 28.0f);
+    pulse_font_prewarm(app, state->default_chain, "default 16px: ABCabc 123", 16.0f);
 
     const PulseAtlasStats stats = pulse_font_atlas_stats(app);
     assert(stats.rasterize_count > 0);
@@ -198,17 +216,29 @@ void submit_system_run(ecs_iter_t* it) {
     }
     std::vector<PulseGlyphInstance> instances;
     const glyph_run runs[] = {
-        { 24.0f, 80.0f, 64.0f, 1.0f, 1.0f, 1.0f, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93" },
-        { 24.0f, 130.0f, 12.0f, 0.6f, 0.9f, 1.0f, "12px: Sphinx of black quartz, judge my vow. AV To Wa" },
-        { 24.0f, 168.0f, 18.0f, 0.7f, 0.95f, 0.7f, "18px: Sphinx of black quartz, judge my vow. AV To Wa" },
-        { 24.0f, 214.0f, 24.0f, 1.0f, 0.85f, 0.4f, "24px: Sphinx of black quartz, judge my vow. AV To Wa" },
-        { 24.0f, 270.0f, 36.0f, 1.0f, 0.6f, 0.55f, "36px: quartz AV Wa" },
-        { 24.0f, 330.0f, 48.0f, 0.85f, 0.7f, 1.0f, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97 card text" },
-        { 24.0f, 400.0f, 20.0f, 0.9f, 0.9f, 0.9f, "\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B +2 \xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC 30" },
-        { 24.0f, 448.0f, 48.0f, 0.5f, 1.0f, 0.6f, "\xE7\xBC\xBA\xE5\xAD\x97\xEF\xBC\x9A\xEE\x80\x80 tofu" },
+        { 24.0f, 70.0f, 64.0f, 1.0f, 1.0f, 1.0f, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93" },
+        { 24.0f, 110.0f, 12.0f, 0.6f, 0.9f, 1.0f, "12px: Sphinx of black quartz, judge my vow. AV To Wa" },
+        { 24.0f, 142.0f, 18.0f, 0.7f, 0.95f, 0.7f, "18px: Sphinx of black quartz, judge my vow. AV To Wa" },
+        { 24.0f, 180.0f, 24.0f, 1.0f, 0.85f, 0.4f, "24px: Sphinx of black quartz, judge my vow. AV To Wa" },
+        { 24.0f, 228.0f, 36.0f, 1.0f, 0.6f, 0.55f, "36px: quartz AV Wa" },
+        { 24.0f, 286.0f, 48.0f, 0.85f, 0.7f, 1.0f, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97 card text" },
+        { 24.0f, 334.0f, 20.0f, 0.9f, 0.9f, 0.9f, "\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B +2 \xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC 30" },
+        { 24.0f, 388.0f, 48.0f, 0.5f, 1.0f, 0.6f, "\xE7\xBC\xBA\xE5\xAD\x97\xEF\xBC\x9A\xEE\x80\x80 tofu" },
     };
     for (const glyph_run& run : runs) {
         append_run(app, state->chain, run, instances);
+    }
+    const glyph_run bitmap_runs[] = {
+        { 24.0f, 424.0f, 28.0f, 1.0f, 1.0f, 1.0f, "Bitmap SDF: Proggy 0123" },
+    };
+    for (const glyph_run& run : bitmap_runs) {
+        append_run(app, state->bitmap_chain, run, instances);
+    }
+    const glyph_run default_runs[] = {
+        { 330.0f, 424.0f, 16.0f, 0.6f, 0.85f, 1.0f, "default 16px: ABCabc 123" },
+    };
+    for (const glyph_run& run : default_runs) {
+        append_run(app, state->default_chain, run, instances);
     }
     assert(!instances.empty());
 
@@ -317,8 +347,11 @@ int main(void) {
 
     if (state.fonts_ready) {
         pulse_font_destroy_chain(app, state.chain);
+        pulse_font_destroy_chain(app, state.bitmap_chain);
+        pulse_font_destroy_chain(app, state.default_chain);
         pulse_asset_system_release(pulse_get_asset_system(app), pulse_font_to_handle(state.latin_font), nullptr);
         pulse_asset_system_release(pulse_get_asset_system(app), pulse_font_to_handle(state.cjk_font), nullptr);
+        pulse_asset_system_release(pulse_get_asset_system(app), pulse_font_to_handle(state.proggy_font), nullptr);
     }
 
     pulse_destroy_app(app);

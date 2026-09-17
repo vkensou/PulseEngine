@@ -8,14 +8,14 @@ int main() {
     assert(pulse_font_is_ready(app, latin_request));
     const PulseFontHandle latin = pulse_font_get_handle(app, latin_request);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(latin)));
-    assert(pulse_font_count(app) == 1);
+    assert(pulse_font_count(app) == 2);
     assert(pulse_font_family_name(app, latin) != nullptr);
 
     const PulseFontRequest again_request = pulse_font_load(app, "latin.ttf", 0);
     pump_font_request(app, again_request);
     assert(pulse_asset_request_equals(pulse_font_request_to_asset_request(again_request), pulse_font_request_to_asset_request(latin_request)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_get_handle(app, again_request)), pulse_font_to_handle(latin)));
-    assert(pulse_font_count(app) == 1);
+    assert(pulse_font_count(app) == 2);
 
     const uint32_t chain = make_chain(app, &latin, 1);
     const PulseGlyph glyph = pulse_font_glyph(app, chain, 'A', 48.0f);
@@ -26,7 +26,7 @@ int main() {
     assert(!pulse_font_is_ready(app, bad_face_request));
     assert(pulse_font_get_error(app, bad_face_request) != nullptr);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_get_handle(app, bad_face_request))));
-    assert(pulse_font_count(app) == 1);
+    assert(pulse_font_count(app) == 2);
 
     const PulseFontRequest missing_request = pulse_font_load(app, "missing.ttf", 0);
     assert(pulse_asset_request_is_valid(pulse_font_request_to_asset_request(missing_request)));
@@ -35,7 +35,7 @@ int main() {
     assert(pulse_font_get_error(app, missing_request) != nullptr);
 
     unload_font(app, latin);
-    assert(pulse_font_count(app) == 0);
+    assert(pulse_font_count(app) == 1);
     assert(pulse_font_family_name(app, latin) == nullptr);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_get_handle(app, latin_request))));
 
@@ -46,13 +46,13 @@ int main() {
     assert(pulse_font_is_ready(app, reload_request));
     const PulseFontHandle reloaded = pulse_font_get_handle(app, reload_request);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(reloaded)));
-    assert(pulse_font_count(app) == 1);
+    assert(pulse_font_count(app) == 2);
     const uint32_t chain2 = make_chain(app, &reloaded, 1);
     const PulseGlyph reloaded_glyph = pulse_font_glyph(app, chain2, 'A', 48.0f);
     assert(reloaded_glyph.valid);
     pulse_font_destroy_chain(app, chain2);
     unload_font(app, reloaded);
-    assert(pulse_font_count(app) == 0);
+    assert(pulse_font_count(app) == 1);
 
     const std::vector<uint8_t> cjk_bytes = read_test_file("tests/font/data/cjk.ttf");
     const PulseFontHandle cjk = load_font_memory(app, "cjk_mem.ttf", cjk_bytes);
@@ -60,7 +60,7 @@ int main() {
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_chain, 0x4E2D)), pulse_font_to_handle(cjk)));
     pulse_font_destroy_chain(app, cjk_chain);
     unload_font(app, cjk);
-    assert(pulse_font_count(app) == 0);
+    assert(pulse_font_count(app) == 1);
 
     pulse_destroy_app(app);
 

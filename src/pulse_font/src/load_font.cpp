@@ -67,6 +67,23 @@ void destroy_font_asset(void* ptr, void* user_data) {
     }
 }
 
+constexpr const char* kDefaultFontLoaderId = "pulse_font_default";
+
+font_asset_impl* build_bitmap_impl(const uint8_t* fnt, size_t fnt_size, const uint8_t* png, size_t png_size, const char** out_error) {
+    bitmap_font_parse_result parsed{};
+    if (!bitmap_font_parse(fnt, fnt_size, parsed, out_error)) {
+        return nullptr;
+    }
+    if (!bitmap_font_attach_page(parsed.data, png, png_size, out_error)) {
+        return nullptr;
+    }
+    auto* impl = new font_asset_impl();
+    impl->kind = kFontKindBitmap;
+    impl->bitmap = std::make_unique<bitmap_font_data>(std::move(parsed.data));
+    impl->family = impl->bitmap->family;
+    return impl;
+}
+
 EPulseAssetLoaderStatus step_font_loader(void* state, const PulseAssetLoadTask* ctx, const char** out_error) {
     (void)state;
     const auto* settings = static_cast<const PulseFontLoadSettings*>(ctx->settings);
@@ -94,6 +111,52 @@ EPulseAssetLoaderStatus step_font_loader(void* state, const PulseAssetLoadTask* 
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
     impl->family = read_family_name(impl->info);
+    auto* data = static_cast<PulseFontAssetData*>(ctx->out_asset);
+    data->impl = impl;
+    data->self = { ctx->request.type_id, ctx->request.index, ctx->request.generation };
+    return PULSE_ASSET_LOADER_STATUS_DONE;
+}
+
+EPulseAssetLoaderStatus step_font_bitmap_loader(void* state, const PulseAssetLoadTask* ctx, const char** out_error) {
+    (void)state;
+    const auto* settings = static_cast<const PulseFontLoadSettings*>(ctx->settings);
+    if (settings && settings->face_index != 0) {
+        *out_error = "bitmap font loader: face index is not supported";
+        return PULSE_ASSET_LOADER_STATUS_FAILED;
+    }
+    const auto* bytes = static_cast<const uint8_t*>(ctx->p_bytes);
+    bitmap_font_parse_result parsed{};
+    if (!bitmap_font_parse(bytes, (size_t)ctx->bytes_size, parsed, out_error)) {
+        return PULSE_ASSET_LOADER_STATUS_FAILED;
+    }
+    const std::string page_path = bitmap_font_page_path(ctx->path, parsed.page_file);
+    std::vector<uint8_t> png_bytes;
+    if (!bitmap_font_read_file(page_path.c_str(), png_bytes)) {
+        std::fprintf(stderr, "pulse_font: failed to read bitmap page texture '%s'\n", page_path.c_str());
+        *out_error = "bitmap font loader: failed to read page texture";
+        return PULSE_ASSET_LOADER_STATUS_FAILED;
+    }
+    if (!bitmap_font_attach_page(parsed.data, png_bytes.data(), png_bytes.size(), out_error)) {
+        return PULSE_ASSET_LOADER_STATUS_FAILED;
+    }
+    auto* impl = new font_asset_impl();
+    impl->kind = kFontKindBitmap;
+    impl->bitmap = std::make_unique<bitmap_font_data>(std::move(parsed.data));
+    impl->family = impl->bitmap->family;
+    auto* data = static_cast<PulseFontAssetData*>(ctx->out_asset);
+    data->impl = impl;
+    data->self = { ctx->request.type_id, ctx->request.index, ctx->request.generation };
+    return PULSE_ASSET_LOADER_STATUS_DONE;
+}
+
+EPulseAssetLoaderStatus step_font_default_loader(void* state, const PulseAssetLoadTask* ctx, const char** out_error) {
+    (void)state;
+    const std::vector<uint8_t>& fnt = default_font_fnt_bytes();
+    const std::vector<uint8_t>& png = default_font_png_bytes();
+    font_asset_impl* impl = build_bitmap_impl(fnt.data(), fnt.size(), png.data(), png.size(), out_error);
+    if (!impl) {
+        return PULSE_ASSET_LOADER_STATUS_FAILED;
+    }
     auto* data = static_cast<PulseFontAssetData*>(ctx->out_asset);
     data->impl = impl;
     data->self = { ctx->request.type_id, ctx->request.index, ctx->request.generation };
@@ -137,7 +200,7 @@ void register_font_type(PulseAssetSystemId asset_system, PulseAppId app) {
     pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
-void register_font_load_loader(PulseAssetSystemId asset_system) {
+void register_font_loaders(PulseAssetSystemId asset_system) {
     PulseAssetLoaderDesc ld{};
     ld.struct_size = sizeof(PulseAssetLoaderDesc);
     ld.version = PULSE_ASSET_LOADER_DESC_VERSION;
@@ -152,6 +215,85 @@ void register_font_load_loader(PulseAssetSystemId asset_system) {
     ld.settings_align = alignof(PulseFontLoadSettings);
     ld.user_data = nullptr;
     pulse_asset_system_register_loader(asset_system, &ld);
+
+    ld.extensions = "fnt";
+    ld.loader_identifier = nullptr;
+    ld.step = step_font_bitmap_loader;
+    pulse_asset_system_register_loader(asset_system, &ld);
+
+    ld.extensions = nullptr;
+    ld.loader_identifier = kDefaultFontLoaderId;
+    ld.step = step_font_default_loader;
+    pulse_asset_system_register_loader(asset_system, &ld);
+}
+
+uint32_t font_register_asset(pulse_font_plugin_state* state, PulseAssetHandle handle) {
+    if (!pulse_asset_handle_is_valid(handle)) {
+        return PULSE_FONT_ID_NONE;
+    }
+    for (uint32_t i = 0; i < state->fonts.size(); ++i) {
+        if (state->fonts[i].occupied && pulse_asset_handle_equals(state->fonts[i].asset, handle)) {
+            return i + 1;
+        }
+    }
+    PulseAssetSystemId asset_system = pulse_get_asset_system(state->app);
+    if (!asset_system) {
+        return PULSE_FONT_ID_NONE;
+    }
+    void* ptr = nullptr;
+    if (!pulse_asset_system_borrow(asset_system, handle, &ptr, nullptr) || !ptr) {
+        return PULSE_FONT_ID_NONE;
+    }
+    auto* data = static_cast<PulseFontAssetData*>(ptr);
+    if (!data->impl) {
+        return PULSE_FONT_ID_NONE;
+    }
+    if (font_occupied_count(state) >= PULSE_FONT_MAX_COUNT) {
+        std::fprintf(stderr, "pulse_font: font count limit %u reached\n", (unsigned)PULSE_FONT_MAX_COUNT);
+        return PULSE_FONT_ID_NONE;
+    }
+    uint32_t index = kInvalidIndex;
+    if (!state->free_fonts.empty()) {
+        index = state->free_fonts.back();
+        state->free_fonts.pop_back();
+    } else {
+        state->fonts.push_back(font_face{});
+        index = (uint32_t)state->fonts.size() - 1;
+    }
+    font_face& face = state->fonts[index];
+    face = font_face{};
+    face.kind = data->impl->kind;
+    face.info = data->impl->info;
+    face.bitmap = data->impl->bitmap.get();
+    face.family = data->impl->family;
+    face.asset = handle;
+    face.occupied = true;
+    return index + 1;
+}
+
+void font_build_default_font(pulse_font_plugin_state* state) {
+    PulseAssetSystemId asset_system = pulse_get_asset_system(state->app);
+    if (!asset_system || state->default_font != PULSE_FONT_ID_NONE) {
+        return;
+    }
+    PulseAssetBuildDesc desc{};
+    desc.struct_size = sizeof(PulseAssetBuildDesc);
+    desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    desc.type_id = PULSE_TYPE_FONT;
+    desc.loader_identifier = kDefaultFontLoaderId;
+    desc.name = "default_font";
+    const PulseAssetHandle handle = pulse_asset_system_build_sync(asset_system, &desc);
+    if (!pulse_asset_handle_is_valid(handle)) {
+        std::fprintf(stderr, "pulse_font: failed to build default font asset\n");
+        return;
+    }
+    const uint32_t slot = font_register_asset(state, handle);
+    if (slot == PULSE_FONT_ID_NONE) {
+        pulse_asset_system_release(asset_system, handle, nullptr);
+        std::fprintf(stderr, "pulse_font: failed to register default font\n");
+        return;
+    }
+    state->default_font = slot;
 }
 
 uint32_t font_slot_of(pulse_font_plugin_state* state, PulseFontHandle handle) {
@@ -184,6 +326,9 @@ void font_registry_release(pulse_font_plugin_state* state, PulseAssetHandle hand
         atlas_purge_font(state, i + 1);
         face = font_face{};
         state->free_fonts.push_back(i);
+        if (state->default_font == i + 1) {
+            state->default_font = PULSE_FONT_ID_NONE;
+        }
         return;
     }
 }
@@ -199,37 +344,8 @@ PulseFontHandle font_get_handle_impl(PulseAppId app, PulseFontRequest request) {
     if (!pulse_asset_handle_is_valid(handle)) {
         return invalid;
     }
-    PulseFontHandle result{ handle.index, handle.generation };
-    if (font_slot_of(state, result) != PULSE_FONT_ID_NONE) {
-        return result;
-    }
-    void* ptr = nullptr;
-    if (!pulse_asset_system_borrow(asset_system, handle, &ptr, nullptr)) {
-        return invalid;
-    }
-    auto* data = static_cast<PulseFontAssetData*>(ptr);
-    if (!data->impl) {
-        return invalid;
-    }
-    if (font_occupied_count(state) >= PULSE_FONT_MAX_COUNT) {
-        std::fprintf(stderr, "pulse_font: font count limit %u reached\n", (unsigned)PULSE_FONT_MAX_COUNT);
-        return invalid;
-    }
-    uint32_t index = kInvalidIndex;
-    if (!state->free_fonts.empty()) {
-        index = state->free_fonts.back();
-        state->free_fonts.pop_back();
-    } else {
-        state->fonts.push_back(font_face{});
-        index = (uint32_t)state->fonts.size() - 1;
-    }
-    font_face& face = state->fonts[index];
-    face = font_face{};
-    face.info = data->impl->info;
-    face.family = data->impl->family;
-    face.asset = handle;
-    face.occupied = true;
-    return result;
+    const uint32_t slot = font_register_asset(state, handle);
+    return font_handle_of(state, slot);
 }
 
 }

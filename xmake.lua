@@ -303,6 +303,8 @@ target("pulse_font")
     add_files("src/pulse_font/src/**/*.cpp")
     add_rules("utils.hlsl2spv", {bin2c = true})
     add_files("src/pulse_font/src/**/*.hlsl")
+    add_files("src/pulse_font/src/default_font/*.fnt", "src/pulse_font/src/default_font/*.png")
+    add_rules("utils.bin2c", {extensions = {".png", ".fnt"}})
 
 target("pulse_cpp_gameplay")
     set_group("pacakges")

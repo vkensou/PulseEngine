@@ -224,7 +224,7 @@ PULSE_FONT_API PulseFontPluginDesc pulse_font_plugin_desc_default(void);
 PULSE_FONT_API EPulseAppAddPluginResult pulse_add_font_plugin(PulseAppId app, const PulseFontPluginDesc* desc);
 
 /**
- * 发起异步字体加载（内部走 pulse_asset），is_ready 后用 acquire 取字体 id
+ * 发起异步字体加载（内部走 pulse_asset），支持 ttf/otf/ttc 与 BMFont 文本 .fnt（单页，PNG 与 .fnt 同目录）；is_ready 后用 get_handle 取字体凭证
  *
  * @param[in] app
  * @param[in] path
@@ -234,7 +234,7 @@ PULSE_FONT_API EPulseAppAddPluginResult pulse_add_font_plugin(PulseAppId app, co
 PULSE_FONT_API PulseFontRequest pulse_font_load(PulseAppId app, const char* path, uint32_t face_index);
 
 /**
- * 从内存字节流发起异步字体加载，name 用于扩展名判定（如 "latin.ttf"）
+ * 从内存字节流发起异步字体加载，name 用于扩展名判定（如 "latin.ttf"、"ascii.fnt"，fnt 的页面 PNG 仍从 VFS 同目录读取）
  *
  * @param[in] app
  * @param[in] name
@@ -284,7 +284,15 @@ PULSE_FONT_API uint32_t pulse_font_count(PulseAppId app);
 PULSE_FONT_API PulseFontHandle pulse_font_find_family(PulseAppId app, const char* family);
 
 /**
- * 按顺序尝试的字体链，排版层只认链
+ * 内置默认 bitmap 字体凭证，asset 系统缺失或未构建成功时返回无效 handle
+ *
+ * @param[in] app
+ *
+ */
+PULSE_FONT_API PulseFontHandle pulse_font_default(PulseAppId app);
+
+/**
+ * 按顺序尝试的字体链，排版层只认链；链尾自动追加默认字体（已在列表中则不重复追加）
  *
  * @param[in] app
  * @param[in] fonts

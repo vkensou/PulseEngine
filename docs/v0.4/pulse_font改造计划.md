@@ -137,7 +137,6 @@ bitmap 字体只有一个原生像素尺寸，不参与 `{48, 96}` 双档位光�
 ### 资产内嵌
 
 - 字体来源：维护者（人类）下载/生成 BMFont 文本格式 `.fnt` + PNG，放到 `src/pulse_font/assets/default_font/`（`default.fnt` + `default.png`，建议 16px 或 24px 行高、含 32–126 全部字符）。许可证要求：可再分发（如源自公有领域或 OFL 字体的 BMFont 导出），在目录内放 `LICENSE.txt` 记录来源。
-- 新增生成脚本 `tools/gen_default_font/`（PowerShell 或 python，与仓库现有工具风格一致）：把两个文件转成 `src/pulse_font/src/default_font_data.h`（两个 `unsigned char` 数组 + 长度宏）。生成物提交进仓库；xmake 不做构建期生成。
 - 加载方式：`post_build` 中（asset 系统存在时）走 `pulse_asset_system_build_sync`，builder loader identifier `"pulse_font_default"`，ctor/step 从内嵌字节构造 asset data（复用阶段三 fnt loader 的解析函数）。同步构建保证 post_build 返回后默认字体即可用。
 
 ### 公开 API 与 chain 行为

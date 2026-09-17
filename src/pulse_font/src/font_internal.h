@@ -6,6 +6,7 @@
 #include "stb_truetype.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -19,16 +20,65 @@ constexpr uint32_t kInvalidIndex = 0xFFFFFFFFu;
 constexpr uint32_t kMissingGlyphFont = 0;
 constexpr uint32_t kMissingGlyphCodepoint = 0xFFFFFFFFu;
 
+enum font_kind : uint32_t { kFontKindTtf = 0, kFontKindBitmap = 1 };
+
+struct bitmap_glyph {
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t width = 0;
+    int32_t height = 0;
+    int32_t xoffset = 0;
+    int32_t yoffset = 0;
+    int32_t xadvance = 0;
+};
+
+struct bitmap_kerning {
+    uint64_t pair = 0;
+    int32_t amount = 0;
+};
+
+struct bitmap_font_data {
+    std::string family;
+    uint32_t line_height = 0;
+    int32_t base = 0;
+    uint32_t scale_width = 0;
+    uint32_t scale_height = 0;
+    std::vector<uint8_t> pixels;
+    std::vector<uint32_t> codepoints;
+    std::vector<bitmap_glyph> glyphs;
+    std::vector<bitmap_kerning> kernings;
+};
+
+const bitmap_glyph* bitmap_font_find_glyph(const bitmap_font_data& data, uint32_t codepoint);
+int32_t bitmap_font_kerning(const bitmap_font_data& data, uint32_t first, uint32_t second);
+
+struct bitmap_font_parse_result {
+    bitmap_font_data data;
+    std::string page_file;
+};
+
+bool bitmap_font_parse(const uint8_t* fnt, size_t fnt_size, bitmap_font_parse_result& out, const char** out_error);
+bool bitmap_font_attach_page(bitmap_font_data& data, const uint8_t* png, size_t png_size, const char** out_error);
+bool bitmap_font_read_file(const char* path, std::vector<uint8_t>& out);
+std::string bitmap_font_page_path(const char* fnt_path, const std::string& page_file);
+
+const std::vector<uint8_t>& default_font_fnt_bytes();
+const std::vector<uint8_t>& default_font_png_bytes();
+
 struct font_face {
+    font_kind kind = kFontKindTtf;
     stbtt_fontinfo info{};
+    const bitmap_font_data* bitmap = nullptr;
     std::string family;
     PulseAssetHandle asset{};
     bool occupied = false;
 };
 
 struct font_asset_impl {
+    font_kind kind = kFontKindTtf;
     std::vector<uint8_t> bytes;
     stbtt_fontinfo info{};
+    std::unique_ptr<bitmap_font_data> bitmap;
     std::string family;
 };
 
@@ -125,6 +175,7 @@ struct pulse_font_plugin_state {
     PulseFontPluginDesc desc{};
     std::vector<font_face> fonts;
     std::vector<uint32_t> free_fonts;
+    uint32_t default_font = PULSE_FONT_ID_NONE;
     std::vector<font_chain_slot> chains;
     std::vector<uint32_t> free_chains;
     std::vector<glyph_entry> entries;
@@ -171,7 +222,9 @@ uint32_t font_slot_of(pulse_font_plugin_state* state, PulseFontHandle handle);
 PulseFontHandle font_handle_of(pulse_font_plugin_state* state, uint32_t font);
 
 void register_font_type(PulseAssetSystemId asset_system, PulseAppId app);
-void register_font_load_loader(PulseAssetSystemId asset_system);
+void register_font_loaders(PulseAssetSystemId asset_system);
+void font_build_default_font(pulse_font_plugin_state* state);
+uint32_t font_register_asset(pulse_font_plugin_state* state, PulseAssetHandle handle);
 void font_registry_release(pulse_font_plugin_state* state, PulseAssetHandle handle);
 
 const glyph_entry* atlas_find_glyph(pulse_font_plugin_state* state, const glyph_key& key);

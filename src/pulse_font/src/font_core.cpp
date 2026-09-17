@@ -136,6 +136,9 @@ PulseGlyph make_glyph(pulse_font_plugin_state* state, const glyph_entry* entry, 
 }
 
 float font_scale_for_size(const font_face& face, float size) {
+    if (face.kind == kFontKindBitmap) {
+        return size / (float)face.bitmap->line_height;
+    }
     return stbtt_ScaleForMappingEmToPixels(&face.info, size);
 }
 
@@ -143,11 +146,22 @@ int32_t font_glyph_index(const font_face& face, uint32_t codepoint) {
     if (codepoint > 0x10FFFF) {
         return 0;
     }
+    if (face.kind == kFontKindBitmap) {
+        return bitmap_font_find_glyph(*face.bitmap, codepoint) != nullptr ? 1 : 0;
+    }
     return stbtt_FindGlyphIndex(&face.info, (int)codepoint);
 }
 
 float font_advance_raw(const font_face& face, uint32_t codepoint, float size) {
     const float scale = font_scale_for_size(face, size);
+    if (face.kind == kFontKindBitmap) {
+        const bitmap_glyph* glyph = bitmap_font_find_glyph(*face.bitmap, codepoint);
+        const bitmap_glyph* fallback = glyph && glyph->xadvance > 0 ? glyph : bitmap_font_find_glyph(*face.bitmap, 'n');
+        if (!fallback || fallback->xadvance <= 0) {
+            return size * 0.5f;
+        }
+        return (float)fallback->xadvance * scale;
+    }
     const int32_t glyph = font_glyph_index(face, codepoint);
     int advance = 0;
     int bearing = 0;
@@ -155,9 +169,9 @@ float font_advance_raw(const font_face& face, uint32_t codepoint, float size) {
         stbtt_GetGlyphHMetrics(&face.info, glyph, &advance, &bearing);
     }
     if (advance <= 0) {
-        const int32_t fallback = font_glyph_index(face, 'n');
-        if (fallback != 0) {
-            stbtt_GetGlyphHMetrics(&face.info, fallback, &advance, &bearing);
+        const int32_t fb = font_glyph_index(face, 'n');
+        if (fb != 0) {
+            stbtt_GetGlyphHMetrics(&face.info, fb, &advance, &bearing);
         }
     }
     if (advance <= 0) {
@@ -167,6 +181,9 @@ float font_advance_raw(const font_face& face, uint32_t codepoint, float size) {
 }
 
 float font_kerning_raw(const font_face& face, uint32_t first, uint32_t second, float size) {
+    if (face.kind == kFontKindBitmap) {
+        return (float)bitmap_font_kerning(*face.bitmap, first, second) * font_scale_for_size(face, size);
+    }
     const int32_t a = font_glyph_index(face, first);
     const int32_t b = font_glyph_index(face, second);
     if (a == 0 || b == 0) {
@@ -232,7 +249,8 @@ EPulsePluginBuildResult pulse_font_plugin_post_build(PulseAppId app, void* ctx) 
     PulseAssetSystemId asset_system = pulse_get_asset_system(app);
     if (asset_system) {
         register_font_type(asset_system, app);
-        register_font_load_loader(asset_system);
+        register_font_loaders(asset_system);
+        font_build_default_font(state);
     }
     if (!pulse_get_renderer(app)) {
         return PULSE_PLUGIN_BUILD_RESULT_OK;
@@ -344,6 +362,15 @@ PulseFontHandle pulse_font_find_family(PulseAppId app, const char* family) {
     return invalid;
 }
 
+PulseFontHandle pulse_font_default(PulseAppId app) {
+    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
+    if (!state) {
+        PulseFontHandle invalid{};
+        return invalid;
+    }
+    return pulse_font_internal::font_handle_of(state, state->default_font);
+}
+
 uint32_t pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFontHandle, fonts)) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state || fonts_count == 0 || !p_fonts) {
@@ -355,6 +382,10 @@ uint32_t pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFo
         if (slots[i] == PULSE_FONT_ID_NONE) {
             return PULSE_FONT_ID_NONE;
         }
+    }
+    const uint32_t default_font = state->default_font;
+    if (default_font != PULSE_FONT_ID_NONE && default_font - 1 < state->fonts.size() && state->fonts[default_font - 1].occupied && std::find(slots.begin(), slots.end(), default_font) == slots.end()) {
+        slots.push_back(default_font);
     }
     if (!state->free_chains.empty()) {
         const uint32_t index = state->free_chains.back();
@@ -445,6 +476,13 @@ PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, uint32_t chain,
     }
     const font_face& face = state->fonts[slot->fonts[0] - 1];
     const float scale = font_scale_for_size(face, size);
+    if (face.kind == kFontKindBitmap) {
+        metrics.ascent = (float)face.bitmap->base * scale;
+        metrics.descent = ((float)face.bitmap->base - (float)face.bitmap->line_height) * scale;
+        metrics.line_gap = 0.0f;
+        metrics.height = metrics.ascent - metrics.descent;
+        return metrics;
+    }
     int ascent = 0;
     int descent = 0;
     int line_gap = 0;

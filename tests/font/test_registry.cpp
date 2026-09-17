@@ -14,10 +14,14 @@ static int kerned_pair_count(PulseAppId app, uint32_t chain, float size) {
 int main() {
     PulseAppId app = make_font_app("t-font-registry", nullptr);
 
+    const PulseFontHandle default_font = pulse_font_default(app);
+    assert(pulse_asset_handle_is_valid(pulse_font_to_handle(default_font)));
+    assert(pulse_font_count(app) == 1);
+
     const PulseFontHandle latin = register_latin(app);
     const PulseFontHandle cjk = register_cjk(app);
     assert(latin.index != cjk.index);
-    assert(pulse_font_count(app) == 2);
+    assert(pulse_font_count(app) == 3);
 
     const char* latin_family = pulse_font_family_name(app, latin);
     const char* cjk_family = pulse_font_family_name(app, cjk);
@@ -35,7 +39,7 @@ int main() {
     pump_font_request(app, dup_request);
     assert(pulse_font_is_ready(app, dup_request));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_get_handle(app, dup_request)), pulse_font_to_handle(latin)));
-    assert(pulse_font_count(app) == 2);
+    assert(pulse_font_count(app) == 3);
 
     uint8_t junk[32];
     memset(junk, 0x5A, sizeof(junk));
@@ -44,7 +48,7 @@ int main() {
     assert(!pulse_font_is_ready(app, junk_request));
     assert(pulse_font_get_error(app, junk_request) != nullptr);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_get_handle(app, junk_request))));
-    assert(pulse_font_count(app) == 2);
+    assert(pulse_font_count(app) == 3);
 
     const PulseFontHandle latin_first[] = { latin, cjk };
     const PulseFontHandle cjk_first[] = { cjk, latin };
@@ -98,7 +102,7 @@ int main() {
     assert(reused_chain == latin_chain);
 
     unload_font(app, latin);
-    assert(pulse_font_count(app) == 1);
+    assert(pulse_font_count(app) == 2);
     assert(pulse_font_family_name(app, latin) == nullptr);
     const PulseFontHandle latin_only[] = { latin };
     assert(pulse_font_create_chain(app, latin_only, 1) == PULSE_FONT_ID_NONE);
@@ -107,7 +111,7 @@ int main() {
     pulse_font_destroy_chain(app, single_chain);
     pulse_font_destroy_chain(app, cjk_chain);
     unload_font(app, cjk);
-    assert(pulse_font_count(app) == 0);
+    assert(pulse_font_count(app) == 1);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_get_handle(app, dup_request))));
 
     const PulseFontHandle reloaded_latin = register_latin(app);
@@ -117,6 +121,26 @@ int main() {
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, rechain, 'A')), pulse_font_to_handle(reloaded_latin)));
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, rechain, han))));
     pulse_font_destroy_chain(app, rechain);
+
+    const uint32_t cjk_only_chain = make_chain(app, &reloaded_cjk, 1);
+    for (uint32_t cp = ' '; cp <= '~'; ++cp) {
+        assert(pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_only_chain, cp))));
+    }
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_only_chain, han)), pulse_font_to_handle(reloaded_cjk)));
+    pulse_font_destroy_chain(app, cjk_only_chain);
+
+    const uint32_t default_chain = make_chain(app, &default_font, 1);
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, 'A')), pulse_font_to_handle(default_font)));
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, 'z')), pulse_font_to_handle(default_font)));
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, '0')), pulse_font_to_handle(default_font)));
+    assert(pulse_font_glyph(app, default_chain, 'A', 24.0f).valid);
+    assert(pulse_font_glyph(app, default_chain, 'z', 48.0f).valid);
+    assert(pulse_font_glyph(app, default_chain, '0', 96.0f).valid);
+    assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, han))));
+    const PulseGlyph default_tofu = pulse_font_glyph(app, default_chain, han, 48.0f);
+    assert(default_tofu.valid);
+    assert(fabsf(default_tofu.advance - 48.0f * 0.8f) < 1e-4f);
+    pulse_font_destroy_chain(app, default_chain);
 
     pulse_destroy_app(app);
     printf("font registry tests passed\n");
