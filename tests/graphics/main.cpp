@@ -515,15 +515,9 @@ int main(void) {
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     // Add pulse_graphic plugin
-    const char *per_draw_shader_properties[] = {
-        "wMatrix",
-    };
-
     auto graphic_desc = pulse_graphics_plugin_desc_default();
     graphic_desc.enable_debug_layer = true;
     graphic_desc.enable_gpu_based_validation = true;
-    graphic_desc.p_per_draw_shader_properties = per_draw_shader_properties;
-    graphic_desc.per_draw_shader_properties_count = sizeof(per_draw_shader_properties) / sizeof(const char*);
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_has_plugin(app, "pulse_graphics"));
 
