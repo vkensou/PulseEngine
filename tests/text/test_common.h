@@ -112,7 +112,7 @@ static float run_width(PulseAppId app, uint32_t chain, const char* utf8, float s
     return width;
 }
 
-static PulseTextBlockDesc block_desc_for(uint32_t chain, float size) {
+static PulseTextBlockDesc text_desc(uint32_t chain, float size, float line_height) {
     PulseTextBlockDesc desc{};
     desc.chain = chain;
     desc.size = size;
@@ -122,15 +122,12 @@ static PulseTextBlockDesc block_desc_for(uint32_t chain, float size) {
     desc.color.a = 1.0f;
     desc.align_h = PULSE_TEXT_ALIGN_H_LEFT;
     desc.align_v = PULSE_TEXT_ALIGN_V_TOP;
-    desc.line_height = 0.0f;
+    desc.line_height = line_height;
     return desc;
 }
 
-static uint32_t make_block(PulseAppId app, uint32_t chain, float size) {
-    const PulseTextBlockDesc desc = block_desc_for(chain, size);
-    const uint32_t block = pulse_text_block_create(app, &desc);
-    assert(block != PULSE_TEXT_BLOCK_ID_NONE);
-    return block;
+static PulseTextBlockDesc text_desc(uint32_t chain, float size) {
+    return text_desc(chain, size, 0.0f);
 }
 
 static float line_advance(PulseAppId app, uint32_t chain, float size, float scale) {

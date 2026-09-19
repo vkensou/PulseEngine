@@ -32,12 +32,6 @@ extern "C" {
 
 #define PULSE_TEXT_PLUGIN_DESC_VERSION 1u
 
-/**
- * 排版块 id 0 表示无效
- *
- */
-#define PULSE_TEXT_BLOCK_ID_NONE 0u
-
 
 /**
  * 水平对齐
@@ -88,7 +82,7 @@ typedef struct PulseTextColor
 } PulseTextColor;
 
 /**
- * 排版块参数；lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
+ * 排版参数；按值传入排版接口，chain 为字体链 id，lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
  *
  */
 typedef struct PulseTextBlockDesc
@@ -136,40 +130,30 @@ typedef struct PulseTextMeasure
 PULSE_TEXT_API EPulseAppAddPluginResult pulse_add_text_plugin(PulseAppId app);
 
 /**
- * 创建排版块，参数非法返回 0
- *
- * @param[in] app
- * @param[in] desc
- *
- */
-PULSE_TEXT_API uint32_t pulse_text_block_create(PulseAppId app, const PulseTextBlockDesc* desc);
-PULSE_TEXT_API void pulse_text_block_destroy(PulseAppId app, uint32_t block);
-
-/**
  * 在 boxWidth × boxHeight 的盒子里排版 utf8 文本，产出 glyph 实例流；boxWidth <= 0 不按宽度断行，boxHeight <= 0 不按高度截断；结果归调用方所有，用完调 pulse_text_layout_free 释放
  *
  * @param[in] app
- * @param[in] block
+ * @param[in] desc
  * @param[in] text
  * @param[in] boxWidth
  * @param[in] boxHeight
  *
  */
-[[pulse::optional]] [[pulse::owner]] PULSE_TEXT_API PulseTextLayout* pulse_text_block_layout(PulseAppId app, uint32_t block, const char* text, float box_width, float box_height);
+[[pulse::optional]] [[pulse::owner]] PULSE_TEXT_API PulseTextLayout* pulse_text_layout(PulseAppId app, const PulseTextBlockDesc* desc, const char* text, float box_width, float box_height);
 
 /**
  * 只算尺寸不产实例，与 layout 共用同一套断行实现；boxWidth <= 0 为自然尺寸
  *
  * @param[in] app
- * @param[in] block
+ * @param[in] desc
  * @param[in] text
  * @param[in] boxWidth
  *
  */
-PULSE_TEXT_API PulseTextMeasure pulse_text_block_measure(PulseAppId app, uint32_t block, const char* text, float box_width);
+PULSE_TEXT_API PulseTextMeasure pulse_text_measure(PulseAppId app, const PulseTextBlockDesc* desc, const char* text, float box_width);
 
 /**
- * 释放 pulse_text_block_layout 的结果
+ * 释放 pulse_text_layout 的结果
  *
  * @param[in] app
  * @param[in] layout

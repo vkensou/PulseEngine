@@ -1,8 +1,9 @@
-#include "text_internal.h"
+#include "pulse_text.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 namespace pulse_text_internal {
 

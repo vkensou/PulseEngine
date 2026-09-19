@@ -8,11 +8,7 @@ ECS_COMPONENT_DECLARE(pulse_text_state_resource);
 
 namespace {
 
-pulse_text_plugin_state* require_state(PulseAppId app) {
-    return app ? state_from_app(app) : nullptr;
-}
-
-bool validate_block_desc(const PulseTextBlockDesc* desc) {
+bool desc_is_valid(const PulseTextBlockDesc* desc) {
     if (!desc || desc->chain == PULSE_FONT_ID_NONE || desc->size <= 0.0f) {
         return false;
     }
@@ -37,14 +33,6 @@ pulse_text_plugin_state* state_from_world(ecs_world_t* world) {
 
 pulse_text_plugin_state* state_from_app(PulseAppId app) {
     return state_from_world(pulse_app_world(app));
-}
-
-const PulseTextBlockDesc* require_block(pulse_text_plugin_state* state, uint32_t block) {
-    if (block == 0 || block > state->blocks.size()) {
-        return nullptr;
-    }
-    text_block_slot& slot = state->blocks[block - 1];
-    return slot.alive ? &slot.desc : nullptr;
 }
 
 EPulsePluginBuildResult pulse_text_plugin_build(PulseAppId app, void* ctx) {
@@ -117,52 +105,16 @@ EPulseAppAddPluginResult pulse_add_text_plugin(PulseAppId app) {
     return result;
 }
 
-uint32_t pulse_text_block_create(PulseAppId app, const PulseTextBlockDesc* desc) {
-    pulse_text_plugin_state* state = require_state(app);
-    if (!state || !validate_block_desc(desc)) {
-        return PULSE_TEXT_BLOCK_ID_NONE;
-    }
-    if (!state->free_blocks.empty()) {
-        const uint32_t index = state->free_blocks.back();
-        state->free_blocks.pop_back();
-        state->blocks[index].desc = *desc;
-        state->blocks[index].alive = true;
-        return index + 1;
-    }
-    text_block_slot slot{};
-    slot.desc = *desc;
-    slot.alive = true;
-    state->blocks.push_back(slot);
-    return (uint32_t)state->blocks.size();
-}
-
-void pulse_text_block_destroy(PulseAppId app, uint32_t block) {
-    pulse_text_plugin_state* state = require_state(app);
-    if (!state || block == 0 || block > state->blocks.size()) {
-        return;
-    }
-    text_block_slot& slot = state->blocks[block - 1];
-    if (!slot.alive) {
-        return;
-    }
-    slot.alive = false;
-    state->free_blocks.push_back(block - 1);
-}
-
-PulseTextLayout* pulse_text_block_layout(PulseAppId app, uint32_t block, const char* text, float box_width, float box_height) {
-    pulse_text_plugin_state* state = require_state(app);
-    const PulseTextBlockDesc* desc = state ? require_block(state, block) : nullptr;
-    if (!desc) {
+PulseTextLayout* pulse_text_layout(PulseAppId app, const PulseTextBlockDesc* desc, const char* text, float box_width, float box_height) {
+    if (!state_from_app(app) || !desc_is_valid(desc)) {
         return nullptr;
     }
     return text_layout(app, desc, text, box_width, box_height);
 }
 
-PulseTextMeasure pulse_text_block_measure(PulseAppId app, uint32_t block, const char* text, float box_width) {
+PulseTextMeasure pulse_text_measure(PulseAppId app, const PulseTextBlockDesc* desc, const char* text, float box_width) {
     PulseTextMeasure out{};
-    pulse_text_plugin_state* state = require_state(app);
-    const PulseTextBlockDesc* desc = state ? require_block(state, block) : nullptr;
-    if (!desc) {
+    if (!state_from_app(app) || !desc_is_valid(desc)) {
         return out;
     }
     return text_measure(app, desc, text, box_width);
