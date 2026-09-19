@@ -88,8 +88,8 @@ void create_blit_shader(PulseAppId app, pulse_graphics_state* state) {
 	};
 
     PulseShaderProperty shader_props[] = {
-        {.name = "source",        .type = PULSE_SHADER_PROPERTY_TYPE_TEXTURE, .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 0, .offset = 0, .size = 0 },
-        {.name = "linearSampler", .type = PULSE_SHADER_PROPERTY_TYPE_SAMPLER, .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL, .set = 0, .binding = 1, .offset = 0, .size = 0 },
+        {.name = "source",        .type = PULSE_SHADER_PROPERTY_TYPE_TEXTURE, .set = PULSE_SHADER_SET_GLOBAL, .binding = 0, .offset = 0, .size = 0 },
+        {.name = "linearSampler", .type = PULSE_SHADER_PROPERTY_TYPE_SAMPLER, .set = PULSE_SHADER_SET_GLOBAL, .binding = 1, .offset = 0, .size = 0 },
     };
 
     PulseShaderCreateFromBinaryDesc blit_shader_desc = {
@@ -262,12 +262,6 @@ EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId app, const PulseGr
     pulse_graphics_state* state = new (std::nothrow) pulse_graphics_state();
     if (!state) return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     state->desc = normalize_plugin_desc(desc);
-    state->desc.p_per_draw_shader_properties = nullptr;
-    state->desc.per_draw_shader_properties_count = 0;
-    const size_t per_draw_shader_properties_count = desc ? desc->per_draw_shader_properties_count : 0;
-    for (size_t i = 0; i < per_draw_shader_properties_count; ++i) {
-        state->per_draw_shader_properties.emplace_back(desc->p_per_draw_shader_properties[i]);
-    }
 
     const char* graphics_dependencies[] = { "pulse_window", "pulse_asset" };
     PulsePluginDesc plugin_desc = {

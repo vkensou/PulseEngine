@@ -23,14 +23,6 @@ static const char* read_prop_name(const PulseDatalist* prop) {
     return pulse_datalist_get_string(prop, "name", nullptr);
 }
 
-static EPulseShaderPropertyRole prop_role_from_string(const PulseDatalist* prop) {
-    static const NamedValue table[] = {
-        { "material",     PULSE_SHADER_PROPERTY_ROLE_MATERIAL },
-        { "non_material", PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL },
-    };
-    return (EPulseShaderPropertyRole)enum_from_string(prop, "role", table, sizeof(table) / sizeof(table[0]), PULSE_SHADER_PROPERTY_ROLE_MATERIAL);
-}
-
 struct ShaderFileLoadState {
     bool libs_requested = false;
 };
@@ -133,7 +125,6 @@ static void parse_shader_file(PulseDatalist* dl, ShaderCreateSettings* settings,
             prop = {};
             prop.name = read_prop_name(p);
             prop.type = prop_type_from_string(p);
-            prop.role = prop_role_from_string(p);
             prop.set = (uint32_t)pulse_datalist_get_int(p, "set", 0);
             prop.binding = (uint32_t)pulse_datalist_get_int(p, "binding", 0);
             prop.offset = (uint32_t)pulse_datalist_get_int(p, "offset", 0);

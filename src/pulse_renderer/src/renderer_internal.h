@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <cassert>
 #include <atomic>
 #include <memory_resource>
 
@@ -33,7 +34,10 @@ struct DrawItem {
     PulseMaterialHandle material;
     PulseShaderHandle shader;
     HMM_Mat4 world_matrix;
-    size_t ubo_start{0}, ubo_end{0};
+    uint32_t global_column_start{0};
+    uint32_t global_column_count{0};
+    uint32_t feature_column_start{0};
+    uint32_t feature_column_count{0};
     float view_depth{0.0f};
     uint32_t submission_index{0};
     uint16_t feature_id{0};
@@ -49,13 +53,20 @@ struct RendererListDesc {
     uint32_t sort_flags;
 };
 
+struct RendererGlobalColumns {
+    PulseShaderHandle shader;
+    uint32_t first_column;
+    uint32_t column_count;
+};
+
 struct RendererList {
     RendererListDesc desc{};
     std::pmr::vector<DrawItem> items;
     std::pmr::vector<std::pmr::vector<std::byte>> feature_data;
+    std::pmr::vector<RendererGlobalColumns> global_columns;
     std::pmr::memory_resource* resource{nullptr};
 
-    explicit RendererList(std::pmr::memory_resource* r) : items(r), feature_data(r), resource(r) {}
+    explicit RendererList(std::pmr::memory_resource* r) : items(r), feature_data(r), global_columns(r), resource(r) {}
 
     void init_feature_data(uint32_t count) {
         feature_data.clear();
@@ -167,14 +178,16 @@ struct GpuBlockRef {
 };
 
 struct RendererUboColumn {
-    PulseMaterialHandle material;
-    PulseShaderHandle shader;
-    uint64_t layout_hash;
-    uint32_t ubo_info_index;
     uint32_t set;
     uint32_t binding;
     GpuBlockRef block_ref;
 };
+
+GpuBlockRef alloc_ubo_block(pulse_renderer_state& state, RendererView& view, uint32_t size);
+
+uint32_t alloc_feature_ubo_column(FeaturePrepareContext& ctx, DrawItem& item, uint32_t set, uint32_t binding, uint32_t size);
+
+void bind_item_ubo_columns(PulseRenderPassEncoder* encoder, const RendererView& view, const DrawItem& item);
 
 // ============================================================
 // Per-camera view data (built during extraction phase)
@@ -240,6 +253,7 @@ struct pulse_renderer_state {
     }
 
     void register_feature(const char* name, FeatureExtractFn extract, FeaturePrepareFn prepare, FeatureDrawFn draw, uint32_t data_size, void* userdata) {
+        assert(draw != nullptr);
         features.push_back({ name, extract, prepare, draw, data_size, userdata });
     }
 
@@ -248,9 +262,6 @@ struct pulse_renderer_state {
     ecs_entity_t extract_features_system = 0;
     ecs_entity_t sort_and_pack_system = 0;
     ecs_entity_t packets_swap_system = 0;
-
-    // Property name mapping: EPulseRendererPropertyType → shader property name
-    const char* property_names[PULSE_RENDERER_PROPERTY_TYPE_COUNT] = {};
 
     // Device UBO offset alignment, queried once at plugin init (see renderer_plugin_post_build)
     uint32_t ubo_alignment = 256;
@@ -317,8 +328,6 @@ inline const void* FeatureDrawContext::slot_data(uint32_t slot) const {
 // ============================================================
 void register_renderer_components(ecs_world_t* world);
 void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state);
-
-void draw_item_default(PulseAppId app, PulseRenderPassEncoder* encoder, const RendererView& view, const DrawItem& item);
 
 void install_renderable_feature(pulse_renderer_state* state, ecs_world_t* world);
 void shutdown_renderable_feature(void* userdata);

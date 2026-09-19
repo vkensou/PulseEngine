@@ -302,8 +302,7 @@ EPulseResult render_init(pulse_font_plugin_state* state) {
     PulseShaderProperty global_property = {
         .name = "font_global",
         .type = PULSE_SHADER_PROPERTY_TYPE_TEXTURE,
-        .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,
-        .set = 0,
+        .set = PULSE_SHADER_SET_GLOBAL,
         .binding = 0,
         .offset = 0,
         .size = 0,

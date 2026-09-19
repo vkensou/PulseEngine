@@ -77,6 +77,25 @@ static bool shader_settings_copy_fn(void* dst, const void* src, uint64_t byte_si
     return true;
 }
 
+static const CGPUShaderResource* find_shader_resource(CGPURootSignatureId root_sig, uint32_t set, uint32_t binding)
+{
+    for (uint32_t t = 0; t < root_sig->table_count; ++t) {
+        const auto& table = root_sig->p_tables[t];
+        if (table.set_index != set) continue;
+        for (uint32_t r = 0; r < table.resources_count; ++r) {
+            if (table.p_resources[r].binding == binding) return &table.p_resources[r];
+        }
+    }
+    return nullptr;
+}
+
+static bool property_type_matches_resource(EPulseShaderPropertyType type, ECGPUResourceTypeFlags res_type)
+{
+    if (type == PULSE_SHADER_PROPERTY_TYPE_TEXTURE) return res_type == CGPU_RESOURCE_TYPE_TEXTURE;
+    if (type == PULSE_SHADER_PROPERTY_TYPE_SAMPLER) return res_type == CGPU_RESOURCE_TYPE_SAMPLER;
+    return ShaderPropertyIsUniform(type) && (res_type == CGPU_RESOURCE_TYPE_UNIFORM_BUFFER || res_type == CGPU_RESOURCE_TYPE_RW_BUFFER);
+}
+
 static bool validate_shader_properties_declare(const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty** out_sorted_props, const char** out_validation_error)
 {
     PulseShaderProperty* sorted_props = new PulseShaderProperty[desc->property_count];
@@ -91,43 +110,49 @@ static bool validate_shader_properties_declare(const ShaderCreateSettings* desc,
         });
 
     const char* validation_error = nullptr;
-    uint32_t prop_idx = 0;
+
     for (uint32_t t = 0; t < root_sig->table_count && !validation_error; ++t) {
-        uint32_t set = root_sig->p_tables[t].set_index;
-        for (uint32_t r = 0; r < root_sig->p_tables[t].resources_count && !validation_error; ++r) {
-            auto& res = root_sig->p_tables[t].p_resources[r];
-            if (res.type != CGPU_RESOURCE_TYPE_UNIFORM_BUFFER && res.type != CGPU_RESOURCE_TYPE_RW_BUFFER)
-                continue;
-
-            while (prop_idx < desc->property_count &&
-                (sorted_props[prop_idx].set < set ||
-                    (sorted_props[prop_idx].set == set && sorted_props[prop_idx].binding < res.binding))) {
-                ++prop_idx;
-            }
-
-            uint32_t prev_end = 0;
-            uint32_t j = prop_idx;
-            while (j < desc->property_count &&
-                sorted_props[j].set == set &&
-                sorted_props[j].binding == res.binding) {
-                const auto& p = sorted_props[j];
-                if (!ShaderPropertyIsUniform((EPulseShaderPropertyType)p.type)) {
-                    validation_error = "shader create loader: property on ubo but not uniform";
-                    break;
-                }
-                if (p.offset > res.size || p.size > res.size - p.offset) {
-                    validation_error = "shader create loader: property range out of UBO bounds";
-                    break;
-                }
-                if (p.offset < prev_end) {
-                    validation_error = "shader create loader: overlapping property ranges";
-                    break;
-                }
-                prev_end = p.offset + p.size;
-                ++j;
-            }
-            prop_idx = j;
+        if (root_sig->p_tables[t].set_index >= PULSE_SHADER_SET_COUNT) {
+            validation_error = "shader create loader: root signature set index out of range";
         }
+    }
+
+    uint32_t prev_set = UINT32_MAX;
+    uint32_t prev_binding = UINT32_MAX;
+    uint32_t prev_end = 0;
+    for (uint32_t i = 0; i < desc->property_count && !validation_error; ++i) {
+        const auto& p = sorted_props[i];
+        if (p.set >= PULSE_SHADER_SET_COUNT) {
+            validation_error = "shader create loader: property set index out of range";
+            break;
+        }
+
+        const CGPUShaderResource* res = find_shader_resource(root_sig, p.set, p.binding);
+        if (!res) {
+            validation_error = "shader create loader: property binding not found in root signature";
+            break;
+        }
+        if (!property_type_matches_resource((EPulseShaderPropertyType)p.type, res->type)) {
+            validation_error = "shader create loader: property type does not match root signature resource";
+            break;
+        }
+
+        if (p.set != prev_set || p.binding != prev_binding) {
+            prev_set = p.set;
+            prev_binding = p.binding;
+            prev_end = 0;
+        }
+        if (!ShaderPropertyIsUniform((EPulseShaderPropertyType)p.type)) continue;
+
+        if (p.offset > res->size || p.size > res->size - p.offset) {
+            validation_error = "shader create loader: property range out of UBO bounds";
+            break;
+        }
+        if (p.offset < prev_end) {
+            validation_error = "shader create loader: overlapping property ranges";
+            break;
+        }
+        prev_end = p.offset + p.size;
     }
 
     if (out_validation_error)
@@ -148,10 +173,8 @@ static bool validate_shader_properties_declare(const ShaderCreateSettings* desc,
     }
 }
 
-static void fill_property_data(PulseAppId app, PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty* sorted_props)
+static void fill_property_data(PulseShaderData* data, const ShaderCreateSettings* desc, CGPURootSignatureId root_sig, PulseShaderProperty* sorted_props)
 {
-    pulse_graphics_state* st = state_from_app(app);
-
     if (sorted_props != nullptr) {
         data->property_count = desc->property_count;
         data->p_properties = sorted_props;
@@ -181,7 +204,6 @@ static void fill_property_data(PulseAppId app, PulseShaderData* data, const Shad
         data->p_ubo_infos = ubo_count > 0 ? new PulseUboInfo[ubo_count] : nullptr;
 
         uint32_t ubo_idx = 0;
-        uint32_t prop_idx = 0;
         for (uint32_t t = 0; t < root_sig->table_count; ++t) {
             uint32_t set = root_sig->p_tables[t].set_index;
             for (uint32_t r = 0; r < root_sig->p_tables[t].resources_count; ++r) {
@@ -189,100 +211,24 @@ static void fill_property_data(PulseAppId app, PulseShaderData* data, const Shad
                 if (res.type != CGPU_RESOURCE_TYPE_UNIFORM_BUFFER && res.type != CGPU_RESOURCE_TYPE_RW_BUFFER)
                     continue;
 
-                while (prop_idx < data->property_count &&
-                    (data->p_properties[prop_idx].set < set ||
-                        (data->p_properties[prop_idx].set == set && data->p_properties[prop_idx].binding < res.binding))) {
-                    ++prop_idx;
-                }
-
                 PulseUboInfo& entry = data->p_ubo_infos[ubo_idx];
                 entry = {};
                 entry.set = set;
                 entry.binding = res.binding;
                 entry.size = res.size;
-                entry.material_managed = false;
-                entry.renderer_managed = false;
-                entry.layout_hash = 0;
 
-                uint32_t j = prop_idx;
-                while (j < data->property_count &&
-                    data->p_properties[j].set == set &&
-                    data->p_properties[j].binding == res.binding) {
-                    const auto& p = data->p_properties[j];
-                    if (p.role == PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL)
-                    {
-                        entry.renderer_managed = true;
-                        for (size_t i = 0; i < st->per_draw_shader_properties.size(); ++i) {
-                            if (strcmp(p.name, st->per_draw_shader_properties[i].c_str()) == 0) {
-                                entry.per_draw = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (p.role == PULSE_SHADER_PROPERTY_ROLE_MATERIAL)
-                        entry.material_managed = true;
+                for (uint32_t i = 0; i < data->property_count; ++i) {
+                    const auto& p = data->p_properties[i];
+                    if (p.set != set || p.binding != res.binding) continue;
 
                     HGEGraphics::hash_combine(entry.layout_hash, (const char*)p.name);
                     HGEGraphics::hash_combine(entry.layout_hash, (int)p.type);
-                    HGEGraphics::hash_combine(entry.layout_hash, (int)p.role);
                     HGEGraphics::hash_combine(entry.layout_hash, p.set);
                     HGEGraphics::hash_combine(entry.layout_hash, p.binding);
                     HGEGraphics::hash_combine(entry.layout_hash, p.offset);
                     HGEGraphics::hash_combine(entry.layout_hash, p.size);
-                    ++j;
                 }
-                prop_idx = j;
                 ++ubo_idx;
-            }
-        }
-    }
-
-    {
-        uint32_t table_count = root_sig->table_count;
-        data->set_info_count = table_count;
-        data->p_set_infos = new pulse_shader_set_info_t[table_count];
-        for (uint32_t t = 0; t < table_count; ++t) {
-            uint32_t set_idx = root_sig->p_tables[t].set_index;
-            data->p_set_infos[t].set_index = set_idx;
-            data->p_set_infos[t].renderer_managed = false;
-            uint64_t set_hash = 0;
-
-            for (uint32_t j = 0; j < root_sig->p_tables[t].resources_count; ++j) {
-                auto& res = root_sig->p_tables[t].p_resources[j];
-                if (res.type == CGPU_RESOURCE_TYPE_UNIFORM_BUFFER || res.type == CGPU_RESOURCE_TYPE_RW_BUFFER) {
-                    for (uint32_t u = 0; u < data->ubo_info_count; ++u) {
-                        if (data->p_ubo_infos[u].set == set_idx && data->p_ubo_infos[u].binding == res.binding) {
-                            if (data->p_ubo_infos[u].renderer_managed)
-                                data->p_set_infos[t].renderer_managed = true;
-                            HGEGraphics::hash_combine(set_hash, data->p_ubo_infos[u].layout_hash);
-                            break;
-                        }
-                    }
-                }
-                else {
-                    HGEGraphics::hash_combine(set_hash, res.name_hash);
-                    HGEGraphics::hash_combine(set_hash, (int)res.type);
-                    HGEGraphics::hash_combine(set_hash, res.set);
-                    HGEGraphics::hash_combine(set_hash, res.binding);
-                    HGEGraphics::hash_combine(set_hash, (int)res.dim);
-                }
-            }
-            data->p_set_infos[t].layout_hash = set_hash;
-        }
-    }
-
-    for (uint32_t i = 0; i < data->property_count; ++i)
-    {
-        const auto& prop = data->p_properties[i];
-        if (prop.role == PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL) {
-            for (uint32_t j = 0; j < data->set_info_count; ++j)
-            {
-                auto& set_info = data->p_set_infos[j];
-                if (set_info.set_index == prop.set)
-                {
-                    set_info.renderer_managed = true;
-                    break;
-                }
             }
         }
     }
@@ -363,7 +309,7 @@ EPulseAssetLoaderStatus build_shader_pipeline(const PulseAssetLoadTask* ctx, con
     data->depth_desc = desc->depth_desc;
     data->rasterizer_state = desc->rasterizer_state;
 
-    fill_property_data(ctx->app, data, desc, root_sig, sorted_props);
+    fill_property_data(data, desc, root_sig, sorted_props);
 
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }

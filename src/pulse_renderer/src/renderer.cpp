@@ -179,13 +179,38 @@ struct ViewPassData {
     const pulse_renderer_state* state;
 };
 
-void draw_item_default(PulseAppId app, PulseRenderPassEncoder* encoder, const RendererView& view, const DrawItem& item) {
-    for (size_t i = item.ubo_start; i < item.ubo_end; ++i) {
-        const auto& col = view.ubo_columns[i];
-        const auto& block = view.blocks[col.block_ref.index];
-        pulse_render_pass_encoder_set_global_buffer_offset(encoder, block.gpu_handle, (uint32_t)col.set, col.binding, col.block_ref.offset, col.block_ref.size);
+static void prepare_item_globals(pulse_renderer_state& state, RendererView& view, RendererList& list, DrawItem& item, const HMM_Mat4& vp) {
+    if (item.shader.index == 0) return;
+
+    for (const auto& cached : list.global_columns) {
+        if (cached.shader.index == item.shader.index && cached.shader.generation == item.shader.generation) {
+            item.global_column_start = cached.first_column;
+            item.global_column_count = cached.column_count;
+            return;
+        }
     }
-    pulse_render_pass_encoder_draw(encoder, item.material, item.mesh);
+
+    RendererGlobalColumns entry = {};
+    entry.shader = item.shader;
+    entry.first_column = (uint32_t)view.ubo_columns.size();
+    for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(state.app, item.shader); ++u) {
+        const auto& info = pulse_shader_get_ubo_info(state.app, item.shader, u);
+        if (info.set != PULSE_SHADER_SET_GLOBAL) continue;
+
+        RendererUboColumn col = {};
+        col.set = info.set;
+        col.binding = info.binding;
+        col.block_ref = alloc_ubo_block(state, view, info.size);
+        if (info.binding == 0 && info.size >= sizeof(HMM_Mat4)) {
+            memcpy(col.block_ref.ptr, &vp, sizeof(HMM_Mat4));
+        }
+        view.ubo_columns.push_back(col);
+    }
+    entry.column_count = (uint32_t)view.ubo_columns.size() - entry.first_column;
+
+    item.global_column_start = entry.first_column;
+    item.global_column_count = entry.column_count;
+    list.global_columns.push_back(entry);
 }
 
 static void render_view_executable(PulseRenderPassEncoder* encoder, void* userdata) {
@@ -201,12 +226,8 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
                 continue;
 
             const RenderFeature& feature = pass_data->state->features[item.feature_id];
-            if (feature.draw) {
-                FeatureDrawContext ctx{ pass_data->state, &view, &list, &item };
-                feature.draw(app, encoder, ctx, feature.userdata);
-            } else {
-                draw_item_default(app, encoder, view, item);
-            }
+            FeatureDrawContext ctx{ pass_data->state, &view, &list, &item };
+            feature.draw(app, encoder, ctx, feature.userdata);
         }
     }
 }
@@ -235,6 +256,12 @@ static void record_renderer_callback(
         view.ubo_columns.clear();
 
         HMM_Mat4 vp = HMM_Mul(view.proj_matrix, view.view_matrix);
+
+        for (auto& list : view.lists) {
+            for (auto& item : list.items) {
+                prepare_item_globals(*state, view, list, item, vp);
+            }
+        }
 
         for (uint32_t list_id = 0; list_id < (uint32_t)view.lists.size(); ++list_id) {
             for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
@@ -418,11 +445,6 @@ EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
     // Install ECS systems
     install_renderer_systems(world, state);
 
-    const char *per_draw_shader_properties[] = {
-        "wMatrix",
-    };
-    pulse_set_per_draw_shader_properties(app, per_draw_shader_properties, sizeof(per_draw_shader_properties) / sizeof(const char*));
-
     return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
@@ -515,10 +537,6 @@ EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app) {
         return PULSE_APP_ADD_PLUGIN_RESULT_ERROR_INTERNAL;
     }
 
-    // Set default property name mappings
-    state->property_names[PULSE_RENDERER_PROPERTY_TYPE_VP_MATRIX] = "vpMatrix";
-    state->property_names[PULSE_RENDERER_PROPERTY_TYPE_MODEL_MATRIX] = "wMatrix";
-
     const char* renderer_dependencies[] = {
         "pulse_window",
         "pulse_graphics",
@@ -542,20 +560,6 @@ EPulseAppAddPluginResult pulse_add_renderer_plugin(PulseAppId app) {
         delete state;
     }
     return result;
-}
-
-void pulse_set_shader_property_name_mapper(PulseAppId app, EPulseRendererPropertyType type, const char* name)
-{
-    if (!app || !name) return;
-    ecs_world_t* world = pulse_app_world(app);
-    if (!world) return;
-
-    auto* state = pulse_renderer_internal::state_from_app(app);
-    if (!state) return;
-
-    if ((int)type >= 0 && (int)type < PULSE_RENDERER_PROPERTY_TYPE_COUNT) {
-        state->property_names[(int)type] = name;
-    }
 }
 
 } // extern "C"

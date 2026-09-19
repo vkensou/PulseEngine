@@ -72,6 +72,15 @@ const_value.TypeComputeShader { value = "UINT64_C(0x1005)" }
 const_value.TypeMesh { value = "UINT64_C(0x1006)" }
 const_value.TypeMaterial { value = "UINT64_C(0x1007)" }
 const_value.RenderGraphMaxIndex { value = "(UINT32_MAX - 2)" }
+--- Shader set convention, expressed by set index alone.
+--- set 0: per renderer list globals, owned by the renderer (binding 0 offset 0 is the VP matrix).
+--- set 1: material owned, filled and bound through the material asset (name-driven property setters).
+--- set 2: per feature, owned by the feature that submits the draw (it allocates, fills and binds).
+--- set 3 is unassigned; PULSE_SHADER_SET_COUNT is the encoder capacity.
+const_value.ShaderSetGlobal { value = "0u" }
+const_value.ShaderSetMaterial { value = "1u" }
+const_value.ShaderSetFeature { value = "2u" }
+const_value.ShaderSetCount { value = "4u" }
 
 --- Rendergraph resource handle types
 
@@ -198,7 +207,6 @@ struct.SamplerRequest
 struct.ShaderProperty
     .name       "cstring"
     .type       "ShaderPropertyType::Enum"
-    .role       "ShaderPropertyRole::Enum"
     .set        "uint32_t"
     .binding    "uint32_t"
     .offset     "uint32_t"
@@ -209,9 +217,6 @@ struct.UboInfo
     .set                "uint32_t"
     .binding            "uint32_t"
     .size               "uint32_t"
-	.materialManaged    "bool"
-	.rendererManaged    "bool"
-    .perDraw            "bool"
 
 --- Function pointer: render record callback
 funcptr.RenderRecordCallback
@@ -232,7 +237,6 @@ struct.GraphicsPluginDesc
     .enableVsync            "bool"
     .recordCallback         "RenderRecordCallback"
     .recordUserData         "?*anyopaque"
-    .perDrawShaderProperties        "[]const cstring"
     ()
 
 --- Renderer state (opaque at C API level)
@@ -285,12 +289,6 @@ struct.ShaderLibraryCreateDesc
 --- Shader library load desc
 struct.ShaderLibraryLoadDesc
     .path "cstring"
-    ()
-
---- Shader property role
-enum.ShaderPropertyRole { underscore }
-    .Material
-    .NonMaterial
     ()
 
 --- Shader property type
@@ -394,13 +392,6 @@ func.AddGraphicsPlugin
 func.GetRenderer
     "?*const Renderer"
     .app "PulseAppId"
-    ()
-
---- Do not affect loaded shaders
-func.SetPerDrawShaderProperties
-    "void"
-    .app "PulseAppId"
-    .perDrawShaderProperties       "[]const cstring"
     ()
 
 func.GetSurface
@@ -730,13 +721,6 @@ func.MaterialSetPropertySampler
     .self    "MaterialHandle"
     .name    "cstring"
     .sampler "SamplerHandle"
-    ()
-
-func.MaterialGetUboColumn
-    "?*const uint8_t"
-    .app     "PulseAppId"
-    .self    "MaterialHandle"
-    .index   "uint32_t"
     ()
 
 func.ShaderGetShaderPropertyCount

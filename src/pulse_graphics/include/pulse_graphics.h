@@ -59,19 +59,22 @@ typedef struct pulse_backbuffer_data_t pulse_backbuffer_data_t;
 
 #define PULSE_RENDER_GRAPH_MAX_INDEX (UINT32_MAX - 2)
 
-
 /**
- * Shader property role
+ * Shader set convention, expressed by set index alone.
+ * set 0: per renderer list globals, owned by the renderer (binding 0 offset 0 is the VP matrix).
+ * set 1: material owned, filled and bound through the material asset (name-driven property setters).
+ * set 2: per feature, owned by the feature that submits the draw (it allocates, fills and binds).
+ * set 3 is unassigned; PULSE_SHADER_SET_COUNT is the encoder capacity.
  *
  */
-typedef enum EPulseShaderPropertyRole
-{
-    PULSE_SHADER_PROPERTY_ROLE_MATERIAL,      /** ( 0)                                */
-    PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,  /** ( 1)                                */
+#define PULSE_SHADER_SET_GLOBAL 0u
 
-    PULSE_SHADER_PROPERTY_ROLE_COUNT
+#define PULSE_SHADER_SET_MATERIAL 1u
 
-} EPulseShaderPropertyRole;
+#define PULSE_SHADER_SET_FEATURE 2u
+
+#define PULSE_SHADER_SET_COUNT 4u
+
 
 /**
  * Shader property type
@@ -288,7 +291,6 @@ typedef struct PulseShaderProperty
 {
     const char*          name;
     EPulseShaderPropertyType type;
-    EPulseShaderPropertyRole role;
     uint32_t             set;
     uint32_t             binding;
     uint32_t             offset;
@@ -302,9 +304,6 @@ typedef struct PulseUboInfo
     uint32_t             set;
     uint32_t             binding;
     uint32_t             size;
-    bool                 material_managed;
-    bool                 renderer_managed;
-    bool                 per_draw;
 
 } PulseUboInfo;
 
@@ -325,7 +324,6 @@ typedef struct PulseGraphicsPluginDesc
     PulseProcRenderRecordCallback record_callback;
     [[pulse::optional]]
     void*                record_user_data;
-    Pulse_Array(const char*, per_draw_shader_properties);
 
 } PulseGraphicsPluginDesc;
 
@@ -554,15 +552,6 @@ PULSE_GRAPHICS_API EPulseAppAddPluginResult pulse_add_graphics_plugin(PulseAppId
  *
  */
 [[pulse::optional]] PULSE_GRAPHICS_API const PulseRenderer* pulse_get_renderer(PulseAppId app);
-
-/**
- * Do not affect loaded shaders
- *
- * @param[in] app
- * @param[in] perDrawShaderProperties
- *
- */
-PULSE_GRAPHICS_API void pulse_set_per_draw_shader_properties(PulseAppId app, Pulse_Array_Param(const char*, per_draw_shader_properties));
 [[pulse::optional]] PULSE_GRAPHICS_API const PulseSurface* pulse_get_surface(PulseAppId app, ecs_entity_t entity);
 [[pulse::optional]] PULSE_GRAPHICS_API const PulseSwapchain* pulse_get_swapchain(PulseAppId app, ecs_entity_t entity);
 

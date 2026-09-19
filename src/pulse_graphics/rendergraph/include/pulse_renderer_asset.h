@@ -52,18 +52,10 @@ struct pulse_shader_property_t
 {
     const char* name;
     int type;
-    int role;
     uint32_t set;
     uint32_t binding;
     uint32_t offset;
     uint32_t size;
-};
-
-struct pulse_shader_set_info_t
-{
-    uint32_t set_index;
-    bool renderer_managed;
-    uint64_t layout_hash;
 };
 
 struct PulseShaderData
@@ -80,8 +72,6 @@ struct PulseShaderData
 	PulseShaderProperty* p_properties;
 	uint32_t ubo_info_count;
 	PulseUboInfo* p_ubo_infos;
-	uint32_t set_info_count;
-	pulse_shader_set_info_t* p_set_infos;
 };
 
 struct PulseComputeShaderData
@@ -139,7 +129,6 @@ struct pulse_material_ubo_column_t
 	uint8_t* cpu_data;
 	uint32_t size;
 	bool dirty;
-    bool material_only;
 	PulseGraphicsBufferData* gpu_buffer;
 };
 

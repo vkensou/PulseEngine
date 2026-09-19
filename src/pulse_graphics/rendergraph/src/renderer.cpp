@@ -98,13 +98,6 @@ namespace HGEGraphics
 		shader->p_ubo_infos = nullptr;
 		shader->ubo_info_count = 0;
 
-		if (shader->p_set_infos)
-		{
-			delete[] shader->p_set_infos;
-		}
-		shader->p_set_infos = nullptr;
-		shader->set_info_count = 0;
-
 		if (shader->root_sig)
 			cgpu_device_free_root_signature(shader->root_sig->device, shader->root_sig);
 		if (shader->vs.library)
@@ -463,16 +456,15 @@ namespace HGEGraphics
 		if (shader.ptr) {
 			for (uint32_t i = 0; i < shader.ptr->ubo_info_count; ++i) {
 				auto& ubo_info = shader.ptr->p_ubo_infos[i];
+				if (ubo_info.set != PULSE_SHADER_SET_MATERIAL) continue;
+
 				pulse_material_ubo_column_t col = {};
 				col.set = ubo_info.set;
 				col.binding = ubo_info.binding;
 				col.size = ubo_info.size;
-				if (ubo_info.material_managed) {
-					col.cpu_data = (uint8_t*)calloc(1, ubo_info.size);
-				}
-				col.dirty = ubo_info.material_managed;
+				col.cpu_data = (uint8_t*)calloc(1, ubo_info.size);
+				col.dirty = true;
 				col.gpu_buffer = nullptr;
-				col.material_only = ubo_info.material_managed && !ubo_info.renderer_managed;
 				simple_vector_push_back<pulse_material_ubo_column_t>(
 					material->uboColumns.data,
 					material->uboColumns.size,
@@ -480,17 +472,17 @@ namespace HGEGraphics
 					col);
 			}
 
-			for (uint32_t i = 0; i < shader.ptr->set_info_count; ++i) {
-				auto& set_info = shader.ptr->p_set_infos[i];
-				if (set_info.renderer_managed) continue;
+			for (uint32_t i = 0; i < shader.ptr->root_sig->table_count; ++i) {
+				auto& table = shader.ptr->root_sig->p_tables[i];
+				if (table.set_index != PULSE_SHADER_SET_MATERIAL) continue;
 
 				CGPUDescriptorSetDescriptor dset_desc = {};
 				dset_desc.root_signature = shader.ptr->root_sig;
-				dset_desc.set_index = set_info.set_index;
+				dset_desc.set_index = table.set_index;
 				auto dset_handle = cgpu_device_create_descriptor_set(device, &dset_desc);
 				if (dset_handle) {
 					pulse_material_descriptor_set_t mdset = {};
-					mdset.set_index = set_info.set_index;
+					mdset.set_index = table.set_index;
 					mdset.handle = dset_handle;
 					mdset.binding_dirty = true;
 					simple_vector_push_back<pulse_material_descriptor_set_t>(
@@ -613,7 +605,7 @@ namespace HGEGraphics
 		for (int i = 0; i < material->uboColumns.size; ++i)
 		{
 			auto& col = material->uboColumns.data[i];
-			if (!col.dirty || !col.material_only) continue;
+			if (!col.dirty) continue;
 			if (!col.gpu_buffer)
 			{
 				auto desc = CGPUBufferDescriptor{
@@ -843,19 +835,13 @@ namespace HGEGraphics
 
 	void update_descriptor_set(RenderPassEncoder* encoder, CGPURootSignatureId root_sig, bool is_graphics)
 	{
-		PulseShaderData* shader = encoder->last_shader;
-		for (uint32_t i = 0; i < std::min(4u, root_sig->table_count); ++i)
+		for (uint32_t i = 0; i < std::min((uint32_t)PULSE_SHADER_SET_COUNT, root_sig->table_count); ++i)
 		{
 			const auto& table = root_sig->p_tables[i];
 			const uint32_t set_idx = table.set_index;
 
-			if (shader)
-			{
-				const auto& set_info = shader->p_set_infos[i];
-				assert(set_info.set_index == set_idx);
-				if (!set_info.renderer_managed)
-					continue;
-			}
+			if (set_idx == PULSE_SHADER_SET_MATERIAL)
+				continue;
 
 			ResourceSet& rs = encoder->resource_sets[set_idx];
 			rs.set_index = set_idx;
@@ -973,7 +959,7 @@ namespace HGEGraphics
 
 	static void clear_material_slots(RenderPassEncoder* encoder)
 	{
-		for (uint32_t s = 0; s < 4; ++s)
+		for (uint32_t s = 0; s < PULSE_SHADER_SET_COUNT; ++s)
 		{
 			auto& rs = encoder->resource_sets[s];
 			for (uint32_t b = 0; b < 64; ++b)
@@ -989,7 +975,7 @@ namespace HGEGraphics
 		for (int i = 0; i < material->textures.size; ++i)
 		{
 			auto& bind = material->textures.data[i];
-			if (bind.set < 0 || bind.set >= 4 || bind.bind < 0 || bind.bind >= 64) continue;
+			if (bind.set < 0 || bind.set >= (int)PULSE_SHADER_SET_COUNT || bind.bind < 0 || bind.bind >= 64) continue;
 			auto& rslot = encoder->resource_sets[bind.set].slots[bind.bind];
 			rslot.kind = ResourceSlot::Kind::Texture;
 			rslot.value = (bind.texture && bind.texture->view) ? (uintptr_t)bind.texture->view : 0;
@@ -1000,7 +986,7 @@ namespace HGEGraphics
 		for (int i = 0; i < material->samplers.size; ++i)
 		{
 			auto& bind = material->samplers.data[i];
-			if (bind.set < 0 || bind.set >= 4 || bind.bind < 0 || bind.bind >= 64) continue;
+			if (bind.set < 0 || bind.set >= (int)PULSE_SHADER_SET_COUNT || bind.bind < 0 || bind.bind >= 64) continue;
 			auto& rslot = encoder->resource_sets[bind.set].slots[bind.bind];
 			rslot.kind = ResourceSlot::Kind::Sampler;
 			rslot.value = (uintptr_t)bind.sampler;
@@ -1011,7 +997,7 @@ namespace HGEGraphics
 		for (int i = 0; i < material->buffers.size; ++i)
 		{
 			auto& bind = material->buffers.data[i];
-			if (bind.set < 0 || bind.set >= 4 || bind.bind < 0 || bind.bind >= 64) continue;
+			if (bind.set < 0 || bind.set >= (int)PULSE_SHADER_SET_COUNT || bind.bind < 0 || bind.bind >= 64) continue;
 			auto& rslot = encoder->resource_sets[bind.set].slots[bind.bind];
 			rslot.kind = ResourceSlot::Kind::Buffer;
 			rslot.value = bind.buffer ? (uintptr_t)bind.buffer->handle : 0;
@@ -1022,7 +1008,7 @@ namespace HGEGraphics
 		for (int i = 0; i < material->uboColumns.size; ++i)
 		{
 			auto& col = material->uboColumns.data[i];
-			if (col.set >= 4 || col.binding >= 64 || !col.gpu_buffer) continue;
+			if (col.set >= PULSE_SHADER_SET_COUNT || col.binding >= 64 || !col.gpu_buffer) continue;
 			auto& rslot = encoder->resource_sets[col.set].slots[col.binding];
 			rslot.kind = ResourceSlot::Kind::Buffer;
 			rslot.value = (uintptr_t)col.gpu_buffer->handle;
@@ -1253,7 +1239,7 @@ namespace HGEGraphics
 
 	static inline bool set_global_slot_bounds(RenderPassEncoder* encoder, int set, int slot, ResourceSlot*& out_slot)
 	{
-		if (set < 0 || set >= 4 || slot < 0 || slot >= 64)
+		if (set < 0 || set >= (int)PULSE_SHADER_SET_COUNT || slot < 0 || slot >= 64)
 			return false;
 		auto out_rs = &encoder->resource_sets[set];
 		out_slot = &out_rs->slots[slot];
