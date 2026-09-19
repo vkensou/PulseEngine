@@ -28,10 +28,10 @@ const_value.RendererPluginDescVersion { value = "1u" }
 --- ECS Components
 component.Camera
     .windowEntity "ecs_entity_t"
-    .fov          "float" { min = 0.0, max = 180.0 }
-    .nearPlane    "float"
-    .farPlane     "float"
-    .orthographicSize   "float" { min = 0.0, max = 10000.0 }
+    .fov          "float" { min = 0.001, max = 179.0 }
+    .nearPlane    "float" { min = 0.001, max = 10 }
+    .farPlane     "float" { min = 0.01, max = 4000 }
+    .orthographicSize   "float" { min = 0.001, max = 100 }
     .orthographic "bool"
     ()
 

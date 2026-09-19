@@ -26,26 +26,69 @@ enum EPulseSortFlag : uint32_t {
 
 constexpr uint32_t kDefaultListSortFlags = PULSE_SORT_SHADER | PULSE_SORT_MATERIAL | PULSE_SORT_MESH | PULSE_SORT_SUBMISSION_ORDER;
 
-constexpr uint32_t kDrawItemMaxTextures = 4;
+// ============================================================
+// Extraction snapshot (swapped, immutable afterwards)
+// ============================================================
 
-struct DrawItem {
+struct StagingItem {
     ecs_entity_t entity;
     PulseMeshHandle mesh;
     PulseMaterialHandle material;
     PulseShaderHandle shader;
     HMM_Mat4 world_matrix;
+    uint32_t data_slot;
+};
+
+struct FeatureStaging {
+    std::pmr::vector<StagingItem> items;
+    std::pmr::vector<std::byte> data_arena;
+
+    explicit FeatureStaging(std::pmr::memory_resource* r) : items(r), data_arena(r) {
+        items.reserve(256);
+        data_arena.reserve(64 * 1024);
+    }
+};
+
+struct CameraSnapshot {
+    ecs_entity_t camera_entity;
+    ecs_entity_t window_entity;
+    HMM_Mat4 view_matrix;
+    HMM_Mat4 proj_matrix;
+    float fov;
+    float near_plane;
+    float far_plane;
+    float orthographic_size;
+    int width;
+    int height;
+};
+
+struct FrameRenderPacket {
+    std::pmr::unsynchronized_pool_resource pool;
+    std::pmr::vector<CameraSnapshot> cameras;
+    std::pmr::vector<FeatureStaging> staging;
+
+    explicit FrameRenderPacket(std::pmr::memory_resource* upstream = std::pmr::new_delete_resource())
+        : pool(upstream), cameras(&pool), staging(&pool) {}
+
+    void grow_staging(std::pmr::memory_resource* resource, uint32_t feature_count) {
+        while (staging.size() < feature_count) staging.emplace_back(resource);
+    }
+};
+
+// ============================================================
+// Derived frame data (built once per frame, read by record/execute)
+// ============================================================
+
+struct DrawItem {
+    uint32_t staging_index{0};
+    uint32_t data_slot{0};
+    float view_depth{0.0f};
+    uint32_t submission_index{0};
     uint32_t global_column_start{0};
     uint32_t global_column_count{0};
     uint32_t feature_column_start{0};
     uint32_t feature_column_count{0};
-    float view_depth{0.0f};
-    uint32_t submission_index{0};
     uint16_t feature_id{0};
-    uint32_t feature_slot{0};
-    uint32_t instance_first{0};
-    uint32_t instance_count{0};
-    PulseTextureHandle textures[kDrawItemMaxTextures];
-    uint32_t texture_count{0};
 };
 
 struct RendererListDesc {
@@ -62,69 +105,13 @@ struct RendererGlobalColumns {
 struct RendererList {
     RendererListDesc desc{};
     std::pmr::vector<DrawItem> items;
-    std::pmr::vector<std::pmr::vector<std::byte>> feature_data;
     std::pmr::vector<RendererGlobalColumns> global_columns;
-    std::pmr::memory_resource* resource{nullptr};
 
-    explicit RendererList(std::pmr::memory_resource* r) : items(r), feature_data(r), global_columns(r), resource(r) {}
-
-    void init_feature_data(uint32_t count) {
-        feature_data.clear();
-        std::pmr::polymorphic_allocator<std::byte> alloc(resource);
-        for (uint32_t i = 0; i < count; ++i) feature_data.emplace_back(std::pmr::vector<std::byte>(alloc));
-    }
+    explicit RendererList(std::pmr::memory_resource* r) : items(r), global_columns(r) {}
 };
-
-// ============================================================
-// Render features
-// ============================================================
 
 struct pulse_renderer_state;
-struct RendererView;
-
-struct FeatureExtractContext {
-    pulse_renderer_state* state;
-    uint32_t view_index;
-    uint32_t list_id;
-    uint32_t feature_id;
-    void submit(const DrawItem& item);
-    void submit(const DrawItem& item, const void* data);
-};
-
-struct FeaturePrepareContext {
-    pulse_renderer_state* state;
-    PulseAppId app;
-    PulseRenderGraphId graph;
-    uint32_t view_index;
-    uint32_t list_id;
-    uint32_t feature_id;
-    HMM_Mat4 vp;
-    RendererView& view();
-    RendererList& list();
-    std::pmr::vector<DrawItem>& items();
-    void* slot_data(uint32_t slot);
-};
-
-struct FeatureDrawContext {
-    const pulse_renderer_state* state;
-    const RendererView* view;
-    const RendererList* list;
-    const DrawItem* item;
-    const void* slot_data(uint32_t slot) const;
-};
-
-using FeatureExtractFn = void (*)(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx, void* userdata);
-using FeaturePrepareFn = void (*)(FeaturePrepareContext& ctx, void* userdata);
-using FeatureDrawFn = void (*)(PulseAppId app, PulseRenderPassEncoder* encoder, FeatureDrawContext& ctx, void* userdata);
-
-struct RenderFeature {
-    const char* name;
-    FeatureExtractFn extract;
-    FeaturePrepareFn prepare;
-    FeatureDrawFn draw;
-    uint32_t data_size;
-    void* userdata;
-};
+struct FrameRenderPacket;
 
 // ============================================================
 // Dynamic UBO column (renderer-managed, per (set,binding))
@@ -140,7 +127,7 @@ struct CachedUboBlock {
 class UboBlockCache {
 public:
     static constexpr uint32_t kMinBlockSize = 1 * 1024 * 1024;
-    static constexpr uint32_t kMaxIdleFrames = 60 * 5; // ~5 seconds at 60 FPS
+    static constexpr uint32_t kMaxIdleFrames = 60 * 5;
 
     UboBlockCache() = default;
     ~UboBlockCache() { reset(); }
@@ -148,15 +135,9 @@ public:
     UboBlockCache(const UboBlockCache&) = delete;
     UboBlockCache& operator=(const UboBlockCache&) = delete;
 
-    // Acquire a free cached buffer with at least `size` bytes.
     uint8_t* acquire(uint32_t size, uint32_t frame_index, uint32_t& out_block_size);
-
-    // Called after all per-view GpuBlocks for this frame were destroyed.
     void frame_end();
-
-    // Free blocks that have not been used for kMaxIdleFrames.
     void release_idle(uint32_t current_frame);
-
     void reset();
 
 private:
@@ -167,7 +148,7 @@ struct GpuBlock {
     uint32_t size{0};
     uint32_t used{0};
     uint8_t* cpu_data{nullptr};
-    PulseRGBufferHandle gpu_handle{}; // rendergraph handle (valid only after block finalize)
+    PulseRGBufferHandle gpu_handle{};
 };
 
 struct GpuBlockRef {
@@ -183,52 +164,96 @@ struct RendererUboColumn {
     GpuBlockRef block_ref;
 };
 
-GpuBlockRef alloc_ubo_block(pulse_renderer_state& state, RendererView& view, uint32_t size);
-
-uint32_t alloc_feature_ubo_column(FeaturePrepareContext& ctx, DrawItem& item, uint32_t set, uint32_t binding, uint32_t size);
-
-void bind_item_ubo_columns(PulseRenderPassEncoder* encoder, const RendererView& view, const DrawItem& item);
-
-// ============================================================
-// Per-camera view data (built during extraction phase)
-// ============================================================
-struct RendererView {
-    ecs_entity_t camera_entity;
-    ecs_entity_t window_entity;
-    HMM_Mat4 view_matrix;
-    HMM_Mat4 proj_matrix;
-    float fov;
-    float near_plane;
-    float far_plane;
-    float orthographic_size;
-    int width;
-    int height;
+struct ViewFrameData {
     std::pmr::vector<RendererList> lists;
     std::pmr::vector<RendererUboColumn> ubo_columns;
     std::pmr::vector<GpuBlock> blocks;
 
-    explicit RendererView(std::pmr::memory_resource* resource)
-        : camera_entity(0), window_entity(0),
-          view_matrix{}, proj_matrix{},
-          fov(0), near_plane(0), far_plane(0), width(0), height(0),
-          lists(resource), ubo_columns(resource), blocks(resource) {}
+    explicit ViewFrameData(std::pmr::memory_resource* r) : lists(r), ubo_columns(r), blocks(r) {}
 };
 
-// ============================================================
-// Double-buffered frame packet
-// ============================================================
-struct FrameRenderPacket {
+struct FrameViewData {
     std::pmr::unsynchronized_pool_resource pool;
-    UboBlockCache ubo_cache;
-    std::pmr::vector<RendererView> views;
+    const FrameRenderPacket* snapshot{nullptr};
+    std::pmr::vector<ViewFrameData> views;
 
-    explicit FrameRenderPacket(std::pmr::memory_resource* upstream = std::pmr::new_delete_resource())
-        : pool(upstream), views(&pool) {}
+    FrameViewData() : pool(std::pmr::new_delete_resource()), views(&pool) {}
+
+    void reset(const FrameRenderPacket* packet) {
+        views.clear();
+        snapshot = packet;
+    }
 };
+
+// ============================================================
+// Render features
+// ============================================================
+
+struct FeatureExtractContext {
+    pulse_renderer_state* state;
+    uint32_t feature_id;
+    void submit(const StagingItem& item);
+    void submit(const StagingItem& item, const void* data);
+};
+
+struct FeatureCullContext {
+    pulse_renderer_state* state;
+    const FrameRenderPacket* snapshot;
+    const CameraSnapshot* camera;
+    uint32_t view_index;
+    uint32_t feature_id;
+    const void* item_data(uint32_t data_slot) const;
+};
+
+struct FeaturePrepareContext {
+    pulse_renderer_state* state;
+    ViewFrameData& view;
+    const FrameRenderPacket* snapshot;
+    const CameraSnapshot* camera;
+    uint32_t view_index;
+    uint32_t list_id;
+    uint32_t feature_id;
+    HMM_Mat4 vp;
+    RendererList& list();
+    std::pmr::vector<DrawItem>& items();
+    const StagingItem& staging(const DrawItem& item) const;
+    void* item_data(const DrawItem& item);
+};
+
+struct FeatureDrawContext {
+    const pulse_renderer_state* state;
+    const FrameRenderPacket* snapshot;
+    const ViewFrameData* view;
+    const CameraSnapshot* camera;
+    const RendererList* list;
+    const DrawItem* item;
+    const StagingItem& staging() const;
+    const void* item_data() const;
+};
+
+using FeatureExtractFn = void (*)(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx, void* userdata);
+using FeatureCullFn = int32_t (*)(FeatureCullContext& ctx, const StagingItem& item, void* userdata);
+using FeaturePrepareFn = void (*)(FeaturePrepareContext& ctx, void* userdata);
+using FeatureDrawFn = void (*)(PulseAppId app, PulseRenderPassEncoder* encoder, FeatureDrawContext& ctx, void* userdata);
+
+struct RenderFeature {
+    const char* name;
+    FeatureExtractFn extract;
+    FeatureCullFn cull;
+    FeaturePrepareFn prepare;
+    FeatureDrawFn draw;
+    uint32_t data_size;
+    void* userdata;
+};
+
+GpuBlockRef alloc_ubo_block(pulse_renderer_state& state, ViewFrameData& view, uint32_t size);
+uint32_t alloc_feature_ubo_column(FeaturePrepareContext& ctx, DrawItem& item, uint32_t set, uint32_t binding, uint32_t size);
+void bind_item_ubo_columns(PulseRenderPassEncoder* encoder, const ViewFrameData& view, const DrawItem& item);
 
 // ============================================================
 // Plugin internal state
 // ============================================================
+
 struct pulse_renderer_state {
     PulseAppId app = nullptr;
     PulseAssetSystemId assetSystem = nullptr;
@@ -239,6 +264,9 @@ struct pulse_renderer_state {
 
     std::atomic<int> write_index{0};
     std::atomic<int> read_index{1};
+
+    FrameViewData view_data;
+    UboBlockCache ubo_cache;
 
     uint32_t frame_index{0};
 
@@ -252,18 +280,18 @@ struct pulse_renderer_state {
         return (uint32_t)list_registry.size() - 1;
     }
 
-    void register_feature(const char* name, FeatureExtractFn extract, FeaturePrepareFn prepare, FeatureDrawFn draw, uint32_t data_size, void* userdata) {
+    void register_feature(const char* name, FeatureExtractFn extract, FeatureCullFn cull, FeaturePrepareFn prepare, FeatureDrawFn draw, uint32_t data_size, void* userdata) {
         assert(draw != nullptr);
-        features.push_back({ name, extract, prepare, draw, data_size, userdata });
+        assert(features.size() < 0xffff);
+        features.push_back({ name, extract, cull, prepare, draw, data_size, userdata });
     }
 
-    // ECS system entities (ctx points at this state; deleted on shutdown)
+    ecs_entity_t begin_extract_system = 0;
     ecs_entity_t extract_cameras_system = 0;
     ecs_entity_t extract_features_system = 0;
-    ecs_entity_t sort_and_pack_system = 0;
     ecs_entity_t packets_swap_system = 0;
+    ecs_entity_t build_views_system = 0;
 
-    // Device UBO offset alignment, queried once at plugin init (see renderer_plugin_post_build)
     uint32_t ubo_alignment = 256;
 
     void swap_packets() {
@@ -274,53 +302,60 @@ struct pulse_renderer_state {
 
     FrameRenderPacket& write_packet() { return packets[write_index.load(std::memory_order_relaxed)]; }
     const FrameRenderPacket& read_packet() const { return packets[read_index.load(std::memory_order_acquire)]; }
-    FrameRenderPacket& read_packet_mutable() { return packets[read_index.load(std::memory_order_acquire)]; }
 };
 
-inline void FeatureExtractContext::submit(const DrawItem& item) {
+inline void FeatureExtractContext::submit(const StagingItem& item) {
     submit(item, nullptr);
 }
 
-inline void FeatureExtractContext::submit(const DrawItem& item, const void* data) {
-    RendererList& list = state->write_packet().views[view_index].lists[list_id];
+inline void FeatureExtractContext::submit(const StagingItem& item, const void* data) {
+    FeatureStaging& staging = state->write_packet().staging[feature_id];
     const size_t data_size = state->features[feature_id].data_size;
-    std::pmr::vector<std::byte>& arena = list.feature_data[feature_id];
-    DrawItem copy = item;
-    copy.submission_index = (uint32_t)list.items.size();
-    copy.feature_id = (uint16_t)feature_id;
-    copy.feature_slot = data_size ? (uint32_t)(arena.size() / data_size) : 0;
-    list.items.push_back(copy);
+    StagingItem copy = item;
+    copy.data_slot = data_size ? (uint32_t)(staging.data_arena.size() / data_size) : 0;
+    staging.items.push_back(copy);
     if (data_size && data) {
-        const size_t old_size = arena.size();
-        arena.resize(old_size + data_size);
-        memcpy(arena.data() + old_size, data, data_size);
+        const size_t old_size = staging.data_arena.size();
+        staging.data_arena.resize(old_size + data_size);
+        memcpy(staging.data_arena.data() + old_size, data, data_size);
     }
 }
 
-inline RendererView& FeaturePrepareContext::view() {
-    return state->read_packet_mutable().views[view_index];
+inline const void* FeatureCullContext::item_data(uint32_t data_slot) const {
+    const FeatureStaging& staging = snapshot->staging[feature_id];
+    const size_t size = state->features[feature_id].data_size;
+    if (size == 0 || (size_t)(data_slot + 1) * size > staging.data_arena.size()) return nullptr;
+    return staging.data_arena.data() + (size_t)data_slot * size;
 }
 
 inline RendererList& FeaturePrepareContext::list() {
-    return view().lists[list_id];
+    return view.lists[list_id];
 }
 
 inline std::pmr::vector<DrawItem>& FeaturePrepareContext::items() {
     return list().items;
 }
 
-inline void* FeaturePrepareContext::slot_data(uint32_t slot) {
-    std::pmr::vector<std::byte>& arena = list().feature_data[feature_id];
-    const size_t size = state->features[feature_id].data_size;
-    if (size == 0 || (size_t)(slot + 1) * size > arena.size()) return nullptr;
-    return arena.data() + (size_t)slot * size;
+inline const StagingItem& FeaturePrepareContext::staging(const DrawItem& item) const {
+    return snapshot->staging[item.feature_id].items[item.staging_index];
 }
 
-inline const void* FeatureDrawContext::slot_data(uint32_t slot) const {
-    const std::pmr::vector<std::byte>& arena = list->feature_data[item->feature_id];
+inline void* FeaturePrepareContext::item_data(const DrawItem& item) {
+    const FeatureStaging& staging_arena = snapshot->staging[item.feature_id];
+    const size_t size = state->features[item.feature_id].data_size;
+    if (size == 0 || (size_t)(item.data_slot + 1) * size > staging_arena.data_arena.size()) return nullptr;
+    return const_cast<std::byte*>(staging_arena.data_arena.data()) + (size_t)item.data_slot * size;
+}
+
+inline const StagingItem& FeatureDrawContext::staging() const {
+    return snapshot->staging[item->feature_id].items[item->staging_index];
+}
+
+inline const void* FeatureDrawContext::item_data() const {
+    const FeatureStaging& staging_arena = snapshot->staging[item->feature_id];
     const size_t size = state->features[item->feature_id].data_size;
-    if (size == 0 || (size_t)(slot + 1) * size > arena.size()) return nullptr;
-    return arena.data() + (size_t)slot * size;
+    if (size == 0 || (size_t)(item->data_slot + 1) * size > staging_arena.data_arena.size()) return nullptr;
+    return staging_arena.data_arena.data() + (size_t)item->data_slot * size;
 }
 
 // ============================================================
