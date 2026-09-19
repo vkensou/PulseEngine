@@ -45,14 +45,18 @@ static void renderable_feature_prepare(FeaturePrepareContext& ctx, void* userdat
         const StagingItem& staging = ctx.staging(item);
         if (staging.shader.index == 0) continue;
 
+        RendererPropertyValue model_value = {};
+        model_value.name = kPropertyNameModelMatrix;
+        model_value.type = PULSE_SHADER_PROPERTY_TYPE_MAT4;
+        model_value.size = sizeof(HMM_Mat4);
+        memcpy(model_value.value, &staging.world_matrix, sizeof(HMM_Mat4));
+
         for (uint32_t u = 0; u < pulse_shader_get_ubo_info_count(ctx.state->app, staging.shader); ++u) {
             const auto& info = pulse_shader_get_ubo_info(ctx.state->app, staging.shader, u);
             if (info.set != PULSE_SHADER_SET_FEATURE) continue;
 
             const uint32_t column = alloc_feature_ubo_column(ctx, item, info.set, info.binding, info.size);
-            if (info.binding == 0 && info.size >= sizeof(HMM_Mat4)) {
-                memcpy(ctx.view.ubo_columns[column].block_ref.ptr, &staging.world_matrix, sizeof(HMM_Mat4));
-            }
+            fill_ubo_block(ctx.state->app, staging.shader, info.set, info.binding, ctx.view.ubo_columns[column].block_ref, [&model_value](const char* name) { return strcmp(name, kPropertyNameModelMatrix) == 0 ? &model_value : nullptr; });
         }
     }
 }

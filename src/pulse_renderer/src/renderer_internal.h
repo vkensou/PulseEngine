@@ -26,6 +26,44 @@ enum EPulseSortFlag : uint32_t {
 
 constexpr uint32_t kDefaultListSortFlags = PULSE_SORT_SHADER | PULSE_SORT_MATERIAL | PULSE_SORT_MESH | PULSE_SORT_SUBMISSION_ORDER;
 
+constexpr const char* kPropertyNameVPMatrix = "vpMatrix";
+constexpr const char* kPropertyNameModelMatrix = "wMatrix";
+
+struct RendererPropertyValue {
+    const char* name;
+    EPulseShaderPropertyType type;
+    uint32_t size;
+    std::byte value[64];
+};
+
+struct RendererPropertyTable {
+    std::pmr::vector<RendererPropertyValue> entries;
+
+    explicit RendererPropertyTable(std::pmr::memory_resource* r) : entries(r) {}
+
+    void set_mat4(const char* name, const HMM_Mat4& v) {
+        RendererPropertyValue* entry = const_cast<RendererPropertyValue*>(find(name));
+        if (!entry) {
+            RendererPropertyValue new_entry = {};
+            new_entry.name = name;
+            new_entry.type = PULSE_SHADER_PROPERTY_TYPE_MAT4;
+            new_entry.size = sizeof(HMM_Mat4);
+            entries.push_back(new_entry);
+            entry = &entries.back();
+        }
+        entry->type = PULSE_SHADER_PROPERTY_TYPE_MAT4;
+        entry->size = sizeof(HMM_Mat4);
+        memcpy(entry->value, &v, sizeof(HMM_Mat4));
+    }
+
+    const RendererPropertyValue* find(const char* name) const {
+        for (const RendererPropertyValue& entry : entries) {
+            if (strcmp(entry.name, name) == 0) return &entry;
+        }
+        return nullptr;
+    }
+};
+
 // ============================================================
 // Extraction snapshot (swapped, immutable afterwards)
 // ============================================================
@@ -164,12 +202,24 @@ struct RendererUboColumn {
     GpuBlockRef block_ref;
 };
 
+template <typename ResolveFn>
+void fill_ubo_block(PulseAppId app, PulseShaderHandle shader, uint32_t set, uint32_t binding, const GpuBlockRef& block, ResolveFn resolve) {
+    for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
+        const PulseShaderProperty prop = pulse_shader_get_shader_property(app, shader, p);
+        if (!prop.name || prop.set != set || prop.binding != binding) continue;
+        const RendererPropertyValue* value = resolve(prop.name);
+        if (!value || value->type != prop.type || value->size != prop.size) continue;
+        memcpy(block.ptr + prop.offset, value->value, prop.size);
+    }
+}
+
 struct ViewFrameData {
     std::pmr::vector<RendererList> lists;
     std::pmr::vector<RendererUboColumn> ubo_columns;
     std::pmr::vector<GpuBlock> blocks;
+    RendererPropertyTable properties;
 
-    explicit ViewFrameData(std::pmr::memory_resource* r) : lists(r), ubo_columns(r), blocks(r) {}
+    explicit ViewFrameData(std::pmr::memory_resource* r) : lists(r), ubo_columns(r), blocks(r), properties(r) {}
 };
 
 struct FrameViewData {
@@ -213,7 +263,6 @@ struct FeaturePrepareContext {
     uint32_t view_index;
     uint32_t list_id;
     uint32_t feature_id;
-    HMM_Mat4 vp;
     RendererList& list();
     std::pmr::vector<DrawItem>& items();
     const StagingItem& staging(const DrawItem& item) const;

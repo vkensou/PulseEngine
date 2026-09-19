@@ -138,7 +138,7 @@ static bool compare_items(const FrameRenderPacket& snapshot, const DrawItem& a, 
     return a.submission_index < b.submission_index;
 }
 
-static void prepare_item_globals(pulse_renderer_state& state, ViewFrameData& view, RendererList& list, DrawItem& item, const FrameRenderPacket& snapshot, const HMM_Mat4& vp) {
+static void prepare_item_globals(pulse_renderer_state& state, ViewFrameData& view, RendererList& list, DrawItem& item, const FrameRenderPacket& snapshot) {
     const StagingItem& staging = snapshot.staging[item.feature_id].items[item.staging_index];
     if (staging.shader.index == 0) return;
 
@@ -161,9 +161,7 @@ static void prepare_item_globals(pulse_renderer_state& state, ViewFrameData& vie
         col.set = info.set;
         col.binding = info.binding;
         col.block_ref = alloc_ubo_block(state, view, info.size);
-        if (info.binding == 0 && info.size >= sizeof(HMM_Mat4)) {
-            memcpy(col.block_ref.ptr, &vp, sizeof(HMM_Mat4));
-        }
+        fill_ubo_block(state.app, staging.shader, info.set, info.binding, col.block_ref, [&view](const char* name) { return view.properties.find(name); });
         view.ubo_columns.push_back(col);
     }
     entry.column_count = (uint32_t)view.ubo_columns.size() - entry.first_column;
@@ -217,6 +215,7 @@ void build_views_system(ecs_iter_t* it) {
         }
 
         const HMM_Mat4 vp = HMM_Mul(camera.proj_matrix, camera.view_matrix);
+        view.properties.set_mat4(kPropertyNameVPMatrix, vp);
 
         for (RendererList& list : view.lists) {
             const uint32_t flags = list.desc.sort_flags;
@@ -234,7 +233,7 @@ void build_views_system(ecs_iter_t* it) {
                 item.global_column_count = 0;
                 item.feature_column_start = 0;
                 item.feature_column_count = 0;
-                prepare_item_globals(*state, view, list, item, *snapshot, vp);
+                prepare_item_globals(*state, view, list, item, *snapshot);
             }
         }
 
@@ -248,7 +247,7 @@ void build_views_system(ecs_iter_t* it) {
                 if (!features_in_list[feature_id]) continue;
                 const RenderFeature& feature = state->features[feature_id];
                 if (!feature.prepare) continue;
-                FeaturePrepareContext ctx{ state, view, snapshot, &camera, view_index, list_id, feature_id, vp };
+                FeaturePrepareContext ctx{ state, view, snapshot, &camera, view_index, list_id, feature_id };
                 feature.prepare(ctx, feature.userdata);
             }
         }
