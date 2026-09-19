@@ -35,8 +35,10 @@ enum.RendererPropertyType { underscore }
 component.Camera
     .windowEntity "ecs_entity_t"
     .fov          "float" { min = 0.0, max = 180.0 }
-    .nearPlane    "float" { min = 0.0, max = 1000.0 }
-    .farPlane     "float" { min = 0.0, max = 100000.0 }
+    .nearPlane    "float"
+    .farPlane     "float"
+    .orthographicSize   "float" { min = 0.0, max = 10000.0 }
+    .orthographic "bool"
     ()
 
 component.Light

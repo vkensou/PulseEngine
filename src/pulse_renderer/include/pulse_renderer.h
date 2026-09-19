@@ -68,6 +68,8 @@ typedef struct PulseCamera
     float                fov;
     float                near_plane;
     float                far_plane;
+    float                orthographic_size;
+    bool                 orthographic;
 
 } PulseCamera;
 PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseCamera);

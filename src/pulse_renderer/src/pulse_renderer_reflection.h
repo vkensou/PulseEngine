@@ -17,8 +17,10 @@ inline void pulse_renderer_register_reflection(ecs_world_t* world) {
         ecs_id(PulseCamera) = comp.id();
         comp.member(ecs_id(ecs_entity_t), "window_entity", 0, offsetof(PulseCamera, window_entity));
         comp.member("fov", &PulseCamera::fov).range(0.0, 180.0);
-        comp.member("near_plane", &PulseCamera::near_plane).range(0.0, 1000.0);
-        comp.member("far_plane", &PulseCamera::far_plane).range(0.0, 100000.0);
+        comp.member("near_plane", &PulseCamera::near_plane);
+        comp.member("far_plane", &PulseCamera::far_plane);
+        comp.member("orthographic_size", &PulseCamera::orthographic_size).range(0.0, 10000.0);
+        comp.member("orthographic", &PulseCamera::orthographic);
     }
     {
         flecs::component<PulseLight> comp(world, "PulseLight");

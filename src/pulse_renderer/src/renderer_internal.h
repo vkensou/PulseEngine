@@ -187,6 +187,7 @@ struct RendererView {
     float fov;
     float near_plane;
     float far_plane;
+    float orthographic_size;
     int width;
     int height;
     std::pmr::vector<RendererList> lists;

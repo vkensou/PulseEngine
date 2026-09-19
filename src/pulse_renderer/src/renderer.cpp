@@ -67,8 +67,15 @@ void extract_cameras_system(ecs_iter_t* it) {
         view.camera_entity = entity;
         view.window_entity = cam.window_entity;
         view.view_matrix = build_view_matrix(world_mat);
-        view.proj_matrix = HMM_Perspective_LH_RO(fov_rad, aspect, cam.near_plane, cam.far_plane);
+        if (cam.orthographic) {
+            float half_height = cam.orthographic_size;
+            float half_width  = half_height * aspect;
+            view.proj_matrix = HMM_Orthographic_LH_RO(-half_width, half_width, -half_height, half_height, cam.near_plane, cam.far_plane);
+        } else {
+            view.proj_matrix = HMM_Perspective_LH_RO(fov_rad, aspect, cam.near_plane, cam.far_plane);
+        }
         view.fov = cam.fov;
+        view.orthographic_size = cam.orthographic_size;
         view.near_plane = cam.near_plane;
         view.far_plane = cam.far_plane;
         view.width = width;
