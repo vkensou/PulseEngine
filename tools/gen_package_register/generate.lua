@@ -67,6 +67,29 @@ local script_path = abspath(arg[0] or "generate.lua")
 local script_dir  = script_path:match("^(.*)/[^/]+$")
 local repo_root   = abspath(script_dir .. "/../..")
 
+local function load_core_targets()
+    local core = {}
+    local f = io.open(repo_root .. "/xmake.lua", "rb")
+    if not f then return core end
+    local text = f:read("a") or ""
+    f:close()
+    local starts = {}
+    for idx in text:gmatch('()\ntarget%("') do
+        starts[#starts + 1] = idx + 1
+    end
+    for i = 1, #starts do
+        local seg_end = starts[i + 1] or (#text + 1)
+        local seg = text:sub(starts[i], seg_end - 1)
+        local name = seg:match('^target%("([%w_%-%.]+)"%)')
+        if name and seg:find('set_group("core")', 1, true) then
+            core[name] = true
+        end
+    end
+    return core
+end
+
+local CORE_TARGETS = load_core_targets()
+
 package.path = script_dir .. "/../idl/?.lua;" .. script_dir .. "/?.lua;" .. package.path
 
 local codegen = require "codegen"
@@ -270,6 +293,10 @@ local function generate_one(idl_path)
     local modname = module_dir:match("([^/]+)$")
     if not modname or not modname:match("^pulse_") then
         error("not a pulse module idl: " .. idl_path)
+    end
+    if CORE_TARGETS[modname] then
+        print("  skip: core package " .. modname)
+        return
     end
 
     local api_macro = modname:upper() .. "_API"

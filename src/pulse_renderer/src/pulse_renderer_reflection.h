@@ -34,12 +34,4 @@ inline void pulse_renderer_register_reflection(ecs_world_t* world) {
         comp.member("mesh", &PulseRenderable::mesh);
         comp.member("material", &PulseRenderable::material);
     }
-    {
-        flecs::component<PulseText> comp(world, "PulseText");
-        ecs_id(PulseText) = comp.id();
-        comp.member("block", &PulseText::block);
-        comp.member("text", &PulseText::text);
-        comp.member("box_width", &PulseText::box_width);
-        comp.member("box_height", &PulseText::box_height);
-    }
 }

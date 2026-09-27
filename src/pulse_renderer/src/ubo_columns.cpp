@@ -25,14 +25,14 @@ GpuBlockRef alloc_ubo_block(pulse_renderer_state& state, ViewFrameData& view, ui
     return { view.blocks.size() - 1, 0, aligned_size, block.cpu_data };
 }
 
-uint32_t alloc_feature_ubo_column(FeaturePrepareContext& ctx, DrawItem& item, uint32_t set, uint32_t binding, uint32_t size) {
+uint32_t alloc_feature_ubo_column(PulseFeaturePrepareContext& ctx, DrawItem& item, uint32_t set, uint32_t binding, uint32_t size) {
     RendererUboColumn col = {};
     col.set = set;
     col.binding = binding;
-    col.block_ref = alloc_ubo_block(*ctx.state, ctx.view, size);
-    ctx.view.ubo_columns.push_back(col);
+    col.block_ref = alloc_ubo_block(*ctx.state, *ctx.view, size);
+    ctx.view->ubo_columns.push_back(col);
 
-    const uint32_t index = (uint32_t)ctx.view.ubo_columns.size() - 1;
+    const uint32_t index = (uint32_t)ctx.view->ubo_columns.size() - 1;
     if (item.feature_column_count == 0) item.feature_column_start = index;
     ++item.feature_column_count;
     return index;
@@ -52,7 +52,7 @@ void bind_item_ubo_columns(PulseRenderPassEncoder* encoder, const ViewFrameData&
     }
 }
 
-void collect_feature_items(FeatureRecordContext& ctx) {
+void collect_feature_items(PulseFeatureRecordContext& ctx) {
     for (const RendererList& list : ctx.view->lists) {
         for (const DrawItem& item : list.items) {
             if (item.feature_id != ctx.feature_id) continue;

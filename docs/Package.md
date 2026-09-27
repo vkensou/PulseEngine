@@ -23,7 +23,7 @@ PulseEngine 的功能单元。本文覆盖包模型、`package.json` 字段、�
 
 | | 核心包 `set_group("core")` | 可选包 `set_group("pacakges")` |
 |---|---|---|
-| 成员 | `pulse_platform`、`pulse_app`、`pulse_vfs`、`pulse_config`、`pulse_datalist`（含 `pulse_datalist_static`）、`pulse_script_register`、`pulse_package_loader` | `pulse_math`、`pulse_window`、`pulse_input`、`pulse_asset`、`pulse_prefab`、`pulse_datatable`、`pulse_graphics`、`pulse_transform`、`pulse_renderer`、`pulse_imgui`、`pulse_daslang` |
+| 成员 | `pulse_platform`、`pulse_app`、`pulse_vfs`、`pulse_config`、`pulse_datalist`（含 `pulse_datalist_static`）、`pulse_script_register`、`pulse_package_loader` | `pulse_math`、`pulse_window`、`pulse_input`、`pulse_asset`、`pulse_prefab`、`pulse_datatable`、`pulse_graphics`、`pulse_transform`、`pulse_renderer`、`pulse_imgui`、`pulse_font`、`pulse_text`、`pulse_text_render`、`pulse_daslang` |
 | 位置 | `src/pulse_*` | `src/pulse_*` 或 `examples/<game>` |
 | `package.json` | 无 | 有 |
 | `package_register.cpp` | 无 | 有，生成物 |
@@ -88,6 +88,7 @@ launcher.exe                      链 pulse_app / pulse_config / pulse_package_l
 - **重名即失败**：清单 `name` 与已注册插件名重复返回 `ERROR_DUPLICATE_PACKAGE`（loader 与 `pulse_app` 各有一道去重）。
 - **VFS 挂载**：解析与注册期间，包目录挂在 VFS `/`，所以包注册时就能用 `assets/xxx` 读自己的资源。`"assets": true` 的包注册后保持挂载，否则注册完成后卸载。多个 `assets: true` 的包共同可见。
 - **静态兜底**：`pulse_package_loader_register_static_package(loader, name, fn)` 把已静态链接进宿主的包登记进去，找不到清单时使用（`tests/package_loader` 用到）。
+- **跨包回调的卸载时序**：包注册时留在宿主/其它包里的函数指针（插件 build/post_build/shutdown、render feature 钩子等）只在 `pulse_destroy_app` 的插件生命周期内被调用；宿主必须先 `pulse_destroy_app`、后 unload 动态库（launcher 即 `destroy_app → loader cleanup` 顺序），反序会导致回调打到已卸载模块上。feature 包还应像 `pulse_text_render` 那样，在自己插件的 `shutdown` 里调 `pulse_remove_render_feature` 主动反注册，不依赖宿主卸载顺序。
 - **脚本注入时序**：脚本包不是逐个加载的。loader 先处理所有 native 包，然后把当前 VFS 可见范围内的全部脚本文件喂给对应运行时的 `load`，最后才对每个脚本包调 `load_package` 注册入口。因此脚本之间可以互相 `require`。
 
 ### 2.4 返回码与报错文本
@@ -713,7 +714,7 @@ end
 只在扩展引擎底座时新增。相比可选包少三样：`package.json`、`package_register.cpp`、`pulse.package_install`；公共头仍走 IDL。
 
 1. 目录骨架、IDL、模板、生成命令同 §5.1–§5.4。
-2. 不写 `package.json`。IDL 里不要写 `AddXxxPlugin`：`gen_package_register` 遍历 `src/pulse_*`，没有 `AddXxxPlugin` 的模块自动跳过，所以核心包跑批量生成时是安全的；`examples/` 下的游戏包根本不在它的扫描范围内。
+2. 不写 `package.json`。IDL 里不要写 `AddXxxPlugin`：`gen_package_register` 遍历 `src/pulse_*`，按根 `xmake.lua` 的 `set_group("core")` 名单跳过核心包（即使其 IDL 有 `AddXxxPlugin`，如 `pulse_vfs`），没有 `AddXxxPlugin` 的模块也会跳过，所以批量生成对核心包是安全的；`examples/` 下的游戏包根本不在它的扫描范围内。
 3. target 用核心分组且不挂安装规则：
 
 ```lua

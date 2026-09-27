@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef PULSE_RENDERER_API_HEADER_GUARD
-#define PULSE_RENDERER_API_HEADER_GUARD
+#ifndef PULSE_TEXT_RENDER_API_HEADER_GUARD
+#define PULSE_TEXT_RENDER_API_HEADER_GUARD
 #if defined(__clang__)
 #  pragma clang diagnostic push
 #  pragma clang diagnostic ignored "-Wunknown-attributes"
@@ -16,13 +16,12 @@
 #include <stdint.h>
 #include "pulse_platform.h"
 #include "pulse_app.h"
-#include "pulse_math.h"
-#include "pulse_graphics.h"
+#include "pulse_text.h"
 
-#if defined(PULSE_RENDERER_MODULE_BUILD)
-#  define PULSE_RENDERER_API PULSE_EXPORT
+#if defined(PULSE_TEXT_RENDER_MODULE_BUILD)
+#  define PULSE_TEXT_RENDER_API PULSE_EXPORT
 #else
-#  define PULSE_RENDERER_API PULSE_IMPORT
+#  define PULSE_TEXT_RENDER_API PULSE_IMPORT
 #endif
 
 #ifdef __cplusplus
@@ -36,13 +35,6 @@ $cenums
 $cflags
 
 $cids
-
-struct PulseFeatureExtractContext;
-struct PulseFeatureCullContext;
-struct PulseFeaturePrepareContext;
-struct PulseFeatureDrawContext;
-struct PulseFeatureRecordContext;
-struct PulseFeatureItem;
 
 $cfuncptrs
 
@@ -63,4 +55,4 @@ $c99decl
 #elif defined(_MSC_VER)
 #  pragma warning(pop)
 #endif
-#endif // PULSE_RENDERER_API_HEADER_GUARD
+#endif // PULSE_TEXT_RENDER_API_HEADER_GUARD

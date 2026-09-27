@@ -7,8 +7,6 @@
     "pulse_math",
     "pulse_window",
     "pulse_graphics",
-    "pulse_transform",
-    "pulse_font",
-    "pulse_text"
+    "pulse_transform"
   ]
 }

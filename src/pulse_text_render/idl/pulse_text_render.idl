@@ -1,0 +1,35 @@
+version(1)
+
+typedef "bool"
+typedef "char"
+typedef "float"
+typedef "uint32_t"
+typedef "void"
+typedef "cstring"
+
+--- From pulse_app.h
+typedef "EPulseAppAddPluginResult"
+typedef "PulseAppId"
+
+--- From pulse_text.h
+typedef "PulseTextBlockDesc"
+
+--- Constants
+const_value.TextRenderPluginDescVersion { value = "1u" }
+
+--- 单个实体内联文本缓冲上限，含结尾 '\0'
+const_value.TextMaxChars { value = "256u" }
+
+--- 文字渲染组件；block 为 pulse_text 排版块 id，text 为内联 utf8
+component.Text
+    .block     "PulseTextBlockDesc"
+    .text      "[TextMaxChars] char"
+    .boxWidth  "float"
+    .boxHeight "float"
+    .revision  "uint32_t" { noreflex = true }
+    ()
+
+func.AddTextRenderPlugin
+    "EPulseAppAddPluginResult"
+    .app  "PulseAppId"
+    ()

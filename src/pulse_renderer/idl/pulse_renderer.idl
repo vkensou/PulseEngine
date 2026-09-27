@@ -1,11 +1,11 @@
 version(1)
 
 typedef "bool"
-typedef "char"
 typedef "float"
 typedef "int32_t"
 typedef "uint32_t"
 typedef "void"
+typedef "anyopaque"
 typedef "cstring"
 
 --- From pulse_app.h
@@ -18,18 +18,18 @@ typedef "ecs_entity_t"
 
 --- From pulse_math.h
 typedef "HMM_Vec4" { cname = "HMM_Vec4" }
+typedef "HMM_Mat4" { cname = "HMM_Mat4" }
 
 --- From pulse_graphics.h
 typedef "PulseMeshHandle" { cname = "PulseMeshHandle" }
 typedef "PulseMaterialHandle" { cname = "PulseMaterialHandle" }
-
-typedef "PulseTextBlockDesc"
+typedef "PulseShaderHandle" { cname = "PulseShaderHandle" }
+typedef "PulseRenderGraphId" { cname = "PulseRenderGraphId" }
+typedef "PulseRenderPassBuilder" { cname = "PulseRenderPassBuilder" }
+typedef "PulseRenderPassEncoder" { cname = "PulseRenderPassEncoder" }
 
 --- Constants
 const_value.RendererPluginDescVersion { value = "1u" }
-
---- 单个实体内联文本缓冲上限，含结尾 '\0'
-const_value.TextMaxChars { value = "256u" }
 
 --- ECS Components
 component.Camera
@@ -51,13 +51,176 @@ component.Renderable
     .material "PulseMaterialHandle"
     ()
 
---- 文字渲染组件；block 为 pulse_text 排版块 id，text 为内联 utf8；revision 由 TextSet 自增，驱动懒重排
-component.Text
-    .block     "PulseTextBlockDesc"
-    .text      "[TextMaxChars] char"
-    .boxWidth  "float"
-    .boxHeight "float"
-    .revision  "uint32_t" { noreflex = true }
+--- 跨包渲染 feature 契约：feature 包在插件 build 期调 pulse_add_render_feature 注册；
+--- 各钩子按帧流水线阶段被回调，逐 item 的数据经 *FeatureItem 与 feature 自持的 data blob 传递
+
+const_value.RenderFeatureDescVersion { value = "1u" }
+
+struct.FeatureExtractContext()
+
+struct.FeatureCullContext()
+
+struct.FeaturePrepareContext()
+
+struct.FeatureDrawContext()
+
+struct.FeatureRecordContext()
+
+struct.FeatureItem
+    .entity        "ecs_entity_t"
+    .mesh          "PulseMeshHandle"
+    .material      "PulseMaterialHandle"
+    .shader        "PulseShaderHandle"
+    .worldMatrix   "HMM_Mat4"
+    .instanceCount "uint32_t"
+    ()
+
+struct.FeatureCullCamera
+    .cameraEntity     "ecs_entity_t"
+    .viewIndex        "uint32_t"
+    .viewMatrix       "HMM_Mat4"
+    .projMatrix       "HMM_Mat4"
+    .orthographic     "bool"
+    .fov              "float"
+    .orthographicSize "float"
+    .nearPlane        "float"
+    .farPlane         "float"
+    .width            "int32_t"
+    .height           "int32_t"
+    ()
+
+funcptr.FeatureExtractFn
+    "void"
+    .app      "PulseAppId"
+    .ctx      "*FeatureExtractContext"
+    .userdata "?*anyopaque"
+
+funcptr.FeatureCullFn
+    "int32_t"
+    .app      "PulseAppId"
+    .ctx      "*FeatureCullContext"
+    .item     "*const FeatureItem"
+    .itemData "?*const anyopaque"
+    .userdata "?*anyopaque"
+
+funcptr.FeaturePrepareFn
+    "void"
+    .app      "PulseAppId"
+    .ctx      "*FeaturePrepareContext"
+    .userdata "?*anyopaque"
+
+funcptr.FeatureDrawFn
+    "void"
+    .app      "PulseAppId"
+    .encoder  "*PulseRenderPassEncoder"
+    .ctx      "*FeatureDrawContext"
+    .userdata "?*anyopaque"
+
+funcptr.FeatureRecordFn
+    "void"
+    .app      "PulseAppId"
+    .graph    "PulseRenderGraphId"
+    .pass     "*PulseRenderPassBuilder"
+    .ctx      "*FeatureRecordContext"
+    .userdata "?*anyopaque"
+
+funcptr.FeatureDestroyFn
+    "void"
+    .userdata "?*anyopaque"
+
+--- extract/draw 必填；cull/prepare/record/destroy 可为空，cull 为空时全部 item 进 0 号 list
+struct.RenderFeatureDesc
+    .structSize "uint32_t"
+    .version    "uint32_t"
+    .name       "cstring"
+    .dataSize   "uint32_t"
+    .extract    "FeatureExtractFn"
+    .cull       "FeatureCullFn"
+    .prepare    "FeaturePrepareFn"
+    .draw       "FeatureDrawFn"
+    .record     "FeatureRecordFn"
+    .destroy    "FeatureDestroyFn"
+    .userdata   "?*anyopaque"
+    ()
+
+func.AddRenderFeature
+    "EPulseResult"
+    .app  "PulseAppId"
+    .desc "*const RenderFeatureDesc"
+    ()
+
+func.RemoveRenderFeature
+    "EPulseResult"
+    --- 按注册名反注册，命中即调 destroy 钩子；feature 包在自己插件 shutdown 中调用，避免 renderer shutdown 回调已卸载模块
+    .app  "PulseAppId"
+    .name "cstring"
+    ()
+
+func.FeatureCullGetCamera
+    "bool"
+    .ctx    "*FeatureCullContext"
+    .camera "FeatureCullCamera" { out = true }
+    ()
+
+func.FeatureExtractSubmit
+    "void"
+    .ctx  "*FeatureExtractContext"
+    .item "*const FeatureItem"
+    .data "?*const anyopaque"
+    ()
+
+func.FeaturePrepareItemCount
+    "uint32_t"
+    .ctx "*FeaturePrepareContext"
+    ()
+
+func.FeaturePrepareGetItem
+    "bool"
+    .ctx   "*FeaturePrepareContext"
+    .index "uint32_t"
+    .item  "FeatureItem" { out = true }
+    ()
+
+func.FeaturePrepareItemData
+    "?*const anyopaque"
+    .ctx   "*FeaturePrepareContext"
+    .index "uint32_t"
+    ()
+
+func.FeaturePrepareAllocUbo
+    "?*anyopaque"
+    .ctx     "*FeaturePrepareContext"
+    .index   "uint32_t"
+    .set     "uint32_t"
+    .binding "uint32_t"
+    .size    "uint32_t"
+    ()
+
+func.FeatureDrawGetItem
+    "?*const FeatureItem"
+    .ctx "*FeatureDrawContext"
+    ()
+
+func.FeatureDrawItemData
+    "?*const anyopaque"
+    .ctx "*FeatureDrawContext"
+    ()
+
+func.FeatureDrawBindUboColumns
+    "void"
+    .encoder "*PulseRenderPassEncoder"
+    .ctx     "*FeatureDrawContext"
+    ()
+
+func.FeatureRecordItemCount
+    "uint32_t"
+    .ctx "*FeatureRecordContext"
+    ()
+
+func.FeatureRecordItemData
+    "?*const anyopaque"
+    .ctx   "*FeatureRecordContext"
+    .index "uint32_t"
     ()
 
 --- Functions

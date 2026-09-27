@@ -12,6 +12,7 @@
 #include "pulse_input.h"
 #include "pulse_renderer.h"
 #include "pulse_text.h"
+#include "pulse_text_render.h"
 #include "pulse_transform.h"
 #include "pulse_vfs.h"
 #include "pulse_window.h"
@@ -288,6 +289,7 @@ int main(void) {
     assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_font_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_text_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_text_render_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     text_window_state state{};

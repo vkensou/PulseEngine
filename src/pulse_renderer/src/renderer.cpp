@@ -81,6 +81,7 @@ void extract_cameras_system(ecs_iter_t* it) {
         }
         snapshot.fov = cam.fov;
         snapshot.orthographic_size = cam.orthographic_size;
+        snapshot.orthographic = cam.orthographic;
         snapshot.near_plane = cam.near_plane;
         snapshot.far_plane = cam.far_plane;
         snapshot.width = width;
@@ -99,9 +100,9 @@ void extract_features_system(ecs_iter_t* it) {
     packet.grow_staging(&packet.pool, feature_count);
 
     for (uint32_t feature_id = 0; feature_id < feature_count; ++feature_id) {
-        const RenderFeature& feature = state->features[feature_id];
-        FeatureExtractContext ctx{ state, feature_id };
-        feature.extract(state->app, it->world, ctx, feature.userdata);
+        const PulseRenderFeatureDesc& desc = state->features[feature_id];
+        PulseFeatureExtractContext ctx{ state, feature_id };
+        desc.extract(state->app, &ctx, desc.userdata);
     }
 }
 
@@ -198,12 +199,17 @@ void build_views_system(ecs_iter_t* it) {
         }
 
         for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
-            const RenderFeature& feature = state->features[feature_id];
-            FeatureCullContext cull_ctx{ state, snapshot, &camera, view_index, feature_id };
+            const PulseRenderFeatureDesc& desc = state->features[feature_id];
+            PulseFeatureCullContext cull_ctx{ state, snapshot, &camera, view_index, feature_id };
             const std::pmr::vector<StagingItem>& staging = snapshot->staging[feature_id].items;
             for (uint32_t index = 0; index < (uint32_t)staging.size(); ++index) {
                 const StagingItem& staging_item = staging[index];
-                int32_t list_id = feature.cull ? feature.cull(cull_ctx, staging_item, feature.userdata) : 0;
+                int32_t list_id = 0;
+                if (desc.cull) {
+                    PulseFeatureItem feature_item = to_public_feature_item(staging_item);
+                    const void* data = feature_item_data(state, snapshot, feature_id, staging_item.data_slot);
+                    list_id = desc.cull(state->app, &cull_ctx, &feature_item, data, desc.userdata);
+                }
                 if (list_id < 0 || (size_t)list_id >= view.lists.size()) continue;
                 RendererList& list = view.lists[list_id];
                 DrawItem item = {};
@@ -246,10 +252,10 @@ void build_views_system(ecs_iter_t* it) {
         for (uint32_t list_id = 0; list_id < (uint32_t)view.lists.size(); ++list_id) {
             for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
                 if (!features_in_list[feature_id]) continue;
-                const RenderFeature& feature = state->features[feature_id];
-                if (!feature.prepare) continue;
-                FeaturePrepareContext ctx{ state, view, snapshot, &camera, view_index, list_id, feature_id };
-                feature.prepare(ctx, feature.userdata);
+                const PulseRenderFeatureDesc& desc = state->features[feature_id];
+                if (!desc.prepare) continue;
+                PulseFeaturePrepareContext ctx{ state, &view, snapshot, &view.lists[list_id], feature_id };
+                desc.prepare(state->app, &ctx, desc.userdata);
             }
         }
     }
@@ -273,16 +279,15 @@ static void render_view_executable(PulseRenderPassEncoder* encoder, void* userda
     const FrameViewData* vd = pass_data->view_data;
     const FrameRenderPacket* snapshot = vd->snapshot;
     const ViewFrameData& view = vd->views[pass_data->view_index];
-    const CameraSnapshot& camera = snapshot->cameras[pass_data->view_index];
 
     for (const RendererList& list : view.lists) {
         for (const DrawItem& item : list.items) {
             const StagingItem& staging = snapshot->staging[item.feature_id].items[item.staging_index];
             if (staging.shader.index == 0) continue;
 
-            const RenderFeature& feature = state->features[item.feature_id];
-            FeatureDrawContext ctx{ state, snapshot, &view, &camera, &list, &item };
-            feature.draw(state->app, encoder, ctx, feature.userdata);
+            const PulseRenderFeatureDesc& desc = state->features[item.feature_id];
+            PulseFeatureDrawContext ctx{ state, snapshot, &view, &item, to_public_feature_item(staging) };
+            desc.draw(state->app, encoder, &ctx, desc.userdata);
         }
     }
 }
@@ -326,12 +331,12 @@ static void record_renderer_callback(
             pulse_render_graph_add_render_pass(graph, pass_name);
 
         for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
-            const RenderFeature& feature = state->features[feature_id];
-            if (!feature.record) continue;
-            FeatureRecordContext record_ctx(state, snapshot, &view, view_index, feature_id, &vd->pool);
+            const PulseRenderFeatureDesc& desc = state->features[feature_id];
+            if (!desc.record) continue;
+            PulseFeatureRecordContext record_ctx(state, snapshot, &view, feature_id, &vd->pool);
             collect_feature_items(record_ctx);
             if (record_ctx.items.empty()) continue;
-            feature.record(app, graph, pass, record_ctx, feature.userdata);
+            desc.record(app, graph, &pass, &record_ctx, desc.userdata);
         }
 
         pulse_render_pass_builder_add_color_attachment(
@@ -495,14 +500,13 @@ EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
 
     register_renderer_components(world);
 
-    install_renderable_feature(state, world);
-    install_text_feature(state, world, app);
-
     pulse_renderer_state_resource state_res = {};
     state_res.state = state;
     ecs_singleton_set_ptr(world, pulse_renderer_state_resource, &state_res);
 
     install_renderer_systems(world, state);
+
+    install_renderable_feature(app, world);
 
     return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
@@ -553,7 +557,7 @@ void renderer_plugin_shutdown(PulseAppId app, void* ctx) {
     if (world && state->build_views_system && ecs_is_alive(world, state->build_views_system))
         ecs_delete(world, state->build_views_system);
 
-    for (auto& feature : state->features) {
+    for (PulseRenderFeatureDesc& feature : state->features) {
         if (feature.destroy) feature.destroy(feature.userdata);
     }
     state->features.clear();

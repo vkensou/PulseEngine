@@ -26,6 +26,7 @@ xmake install -o "%dest_file%/packages/pulse_renderer" pulse_renderer
 xmake install -o "%dest_file%/packages/pulse_imgui" pulse_imgui
 xmake install -o "%dest_file%/packages/pulse_font" pulse_font
 xmake install -o "%dest_file%/packages/pulse_text" pulse_text
+xmake install -o "%dest_file%/packages/pulse_text_render" pulse_text_render
 xmake install -o "%dest_file%/packages/pulse_daslang" pulse_daslang
 xmake install -o "%dest_file%/packages/pulse_datatable" pulse_datatable
 xmake install -o "%dest_file%/packages/snake" example-snake

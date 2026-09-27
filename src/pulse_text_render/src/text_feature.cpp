@@ -1,9 +1,9 @@
-#include "renderer_internal.h"
+#include "text_render_internal.h"
 
 #include <cstring>
 #include <vector>
-#include "pulse_font.h"
-#include "pulse_text.h"
+
+namespace pulse_text_render_internal {
 
 uint8_t font_glyph_vert_spv[] = {
     #include "font_glyph.vs.spv.h"
@@ -12,10 +12,7 @@ uint8_t font_glyph_frag_spv[] = {
     #include "font_glyph.ps.spv.h"
 };
 
-ECS_COMPONENT_DECLARE(PulseText);
 ECS_COMPONENT_DECLARE(TextLayout);
-
-namespace pulse_renderer_internal {
 
 struct TextLayout {
     PulseTextLayout* layout;
@@ -31,22 +28,11 @@ namespace {
 
 constexpr uint32_t kMaxGlyphsPerDraw = 512;
 constexpr uint32_t kMaxTextureViewsPerPass = 64;
+constexpr const char* kPropertyNameModelMatrix = "wMatrix";
 
-struct text_draw_data {
-    uint32_t page;
-    uint32_t payload_offset;
-    uint32_t payload_count;
-};
-
-struct text_feature_userdata {
-    PulseAppId app = nullptr;
-    ecs_query_t* query = nullptr;
-    PulseShaderHandle shader;
-    PulseMaterialHandle material;
-    PulseMeshHandle mesh;
-    PulseSamplerHandle sampler;
-    std::vector<uint32_t> used_pages;
-};
+text_feature_userdata* feature_of(void* userdata) {
+    return static_cast<text_feature_userdata*>(userdata);
+}
 
 void on_text_set(ecs_iter_t* it)
 {
@@ -84,17 +70,6 @@ void on_text_remove(ecs_iter_t* it)
             ecs_remove_id(it->world, entity, ecs_id(TextLayout));
         }
     }
-}
-
-text_feature_userdata* feature_of(void* userdata) {
-    return static_cast<text_feature_userdata*>(userdata);
-}
-
-const text_draw_data* text_data_of(const FeatureRecordContext& ctx, const DrawItem& item) {
-    const FeatureStaging& staging = ctx.snapshot->staging[item.feature_id];
-    const size_t size = ctx.state->features[item.feature_id].data_size;
-    if (size == 0 || (size_t)(item.data_slot + 1) * size > staging.data_arena.size()) return nullptr;
-    return reinterpret_cast<const text_draw_data*>(staging.data_arena.data() + (size_t)item.data_slot * size);
 }
 
 bool create_assets(text_feature_userdata& ud) {
@@ -170,10 +145,11 @@ bool create_assets(text_feature_userdata& ud) {
     return true;
 }
 
-void text_extract(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx, void* userdata) {
-    (void)app;
+void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdata) {
     text_feature_userdata* ud = feature_of(userdata);
     if (!ud || !ud->query) return;
+    ecs_world_t* world = pulse_app_world(app);
+    if (!world) return;
 
     ecs_iter_t it = ecs_query_iter(world, ud->query);
     while (ecs_query_next(&it)) {
@@ -194,7 +170,7 @@ void text_extract(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx
                 uint32_t count = 0;
                 while (first + count < instances_count && count < kMaxGlyphsPerDraw && layout.p_instances[first + count].page == page) ++count;
 
-                StagingItem item = {};
+                PulseFeatureItem item = {};
                 item.entity = it.entities[i];
                 item.mesh = ud->mesh;
                 item.material = ud->material;
@@ -206,7 +182,7 @@ void text_extract(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx
                 draw_data.page = page;
                 draw_data.payload_offset = first;
                 draw_data.payload_count = count;
-                ctx.submit(item, &draw_data);
+                pulse_feature_extract_submit(ctx, &item, &draw_data);
 
                 first += count;
             }
@@ -217,45 +193,42 @@ void text_extract(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx
     }
 }
 
-int32_t text_cull(FeatureCullContext& ctx, const StagingItem& item, void* userdata) {
-    (void)ctx;
-    (void)item;
-    (void)userdata;
-    return 0;
+void write_world_matrix(PulseAppId app, PulseShaderHandle shader, void* block, const HMM_Mat4& matrix) {
+    for (uint32_t p = 0; p < pulse_shader_get_shader_property_count(app, shader); ++p) {
+        const PulseShaderProperty prop = pulse_shader_get_shader_property(app, shader, p);
+        if (!prop.name || strcmp(prop.name, kPropertyNameModelMatrix) != 0) continue;
+        if (prop.set != PULSE_SHADER_SET_FEATURE || prop.binding != 0) continue;
+        if (prop.type != PULSE_SHADER_PROPERTY_TYPE_MAT4 || prop.size != sizeof(HMM_Mat4)) continue;
+        memcpy(static_cast<uint8_t*>(block) + prop.offset, &matrix, sizeof(HMM_Mat4));
+    }
 }
 
-void text_prepare(FeaturePrepareContext& ctx, void* userdata) {
+void text_prepare(PulseAppId app, PulseFeaturePrepareContext* ctx, void* userdata) {
     (void)userdata;
-    ecs_world_t* world = pulse_app_world(ctx.state->app);
+    ecs_world_t* world = pulse_app_world(app);
     if (!world) return;
 
-    for (DrawItem& item : ctx.items()) {
-        if (item.feature_id != ctx.feature_id) continue;
-        const StagingItem& staging = ctx.staging(item);
-        if (staging.shader.index == 0) continue;
+    const uint32_t count = pulse_feature_prepare_item_count(ctx);
+    for (uint32_t i = 0; i < count; ++i) {
+        PulseFeatureItem item = {};
+        if (!pulse_feature_prepare_get_item(ctx, i, &item)) continue;
+        if (item.shader.index == 0) continue;
 
-        const text_draw_data* data = static_cast<const text_draw_data*>(ctx.item_data(item));
+        const text_draw_data* data = static_cast<const text_draw_data*>(pulse_feature_prepare_item_data(ctx, i));
         if (!data) continue;
 
-        if (!ecs_is_alive(world, staging.entity)) continue;
-        const TextLayout* layout_component = ecs_get(world, staging.entity, TextLayout);
+        if (!ecs_is_alive(world, item.entity)) continue;
+        const TextLayout* layout_component = ecs_get(world, item.entity, TextLayout);
         if (!layout_component || !layout_component->layout) continue;
         const PulseTextLayout& layout = *layout_component->layout;
         if ((size_t)data->payload_offset + data->payload_count > layout.instances_count) continue;
 
-        const uint32_t world_column = alloc_feature_ubo_column(ctx, item, PULSE_SHADER_SET_FEATURE, 0, sizeof(HMM_Mat4));
-        RendererPropertyValue world_value = {};
-        world_value.name = kPropertyNameModelMatrix;
-        world_value.type = PULSE_SHADER_PROPERTY_TYPE_MAT4;
-        world_value.size = sizeof(HMM_Mat4);
-        memcpy(world_value.value, &staging.world_matrix, sizeof(HMM_Mat4));
-        fill_ubo_block(ctx.state->app, staging.shader, PULSE_SHADER_SET_FEATURE, 0, ctx.view.ubo_columns[world_column].block_ref, [&world_value](const char* name) {
-            return strcmp(name, kPropertyNameModelMatrix) == 0 ? &world_value : nullptr;
-        });
+        void* world_block = pulse_feature_prepare_alloc_ubo(ctx, i, PULSE_SHADER_SET_FEATURE, 0, sizeof(HMM_Mat4));
+        if (world_block) write_world_matrix(app, item.shader, world_block, item.world_matrix);
 
         const uint32_t glyph_size = data->payload_count * (uint32_t)sizeof(TextGlyph);
-        const uint32_t glyph_column = alloc_feature_ubo_column(ctx, item, PULSE_SHADER_SET_FEATURE, 1, glyph_size);
-        TextGlyph* glyphs = reinterpret_cast<TextGlyph*>(ctx.view.ubo_columns[glyph_column].block_ref.ptr);
+        TextGlyph* glyphs = static_cast<TextGlyph*>(pulse_feature_prepare_alloc_ubo(ctx, i, PULSE_SHADER_SET_FEATURE, 1, glyph_size));
+        if (!glyphs) continue;
         for (uint32_t g = 0; g < data->payload_count; ++g) {
             const PulseGlyphInstance& src = layout.p_instances[data->payload_offset + g];
             glyphs[g].rect[0] = src.x;
@@ -274,15 +247,16 @@ void text_prepare(FeaturePrepareContext& ctx, void* userdata) {
     }
 }
 
-void text_record(PulseAppId app, PulseRenderGraphId graph, PulseRenderPassBuilder& pass, FeatureRecordContext& ctx, void* userdata) {
+void text_record(PulseAppId app, PulseRenderGraphId graph, PulseRenderPassBuilder* pass, PulseFeatureRecordContext* ctx, void* userdata) {
     text_feature_userdata* ud = feature_of(userdata);
-    if (!ud) return;
+    if (!ud || !pass) return;
 
     const uint32_t page_count = pulse_font_page_count(app);
 
     ud->used_pages.clear();
-    for (const DrawItem* item : ctx.items) {
-        const text_draw_data* data = text_data_of(ctx, *item);
+    const uint32_t count = pulse_feature_record_item_count(ctx);
+    for (uint32_t i = 0; i < count; ++i) {
+        const text_draw_data* data = static_cast<const text_draw_data*>(pulse_feature_record_item_data(ctx, i));
         if (!data) continue;
         if (data->page >= page_count) continue;
         bool known = false;
@@ -303,24 +277,34 @@ void text_record(PulseAppId app, PulseRenderGraphId graph, PulseRenderPassBuilde
         if (!pulse_asset_handle_is_valid(pulse_texture_to_handle(handle))) continue;
         PulseRGTextureHandle texture = pulse_render_graph_import_texture(graph, handle);
         if (!pulse_rgtexture_handle_is_valid(texture)) continue;
-        pulse_render_pass_builder_sample(&pass, texture);
+        pulse_render_pass_builder_sample(pass, texture);
     }
 }
 
-void text_draw(PulseAppId app, PulseRenderPassEncoder* encoder, FeatureDrawContext& ctx, void* userdata) {
+void text_draw(PulseAppId app, PulseRenderPassEncoder* encoder, PulseFeatureDrawContext* ctx, void* userdata) {
     text_feature_userdata* ud = feature_of(userdata);
     if (!ud) return;
 
-    const text_draw_data* data = static_cast<const text_draw_data*>(ctx.item_data());
+    const PulseFeatureItem* item = pulse_feature_draw_get_item(ctx);
+    if (!item) return;
+    const text_draw_data* data = static_cast<const text_draw_data*>(pulse_feature_draw_item_data(ctx));
     if (!data) return;
     const PulseTextureHandle atlas = pulse_font_page_texture(app, data->page);
     if (!pulse_asset_handle_is_valid(pulse_texture_to_handle(atlas))) return;
 
-    const StagingItem& staging = ctx.staging();
-    bind_item_ubo_columns(encoder, *ctx.view, *ctx.item);
+    pulse_feature_draw_bind_ubo_columns(encoder, ctx);
     pulse_render_pass_encoder_set_global_texture(encoder, atlas, PULSE_SHADER_SET_FEATURE, 2);
     pulse_render_pass_encoder_set_global_sampler(encoder, ud->sampler, PULSE_SHADER_SET_FEATURE, 3);
-    pulse_render_pass_encoder_draw_submesh_instanced(encoder, staging.material, staging.mesh, 0, 0, 6, 0, staging.instance_count, 0);
+    pulse_render_pass_encoder_draw_submesh_instanced(encoder, item->material, item->mesh, 0, 0, 6, 0, item->instance_count, 0);
+}
+
+void release_assets(text_feature_userdata& ud) {
+    PulseAssetSystemId asset_system = pulse_get_asset_system(ud.app);
+    if (!asset_system) return;
+    if (pulse_asset_handle_is_valid(pulse_mesh_to_handle(ud.mesh))) pulse_asset_system_release(asset_system, pulse_mesh_to_handle(ud.mesh), nullptr);
+    if (pulse_asset_handle_is_valid(pulse_material_to_handle(ud.material))) pulse_asset_system_release(asset_system, pulse_material_to_handle(ud.material), nullptr);
+    if (pulse_asset_handle_is_valid(pulse_shader_to_handle(ud.shader))) pulse_asset_system_release(asset_system, pulse_shader_to_handle(ud.shader), nullptr);
+    if (pulse_asset_handle_is_valid(pulse_sampler_to_handle(ud.sampler))) pulse_asset_system_release(asset_system, pulse_sampler_to_handle(ud.sampler), nullptr);
 }
 
 void text_destroy(void* userdata) {
@@ -330,6 +314,7 @@ void text_destroy(void* userdata) {
         ecs_query_fini(ud->query);
         ud->query = nullptr;
     }
+    release_assets(*ud);
     delete ud;
 }
 
@@ -339,12 +324,13 @@ ECS_CTOR(TextLayout, ptr, {
     ptr->layout = nullptr;
     })
 
-void install_text_feature(pulse_renderer_state* state, ecs_world_t* world, PulseAppId app) {
-    if (!state || !world || !app) return;
+void install_text_feature(PulseAppId app, ecs_world_t* world) {
+    if (!app || !world) return;
 
     auto* ud = new text_feature_userdata();
     ud->app = app;
     if (!create_assets(*ud)) {
+        release_assets(*ud);
         delete ud;
         return;
     }
@@ -372,11 +358,25 @@ void install_text_feature(pulse_renderer_state* state, ecs_world_t* world, Pulse
     query_desc.cache_kind = EcsQueryCacheAuto;
     ud->query = ecs_query_init(world, &query_desc);
     if (!ud->query) {
+        release_assets(*ud);
         delete ud;
         return;
     }
 
-    state->register_feature("Text", text_extract, text_cull, text_prepare, text_draw, text_record, text_destroy, sizeof(text_draw_data), ud);
+    PulseRenderFeatureDesc desc = {};
+    desc.struct_size = sizeof(PulseRenderFeatureDesc);
+    desc.version = PULSE_RENDER_FEATURE_DESC_VERSION;
+    desc.name = kTextFeatureName;
+    desc.data_size = sizeof(text_draw_data);
+    desc.extract = text_extract;
+    desc.prepare = text_prepare;
+    desc.draw = text_draw;
+    desc.record = text_record;
+    desc.destroy = text_destroy;
+    desc.userdata = ud;
+    if (pulse_add_render_feature(app, &desc) != PULSE_RESULT_OK) {
+        text_destroy(ud);
+    }
 }
 
-} // namespace pulse_renderer_internal
+} // namespace pulse_text_render_internal
