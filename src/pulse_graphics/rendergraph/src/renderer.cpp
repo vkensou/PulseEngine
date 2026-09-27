@@ -337,7 +337,7 @@ namespace HGEGraphics
 		texture->handle = cgpu_device_create_texture(device, &new_desc);
 		texture->cur_state_count = new_desc.array_size * new_desc.mip_levels;
 		texture->p_cur_states = new ECGPUResourceStateFlags[new_desc.array_size * new_desc.mip_levels];
-		std::fill(texture->p_cur_states, texture->p_cur_states + texture->cur_state_count, CGPU_RESOURCE_STATE_UNDEFINED);
+		std::fill(texture->p_cur_states, texture->p_cur_states + texture->cur_state_count, new_desc.start_state);
 		texture->states_consistent = true;
 
 		uint32_t arrayCount = texture->handle->info->array_size_minus_one + 1;

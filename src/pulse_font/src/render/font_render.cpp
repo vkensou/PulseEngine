@@ -43,6 +43,9 @@ void font_record_callback(PulseAppId app, PulseRenderGraphId graph, void* user_d
         return;
     }
     font_render_state& render = state->render;
+    for (uint32_t page = 0; page < state->pages.size(); ++page) {
+        render_ensure_page(state, page);
+    }
     for (uint32_t page = 0; page < render.pages.size() && page < state->pages.size(); ++page) {
         if (!render.pages[page].requested) {
             continue;
