@@ -28,6 +28,7 @@ namespace {
 
 constexpr uint32_t kMaxGlyphsPerDraw = 512;
 constexpr uint32_t kMaxTextureViewsPerPass = 64;
+constexpr const char* kPropertyNameVPMatrix = "vpMatrix";
 constexpr const char* kPropertyNameModelMatrix = "wMatrix";
 
 text_feature_userdata* feature_of(void* userdata) {
@@ -98,13 +99,19 @@ bool create_assets(text_feature_userdata& ud) {
         .cull_mode = CGPU_CULL_MODE_NONE,
     };
 
-    PulseShaderProperty properties[1] = {};
-    properties[0].name = "wMatrix";
+    PulseShaderProperty properties[2] = {};
+    properties[0].name = kPropertyNameVPMatrix;
     properties[0].type = PULSE_SHADER_PROPERTY_TYPE_MAT4;
-    properties[0].set = PULSE_SHADER_SET_FEATURE;
+    properties[0].set = PULSE_SHADER_SET_GLOBAL;
     properties[0].binding = 0;
     properties[0].offset = 0;
     properties[0].size = sizeof(HMM_Mat4);
+    properties[1].name = kPropertyNameModelMatrix;
+    properties[1].type = PULSE_SHADER_PROPERTY_TYPE_MAT4;
+    properties[1].set = PULSE_SHADER_SET_FEATURE;
+    properties[1].binding = 0;
+    properties[1].offset = 0;
+    properties[1].size = sizeof(HMM_Mat4);
 
     PulseShaderCreateFromBinaryDesc shader_desc = {};
     shader_desc.p_vs_data = font_glyph_vert_spv;
@@ -115,7 +122,7 @@ bool create_assets(text_feature_userdata& ud) {
     shader_desc.depth_desc = depth_desc;
     shader_desc.rasterizer_state = rasterizer_state;
     shader_desc.p_properties = properties;
-    shader_desc.properties_count = 1;
+    shader_desc.properties_count = 2;
 
     ud.shader = pulse_create_shader_from_binary(ud.app, &shader_desc);
 

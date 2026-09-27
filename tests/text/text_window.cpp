@@ -118,7 +118,7 @@ void init_system_run(ecs_iter_t* it) {
 
 void create_camera(PulseAppId app, text_window_state* state) {
     ecs_world_t* world = pulse_app_world(app);
-    ecs_entity_t camera = create_transform_entity(world, 0.0f, 0.0f, 0.0f);
+    ecs_entity_t camera = create_transform_entity(world, 0.0f, 0.0f, -1.0f);
     PulseCamera component = {};
     component.window_entity = state->window;
     component.fov = 45.0f;
