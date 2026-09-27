@@ -16,6 +16,9 @@ typedef "EPulseResult"
 typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
+--- From pulse_graphics.h
+typedef "PulseTextureHandle" { cname = "PulseTextureHandle" }
+
 const_value.FontPluginDescVersion { value = "1u" }
 
 --- Font handle 0 表示无效
@@ -46,7 +49,6 @@ struct.FontPluginDesc
     .atlasHeight    "uint32_t"
     .maxAtlasCount  "uint32_t"
     .sdfPadding     "uint32_t"
-    .recordPriority "int32_t"
     ()
 
 --- 垂直度量，单位为目标字号的像素
@@ -261,11 +263,14 @@ func.FontPageVersion
     .page "uint32_t"
     ()
 
---- ===== 渲染出口区块 =====
---- 本区块的类型与函数整体属于文字渲染出口，将来从 pulse_font 整体迁出到独立渲染包；
---- GPU 侧跨包消费图集走上方 FontPageCount / FontPagePixels / FontPageVersion。
---- FontPluginDesc 的 recordPriority 亦属本区块，受结构体约束留在原处。
---- 一条 glyph 的绘制数据，page 相同的实例会被合进同一次 draw
+--- 取图集页的 GPU 纹理凭证与 CPU 像素、版本号同属图集跨包契约；首次调用惰性创建该页纹理，纹理未就绪返回无效凭证，调用方每帧重试
+func.FontPageTexture
+    "PulseTextureHandle"
+    .app  "PulseAppId"
+    .page "uint32_t"
+    ()
+
+--- 排版结果里的一条 glyph 实例，坐标相对盒子原点、y 轴向下，page 为所属图集页
 struct.GlyphInstance
     .x      "float"
     .y      "float"
@@ -280,34 +285,4 @@ struct.GlyphInstance
     .b      "float"
     .a      "float"
     .page   "uint32_t"
-    ()
-
---- 局部像素坐标到 NDC 的仿射变换
-struct.Transform
-    .scaleX     "float"
-    .scaleY     "float"
-    .translateX "float"
-    .translateY "float"
-    ()
-
---- 裁剪矩形，与实例同处局部像素坐标
-struct.Scissor
-    .x       "float"
-    .y       "float"
-    .width   "float"
-    .height  "float"
-    .enabled "bool"
-    ()
-
-struct.DrawDesc
-    .instances "[]const GlyphInstance"
-    .transform "Transform"
-    .scissor   "Scissor"
-    ()
-
---- 本帧提交一批 glyph 实例，按 page 分组各一次 draw
-func.FontSubmit
-    "EPulseResult"
-    .app  "PulseAppId"
-    .desc "*const DrawDesc"
     ()

@@ -7,10 +7,10 @@ struct VSOutput
     float4 Color : COLOR0;
 };
 
-[[vk::binding(0, 0)]]
-Texture2D<float> fontTexture : register(t0);
-[[vk::binding(1, 0)]]
-SamplerState fontSampler : register(s0);
+[[vk::binding(2, 2)]]
+Texture2D<float> fontTexture : register(t0, space0);
+[[vk::binding(3, 2)]]
+SamplerState fontSampler : register(s0, space0);
 
 [shader("pixel")]
 float4 main(VSOutput input) : SV_TARGET

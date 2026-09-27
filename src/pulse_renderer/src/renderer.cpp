@@ -85,6 +85,7 @@ void extract_cameras_system(ecs_iter_t* it) {
         snapshot.far_plane = cam.far_plane;
         snapshot.width = width;
         snapshot.height = height;
+        snapshot.clear_color = cam.clear_color;
         packet.cameras.push_back(snapshot);
     }
 }
@@ -324,10 +325,19 @@ static void record_renderer_callback(
         PulseRenderPassBuilder pass =
             pulse_render_graph_add_render_pass(graph, pass_name);
 
+        for (uint32_t feature_id = 0; feature_id < (uint32_t)state->features.size(); ++feature_id) {
+            const RenderFeature& feature = state->features[feature_id];
+            if (!feature.record) continue;
+            FeatureRecordContext record_ctx(state, snapshot, &view, view_index, feature_id, &vd->pool);
+            collect_feature_items(record_ctx);
+            if (record_ctx.items.empty()) continue;
+            feature.record(app, graph, pass, record_ctx, feature.userdata);
+        }
+
         pulse_render_pass_builder_add_color_attachment(
             &pass, target_handle,
             CGPU_LOAD_ACTION_CLEAR,
-            0xff000000,
+            camera.clear_color,
             CGPU_STORE_ACTION_STORE);
 
         for (const GpuBlock& block : view.blocks) {
@@ -486,6 +496,7 @@ EPulsePluginBuildResult renderer_plugin_build(PulseAppId app, void* ctx) {
     register_renderer_components(world);
 
     install_renderable_feature(state, world);
+    install_text_feature(state, world, app);
 
     pulse_renderer_state_resource state_res = {};
     state_res.state = state;
@@ -543,7 +554,7 @@ void renderer_plugin_shutdown(PulseAppId app, void* ctx) {
         ecs_delete(world, state->build_views_system);
 
     for (auto& feature : state->features) {
-        shutdown_renderable_feature(feature.userdata);
+        if (feature.destroy) feature.destroy(feature.userdata);
     }
     state->features.clear();
 

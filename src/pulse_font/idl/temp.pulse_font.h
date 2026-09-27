@@ -19,6 +19,7 @@
 #include "pulse_app.h"
 
 #include "pulse_asset.h"
+#include "pulse_graphics.h"
 
 #if defined(PULSE_FONT_MODULE_BUILD)
 #  define PULSE_FONT_API PULSE_EXPORT

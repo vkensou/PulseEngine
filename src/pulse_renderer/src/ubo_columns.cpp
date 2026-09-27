@@ -44,11 +44,20 @@ static void bind_ubo_column(PulseRenderPassEncoder* encoder, const ViewFrameData
 }
 
 void bind_item_ubo_columns(PulseRenderPassEncoder* encoder, const ViewFrameData& view, const DrawItem& item) {
-    for (uint32_t i = item.global_column_start; i < item.global_column_start + item.global_column_count; ++i) {
-        bind_ubo_column(encoder, view, view.ubo_columns[i]);
+    for (uint32_t i = 0; i < item.global_column_count; ++i) {
+        bind_ubo_column(encoder, view, view.ubo_columns[item.global_column_start + i]);
     }
-    for (uint32_t i = item.feature_column_start; i < item.feature_column_start + item.feature_column_count; ++i) {
-        bind_ubo_column(encoder, view, view.ubo_columns[i]);
+    for (uint32_t i = 0; i < item.feature_column_count; ++i) {
+        bind_ubo_column(encoder, view, view.ubo_columns[item.feature_column_start + i]);
+    }
+}
+
+void collect_feature_items(FeatureRecordContext& ctx) {
+    for (const RendererList& list : ctx.view->lists) {
+        for (const DrawItem& item : list.items) {
+            if (item.feature_id != ctx.feature_id) continue;
+            ctx.items.push_back(&item);
+        }
     }
 }
 

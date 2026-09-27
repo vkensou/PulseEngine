@@ -295,7 +295,6 @@ PulseFontPluginDesc pulse_font_plugin_desc_default(void) {
     desc.atlas_height = 2048;
     desc.max_atlas_count = 4;
     desc.sdf_padding = 8;
-    desc.record_priority = 100;
     return desc;
 }
 

@@ -17,7 +17,6 @@ extern "C" {
         desc.atlas_height = (uint32_t)pulse_config_get_int(config, "atlas_height", desc.atlas_height);
         desc.max_atlas_count = (uint32_t)pulse_config_get_int(config, "max_atlas_count", desc.max_atlas_count);
         desc.sdf_padding = (uint32_t)pulse_config_get_int(config, "sdf_padding", desc.sdf_padding);
-        desc.record_priority = (int32_t)pulse_config_get_int(config, "record_priority", desc.record_priority);
     }
     EPulseAppAddPluginResult r = pulse_add_font_plugin(app, &desc);
     switch (r) {

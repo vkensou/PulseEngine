@@ -97,7 +97,7 @@ typedef struct PulseTextBlockDesc
 } PulseTextBlockDesc;
 
 /**
- * 排版结果；instances 矩形相对盒子原点、y 轴向下，调用方叠加 transform 后交给 pulse_font_submit
+ * 排版结果；instances 矩形相对盒子原点、y 轴向下
  *
  */
 typedef struct PulseTextLayout

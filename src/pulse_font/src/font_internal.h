@@ -15,7 +15,6 @@ namespace pulse_font_internal {
 constexpr uint32_t kTierCount = 2;
 constexpr float kTierBaseSizes[kTierCount] = { 48.0f, 96.0f };
 constexpr uint32_t kMaxChains = 256;
-constexpr uint32_t kMaxPendingDraws = 256;
 constexpr uint32_t kInvalidIndex = 0xFFFFFFFFu;
 constexpr uint32_t kMissingGlyphFont = 0;
 constexpr uint32_t kMissingGlyphCodepoint = 0xFFFFFFFFu;
@@ -136,38 +135,9 @@ struct font_page_gpu {
     uint64_t last_uploaded_version = 0;
 };
 
-struct font_draw_record {
-    PulseTransform transform{};
-    PulseScissor scissor{};
-    uint32_t first = 0;
-    uint32_t count = 0;
-};
-
-struct font_pass_group {
-    uint32_t page;
-    uint32_t first;
-    uint32_t count;
-};
-
-struct font_record_groups {
-    uint32_t first;
-    uint32_t count;
-};
-
 struct font_render_state {
     bool initialized = false;
-    PulseShaderHandle shader{};
-    PulseMaterialHandle material{};
-    PulseMeshHandle mesh{};
-    PulseSamplerHandle sampler{};
-    ecs_query_t* window_query = nullptr;
     std::vector<font_page_gpu> pages;
-    std::vector<PulseGlyphInstance> instances;
-    std::vector<font_draw_record> records;
-    std::vector<font_pass_group> groups;
-    std::vector<font_record_groups> record_groups;
-    std::vector<uint8_t> gpu_instances;
-    bool overflow_reported = false;
 };
 
 struct pulse_font_plugin_state {

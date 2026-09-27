@@ -18,6 +18,7 @@
 #include "pulse_app.h"
 #include "pulse_math.h"
 #include "pulse_graphics.h"
+#include "pulse_text.h"
 
 #if defined(PULSE_RENDERER_MODULE_BUILD)
 #  define PULSE_RENDERER_API PULSE_EXPORT

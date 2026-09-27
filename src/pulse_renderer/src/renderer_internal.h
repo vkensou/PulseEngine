@@ -74,6 +74,7 @@ struct StagingItem {
     PulseMaterialHandle material;
     PulseShaderHandle shader;
     HMM_Mat4 world_matrix;
+    uint32_t instance_count;
     uint32_t data_slot;
 };
 
@@ -98,6 +99,7 @@ struct CameraSnapshot {
     float orthographic_size;
     int width;
     int height;
+    uint32_t clear_color;
 };
 
 struct FrameRenderPacket {
@@ -280,10 +282,24 @@ struct FeatureDrawContext {
     const void* item_data() const;
 };
 
+struct FeatureRecordContext {
+    pulse_renderer_state* state;
+    const FrameRenderPacket* snapshot;
+    const ViewFrameData* view;
+    uint32_t view_index;
+    uint32_t feature_id;
+    std::pmr::vector<const DrawItem*> items;
+
+    FeatureRecordContext(pulse_renderer_state* s, const FrameRenderPacket* snap, const ViewFrameData* v, uint32_t vi, uint32_t fi, std::pmr::memory_resource* r)
+        : state(s), snapshot(snap), view(v), view_index(vi), feature_id(fi), items(r) {}
+};
+
 using FeatureExtractFn = void (*)(PulseAppId app, ecs_world_t* world, FeatureExtractContext& ctx, void* userdata);
 using FeatureCullFn = int32_t (*)(FeatureCullContext& ctx, const StagingItem& item, void* userdata);
 using FeaturePrepareFn = void (*)(FeaturePrepareContext& ctx, void* userdata);
 using FeatureDrawFn = void (*)(PulseAppId app, PulseRenderPassEncoder* encoder, FeatureDrawContext& ctx, void* userdata);
+using FeatureRecordFn = void (*)(PulseAppId app, PulseRenderGraphId graph, PulseRenderPassBuilder& pass, FeatureRecordContext& ctx, void* userdata);
+using FeatureDestroyFn = void (*)(void* userdata);
 
 struct RenderFeature {
     const char* name;
@@ -291,6 +307,8 @@ struct RenderFeature {
     FeatureCullFn cull;
     FeaturePrepareFn prepare;
     FeatureDrawFn draw;
+    FeatureRecordFn record;
+    FeatureDestroyFn destroy;
     uint32_t data_size;
     void* userdata;
 };
@@ -298,6 +316,7 @@ struct RenderFeature {
 GpuBlockRef alloc_ubo_block(pulse_renderer_state& state, ViewFrameData& view, uint32_t size);
 uint32_t alloc_feature_ubo_column(FeaturePrepareContext& ctx, DrawItem& item, uint32_t set, uint32_t binding, uint32_t size);
 void bind_item_ubo_columns(PulseRenderPassEncoder* encoder, const ViewFrameData& view, const DrawItem& item);
+void collect_feature_items(FeatureRecordContext& ctx);
 
 // ============================================================
 // Plugin internal state
@@ -329,10 +348,14 @@ struct pulse_renderer_state {
         return (uint32_t)list_registry.size() - 1;
     }
 
-    void register_feature(const char* name, FeatureExtractFn extract, FeatureCullFn cull, FeaturePrepareFn prepare, FeatureDrawFn draw, uint32_t data_size, void* userdata) {
+    void register_feature(const char* name, FeatureExtractFn extract, FeatureCullFn cull, FeaturePrepareFn prepare, FeatureDrawFn draw, FeatureRecordFn record, FeatureDestroyFn destroy, uint32_t data_size, void* userdata) {
         assert(draw != nullptr);
         assert(features.size() < 0xffff);
-        features.push_back({ name, extract, cull, prepare, draw, data_size, userdata });
+        features.push_back({ name, extract, cull, prepare, draw, record, destroy, data_size, userdata });
+    }
+
+    RenderFeature* find_feature(uint16_t feature_id) {
+        return feature_id < features.size() ? &features[feature_id] : nullptr;
     }
 
     ecs_entity_t begin_extract_system = 0;
@@ -415,6 +438,7 @@ void install_renderer_systems(ecs_world_t* world, pulse_renderer_state* state);
 
 void install_renderable_feature(pulse_renderer_state* state, ecs_world_t* world);
 void shutdown_renderable_feature(void* userdata);
+void install_text_feature(pulse_renderer_state* state, ecs_world_t* world, PulseAppId app);
 
 pulse_renderer_state* state_from_app(PulseAppId app);
 

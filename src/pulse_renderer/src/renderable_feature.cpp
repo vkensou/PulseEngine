@@ -80,7 +80,7 @@ void install_renderable_feature(pulse_renderer_state* state, ecs_world_t* world)
     auto* ud = new renderable_feature_userdata{};
     ud->query = ecs_query_init(world, &query_desc);
 
-    state->register_feature("Renderable", renderable_feature_extract, renderable_feature_cull, renderable_feature_prepare, renderable_feature_draw, 0, ud);
+    state->register_feature("Renderable", renderable_feature_extract, renderable_feature_cull, renderable_feature_prepare, renderable_feature_draw, nullptr, shutdown_renderable_feature, 0, ud);
 }
 
 void shutdown_renderable_feature(void* userdata) {

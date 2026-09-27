@@ -18,6 +18,7 @@
 #include "pulse_app.h"
 #include "pulse_math.h"
 #include "pulse_graphics.h"
+#include "pulse_text.h"
 
 #if defined(PULSE_RENDERER_MODULE_BUILD)
 #  define PULSE_RENDERER_API PULSE_EXPORT
@@ -34,6 +35,12 @@ extern "C" {
  *
  */
 #define PULSE_RENDERER_PLUGIN_DESC_VERSION 1u
+
+/**
+ * 单个实体内联文本缓冲上限，含结尾 '\0'
+ *
+ */
+#define PULSE_TEXT_MAX_CHARS 256u
 
 
 
@@ -58,6 +65,7 @@ typedef struct PulseCamera
     float                far_plane;
     float                orthographic_size;
     bool                 orthographic;
+    uint32_t             clear_color;
 
 } PulseCamera;
 PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseCamera);
@@ -76,6 +84,21 @@ typedef struct PulseRenderable
 
 } PulseRenderable;
 PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseRenderable);
+
+/**
+ * 文字渲染组件；block 为 pulse_text 排版块 id，text 为内联 utf8；revision 由 TextSet 自增，驱动懒重排
+ *
+ */
+typedef struct PulseText
+{
+    PulseTextBlockDesc   block;
+    char                 text[PULSE_TEXT_MAX_CHARS];
+    float                box_width;
+    float                box_height;
+    uint32_t             revision;
+
+} PulseText;
+PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseText);
 
 
 

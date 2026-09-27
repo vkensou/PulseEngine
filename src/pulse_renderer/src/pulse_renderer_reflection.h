@@ -21,6 +21,7 @@ inline void pulse_renderer_register_reflection(ecs_world_t* world) {
         comp.member("far_plane", &PulseCamera::far_plane).range(0.01, 4000.0);
         comp.member("orthographic_size", &PulseCamera::orthographic_size).range(0.001, 100.0);
         comp.member("orthographic", &PulseCamera::orthographic);
+        comp.member("clear_color", &PulseCamera::clear_color);
     }
     {
         flecs::component<PulseLight> comp(world, "PulseLight");
@@ -32,5 +33,13 @@ inline void pulse_renderer_register_reflection(ecs_world_t* world) {
         ecs_id(PulseRenderable) = comp.id();
         comp.member("mesh", &PulseRenderable::mesh);
         comp.member("material", &PulseRenderable::material);
+    }
+    {
+        flecs::component<PulseText> comp(world, "PulseText");
+        ecs_id(PulseText) = comp.id();
+        comp.member("block", &PulseText::block);
+        comp.member("text", &PulseText::text);
+        comp.member("box_width", &PulseText::box_width);
+        comp.member("box_height", &PulseText::box_height);
     }
 }

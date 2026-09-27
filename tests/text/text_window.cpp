@@ -10,7 +10,9 @@
 #include "pulse_font.h"
 #include "pulse_graphics.h"
 #include "pulse_input.h"
+#include "pulse_renderer.h"
 #include "pulse_text.h"
+#include "pulse_transform.h"
 #include "pulse_vfs.h"
 #include "pulse_window.h"
 
@@ -18,8 +20,8 @@ namespace {
 
 constexpr int32_t kWindowWidth = 640;
 constexpr int32_t kWindowHeight = 480;
-constexpr int32_t kTextRecordPriority = 100;
 constexpr int32_t kFramesBeforeDone = 30;
+constexpr int32_t kTextClearPriority = 90;
 constexpr const char* kWindowTitle = "test-text-window";
 constexpr const char* kDoneTitle = "text-window-rendered";
 
@@ -32,19 +34,14 @@ struct text_line_spec {
     float size;
     PulseTextColor color;
     const char* text;
-    bool scissored;
-    float scissor_x;
-    float scissor_y;
-    float scissor_width;
-    float scissor_height;
 };
 
 struct text_line_box {
-    uint32_t block = PULSE_TEXT_BLOCK_ID_NONE;
+    uint32_t block = 0;
+    PulseTextBlockDesc desc{};
     float left = 0.0f;
     float top = 0.0f;
-    PulseTextLayout* layout = nullptr;
-    PulseScissor scissor{};
+    ecs_entity_t entity = 0;
 };
 
 struct text_window_state {
@@ -58,6 +55,7 @@ struct text_window_state {
     PulseFontHandle cjk_font{};
     PulseFontHandle proggy_font{};
     std::vector<text_line_box> boxes;
+    ecs_entity_t camera = 0;
     bool fonts_requested = false;
     bool fonts_ready = false;
     bool initialized = false;
@@ -68,20 +66,33 @@ struct text_window_state {
 void clear_record_callback(PulseAppId app, PulseRenderGraphId graph, void* user_data);
 
 const text_line_spec kLineSpecs[] = {
-    { kChainMain, 24.0f, 70.0f, 64.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 110.0f, 12.0f, { 0.6f, 0.9f, 1.0f, 1.0f }, "12px: Sphinx of black quartz, judge my vow. AV To Wa", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 142.0f, 18.0f, { 0.7f, 0.95f, 0.7f, 1.0f }, "18px: Sphinx of black quartz, judge my vow. AV To Wa", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 180.0f, 24.0f, { 1.0f, 0.85f, 0.4f, 1.0f }, "24px: Sphinx of black quartz, judge my vow. AV To Wa", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 228.0f, 36.0f, { 1.0f, 0.6f, 0.55f, 1.0f }, "36px: quartz AV Wa", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 286.0f, 48.0f, { 0.85f, 0.7f, 1.0f, 1.0f }, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97 card text", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 334.0f, 20.0f, { 0.9f, 0.9f, 0.9f, 1.0f }, "\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B +2 \xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC 30", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 388.0f, 48.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE7\xBC\xBA\xE5\xAD\x97\xEF\xBC\x9A\xEE\x80\x80 tofu", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainBitmap, 24.0f, 424.0f, 28.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Bitmap SDF: Proggy 0123", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainDefault, 330.0f, 424.0f, 16.0f, { 0.6f, 0.85f, 1.0f, 1.0f }, "default 16px: ABCabc 123", false, 0.0f, 0.0f, 0.0f, 0.0f },
-    { kChainMain, 24.0f, 460.0f, 24.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text clipped", true, 24.0f, 430.0f, 160.0f, 48.0f },
+    { kChainMain, 24.0f, 70.0f, 64.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93" },
+    { kChainMain, 24.0f, 110.0f, 12.0f, { 0.6f, 0.9f, 1.0f, 1.0f }, "12px: Sphinx of black quartz, judge my vow. AV To Wa" },
+    { kChainMain, 24.0f, 142.0f, 18.0f, { 0.7f, 0.95f, 0.7f, 1.0f }, "18px: Sphinx of black quartz, judge my vow. AV To Wa" },
+    { kChainMain, 24.0f, 180.0f, 24.0f, { 1.0f, 0.85f, 0.4f, 1.0f }, "24px: Sphinx of black quartz, judge my vow. AV To Wa" },
+    { kChainMain, 24.0f, 228.0f, 36.0f, { 1.0f, 0.6f, 0.55f, 1.0f }, "36px: quartz AV Wa" },
+    { kChainMain, 24.0f, 286.0f, 48.0f, { 0.85f, 0.7f, 1.0f, 1.0f }, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97 card text" },
+    { kChainMain, 24.0f, 334.0f, 20.0f, { 0.9f, 0.9f, 0.9f, 1.0f }, "\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B +2 \xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC 30" },
+    { kChainMain, 24.0f, 388.0f, 48.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE7\xBC\xBA\xE5\xAD\x97\xEF\xBC\x9A\xEE\x80\x80 tofu" },
+    { kChainBitmap, 24.0f, 424.0f, 28.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Bitmap SDF: Proggy 0123" },
+    { kChainDefault, 330.0f, 424.0f, 16.0f, { 0.6f, 0.85f, 1.0f, 1.0f }, "default 16px: ABCabc 123" },
+    { kChainMain, 24.0f, 460.0f, 24.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text clipped" },
 };
 
 constexpr size_t kLineCount = sizeof(kLineSpecs) / sizeof(kLineSpecs[0]);
+
+ecs_entity_t create_transform_entity(ecs_world_t* world, float x, float y, float z) {
+    ecs_entity_t entity = ecs_new(world);
+    PulseLocalTransform local = {};
+    local.translation = HMM_Vec3{ x, y, z };
+    local.rotation = HMM_Quat{ 0, 0, 0, 1 };
+    local.scale = HMM_Vec3{ 1.0f, 1.0f, 1.0f };
+    ecs_set_ptr(world, entity, PulseLocalTransform, &local);
+    PulseWorldTransform world_tx = {};
+    world_tx.value = HMM_TRS(local.translation, local.rotation, local.scale);
+    ecs_set_ptr(world, entity, PulseWorldTransform, &world_tx);
+    return entity;
+}
 
 void init_system_run(ecs_iter_t* it) {
     text_window_state* state = static_cast<text_window_state*>(it->ctx);
@@ -96,7 +107,7 @@ void init_system_run(ecs_iter_t* it) {
     PulseRenderRecordCallbackDesc callback_desc{};
     callback_desc.callback = clear_record_callback;
     callback_desc.user_data = state;
-    callback_desc.priority = kTextRecordPriority - 10;
+    callback_desc.priority = kTextClearPriority;
     assert(pulse_add_render_record_callback(app, &callback_desc) == PULSE_RESULT_OK);
 
     state->window = ecs_lookup(it->world, kWindowTitle);
@@ -104,7 +115,23 @@ void init_system_run(ecs_iter_t* it) {
     state->initialized = true;
 }
 
+void create_camera(PulseAppId app, text_window_state* state) {
+    ecs_world_t* world = pulse_app_world(app);
+    ecs_entity_t camera = create_transform_entity(world, 0.0f, 0.0f, 0.0f);
+    PulseCamera component = {};
+    component.window_entity = state->window;
+    component.fov = 45.0f;
+    component.near_plane = 0.1f;
+    component.far_plane = 100.0f;
+    component.orthographic_size = 240.0f;
+    component.orthographic = true;
+    component.clear_color = 0xff2a2f38;
+    ecs_set_ptr(world, camera, PulseCamera, &component);
+    state->camera = camera;
+}
+
 void build_text_boxes(PulseAppId app, text_window_state* state) {
+    ecs_world_t* world = pulse_app_world(app);
     const uint32_t chains[] = { state->chain, state->bitmap_chain, state->default_chain };
     state->boxes.resize(kLineCount);
     for (size_t i = 0; i < kLineCount; ++i) {
@@ -117,25 +144,28 @@ void build_text_boxes(PulseAppId app, text_window_state* state) {
         desc.align_v = PULSE_TEXT_ALIGN_V_TOP;
         desc.line_height = 0.0f;
         text_line_box& box = state->boxes[i];
-        box.block = pulse_text_block_create(app, &desc);
-        assert(box.block != PULSE_TEXT_BLOCK_ID_NONE);
+        box.desc = desc;
         const PulseVerticalMetrics metrics = pulse_font_vertical_metrics(app, chains[spec.chain], spec.size);
         box.left = spec.x;
         box.top = spec.baseline - metrics.ascent;
-        box.layout = pulse_text_block_layout(app, box.block, spec.text, 0.0f, 0.0f);
-        assert(box.layout != nullptr);
-        assert(box.layout->instances_count > 0);
-        if (spec.scissored) {
-            box.scissor.x = spec.scissor_x - box.left;
-            box.scissor.y = spec.scissor_y - box.top;
-            box.scissor.width = spec.scissor_width;
-            box.scissor.height = spec.scissor_height;
-            box.scissor.enabled = true;
-        }
+
+        box.entity = create_transform_entity(world, spec.x - (float)kWindowWidth * 0.5f, (float)kWindowHeight * 0.5f - box.top, 0.0f);
+        PulseText text{
+            .block = desc,
+            .box_width = 0,
+            .box_height = 0,
+        };
+        strcpy(text.text, spec.text);
+        ecs_set_ptr(world, box.entity, PulseText, &text);
+
+        PulseTextLayout* layout = pulse_text_layout(app, &box.desc, spec.text, 0.0f, 0.0f);
+        assert(layout != nullptr);
+        assert(layout->instances_count > 0);
+        pulse_text_layout_free(app, layout);
     }
 
-    const PulseTextMeasure clipped_measure = pulse_text_block_measure(app, state->boxes[kLineCount - 1].block, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text", 0.0f);
-    assert(clipped_measure.width > 160.0f);
+    const PulseTextMeasure measure = pulse_text_measure(app, &state->boxes[kLineCount - 1].desc, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text", 0.0f);
+    assert(measure.width > 160.0f);
 }
 
 void prepare_fonts(PulseAppId app, text_window_state* state) {
@@ -175,6 +205,7 @@ void prepare_fonts(PulseAppId app, text_window_state* state) {
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 'A')), pulse_font_to_handle(state->latin_font)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->default_chain, 'A')), pulse_font_to_handle(default_font)));
 
+    create_camera(app, state);
     build_text_boxes(app, state);
 
     const PulseAtlasStats stats = pulse_font_atlas_stats(app);
@@ -203,17 +234,6 @@ void submit_system_run(ecs_iter_t* it) {
         if (!state->fonts_ready) {
             return;
         }
-    }
-    for (const text_line_box& box : state->boxes) {
-        PulseDrawDesc desc{};
-        desc.p_instances = box.layout->p_instances;
-        desc.instances_count = box.layout->instances_count;
-        desc.transform.scale_x = 2.0f / (float)kWindowWidth;
-        desc.transform.scale_y = -2.0f / (float)kWindowHeight;
-        desc.transform.translate_x = -1.0f + 2.0f * box.left / (float)kWindowWidth;
-        desc.transform.translate_y = 1.0f - 2.0f * box.top / (float)kWindowHeight;
-        desc.scissor = box.scissor;
-        assert(pulse_font_submit(app, &desc) == PULSE_RESULT_OK);
     }
 
     ++state->frames;
@@ -264,8 +284,11 @@ int main(void) {
     graphics_desc.enable_gpu_based_validation = true;
     assert(pulse_add_graphics_plugin(app, &graphics_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
+    assert(pulse_add_math_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_transform_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_font_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_text_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     text_window_state state{};
 
@@ -296,10 +319,6 @@ int main(void) {
     }
 
     if (state.fonts_ready) {
-        for (text_line_box& box : state.boxes) {
-            pulse_text_layout_free(app, box.layout);
-            pulse_text_block_destroy(app, box.block);
-        }
         pulse_font_destroy_chain(app, state.chain);
         pulse_font_destroy_chain(app, state.bitmap_chain);
         pulse_font_destroy_chain(app, state.default_chain);

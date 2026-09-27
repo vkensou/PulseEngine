@@ -19,6 +19,7 @@
 #include "pulse_app.h"
 
 #include "pulse_asset.h"
+#include "pulse_graphics.h"
 
 #if defined(PULSE_FONT_MODULE_BUILD)
 #  define PULSE_FONT_API PULSE_EXPORT
@@ -89,7 +90,6 @@ typedef struct PulseFontPluginDesc
     uint32_t             atlas_height;
     uint32_t             max_atlas_count;
     uint32_t             sdf_padding;
-    int32_t              record_priority;
 
 } PulseFontPluginDesc;
 
@@ -151,11 +151,7 @@ typedef struct PulseFontPagePixels
 } PulseFontPagePixels;
 
 /**
- * ===== 渲染出口区块 =====
- * 本区块的类型与函数整体属于文字渲染出口，将来从 pulse_font 整体迁出到独立渲染包；
- * GPU 侧跨包消费图集走上方 FontPageCount / FontPagePixels / FontPageVersion。
- * FontPluginDesc 的 recordPriority 亦属本区块，受结构体约束留在原处。
- * 一条 glyph 的绘制数据，page 相同的实例会被合进同一次 draw
+ * 排版结果里的一条 glyph 实例，坐标相对盒子原点、y 轴向下，page 为所属图集页
  *
  */
 typedef struct PulseGlyphInstance
@@ -175,41 +171,6 @@ typedef struct PulseGlyphInstance
     uint32_t             page;
 
 } PulseGlyphInstance;
-
-/**
- * 局部像素坐标到 NDC 的仿射变换
- *
- */
-typedef struct PulseTransform
-{
-    float                scale_x;
-    float                scale_y;
-    float                translate_x;
-    float                translate_y;
-
-} PulseTransform;
-
-/**
- * 裁剪矩形，与实例同处局部像素坐标
- *
- */
-typedef struct PulseScissor
-{
-    float                x;
-    float                y;
-    float                width;
-    float                height;
-    bool                 enabled;
-
-} PulseScissor;
-
-typedef struct PulseDrawDesc
-{
-    Pulse_Array(const PulseGlyphInstance, instances);
-    PulseTransform       transform;
-    PulseScissor         scissor;
-
-} PulseDrawDesc;
 
 
 
@@ -375,13 +336,13 @@ PULSE_FONT_API PulseFontPagePixels pulse_font_page_pixels(PulseAppId app, uint32
 PULSE_FONT_API uint64_t pulse_font_page_version(PulseAppId app, uint32_t page);
 
 /**
- * 本帧提交一批 glyph 实例，按 page 分组各一次 draw
+ * 取图集页的 GPU 纹理凭证与 CPU 像素、版本号同属图集跨包契约；首次调用惰性创建该页纹理，纹理未就绪返回无效凭证，调用方每帧重试
  *
  * @param[in] app
- * @param[in] desc
+ * @param[in] page
  *
  */
-PULSE_FONT_API EPulseResult pulse_font_submit(PulseAppId app, const PulseDrawDesc* desc);
+PULSE_FONT_API PulseTextureHandle pulse_font_page_texture(PulseAppId app, uint32_t page);
 
 #ifdef __cplusplus
 }
