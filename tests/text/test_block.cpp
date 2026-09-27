@@ -5,6 +5,20 @@ int main() {
     const PulseFontHandle latin = register_latin(app);
     const uint32_t chain = make_chain(app, &latin, 1);
 
+    ecs_world_t* world = pulse_app_world(app);
+    const ecs_entity_t desc_type = ecs_lookup(world, "PulseTextBlockDesc");
+    assert(desc_type != 0);
+    assert(ecs_struct_get_member(world, desc_type, "chain") != nullptr);
+    assert(ecs_struct_get_member(world, desc_type, "size") != nullptr);
+    assert(ecs_struct_get_member(world, desc_type, "align_h") != nullptr);
+    assert(ecs_struct_get_member(world, desc_type, "align_v") != nullptr);
+    assert(ecs_struct_get_member(world, desc_type, "line_height") != nullptr);
+    const ecs_entity_t color_type = ecs_lookup(world, "PulseTextColor");
+    assert(color_type != 0);
+    assert(ecs_struct_get_member(world, color_type, "r") != nullptr);
+    assert(ecs_struct_get_member(world, color_type, "a") != nullptr);
+    assert(ecs_struct_get_member(world, desc_type, "color")->type == color_type);
+
     assert(pulse_text_layout(app, nullptr, "x", 100.0f, 100.0f) == nullptr);
 
     PulseTextBlockDesc desc = text_desc(chain, 24.0f);

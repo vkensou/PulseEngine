@@ -45,6 +45,7 @@ EPulsePluginBuildResult pulse_text_plugin_build(PulseAppId app, void* ctx) {
         return PULSE_PLUGIN_BUILD_RESULT_ERROR_INVALID_ARGUMENT;
     }
     state->app = app;
+    register_components(world);
     ecs_id(pulse_text_state_resource) = flecs::_::type<pulse_text_state_resource>::id(world);
     pulse_text_state_resource resource{};
     resource.state = state;
