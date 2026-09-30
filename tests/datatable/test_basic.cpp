@@ -15,17 +15,17 @@ static void update_once(PulseAppId app) {
     assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
 }
 
-static bool wait_ready(PulseAppId app, PulseAssetRequest request) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+static bool wait_ready(PulseAppId app, PulseDataTableRequest request) {
     PulseAssetSystemId assets = pulse_get_asset_system(app);
+    PulseAssetRequest asset_request = pulse_data_table_request_to_asset_request(request);
     for (int frame = 0; frame < 600; ++frame) {
-        if (pulse_data_table_system_is_ready(system, request)) {
+        if (pulse_data_table_is_ready(app, request)) {
             return true;
         }
-        if (pulse_asset_system_get_state(assets, request) == PULSE_ASSET_STATE_FAILED) {
+        if (pulse_asset_system_get_state(assets, asset_request) == PULSE_ASSET_STATE_FAILED) {
             return false;
         }
-        if (!pulse_data_table_system_is_alive(system, request)) {
+        if (!pulse_data_table_is_alive(app, request)) {
             return false;
         }
         update_once(app);
@@ -33,12 +33,12 @@ static bool wait_ready(PulseAppId app, PulseAssetRequest request) {
     return false;
 }
 
-static void assert_load_failed(PulseAppId app, PulseAssetRequest request, const char* expected) {
+static void assert_load_failed(PulseAppId app, PulseDataTableRequest request, const char* expected) {
     if (wait_ready(app, request)) {
         printf("FAIL: '%s' loaded but should have failed\n", expected);
         assert(false);
     }
-    const char* error = pulse_asset_system_get_error(pulse_get_asset_system(app), request);
+    const char* error = pulse_asset_system_get_error(pulse_get_asset_system(app), pulse_data_table_request_to_asset_request(request));
     if (!error || !strstr(error, expected)) {
         printf("FAIL: error was '%s', expected substring '%s'\n", error ? error : "(null)", expected);
         assert(false);
@@ -46,8 +46,8 @@ static void assert_load_failed(PulseAppId app, PulseAssetRequest request, const 
 }
 
 static void expect_failure(PulseAppId app, const char* path, const char* expected) {
-    PulseAssetRequest request = pulse_data_table_system_load(pulse_get_data_table_system(app), "snake", path);
-    assert(pulse_asset_request_is_valid(request));
+    PulseDataTableRequest request = pulse_data_table_system_load(pulse_get_data_table_system(app), "snake", path);
+    assert(request.index != 0);
     assert_load_failed(app, request, expected);
 }
 
@@ -99,8 +99,8 @@ int main(void) {
     assert(!schema->key_is_int);
     assert(schema->p_columns[6].offset == 64);
 
-    PulseAssetRequest snake_request = pulse_tables::PulseSnakeRowTable::Load(app, "snake.datatable");
-    assert(pulse_asset_request_is_valid(snake_request));
+    PulseDataTableRequest snake_request = pulse_tables::PulseSnakeRowTable::Load(app, "snake.datatable");
+    assert(snake_request.index != 0);
     assert(wait_ready(app, snake_request));
     assert(pulse_tables::PulseSnakeRowTable::IsReady(app));
 
@@ -141,8 +141,8 @@ int main(void) {
     assert(pulse_tables::PulseSnakeRowTable::GetRow(app, "missing") == nullptr);
     PulseDataTableId snake_table = pulse_data_table_system_get(system, snake_request);
 
-    PulseAssetRequest num_request = pulse_tables::PulseNumRowTable::Load(app, "num.datatable");
-    assert(pulse_asset_request_is_valid(num_request));
+    PulseDataTableRequest num_request = pulse_tables::PulseNumRowTable::Load(app, "num.datatable");
+    assert(num_request.index != 0);
     assert(wait_ready(app, num_request));
     uint32_t num_count = 0;
     const pulse_tables::PulseNumRow* nums = pulse_tables::PulseNumRowTable::Rows(app, num_count);
@@ -162,8 +162,8 @@ int main(void) {
     assert(pulse_data_table_find_row_int(num_table, 7) == seven);
     assert(pulse_data_table_find_row_int(snake_table, 7) == nullptr);
 
-    PulseAssetRequest deep_request = pulse_tables::PulseDeepRowTable::Load(app, "deep.datatable");
-    assert(pulse_asset_request_is_valid(deep_request));
+    PulseDataTableRequest deep_request = pulse_tables::PulseDeepRowTable::Load(app, "deep.datatable");
+    assert(deep_request.index != 0);
     assert(wait_ready(app, deep_request));
     const pulse_tables::PulseDeepRow* deep_a = pulse_tables::PulseDeepRowTable::GetRow(app, "a");
     assert(deep_a != nullptr);
@@ -176,8 +176,8 @@ int main(void) {
     assert(deep_b->inner.shell.radius == 2);
     assert(deep_b->inner.shell.tag == "x");
 
-    PulseAssetRequest hero_request = pulse_tables::PulseHeroRowTable::Load(app, "hero.datatable");
-    assert(pulse_asset_request_is_valid(hero_request));
+    PulseDataTableRequest hero_request = pulse_tables::PulseHeroRowTable::Load(app, "hero.datatable");
+    assert(hero_request.index != 0);
     assert(wait_ready(app, hero_request));
     const pulse_tables::PulseHeroRow* mage = pulse_tables::PulseHeroRowTable::GetRow(app, "mage");
     assert(mage != nullptr);
@@ -194,7 +194,7 @@ int main(void) {
     assert(strcmp(hero_schema->p_enums[0].name, "element") == 0);
     assert(strcmp(hero_schema->p_enums[0].p_values[0], "fire") == 0);
 
-    assert(pulse_data_table_system_get(system, pulse_asset_request_make_invalid()) == nullptr);
+    assert(pulse_data_table_system_get(system, PulseDataTableRequest{}) == nullptr);
     assert(pulse_data_table_get_name(nullptr) == nullptr);
     assert(pulse_data_table_row_count(nullptr) == 0);
     assert(pulse_data_table_rows(nullptr, nullptr) == nullptr);
@@ -211,8 +211,8 @@ int main(void) {
     expect_failure(app, "extra.datatable", "unknown column");
     expect_failure(app, "declares_other.datatable", "is not registered");
 
-    PulseAssetRequest empty_request = pulse_data_table_system_load(system, "snake", "no_such_file.datatable");
-    assert(pulse_asset_request_is_valid(empty_request));
+    PulseDataTableRequest empty_request = pulse_data_table_system_load(system, "snake", "no_such_file.datatable");
+    assert(empty_request.index != 0);
     assert(!wait_ready(app, empty_request));
 
     pulse_app_finish(app);

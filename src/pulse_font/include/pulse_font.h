@@ -34,18 +34,6 @@ extern "C" {
 #define PULSE_FONT_PLUGIN_DESC_VERSION 1u
 
 /**
- * Font handle 0 表示无效
- *
- */
-#define PULSE_FONT_ID_NONE 0u
-
-/**
- * 注册字体上限，含 fallback 兜底字体，超出即失败
- *
- */
-#define PULSE_FONT_MAX_COUNT 64u
-
-/**
  * Asset type id range 0x4000+ belongs to pulse_font (graphics 0x1000+, prefab 0x2000, datatable 0x3000)
  *
  */
@@ -62,12 +50,7 @@ extern "C" {
 
 // ---- asset type definitions ----
 
-PULSE_DEFINE_ASSET_HANDLE_TYPE(PulseFontHandle, PulseFontRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
-PULSE_DEFINE_ASSET_STATUS(font, PulseFontRequest)
-
-// ---- font_chain asset type (standard shape, full TYPE) ----
-
+PULSE_DEFINE_ASSET_TYPE(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
 PULSE_DEFINE_ASSET_TYPE(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
 
 
@@ -190,15 +173,6 @@ PULSE_FONT_API PulseFontRequest pulse_font_load(PulseAppId app, const char* path
  *
  */
 PULSE_FONT_API PulseFontRequest pulse_font_load_from_memory(PulseAppId app, const char* name, Pulse_Blob_Param(memory), uint32_t face_index);
-
-/**
- * ready 后取字体凭证，同时登记进字体注册表；未 ready 返回无效 handle；同一资产重复调用幂等
- *
- * @param[in] app
- * @param[in] request
- *
- */
-PULSE_FONT_API PulseFontHandle pulse_font_get_handle(PulseAppId app, PulseFontRequest request);
 PULSE_FONT_API uint32_t pulse_font_count(PulseAppId app);
 [[pulse::optional]] PULSE_FONT_API const char* pulse_font_family_name(PulseAppId app, PulseFontHandle font);
 PULSE_FONT_API PulseFontHandle pulse_font_find_family(PulseAppId app, const char* family);

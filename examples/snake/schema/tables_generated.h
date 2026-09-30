@@ -23,7 +23,7 @@ static_assert(sizeof(PulseSnakeConfigRow) == 24, "snake_config layout mismatch")
 
 struct PulseSnakeConfigRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseSnakeConfigRow* Rows(PulseAppId app, uint32_t& out_count);

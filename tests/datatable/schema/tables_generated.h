@@ -155,7 +155,7 @@ static_assert(sizeof(PulseTypRow) == 24, "typ layout mismatch");
 
 struct PulseDeclaresOtherRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseDeclaresOtherRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -165,7 +165,7 @@ struct PulseDeclaresOtherRowTable
 
 struct PulseDeepRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseDeepRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -175,7 +175,7 @@ struct PulseDeepRowTable
 
 struct PulseDupRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseDupRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -185,7 +185,7 @@ struct PulseDupRowTable
 
 struct PulseEnmRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseEnmRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -195,7 +195,7 @@ struct PulseEnmRowTable
 
 struct PulseExtraRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseExtraRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -205,7 +205,7 @@ struct PulseExtraRowTable
 
 struct PulseHeroRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseHeroRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -215,7 +215,7 @@ struct PulseHeroRowTable
 
 struct PulseItemRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseItemRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -225,7 +225,7 @@ struct PulseItemRowTable
 
 struct PulseNumRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseNumRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -235,7 +235,7 @@ struct PulseNumRowTable
 
 struct PulseRefRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseRefRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -245,7 +245,7 @@ struct PulseRefRowTable
 
 struct PulseRefdefaultRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseRefdefaultRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -255,7 +255,7 @@ struct PulseRefdefaultRowTable
 
 struct PulseReqRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseReqRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -265,7 +265,7 @@ struct PulseReqRowTable
 
 struct PulseRngRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseRngRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -275,7 +275,7 @@ struct PulseRngRowTable
 
 struct PulseSnakeRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseSnakeRow* Rows(PulseAppId app, uint32_t& out_count);
@@ -285,7 +285,7 @@ struct PulseSnakeRowTable
 
 struct PulseTypRowTable
 {
-    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);
+    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);
     static bool IsReady(PulseAppId app);
     static const char* GetError(PulseAppId app);
     static const PulseTypRow* Rows(PulseAppId app, uint32_t& out_count);

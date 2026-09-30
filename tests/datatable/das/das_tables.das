@@ -443,16 +443,16 @@ def PulseTablesRegisterSchemas(app: PulseAppId) {
     pulse_tables_registered = ok
 }
 
-def PulseDeclaresOtherLoad(app: PulseAppId; path: string = "declares_other.datatable") : PulseAssetRequest {
+def PulseDeclaresOtherLoad(app: PulseAppId; path: string = "declares_other.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "declares_other", path)
 }
 
-def PulseDeclaresOtherIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseDeclaresOtherIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseDeclaresOtherGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseDeclaresOtherGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -472,16 +472,16 @@ def PulseDeclaresOtherFindRow(app: PulseAppId; key: string) : PulseDeclaresOther
     }
 }
 
-def PulseDeepLoad(app: PulseAppId; path: string = "deep.datatable") : PulseAssetRequest {
+def PulseDeepLoad(app: PulseAppId; path: string = "deep.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "deep", path)
 }
 
-def PulseDeepIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseDeepIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseDeepGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseDeepGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -501,16 +501,16 @@ def PulseDeepFindRow(app: PulseAppId; key: string) : PulseDeepRow? {
     }
 }
 
-def PulseDupLoad(app: PulseAppId; path: string = "dup.datatable") : PulseAssetRequest {
+def PulseDupLoad(app: PulseAppId; path: string = "dup.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "dup", path)
 }
 
-def PulseDupIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseDupIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseDupGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseDupGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -530,16 +530,16 @@ def PulseDupFindRow(app: PulseAppId; key: string) : PulseDupRow? {
     }
 }
 
-def PulseEnmLoad(app: PulseAppId; path: string = "enm.datatable") : PulseAssetRequest {
+def PulseEnmLoad(app: PulseAppId; path: string = "enm.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "enm", path)
 }
 
-def PulseEnmIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseEnmIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseEnmGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseEnmGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -559,16 +559,16 @@ def PulseEnmFindRow(app: PulseAppId; key: string) : PulseEnmRow? {
     }
 }
 
-def PulseExtraLoad(app: PulseAppId; path: string = "extra.datatable") : PulseAssetRequest {
+def PulseExtraLoad(app: PulseAppId; path: string = "extra.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "extra", path)
 }
 
-def PulseExtraIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseExtraIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseExtraGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseExtraGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -588,16 +588,16 @@ def PulseExtraFindRow(app: PulseAppId; key: string) : PulseExtraRow? {
     }
 }
 
-def PulseHeroLoad(app: PulseAppId; path: string = "hero.datatable") : PulseAssetRequest {
+def PulseHeroLoad(app: PulseAppId; path: string = "hero.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "hero", path)
 }
 
-def PulseHeroIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseHeroIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseHeroGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseHeroGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -617,16 +617,16 @@ def PulseHeroFindRow(app: PulseAppId; key: string) : PulseHeroRow? {
     }
 }
 
-def PulseItemLoad(app: PulseAppId; path: string = "item.datatable") : PulseAssetRequest {
+def PulseItemLoad(app: PulseAppId; path: string = "item.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "item", path)
 }
 
-def PulseItemIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseItemIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseItemGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseItemGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -646,16 +646,16 @@ def PulseItemFindRow(app: PulseAppId; key: string) : PulseItemRow? {
     }
 }
 
-def PulseNumLoad(app: PulseAppId; path: string = "num.datatable") : PulseAssetRequest {
+def PulseNumLoad(app: PulseAppId; path: string = "num.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "num", path)
 }
 
-def PulseNumIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseNumIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseNumGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseNumGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -675,16 +675,16 @@ def PulseNumFindRowInt(app: PulseAppId; key: int) : PulseNumRow? {
     }
 }
 
-def PulseRefLoad(app: PulseAppId; path: string = "ref.datatable") : PulseAssetRequest {
+def PulseRefLoad(app: PulseAppId; path: string = "ref.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "ref", path)
 }
 
-def PulseRefIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseRefIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseRefGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseRefGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -704,16 +704,16 @@ def PulseRefFindRow(app: PulseAppId; key: string) : PulseRefRow? {
     }
 }
 
-def PulseRefdefaultLoad(app: PulseAppId; path: string = "refdefault.datatable") : PulseAssetRequest {
+def PulseRefdefaultLoad(app: PulseAppId; path: string = "refdefault.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "refdefault", path)
 }
 
-def PulseRefdefaultIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseRefdefaultIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseRefdefaultGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseRefdefaultGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -733,16 +733,16 @@ def PulseRefdefaultFindRow(app: PulseAppId; key: string) : PulseRefdefaultRow? {
     }
 }
 
-def PulseReqLoad(app: PulseAppId; path: string = "req.datatable") : PulseAssetRequest {
+def PulseReqLoad(app: PulseAppId; path: string = "req.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "req", path)
 }
 
-def PulseReqIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseReqIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseReqGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseReqGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -762,16 +762,16 @@ def PulseReqFindRow(app: PulseAppId; key: string) : PulseReqRow? {
     }
 }
 
-def PulseRngLoad(app: PulseAppId; path: string = "rng.datatable") : PulseAssetRequest {
+def PulseRngLoad(app: PulseAppId; path: string = "rng.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "rng", path)
 }
 
-def PulseRngIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseRngIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseRngGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseRngGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -791,16 +791,16 @@ def PulseRngFindRow(app: PulseAppId; key: string) : PulseRngRow? {
     }
 }
 
-def PulseSnakeLoad(app: PulseAppId; path: string = "snake.datatable") : PulseAssetRequest {
+def PulseSnakeLoad(app: PulseAppId; path: string = "snake.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "snake", path)
 }
 
-def PulseSnakeIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseSnakeIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseSnakeGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseSnakeGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 
@@ -820,16 +820,16 @@ def PulseSnakeFindRow(app: PulseAppId; key: string) : PulseSnakeRow? {
     }
 }
 
-def PulseTypLoad(app: PulseAppId; path: string = "typ.datatable") : PulseAssetRequest {
+def PulseTypLoad(app: PulseAppId; path: string = "typ.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "typ", path)
 }
 
-def PulseTypIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseTypIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseTypGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseTypGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 

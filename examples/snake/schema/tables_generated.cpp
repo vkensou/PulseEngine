@@ -91,10 +91,10 @@ const char* PulseSnakeConfigRowTable::DefaultPath() {
     return "snake_config.datatable";
 }
 
-PulseAssetRequest PulseSnakeConfigRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseSnakeConfigRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_snake_config_path = path;
@@ -105,13 +105,11 @@ PulseAssetRequest PulseSnakeConfigRowTable::Load(PulseAppId app, const char* pat
 }
 
 bool PulseSnakeConfigRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseSnakeConfigRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseSnakeConfigRow* PulseSnakeConfigRowTable::Rows(PulseAppId app, uint32_t& out_count) {

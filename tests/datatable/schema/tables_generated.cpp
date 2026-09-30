@@ -1214,10 +1214,10 @@ const char* PulseDeclaresOtherRowTable::DefaultPath() {
     return "declares_other.datatable";
 }
 
-PulseAssetRequest PulseDeclaresOtherRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseDeclaresOtherRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_declares_other_path = path;
@@ -1228,13 +1228,11 @@ PulseAssetRequest PulseDeclaresOtherRowTable::Load(PulseAppId app, const char* p
 }
 
 bool PulseDeclaresOtherRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseDeclaresOtherRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseDeclaresOtherRow* PulseDeclaresOtherRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1263,10 +1261,10 @@ const char* PulseDeepRowTable::DefaultPath() {
     return "deep.datatable";
 }
 
-PulseAssetRequest PulseDeepRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseDeepRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_deep_path = path;
@@ -1277,13 +1275,11 @@ PulseAssetRequest PulseDeepRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseDeepRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseDeepRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseDeepRow* PulseDeepRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1312,10 +1308,10 @@ const char* PulseDupRowTable::DefaultPath() {
     return "dup.datatable";
 }
 
-PulseAssetRequest PulseDupRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseDupRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_dup_path = path;
@@ -1326,13 +1322,11 @@ PulseAssetRequest PulseDupRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseDupRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseDupRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseDupRow* PulseDupRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1361,10 +1355,10 @@ const char* PulseEnmRowTable::DefaultPath() {
     return "enm.datatable";
 }
 
-PulseAssetRequest PulseEnmRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseEnmRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_enm_path = path;
@@ -1375,13 +1369,11 @@ PulseAssetRequest PulseEnmRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseEnmRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseEnmRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseEnmRow* PulseEnmRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1410,10 +1402,10 @@ const char* PulseExtraRowTable::DefaultPath() {
     return "extra.datatable";
 }
 
-PulseAssetRequest PulseExtraRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseExtraRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_extra_path = path;
@@ -1424,13 +1416,11 @@ PulseAssetRequest PulseExtraRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseExtraRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseExtraRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseExtraRow* PulseExtraRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1459,10 +1449,10 @@ const char* PulseHeroRowTable::DefaultPath() {
     return "hero.datatable";
 }
 
-PulseAssetRequest PulseHeroRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseHeroRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_hero_path = path;
@@ -1473,13 +1463,11 @@ PulseAssetRequest PulseHeroRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseHeroRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseHeroRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseHeroRow* PulseHeroRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1508,10 +1496,10 @@ const char* PulseItemRowTable::DefaultPath() {
     return "item.datatable";
 }
 
-PulseAssetRequest PulseItemRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseItemRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_item_path = path;
@@ -1522,13 +1510,11 @@ PulseAssetRequest PulseItemRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseItemRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseItemRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseItemRow* PulseItemRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1557,10 +1543,10 @@ const char* PulseNumRowTable::DefaultPath() {
     return "num.datatable";
 }
 
-PulseAssetRequest PulseNumRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseNumRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_num_path = path;
@@ -1571,13 +1557,11 @@ PulseAssetRequest PulseNumRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseNumRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseNumRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseNumRow* PulseNumRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1606,10 +1590,10 @@ const char* PulseRefRowTable::DefaultPath() {
     return "ref.datatable";
 }
 
-PulseAssetRequest PulseRefRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseRefRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_ref_path = path;
@@ -1620,13 +1604,11 @@ PulseAssetRequest PulseRefRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseRefRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseRefRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseRefRow* PulseRefRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1655,10 +1637,10 @@ const char* PulseRefdefaultRowTable::DefaultPath() {
     return "refdefault.datatable";
 }
 
-PulseAssetRequest PulseRefdefaultRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseRefdefaultRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_refdefault_path = path;
@@ -1669,13 +1651,11 @@ PulseAssetRequest PulseRefdefaultRowTable::Load(PulseAppId app, const char* path
 }
 
 bool PulseRefdefaultRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseRefdefaultRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseRefdefaultRow* PulseRefdefaultRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1704,10 +1684,10 @@ const char* PulseReqRowTable::DefaultPath() {
     return "req.datatable";
 }
 
-PulseAssetRequest PulseReqRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseReqRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_req_path = path;
@@ -1718,13 +1698,11 @@ PulseAssetRequest PulseReqRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseReqRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseReqRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseReqRow* PulseReqRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1753,10 +1731,10 @@ const char* PulseRngRowTable::DefaultPath() {
     return "rng.datatable";
 }
 
-PulseAssetRequest PulseRngRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseRngRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_rng_path = path;
@@ -1767,13 +1745,11 @@ PulseAssetRequest PulseRngRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseRngRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseRngRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseRngRow* PulseRngRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1802,10 +1778,10 @@ const char* PulseSnakeRowTable::DefaultPath() {
     return "snake.datatable";
 }
 
-PulseAssetRequest PulseSnakeRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseSnakeRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_snake_path = path;
@@ -1816,13 +1792,11 @@ PulseAssetRequest PulseSnakeRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseSnakeRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseSnakeRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseSnakeRow* PulseSnakeRowTable::Rows(PulseAppId app, uint32_t& out_count) {
@@ -1851,10 +1825,10 @@ const char* PulseTypRowTable::DefaultPath() {
     return "typ.datatable";
 }
 
-PulseAssetRequest PulseTypRowTable::Load(PulseAppId app, const char* path) {
+PulseDataTableRequest PulseTypRowTable::Load(PulseAppId app, const char* path) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     if (!system) {
-        return pulse_asset_request_make_invalid();
+        return PulseDataTableRequest{};
     }
     if (path) {
         pulse_table_typ_path = path;
@@ -1865,13 +1839,11 @@ PulseAssetRequest PulseTypRowTable::Load(PulseAppId app, const char* path) {
 }
 
 bool PulseTypRowTable::IsReady(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));
+    return pulse_data_table_is_ready(app, Load(app, nullptr));
 }
 
 const char* PulseTypRowTable::GetError(PulseAppId app) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
-    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;
+    return pulse_data_table_get_error(app, Load(app, nullptr));
 }
 
 const PulseTypRow* PulseTypRowTable::Rows(PulseAppId app, uint32_t& out_count) {

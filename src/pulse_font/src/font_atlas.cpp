@@ -13,9 +13,10 @@ constexpr uint32_t kTableTombstone = 0xFFFFFFFFu;
 constexpr float kEdtInfinity = 1.0e20f;
 
 uint32_t hash_key(const glyph_key& key) {
-    uint32_t h = key.font * 0x9E3779B1u;
+    uint32_t h = key.font.index * 0x9E3779B1u;
+    h ^= key.font.generation * 0xC2B2AE3Du;
     h ^= key.codepoint * 0x85EBCA77u;
-    h ^= key.tier * 0xC2B2AE3Du;
+    h ^= key.tier * 0x27D4EB2Fu;
     h ^= h >> 15;
     h *= 0x2545F491u;
     h ^= h >> 13;
@@ -23,7 +24,7 @@ uint32_t hash_key(const glyph_key& key) {
 }
 
 bool key_equal(const glyph_key& a, const glyph_key& b) {
-    return a.font == b.font && a.codepoint == b.codepoint && a.tier == b.tier;
+    return pulse_asset_handle_equals(a.font, b.font) && a.codepoint == b.codepoint && a.tier == b.tier;
 }
 
 void table_rehash(pulse_font_plugin_state* state, uint32_t new_size) {
@@ -229,7 +230,7 @@ void build_box_mask(pulse_font_plugin_state* state, uint32_t size, uint32_t padd
     }
 }
 
-void rasterize_glyph_bitmap_font(pulse_font_plugin_state* state, glyph_entry& entry, const font_face& face, uint8_t* out, uint32_t size, uint32_t padding) {
+void rasterize_glyph_bitmap_font(pulse_font_plugin_state* state, glyph_entry& entry, const font_asset_impl& face, uint8_t* out, uint32_t size, uint32_t padding) {
     const bitmap_font_data& bm = *face.bitmap;
     const bitmap_glyph* glyph = bitmap_font_find_glyph(bm, entry.key.codepoint);
     const float base = (float)(size - padding * 2);
@@ -274,7 +275,7 @@ void rasterize_glyph_bitmap_font(pulse_font_plugin_state* state, glyph_entry& en
 void rasterize_glyph_bitmap(pulse_font_plugin_state* state, glyph_entry& entry, uint8_t* out, uint32_t size, uint32_t padding) {
     const glyph_key& key = entry.key;
     const float base = (float)(size - padding * 2);
-    if (key.font == kMissingGlyphFont) {
+    if (!pulse_asset_handle_is_valid(key.font)) {
         build_box_mask(state, size, padding);
         build_sdf(state, state->raster_mask.data(), out, size, padding);
         entry.slot_size = size;
@@ -285,31 +286,42 @@ void rasterize_glyph_bitmap(pulse_font_plugin_state* state, glyph_entry& entry, 
         entry.advance = 0.8f * base;
         return;
     }
-    const font_face& face = state->fonts[key.font - 1];
-    if (face.kind == kFontKindBitmap) {
-        rasterize_glyph_bitmap_font(state, entry, face, out, size, padding);
+    const font_asset_impl* face = font_face_borrow(state, key.font);
+    if (!face) {
+        build_box_mask(state, size, padding);
+        build_sdf(state, state->raster_mask.data(), out, size, padding);
+        entry.slot_size = size;
+        entry.x0 = 0.1f * base - (float)padding;
+        entry.y0 = -0.7f * base - (float)padding;
+        entry.x1 = entry.x0 + (float)size;
+        entry.y1 = entry.y0 + (float)size;
+        entry.advance = 0.8f * base;
         return;
     }
-    const int32_t glyph = font_glyph_index(face, key.codepoint);
-    float scale = stbtt_ScaleForMappingEmToPixels(&face.info, base);
+    if (face->kind == kFontKindBitmap) {
+        rasterize_glyph_bitmap_font(state, entry, *face, out, size, padding);
+        return;
+    }
+    const int32_t glyph = font_glyph_index(*face, key.codepoint);
+    float scale = stbtt_ScaleForMappingEmToPixels(&face->info, base);
     int32_t ix0 = 0;
     int32_t iy0 = 0;
     int32_t ix1 = 0;
     int32_t iy1 = 0;
-    stbtt_GetGlyphBitmapBoxSubpixel(&face.info, glyph, scale, scale, 0.0f, 0.0f, &ix0, &iy0, &ix1, &iy1);
+    stbtt_GetGlyphBitmapBoxSubpixel(&face->info, glyph, scale, scale, 0.0f, 0.0f, &ix0, &iy0, &ix1, &iy1);
     float fit = 1.0f;
     const int32_t limit = (int32_t)base;
     if (ix1 - ix0 > limit || iy1 - iy0 > limit) {
         fit = std::min((float)limit / (float)(ix1 - ix0), (float)limit / (float)(iy1 - iy0));
         scale *= fit;
-        stbtt_GetGlyphBitmapBoxSubpixel(&face.info, glyph, scale, scale, 0.0f, 0.0f, &ix0, &iy0, &ix1, &iy1);
+        stbtt_GetGlyphBitmapBoxSubpixel(&face->info, glyph, scale, scale, 0.0f, 0.0f, &ix0, &iy0, &ix1, &iy1);
     }
     const int32_t width = ix1 - ix0;
     const int32_t height = iy1 - iy0;
     state->raster_mask.assign((size_t)size * size, 0);
     if (width > 0 && height > 0) {
         uint8_t* dest = state->raster_mask.data() + (size_t)padding * size + (size_t)padding;
-        stbtt_MakeGlyphBitmapSubpixel(&face.info, dest, width, height, (int)size, scale, scale, 0.0f, 0.0f, glyph);
+        stbtt_MakeGlyphBitmapSubpixel(&face->info, dest, width, height, (int)size, scale, scale, 0.0f, 0.0f, glyph);
     }
     build_sdf(state, state->raster_mask.data(), out, size, padding);
     const float inverse = 1.0f / fit;
@@ -318,7 +330,7 @@ void rasterize_glyph_bitmap(pulse_font_plugin_state* state, glyph_entry& entry, 
     entry.y0 = ((float)iy0 - (float)padding) * inverse;
     entry.x1 = entry.x0 + (float)size * inverse;
     entry.y1 = entry.y0 + (float)size * inverse;
-    entry.advance = font_advance_raw(face, key.codepoint, base);
+    entry.advance = font_advance_raw(*face, key.codepoint, base);
 }
 
 void reset_page_slots(pulse_font_plugin_state* state, atlas_page& page, uint32_t tier) {
@@ -395,21 +407,24 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
     if (const glyph_entry* found = atlas_find_glyph(state, key)) {
         return found;
     }
-    if (key.font != kMissingGlyphFont) {
-        const font_face& face = state->fonts[key.font - 1];
+    if (pulse_asset_handle_is_valid(key.font)) {
+        const font_asset_impl* face = font_face_borrow(state, key.font);
+        if (!face) {
+            return nullptr;
+        }
         bool empty = false;
-        if (face.kind == kFontKindBitmap) {
-            const bitmap_glyph* glyph = bitmap_font_find_glyph(*face.bitmap, key.codepoint);
+        if (face->kind == kFontKindBitmap) {
+            const bitmap_glyph* glyph = bitmap_font_find_glyph(*face->bitmap, key.codepoint);
             if (!glyph) {
                 return nullptr;
             }
             empty = glyph->width <= 0 || glyph->height <= 0;
         } else {
-            const int32_t glyph = font_glyph_index(face, key.codepoint);
+            const int32_t glyph = font_glyph_index(*face, key.codepoint);
             if (glyph == 0) {
                 return nullptr;
             }
-            empty = stbtt_IsGlyphEmpty(&face.info, glyph) != 0;
+            empty = stbtt_IsGlyphEmpty(&face->info, glyph) != 0;
         }
         if (empty) {
             const uint32_t empty_index = alloc_entry(state);
@@ -417,7 +432,7 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
             empty_entry.key = key;
             empty_entry.occupied = true;
             empty_entry.last_used = ++state->tick;
-            empty_entry.advance = font_advance_raw(face, key.codepoint, (float)((uint32_t)kTierBaseSizes[key.tier]));
+            empty_entry.advance = font_advance_raw(*face, key.codepoint, (float)((uint32_t)kTierBaseSizes[key.tier]));
             table_insert(state, empty_index);
             return &empty_entry;
         }
@@ -470,10 +485,10 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
     return &entry;
 }
 
-void atlas_purge_font(pulse_font_plugin_state* state, uint32_t font) {
+void atlas_purge_font(pulse_font_plugin_state* state, PulseAssetHandle font) {
     for (uint32_t i = 0; i < state->entries.size(); ++i) {
         glyph_entry& entry = state->entries[i];
-        if (!entry.occupied || entry.key.font != font) {
+        if (!entry.occupied || !pulse_asset_handle_equals(entry.key.font, font)) {
             continue;
         }
         table_remove(state, entry.key);

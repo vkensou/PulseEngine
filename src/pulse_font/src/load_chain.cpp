@@ -16,25 +16,20 @@ void destroy_font_chain_asset(void* ptr, void* user_data) {
 
 EPulseAssetLoaderStatus step_font_chain_loader(void* state, const PulseAssetLoadTask* ctx, const char** out_error) {
     (void)state;
-    pulse_font_plugin_state* plugin_state = state_from_app(ctx->app);
-    if (!plugin_state) {
-        *out_error = "font chain loader: plugin state not found";
-        return PULSE_ASSET_LOADER_STATUS_FAILED;
-    }
-    std::vector<uint32_t> slots;
-    slots.reserve(ctx->dependencies_count);
+    std::vector<PulseAssetHandle> fonts;
+    fonts.reserve(ctx->dependencies_count);
     for (size_t i = 0; i < ctx->dependencies_count; ++i) {
         const PulseAssetDepRef& dep = ctx->p_dependencies[i].dep_ref;
-        const uint32_t slot = font_register_asset(plugin_state, PulseAssetHandle{ dep.type_id, dep.index, dep.generation });
-        if (slot == PULSE_FONT_ID_NONE) {
+        const PulseAssetHandle handle{ dep.type_id, dep.index, dep.generation };
+        if (!pulse_asset_handle_is_valid(handle)) {
             *out_error = "font chain loader: dependency font is not available";
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
-        slots.push_back(slot);
+        fonts.push_back(handle);
     }
     auto* data = static_cast<font_chain_data*>(ctx->out_asset);
     new (data) font_chain_data{};
-    data->font_slots = std::move(slots);
+    data->fonts = std::move(fonts);
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
@@ -92,27 +87,21 @@ EPulseAssetLoaderStatus step_font_chain_file_loader(void* state, const PulseAsse
         return PULSE_ASSET_LOADER_STATUS_WAIT_DEPENDENCIES;
     }
     pulse_datalist_release(dl);
-    pulse_font_plugin_state* plugin_state = state_from_app(ctx->app);
-    if (!plugin_state) {
-        *out_error = "font chain file loader: plugin state not found";
-        return PULSE_ASSET_LOADER_STATUS_FAILED;
-    }
-    std::vector<uint32_t> slots;
-    slots.reserve(paths.size());
+    std::vector<PulseAssetHandle> fonts;
+    fonts.reserve(paths.size());
     for (const std::string& path : paths) {
         const PulseFontRequest font_request = pulse_font_load(ctx->app, path.c_str(), 0u);
         const PulseAssetHandle handle = pulse_asset_system_get_handle(ctx->asset_system, pulse_font_request_to_asset_request(font_request));
-        const uint32_t slot = font_register_asset(plugin_state, handle);
-        if (slot == PULSE_FONT_ID_NONE) {
+        if (!pulse_asset_handle_is_valid(handle)) {
             *out_error = "font chain file loader: font dependency is not available";
             return PULSE_ASSET_LOADER_STATUS_FAILED;
         }
-        slots.push_back(slot);
+        fonts.push_back(handle);
     }
-    font_chain_append_default(plugin_state, slots);
+    font_chain_append_default(state_from_app(ctx->app), fonts);
     auto* data = static_cast<font_chain_data*>(ctx->out_asset);
     new (data) font_chain_data{};
-    data->font_slots = std::move(slots);
+    data->fonts = std::move(fonts);
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
 
@@ -150,15 +139,16 @@ void register_font_chain_type(PulseAssetSystemId asset_system, PulseAppId app) {
     pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
-void font_chain_append_default(pulse_font_plugin_state* state, std::vector<uint32_t>& slots) {
-    const uint32_t default_font = state->default_font;
-    if (default_font == PULSE_FONT_ID_NONE || default_font - 1 >= state->fonts.size() || !state->fonts[default_font - 1].occupied) {
+void font_chain_append_default(pulse_font_plugin_state* state, std::vector<PulseAssetHandle>& fonts) {
+    if (!state || !pulse_asset_handle_is_valid(state->default_font)) {
         return;
     }
-    if (std::find(slots.begin(), slots.end(), default_font) != slots.end()) {
-        return;
+    for (const PulseAssetHandle& existing : fonts) {
+        if (pulse_asset_handle_equals(existing, state->default_font)) {
+            return;
+        }
     }
-    slots.push_back(default_font);
+    fonts.push_back(state->default_font);
 }
 
 void register_font_chain_loaders(PulseAssetSystemId asset_system) {

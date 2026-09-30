@@ -9,14 +9,14 @@
 
 #include "tables_generated.h"
 
-static bool wait_ready(PulseAppId app, PulseAssetRequest request) {
-    PulseDataTableSystemId system = pulse_get_data_table_system(app);
+static bool wait_ready(PulseAppId app, PulseDataTableRequest request) {
     PulseAssetSystemId assets = pulse_get_asset_system(app);
+    PulseAssetRequest asset_request = pulse_data_table_request_to_asset_request(request);
     for (int frame = 0; frame < 600; ++frame) {
-        if (pulse_data_table_system_is_ready(system, request)) {
+        if (pulse_data_table_is_ready(app, request)) {
             return true;
         }
-        if (pulse_asset_system_get_state(assets, request) == PULSE_ASSET_STATE_FAILED) {
+        if (pulse_asset_system_get_state(assets, asset_request) == PULSE_ASSET_STATE_FAILED) {
             return false;
         }
         if (pulse_app_update(app) != PULSE_APP_UPDATE_RESULT_OK) {
@@ -47,7 +47,7 @@ int main(void) {
     PulseDataTableSystemId system = pulse_get_data_table_system(app);
     assert(pulse_tables::RegisterSchemas(system) == PULSE_RESULT_OK);
 
-    PulseAssetRequest snake_request = pulse_tables::PulseSnakeRowTable::Load(app, "snake.datatable");
+    PulseDataTableRequest snake_request = pulse_tables::PulseSnakeRowTable::Load(app, "snake.datatable");
     assert(wait_ready(app, snake_request));
 
     uint32_t count = 0;

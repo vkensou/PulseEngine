@@ -27,12 +27,6 @@ typedef "PulseFontChainRequest"
 
 const_value.FontPluginDescVersion { value = "1u" }
 
---- Font handle 0 表示无效
-const_value.FontIdNone { value = "0u" }
-
---- 注册字体上限，含 fallback 兜底字体，超出即失败
-const_value.FontMaxCount { value = "64u" }
-
 --- Asset type id range 0x4000+ belongs to pulse_font (graphics 0x1000+, prefab 0x2000, datatable 0x3000)
 const_value.TypeFont { value = "UINT64_C(0x4000)" }
 
@@ -109,13 +103,6 @@ func.FontLoadFromMemory
     .name      "cstring"
     .memory    "[]const anyopaque"
     .faceIndex "uint32_t"
-    ()
-
---- ready 后取字体凭证，同时登记进字体注册表；未 ready 返回无效 handle；同一资产重复调用幂等
-func.FontGetHandle
-    "PulseFontHandle"
-    .app     "PulseAppId"
-    .request "PulseFontRequest"
     ()
 
 func.FontCount
