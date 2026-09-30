@@ -21,24 +21,4 @@ void register_sampler_type(PulseAssetSystemId asset_system, CGPUDeviceId device)
     pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
-}
-
-extern "C" {
-
-PulseSamplerHandle pulse_sampler_get_handle(PulseAppId app, PulseSamplerRequest request) {
-    PulseAssetHandle h = pulse_asset_system_get_handle(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_sampler_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(h) ? PulseSamplerHandle{} : PulseSamplerHandle{h.index, h.generation};
-}
-
-bool pulse_sampler_is_ready(PulseAppId app, PulseSamplerRequest request) {
-    return pulse_asset_system_is_ready(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_sampler_request_to_asset_request(request));
-}
-
-bool pulse_sampler_is_alive(PulseAppId app, PulseSamplerRequest request) {
-    return pulse_asset_system_is_alive(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_sampler_request_to_asset_request(request));
-}
-
-} // extern "C"
+} // namespace pulse_graphics_internal

@@ -43,6 +43,17 @@ $cflags
 
 $cids
 
+// ---- asset type definitions ----
+
+PULSE_DEFINE_ASSET_TYPE(shader,          PULSE_TYPE_SHADER, PulseShaderHandle, PulseShaderRequest)
+PULSE_DEFINE_ASSET_TYPE(shader_library,  PULSE_TYPE_SHADER_LIBRARY, PulseShaderLibraryHandle, PulseShaderLibraryRequest)
+PULSE_DEFINE_ASSET_TYPE(compute_shader,  PULSE_TYPE_COMPUTE_SHADER, PulseComputeShaderHandle, PulseComputeShaderRequest)
+PULSE_DEFINE_ASSET_TYPE(graphics_buffer, PULSE_TYPE_GRAPHICS_BUFFER, PulseGraphicsBufferHandle, PulseGraphicsBufferRequest)
+PULSE_DEFINE_ASSET_TYPE(sampler,         PULSE_TYPE_SAMPLER, PulseSamplerHandle, PulseSamplerRequest)
+PULSE_DEFINE_ASSET_TYPE(texture,         PULSE_TYPE_TEXTURE, PulseTextureHandle, PulseTextureRequest)
+PULSE_DEFINE_ASSET_TYPE(mesh,            PULSE_TYPE_MESH, PulseMeshHandle, PulseMeshRequest)
+PULSE_DEFINE_ASSET_TYPE(material,        PULSE_TYPE_MATERIAL, PulseMaterialHandle, PulseMaterialRequest)
+
 typedef struct PulseRenderPassEncoder PulseRenderPassEncoder;
 typedef struct PulseUploadPassEncoder PulseUploadPassEncoder;
 
@@ -51,17 +62,6 @@ $cfuncptrs
 $cstructs
 
 $ccomponents
-
-// ---- inline helpers for asset handle types ----
-
-PULSE_DEFINE_ASSET_CONVERSIONS(shader,          PULSE_TYPE_SHADER,          PulseShaderHandle,          PulseShaderRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(shader_library,  PULSE_TYPE_SHADER_LIBRARY,  PulseShaderLibraryHandle,   PulseShaderLibraryRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(compute_shader,  PULSE_TYPE_COMPUTE_SHADER,  PulseComputeShaderHandle,   PulseComputeShaderRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(graphics_buffer, PULSE_TYPE_GRAPHICS_BUFFER, PulseGraphicsBufferHandle,  PulseGraphicsBufferRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(sampler,         PULSE_TYPE_SAMPLER,         PulseSamplerHandle,         PulseSamplerRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(texture,         PULSE_TYPE_TEXTURE,         PulseTextureHandle,         PulseTextureRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(mesh,            PULSE_TYPE_MESH,            PulseMeshHandle,            PulseMeshRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(material,        PULSE_TYPE_MATERIAL,        PulseMaterialHandle,        PulseMaterialRequest)
 
 $c99decl
 

@@ -46,20 +46,6 @@ extern "C" {
 
 
 
-typedef struct PulsePrefabHandle
-{
-    uint32_t             index;
-    uint32_t             generation;
-
-} PulsePrefabHandle;
-
-typedef struct PulsePrefabRequest
-{
-    uint32_t             index;
-    uint32_t             generation;
-
-} PulsePrefabRequest;
-
 typedef struct PulsePrefabData
 {
     ecs_entity_t         root;
@@ -72,15 +58,12 @@ typedef struct PulsePrefabData
 
 
 
-// ---- inline helpers for asset handle types ----
+// ---- asset type definitions ----
 
-PULSE_DEFINE_ASSET_CONVERSIONS(prefab,          PULSE_TYPE_PREFAB,          PulsePrefabHandle,          PulsePrefabRequest)
+PULSE_DEFINE_ASSET_TYPE(prefab, PULSE_TYPE_PREFAB, PulsePrefabHandle, PulsePrefabRequest)
 
 PULSE_PREFAB_API EPulseAppAddPluginResult pulse_add_prefab_plugin(PulseAppId app);
 PULSE_PREFAB_API PulsePrefabRequest pulse_load_prefab(PulseAppId app, const char* filepath);
-PULSE_PREFAB_API PulsePrefabHandle pulse_prefab_get_handle(PulseAppId app, PulsePrefabRequest request);
-PULSE_PREFAB_API bool pulse_prefab_is_ready(PulseAppId app, PulsePrefabRequest request);
-PULSE_PREFAB_API bool pulse_prefab_is_alive(PulseAppId app, PulsePrefabRequest request);
 PULSE_PREFAB_API ecs_entity_t pulse_prefab_get_root(PulseAppId app, PulsePrefabHandle prefab);
 PULSE_PREFAB_API ecs_entity_t pulse_prefab_instantiate(PulseAppId app, PulsePrefabHandle prefab);
 

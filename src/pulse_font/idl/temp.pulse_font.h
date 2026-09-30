@@ -39,6 +39,16 @@ $cflags
 
 $cids
 
+// ---- asset type definitions ----
+
+PULSE_DEFINE_ASSET_HANDLE_TYPE(PulseFontHandle, PulseFontRequest)
+PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
+PULSE_DEFINE_ASSET_STATUS(font, PulseFontRequest)
+
+// ---- font_chain asset type (standard shape, full TYPE) ----
+
+PULSE_DEFINE_ASSET_TYPE(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
+
 $cfuncptrs
 
 $cstructs
@@ -46,11 +56,6 @@ $cstructs
 $ccomponents
 
 $ctags
-
-// ---- inline helpers for asset handle types ----
-
-PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
 
 $c99decl
 

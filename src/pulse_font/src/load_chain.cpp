@@ -136,19 +136,6 @@ PulseFontChainRequest chain_load_impl(PulseAppId app, const char* path) {
     return result;
 }
 
-PulseFontChainHandle chain_get_handle_impl(PulseAppId app, PulseFontChainRequest request) {
-    PulseFontChainHandle invalid{};
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    if (!asset_system) {
-        return invalid;
-    }
-    const PulseAssetHandle handle = pulse_asset_system_get_handle(asset_system, pulse_font_chain_request_to_asset_request(request));
-    if (!pulse_asset_handle_is_valid(handle)) {
-        return invalid;
-    }
-    return PulseFontChainHandle{ handle.index, handle.generation };
-}
-
 }
 
 void register_font_chain_type(PulseAssetSystemId asset_system, PulseAppId app) {
@@ -205,28 +192,6 @@ extern "C" {
 
 PulseFontChainRequest pulse_font_load_chain(PulseAppId app, const char* path) {
     return pulse_font_internal::chain_load_impl(app, path);
-}
-
-bool pulse_font_chain_is_ready(PulseAppId app, PulseFontChainRequest request) {
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    return asset_system && pulse_asset_system_is_ready(asset_system, pulse_font_chain_request_to_asset_request(request));
-}
-
-bool pulse_font_chain_is_alive(PulseAppId app, PulseFontChainRequest request) {
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    return asset_system && pulse_asset_system_is_alive(asset_system, pulse_font_chain_request_to_asset_request(request));
-}
-
-const char* pulse_font_chain_get_error(PulseAppId app, PulseFontChainRequest request) {
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    if (!asset_system) {
-        return nullptr;
-    }
-    return pulse_asset_system_get_error(asset_system, pulse_font_chain_request_to_asset_request(request));
-}
-
-PulseFontChainHandle pulse_font_chain_get_handle(PulseAppId app, PulseFontChainRequest request) {
-    return pulse_font_internal::chain_get_handle_impl(app, request);
 }
 
 }

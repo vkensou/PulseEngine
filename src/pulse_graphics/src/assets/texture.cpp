@@ -23,24 +23,4 @@ void register_texture_type(PulseAssetSystemId asset_system, CGPUDeviceId device)
     pulse_asset_system_register_type(asset_system, &type_desc);
 }
 
-}
-
-extern "C" {
-
-PulseTextureHandle pulse_texture_get_handle(PulseAppId app, PulseTextureRequest request) {
-    PulseAssetHandle h = pulse_asset_system_get_handle(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_texture_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(h) ? PulseTextureHandle{} : PulseTextureHandle{h.index, h.generation};
-}
-
-bool pulse_texture_is_ready(PulseAppId app, PulseTextureRequest request) {
-    return pulse_asset_system_is_ready(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_texture_request_to_asset_request(request));
-}
-
-bool pulse_texture_is_alive(PulseAppId app, PulseTextureRequest request) {
-    return pulse_asset_system_is_alive(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_texture_request_to_asset_request(request));
-}
-
-} // extern "C"
+} // namespace pulse_graphics_internal

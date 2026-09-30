@@ -43,9 +43,9 @@ $cstructs
 
 $ccomponents
 
-// ---- inline helpers for asset handle types ----
+// ---- asset type definitions ----
 
-PULSE_DEFINE_ASSET_CONVERSIONS(prefab,          PULSE_TYPE_PREFAB,          PulsePrefabHandle,          PulsePrefabRequest)
+PULSE_DEFINE_ASSET_TYPE(prefab, PULSE_TYPE_PREFAB, PulsePrefabHandle, PulsePrefabRequest)
 
 $c99decl
 

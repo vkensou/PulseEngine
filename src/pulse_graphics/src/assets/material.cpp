@@ -82,22 +82,6 @@ void pulse_material_set_sampler(PulseMaterialData* _this, const char* name, Puls
 
 extern "C" {
 
-PulseMaterialHandle pulse_material_get_handle(PulseAppId app, PulseMaterialRequest request) {
-    PulseAssetHandle h = pulse_asset_system_get_handle(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_material_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(h) ? PulseMaterialHandle{} : PulseMaterialHandle{h.index, h.generation};
-}
-
-bool pulse_material_is_ready(PulseAppId app, PulseMaterialRequest request) {
-    return pulse_asset_system_is_ready(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_material_request_to_asset_request(request));
-}
-
-bool pulse_material_is_alive(PulseAppId app, PulseMaterialRequest request) {
-    return pulse_asset_system_is_alive(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_material_request_to_asset_request(request));
-}
-
 PulseShaderHandle pulse_material_get_shader(PulseAppId app, PulseMaterialHandle self)
 {
     PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(pulse_graphics_internal::asset_system_from_app(app), self);

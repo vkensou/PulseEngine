@@ -384,24 +384,6 @@ PulseFontRequest pulse_font_load_from_memory(PulseAppId app, const char* name, P
     return result;
 }
 
-bool pulse_font_is_ready(PulseAppId app, PulseFontRequest request) {
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    return asset_system && pulse_asset_system_is_ready(asset_system, pulse_font_request_to_asset_request(request));
-}
-
-bool pulse_font_is_alive(PulseAppId app, PulseFontRequest request) {
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    return asset_system && pulse_asset_system_is_alive(asset_system, pulse_font_request_to_asset_request(request));
-}
-
-const char* pulse_font_get_error(PulseAppId app, PulseFontRequest request) {
-    PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
-    if (!asset_system) {
-        return nullptr;
-    }
-    return pulse_asset_system_get_error(asset_system, pulse_font_request_to_asset_request(request));
-}
-
 PulseFontHandle pulse_font_get_handle(PulseAppId app, PulseFontRequest request) {
     return pulse_font_internal::font_get_handle_impl(app, request);
 }

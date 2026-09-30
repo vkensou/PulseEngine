@@ -29,22 +29,6 @@ using namespace pulse_graphics_internal;
 
 extern "C" {
 
-PulseShaderHandle pulse_shader_get_handle(PulseAppId app, PulseShaderRequest request) {
-    PulseAssetHandle h = pulse_asset_system_get_handle(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_shader_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(h) ? PulseShaderHandle{} : PulseShaderHandle{h.index, h.generation};
-}
-
-bool pulse_shader_is_ready(PulseAppId app, PulseShaderRequest request) {
-    return pulse_asset_system_is_ready(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_shader_request_to_asset_request(request));
-}
-
-bool pulse_shader_is_alive(PulseAppId app, PulseShaderRequest request) {
-    return pulse_asset_system_is_alive(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_shader_request_to_asset_request(request));
-}
-
 uint32_t pulse_shader_get_shader_property_count(PulseAppId app, PulseShaderHandle self) {
     PulseShaderData* shader = pulse_graphics_internal::internal_borrow_shader(pulse_graphics_internal::asset_system_from_app(app), self);
     return shader ? shader->property_count : 0;

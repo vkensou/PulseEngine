@@ -60,51 +60,17 @@ extern "C" {
 
 
 
+// ---- asset type definitions ----
+
+PULSE_DEFINE_ASSET_HANDLE_TYPE(PulseFontHandle, PulseFontRequest)
+PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
+PULSE_DEFINE_ASSET_STATUS(font, PulseFontRequest)
+
+// ---- font_chain asset type (standard shape, full TYPE) ----
+
+PULSE_DEFINE_ASSET_TYPE(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
 
 
-/**
- * 字体资产凭证，index/generation 即 asset handle 坐标，{0,0} 表示无效
- *
- */
-typedef struct PulseFontHandle
-{
-    uint32_t             index;
-    uint32_t             generation;
-
-} PulseFontHandle;
-
-/**
- * 字体加载请求
- *
- */
-typedef struct PulseFontRequest
-{
-    uint32_t             index;
-    uint32_t             generation;
-
-} PulseFontRequest;
-
-/**
- * 字体链资产凭证
- *
- */
-typedef struct PulseFontChainHandle
-{
-    uint32_t             index;
-    uint32_t             generation;
-
-} PulseFontChainHandle;
-
-/**
- * 字体链加载请求
- *
- */
-typedef struct PulseFontChainRequest
-{
-    uint32_t             index;
-    uint32_t             generation;
-
-} PulseFontChainRequest;
 
 typedef struct PulseFontPluginDesc
 {
@@ -201,11 +167,6 @@ typedef struct PulseGlyphInstance
 
 
 
-// ---- inline helpers for asset handle types ----
-
-PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
-PULSE_DEFINE_ASSET_CONVERSIONS(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
-
 PULSE_FONT_API PulseFontPluginDesc pulse_font_plugin_desc_default(void);
 PULSE_FONT_API EPulseAppAddPluginResult pulse_add_font_plugin(PulseAppId app, const PulseFontPluginDesc* desc);
 
@@ -229,33 +190,6 @@ PULSE_FONT_API PulseFontRequest pulse_font_load(PulseAppId app, const char* path
  *
  */
 PULSE_FONT_API PulseFontRequest pulse_font_load_from_memory(PulseAppId app, const char* name, Pulse_Blob_Param(memory), uint32_t face_index);
-
-/**
- * 加载是否完成（asset 状态为 LOADED）
- *
- * @param[in] app
- * @param[in] request
- *
- */
-PULSE_FONT_API bool pulse_font_is_ready(PulseAppId app, PulseFontRequest request);
-
-/**
- * 加载是否仍在进行或资产仍存活
- *
- * @param[in] app
- * @param[in] request
- *
- */
-PULSE_FONT_API bool pulse_font_is_alive(PulseAppId app, PulseFontRequest request);
-
-/**
- * 加载失败原因，无错误返回 null
- *
- * @param[in] app
- * @param[in] request
- *
- */
-[[pulse::optional]] PULSE_FONT_API const char* pulse_font_get_error(PulseAppId app, PulseFontRequest request);
 
 /**
  * ready 后取字体凭证，同时登记进字体注册表；未 ready 返回无效 handle；同一资产重复调用幂等
@@ -294,10 +228,6 @@ PULSE_FONT_API PulseFontChainHandle pulse_font_create_chain(PulseAppId app, Puls
  *
  */
 PULSE_FONT_API PulseFontChainRequest pulse_font_load_chain(PulseAppId app, const char* path);
-PULSE_FONT_API bool pulse_font_chain_is_ready(PulseAppId app, PulseFontChainRequest request);
-PULSE_FONT_API bool pulse_font_chain_is_alive(PulseAppId app, PulseFontChainRequest request);
-[[pulse::optional]] PULSE_FONT_API const char* pulse_font_chain_get_error(PulseAppId app, PulseFontChainRequest request);
-PULSE_FONT_API PulseFontChainHandle pulse_font_chain_get_handle(PulseAppId app, PulseFontChainRequest request);
 PULSE_FONT_API void pulse_font_destroy_chain(PulseAppId app, PulseFontChainHandle chain);
 
 /**
