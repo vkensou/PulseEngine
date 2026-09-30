@@ -80,9 +80,9 @@ static PulseFontHandle register_cjk(PulseAppId app) {
     return load_font_memory(app, "cjk.ttf", read_test_file("tests/font/data/cjk.ttf"));
 }
 
-static uint32_t make_chain(PulseAppId app, const PulseFontHandle* fonts, size_t count) {
-    const uint32_t chain = pulse_font_create_chain(app, fonts, count);
-    assert(chain != PULSE_FONT_ID_NONE);
+static PulseFontChainHandle make_chain(PulseAppId app, const PulseFontHandle* fonts, size_t count) {
+    const PulseFontChainHandle chain = pulse_font_create_chain(app, fonts, count);
+    assert(chain.index != 0 && chain.generation != 0);
     return chain;
 }
 

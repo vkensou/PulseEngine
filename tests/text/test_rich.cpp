@@ -9,7 +9,7 @@ static bool color_eq(const PulseGlyphInstance& inst, float r, float g, float b, 
 int main() {
     PulseAppId app = make_text_app("t-text-rich");
     const PulseFontHandle cjk = register_cjk(app);
-    const uint32_t chain = make_chain(app, &cjk, 1);
+    const PulseFontChainHandle chain = make_chain(app, &cjk, 1);
 
     PulseTextBlockDesc desc = text_desc(chain, kSize);
     desc.color.a = 0.5f;

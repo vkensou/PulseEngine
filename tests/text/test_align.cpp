@@ -4,7 +4,7 @@
 
 static const float kSize = 24.0f;
 
-static PulseTextBlockDesc align_desc(uint32_t chain, EPulseTextAlignH align_h, EPulseTextAlignV align_v, float line_height) {
+static PulseTextBlockDesc align_desc(PulseFontChainHandle chain, EPulseTextAlignH align_h, EPulseTextAlignV align_v, float line_height) {
     PulseTextBlockDesc desc = text_desc(chain, kSize, line_height);
     desc.align_h = align_h;
     desc.align_v = align_v;
@@ -14,7 +14,7 @@ static PulseTextBlockDesc align_desc(uint32_t chain, EPulseTextAlignH align_h, E
 int main() {
     PulseAppId app = make_text_app("t-text-align");
     const PulseFontHandle cjk = register_cjk(app);
-    const uint32_t chain = make_chain(app, &cjk, 1);
+    const PulseFontChainHandle chain = make_chain(app, &cjk, 1);
     const float la = line_advance(app, chain, kSize, 0.0f);
 
     const float w_ab = run_width(app, chain, "ab", kSize);

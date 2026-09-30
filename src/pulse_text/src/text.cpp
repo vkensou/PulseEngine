@@ -9,7 +9,7 @@ ECS_COMPONENT_DECLARE(pulse_text_state_resource);
 namespace {
 
 bool desc_is_valid(const PulseTextBlockDesc* desc) {
-    if (!desc || desc->chain == PULSE_FONT_ID_NONE || desc->size <= 0.0f) {
+    if (!desc || !pulse_asset_handle_is_valid(pulse_font_chain_to_handle(desc->chain)) || desc->size <= 0.0f) {
         return false;
     }
     if (desc->align_h < PULSE_TEXT_ALIGN_H_LEFT || desc->align_h >= PULSE_TEXT_ALIGN_H_COUNT) {

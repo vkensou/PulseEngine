@@ -46,9 +46,9 @@ struct text_line_box {
 };
 
 struct text_window_state {
-    uint32_t chain = PULSE_FONT_ID_NONE;
-    uint32_t bitmap_chain = PULSE_FONT_ID_NONE;
-    uint32_t default_chain = PULSE_FONT_ID_NONE;
+    PulseFontChainHandle chain{};
+    PulseFontChainHandle bitmap_chain{};
+    PulseFontChainHandle default_chain{};
     PulseFontRequest latin_request{};
     PulseFontRequest cjk_request{};
     PulseFontRequest proggy_request{};
@@ -133,7 +133,7 @@ void create_camera(PulseAppId app, text_window_state* state) {
 
 void build_text_boxes(PulseAppId app, text_window_state* state) {
     ecs_world_t* world = pulse_app_world(app);
-    const uint32_t chains[] = { state->chain, state->bitmap_chain, state->default_chain };
+    const PulseFontChainHandle chains[] = { state->chain, state->bitmap_chain, state->default_chain };
     state->boxes.resize(kLineCount);
     for (size_t i = 0; i < kLineCount; ++i) {
         const text_line_spec& spec = kLineSpecs[i];
@@ -199,9 +199,9 @@ void prepare_fonts(PulseAppId app, text_window_state* state) {
     state->chain = pulse_font_create_chain(app, fonts, 2);
     state->bitmap_chain = pulse_font_create_chain(app, &state->proggy_font, 1);
     state->default_chain = pulse_font_create_chain(app, &default_font, 1);
-    assert(state->chain != PULSE_FONT_ID_NONE);
-    assert(state->bitmap_chain != PULSE_FONT_ID_NONE);
-    assert(state->default_chain != PULSE_FONT_ID_NONE);
+    assert(state->chain.index != 0);
+    assert(state->bitmap_chain.index != 0);
+    assert(state->default_chain.index != 0);
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 0x4E2D)), pulse_font_to_handle(state->cjk_font)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 'A')), pulse_font_to_handle(state->latin_font)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->default_chain, 'A')), pulse_font_to_handle(default_font)));

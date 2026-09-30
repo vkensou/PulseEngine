@@ -14,10 +14,10 @@ namespace pulse_font_internal {
 
 constexpr uint32_t kTierCount = 2;
 constexpr float kTierBaseSizes[kTierCount] = { 48.0f, 96.0f };
-constexpr uint32_t kMaxChains = 256;
 constexpr uint32_t kInvalidIndex = 0xFFFFFFFFu;
 constexpr uint32_t kMissingGlyphFont = 0;
 constexpr uint32_t kMissingGlyphCodepoint = 0xFFFFFFFFu;
+constexpr const char* kChainLoaderId = "pulse_font_chain";
 
 enum font_kind : uint32_t { kFontKindTtf = 0, kFontKindBitmap = 1 };
 
@@ -90,9 +90,8 @@ struct PulseFontLoadSettings {
     uint32_t face_index = 0;
 };
 
-struct font_chain_slot {
-    std::vector<uint32_t> fonts;
-    bool alive = false;
+struct font_chain_data {
+    std::vector<uint32_t> font_slots;
 };
 
 struct glyph_key {
@@ -142,12 +141,11 @@ struct font_render_state {
 
 struct pulse_font_plugin_state {
     PulseAppId app = nullptr;
+    PulseAssetSystemId asset_system = nullptr;
     PulseFontPluginDesc desc{};
     std::vector<font_face> fonts;
     std::vector<uint32_t> free_fonts;
     uint32_t default_font = PULSE_FONT_ID_NONE;
-    std::vector<font_chain_slot> chains;
-    std::vector<uint32_t> free_chains;
     std::vector<glyph_entry> entries;
     std::vector<uint32_t> free_entries;
     std::vector<uint32_t> table;
@@ -193,6 +191,10 @@ PulseFontHandle font_handle_of(pulse_font_plugin_state* state, uint32_t font);
 
 void register_font_type(PulseAssetSystemId asset_system, PulseAppId app);
 void register_font_loaders(PulseAssetSystemId asset_system);
+void register_font_chain_type(PulseAssetSystemId asset_system, PulseAppId app);
+void register_font_chain_loaders(PulseAssetSystemId asset_system);
+void font_chain_append_default(pulse_font_plugin_state* state, std::vector<uint32_t>& slots);
+void register_font_asset_reflection(ecs_world_t* world);
 void font_build_default_font(pulse_font_plugin_state* state);
 uint32_t font_register_asset(pulse_font_plugin_state* state, PulseAssetHandle handle);
 void font_registry_release(pulse_font_plugin_state* state, PulseAssetHandle handle);

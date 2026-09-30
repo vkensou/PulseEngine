@@ -82,12 +82,12 @@ typedef struct PulseTextColor
 } PulseTextColor;
 
 /**
- * 排版参数；按值传入排版接口，chain 为字体链 id，lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
+ * 排版参数；按值传入排版接口，chain 为字体链资产凭证，lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
  *
  */
 typedef struct PulseTextBlockDesc
 {
-    uint32_t             chain;
+    PulseFontChainHandle chain;
     float                size;
     PulseTextColor       color;
     EPulseTextAlignH     align_h;

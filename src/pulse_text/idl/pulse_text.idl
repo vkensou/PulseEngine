@@ -16,6 +16,7 @@ typedef "PulseAppId"
 
 --- From pulse_font.h
 typedef "PulseGlyphInstance" { cname = "PulseGlyphInstance" }
+typedef "PulseFontChainHandle" { cname = "PulseFontChainHandle" }
 
 const_value.TextPluginDescVersion { value = "1u" }
 
@@ -41,9 +42,9 @@ struct.TextColor
     .a "float"
     ()
 
---- 排版参数；按值传入排版接口，chain 为字体链 id，lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
+--- 排版参数；按值传入排版接口，chain 为字体链资产凭证，lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
 struct.TextBlockDesc
-    .chain      "uint32_t"
+    .chain      "PulseFontChainHandle"
     .size       "float"
     .color      "TextColor"
     .alignH     "TextAlignH::Enum"

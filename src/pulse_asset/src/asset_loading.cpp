@@ -361,6 +361,7 @@ void LoadQueue::process_processing(AssetSystem& system, LoadJob& job, AssetSlot&
         }
 
         system.storage().dependencies().commit(system.storage(), job.handle, job.dependencies);
+        system.storage().dependencies().pin_committed_dependencies(system.storage(), slot);
         job.finish(&slot, LoadJobOutcome::Loaded, nullptr);
         return;
     }

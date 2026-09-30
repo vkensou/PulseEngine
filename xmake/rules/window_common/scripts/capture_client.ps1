@@ -15,6 +15,18 @@ if ($handle -eq [IntPtr]::Zero) {
     throw "进程没有可截取的顶层窗口。"
 }
 
+if ([WindowTestNative]::IsIconic($handle)) {
+    [void][WindowTestNative]::ShowWindow($handle, 9)
+}
+[void][WindowTestNative]::BringWindowToTop($handle)
+[void][WindowTestNative]::SetForegroundWindow($handle)
+if ([WindowTestNative]::GetForegroundWindow() -ne $handle) {
+    Start-Sleep -Milliseconds 300
+    [void][WindowTestNative]::BringWindowToTop($handle)
+    [void][WindowTestNative]::SetForegroundWindow($handle)
+}
+Start-Sleep -Milliseconds 300
+
 $windowRect = New-Object WindowTestNative+RECT
 if (-not [WindowTestNative]::GetWindowRect($handle, [ref]$windowRect)) {
     throw "无法读取窗口尺寸。"

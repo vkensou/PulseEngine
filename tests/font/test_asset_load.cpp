@@ -17,9 +17,10 @@ int main() {
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_get_handle(app, again_request)), pulse_font_to_handle(latin)));
     assert(pulse_font_count(app) == 2);
 
-    const uint32_t chain = make_chain(app, &latin, 1);
+    const PulseFontChainHandle chain = make_chain(app, &latin, 1);
     const PulseGlyph glyph = pulse_font_glyph(app, chain, 'A', 48.0f);
     assert(glyph.valid);
+    pulse_font_destroy_chain(app, chain);
 
     const PulseFontRequest bad_face_request = pulse_font_load(app, "cjk.ttf", 3);
     pump_font_request(app, bad_face_request);
@@ -39,15 +40,15 @@ int main() {
     assert(pulse_font_family_name(app, latin) == nullptr);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_get_handle(app, latin_request))));
 
-    const uint32_t reloaded_chain = pulse_font_create_chain(app, &latin, 1);
-    assert(reloaded_chain == PULSE_FONT_ID_NONE);
+    const PulseFontChainHandle reloaded_chain = pulse_font_create_chain(app, &latin, 1);
+    assert(reloaded_chain.index == 0);
     const PulseFontRequest reload_request = pulse_font_load(app, "latin.ttf", 0);
     pump_font_request(app, reload_request);
     assert(pulse_font_is_ready(app, reload_request));
     const PulseFontHandle reloaded = pulse_font_get_handle(app, reload_request);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(reloaded)));
     assert(pulse_font_count(app) == 2);
-    const uint32_t chain2 = make_chain(app, &reloaded, 1);
+    const PulseFontChainHandle chain2 = make_chain(app, &reloaded, 1);
     const PulseGlyph reloaded_glyph = pulse_font_glyph(app, chain2, 'A', 48.0f);
     assert(reloaded_glyph.valid);
     pulse_font_destroy_chain(app, chain2);
@@ -56,7 +57,7 @@ int main() {
 
     const std::vector<uint8_t> cjk_bytes = read_test_file("tests/font/data/cjk.ttf");
     const PulseFontHandle cjk = load_font_memory(app, "cjk_mem.ttf", cjk_bytes);
-    const uint32_t cjk_chain = make_chain(app, &cjk, 1);
+    const PulseFontChainHandle cjk_chain = make_chain(app, &cjk, 1);
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_chain, 0x4E2D)), pulse_font_to_handle(cjk)));
     pulse_font_destroy_chain(app, cjk_chain);
     unload_font(app, cjk);

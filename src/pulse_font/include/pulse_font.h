@@ -51,6 +51,8 @@ extern "C" {
  */
 #define PULSE_TYPE_FONT UINT64_C(0x4000)
 
+#define PULSE_TYPE_FONT_CHAIN UINT64_C(0x4001)
+
 
 
 
@@ -81,6 +83,28 @@ typedef struct PulseFontRequest
     uint32_t             generation;
 
 } PulseFontRequest;
+
+/**
+ * 字体链资产凭证
+ *
+ */
+typedef struct PulseFontChainHandle
+{
+    uint32_t             index;
+    uint32_t             generation;
+
+} PulseFontChainHandle;
+
+/**
+ * 字体链加载请求
+ *
+ */
+typedef struct PulseFontChainRequest
+{
+    uint32_t             index;
+    uint32_t             generation;
+
+} PulseFontChainRequest;
 
 typedef struct PulseFontPluginDesc
 {
@@ -180,6 +204,7 @@ typedef struct PulseGlyphInstance
 // ---- inline helpers for asset handle types ----
 
 PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
+PULSE_DEFINE_ASSET_CONVERSIONS(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
 
 PULSE_FONT_API PulseFontPluginDesc pulse_font_plugin_desc_default(void);
 PULSE_FONT_API EPulseAppAddPluginResult pulse_add_font_plugin(PulseAppId app, const PulseFontPluginDesc* desc);
@@ -253,14 +278,27 @@ PULSE_FONT_API PulseFontHandle pulse_font_find_family(PulseAppId app, const char
 PULSE_FONT_API PulseFontHandle pulse_font_default(PulseAppId app);
 
 /**
- * 按顺序尝试的字体链，排版层只认链；链尾自动追加默认字体（已在列表中则不重复追加）
+ * 按顺序尝试的字体链，排版层只认链；匿名运行时链，无序列化标识；链尾自动追加默认字体（已在列表中则不重复追加）；每次调用生成独立资产并各持一份引用
  *
  * @param[in] app
  * @param[in] fonts
  *
  */
-PULSE_FONT_API uint32_t pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFontHandle, fonts));
-PULSE_FONT_API void pulse_font_destroy_chain(PulseAppId app, uint32_t chain);
+PULSE_FONT_API PulseFontChainHandle pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFontHandle, fonts));
+
+/**
+ * 发起异步字体链加载
+ *
+ * @param[in] app
+ * @param[in] path
+ *
+ */
+PULSE_FONT_API PulseFontChainRequest pulse_font_load_chain(PulseAppId app, const char* path);
+PULSE_FONT_API bool pulse_font_chain_is_ready(PulseAppId app, PulseFontChainRequest request);
+PULSE_FONT_API bool pulse_font_chain_is_alive(PulseAppId app, PulseFontChainRequest request);
+[[pulse::optional]] PULSE_FONT_API const char* pulse_font_chain_get_error(PulseAppId app, PulseFontChainRequest request);
+PULSE_FONT_API PulseFontChainHandle pulse_font_chain_get_handle(PulseAppId app, PulseFontChainRequest request);
+PULSE_FONT_API void pulse_font_destroy_chain(PulseAppId app, PulseFontChainHandle chain);
 
 /**
  * 返回链上提供该 codepoint 的字体凭证，全缺返回无效 handle
@@ -270,10 +308,10 @@ PULSE_FONT_API void pulse_font_destroy_chain(PulseAppId app, uint32_t chain);
  * @param[in] codepoint
  *
  */
-PULSE_FONT_API PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, uint32_t chain, uint32_t codepoint);
-PULSE_FONT_API float pulse_font_advance(PulseAppId app, uint32_t chain, uint32_t codepoint, float size);
-PULSE_FONT_API float pulse_font_kerning(PulseAppId app, uint32_t chain, uint32_t first, uint32_t second, float size);
-PULSE_FONT_API PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, uint32_t chain, float size);
+PULSE_FONT_API PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint);
+PULSE_FONT_API float pulse_font_advance(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size);
+PULSE_FONT_API float pulse_font_kerning(PulseAppId app, PulseFontChainHandle chain, uint32_t first, uint32_t second, float size);
+PULSE_FONT_API PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, PulseFontChainHandle chain, float size);
 
 /**
  * 取字形并确保其已进图集
@@ -284,7 +322,7 @@ PULSE_FONT_API PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, 
  * @param[in] size
  *
  */
-PULSE_FONT_API PulseGlyph pulse_font_glyph(PulseAppId app, uint32_t chain, uint32_t codepoint, float size);
+PULSE_FONT_API PulseGlyph pulse_font_glyph(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size);
 
 /**
  * 批量光栅化一段 UTF-8 文本用到的字符
@@ -295,7 +333,7 @@ PULSE_FONT_API PulseGlyph pulse_font_glyph(PulseAppId app, uint32_t chain, uint3
  * @param[in] size
  *
  */
-PULSE_FONT_API void pulse_font_prewarm(PulseAppId app, uint32_t chain, const char* text, float size);
+PULSE_FONT_API void pulse_font_prewarm(PulseAppId app, PulseFontChainHandle chain, const char* text, float size);
 PULSE_FONT_API PulseAtlasStats pulse_font_atlas_stats(PulseAppId app);
 
 /**

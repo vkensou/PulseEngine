@@ -68,9 +68,9 @@ static PulseFontHandle register_cjk(PulseAppId app) {
     return load_font_memory(app, "cjk.ttf", read_test_file("tests/font/data/cjk.ttf"));
 }
 
-static uint32_t make_chain(PulseAppId app, const PulseFontHandle* fonts, size_t count) {
-    const uint32_t chain = pulse_font_create_chain(app, fonts, count);
-    assert(chain != PULSE_FONT_ID_NONE);
+static PulseFontChainHandle make_chain(PulseAppId app, const PulseFontHandle* fonts, size_t count) {
+    const PulseFontChainHandle chain = pulse_font_create_chain(app, fonts, count);
+    assert(chain.index != 0 && chain.generation != 0);
     return chain;
 }
 
@@ -99,7 +99,7 @@ static void decode_utf8(const char* text, std::vector<uint32_t>& out) {
     }
 }
 
-static float run_width(PulseAppId app, uint32_t chain, const char* utf8, float size) {
+static float run_width(PulseAppId app, PulseFontChainHandle chain, const char* utf8, float size) {
     std::vector<uint32_t> cps;
     decode_utf8(utf8, cps);
     float width = 0.0f;
@@ -112,7 +112,7 @@ static float run_width(PulseAppId app, uint32_t chain, const char* utf8, float s
     return width;
 }
 
-static PulseTextBlockDesc text_desc(uint32_t chain, float size, float line_height) {
+static PulseTextBlockDesc text_desc(PulseFontChainHandle chain, float size, float line_height) {
     PulseTextBlockDesc desc{};
     desc.chain = chain;
     desc.size = size;
@@ -126,11 +126,11 @@ static PulseTextBlockDesc text_desc(uint32_t chain, float size, float line_heigh
     return desc;
 }
 
-static PulseTextBlockDesc text_desc(uint32_t chain, float size) {
+static PulseTextBlockDesc text_desc(PulseFontChainHandle chain, float size) {
     return text_desc(chain, size, 0.0f);
 }
 
-static float line_advance(PulseAppId app, uint32_t chain, float size, float scale) {
+static float line_advance(PulseAppId app, PulseFontChainHandle chain, float size, float scale) {
     const PulseVerticalMetrics metrics = pulse_font_vertical_metrics(app, chain, size);
     const float natural = metrics.ascent - metrics.descent + metrics.line_gap;
     return scale > 0.0f ? natural * scale : natural;

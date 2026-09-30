@@ -53,16 +53,20 @@ pulse_font_plugin_state* require_state(PulseAppId app) {
     return app ? state_from_app(app) : nullptr;
 }
 
-const font_chain_slot* require_chain(pulse_font_plugin_state* state, uint32_t chain) {
-    if (chain == 0 || chain > state->chains.size()) {
+const font_chain_data* require_chain(pulse_font_plugin_state* state, PulseFontChainHandle chain) {
+    if (chain.index == 0 || chain.generation == 0 || !state->asset_system) {
         return nullptr;
     }
-    const font_chain_slot& slot = state->chains[chain - 1];
-    return slot.alive ? &slot : nullptr;
+    const PulseAssetHandle asset = pulse_font_chain_to_handle(chain);
+    void* ptr = nullptr;
+    if (!pulse_asset_system_borrow(state->asset_system, asset, &ptr, nullptr) || !ptr) {
+        return nullptr;
+    }
+    return static_cast<const font_chain_data*>(ptr);
 }
 
-uint32_t resolve_in_chain(pulse_font_plugin_state* state, const font_chain_slot& chain, uint32_t codepoint) {
-    for (uint32_t font : chain.fonts) {
+uint32_t resolve_in_chain(pulse_font_plugin_state* state, const font_chain_data& chain, uint32_t codepoint) {
+    for (uint32_t font : chain.font_slots) {
         if (font == 0 || font > state->fonts.size() || !state->fonts[font - 1].occupied) {
             continue;
         }
@@ -238,6 +242,7 @@ EPulsePluginBuildResult pulse_font_plugin_build(PulseAppId app, void* ctx) {
     pulse_font_state_resource resource{};
     resource.state = state;
     ecs_singleton_set_ptr(world, pulse_font_state_resource, &resource);
+    register_font_asset_reflection(world);
     return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
@@ -248,8 +253,11 @@ EPulsePluginBuildResult pulse_font_plugin_post_build(PulseAppId app, void* ctx) 
     }
     PulseAssetSystemId asset_system = pulse_get_asset_system(app);
     if (asset_system) {
+        state->asset_system = asset_system;
         register_font_type(asset_system, app);
         register_font_loaders(asset_system);
+        register_font_chain_type(asset_system, app);
+        register_font_chain_loaders(asset_system);
         font_build_default_font(state);
     }
     if (!pulse_get_renderer(app)) {
@@ -266,6 +274,7 @@ void pulse_font_plugin_shutdown(PulseAppId app, void* ctx) {
     }
     PulseAssetSystemId asset_system = app ? pulse_get_asset_system(app) : nullptr;
     if (asset_system) {
+        pulse_asset_system_force_unload_assets(asset_system, PULSE_TYPE_FONT_CHAIN);
         pulse_asset_system_force_unload_assets(asset_system, PULSE_TYPE_FONT);
     }
     render_shutdown(state);
@@ -370,73 +379,73 @@ PulseFontHandle pulse_font_default(PulseAppId app) {
     return pulse_font_internal::font_handle_of(state, state->default_font);
 }
 
-uint32_t pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFontHandle, fonts)) {
+PulseFontChainHandle pulse_font_create_chain(PulseAppId app, Pulse_Array_Param(const PulseFontHandle, fonts)) {
+    PulseFontChainHandle result{};
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || fonts_count == 0 || !p_fonts) {
-        return PULSE_FONT_ID_NONE;
+    if (!state || !state->asset_system || fonts_count == 0 || !p_fonts) {
+        return result;
     }
     std::vector<uint32_t> slots(fonts_count);
     for (size_t i = 0; i < fonts_count; ++i) {
         slots[i] = pulse_font_internal::font_slot_of(state, p_fonts[i]);
         if (slots[i] == PULSE_FONT_ID_NONE) {
-            return PULSE_FONT_ID_NONE;
+            return result;
         }
     }
-    const uint32_t default_font = state->default_font;
-    if (default_font != PULSE_FONT_ID_NONE && default_font - 1 < state->fonts.size() && state->fonts[default_font - 1].occupied && std::find(slots.begin(), slots.end(), default_font) == slots.end()) {
-        slots.push_back(default_font);
+    pulse_font_internal::font_chain_append_default(state, slots);
+    std::vector<PulseAssetDependency> dependencies;
+    dependencies.reserve(slots.size());
+    for (const uint32_t slot : slots) {
+        const PulseAssetHandle& asset = state->fonts[slot - 1].asset;
+        PulseAssetDependency dep{};
+        dep.dep_ref = { asset.type_id, asset.index, asset.generation };
+        dep.requirement = PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED;
+        dependencies.push_back(dep);
     }
-    if (!state->free_chains.empty()) {
-        const uint32_t index = state->free_chains.back();
-        state->free_chains.pop_back();
-        state->chains[index].fonts = std::move(slots);
-        state->chains[index].alive = true;
-        return index + 1;
+    PulseAssetBuildDesc desc{};
+    desc.struct_size = sizeof(PulseAssetBuildDesc);
+    desc.version = PULSE_ASSET_BUILD_DESC_VERSION;
+    desc.type_id = PULSE_TYPE_FONT_CHAIN;
+    desc.loader_identifier = pulse_font_internal::kChainLoaderId;
+    desc.p_dependencies = dependencies.data();
+    desc.dependencies_count = dependencies.size();
+    const PulseAssetHandle handle = pulse_asset_system_build_sync(state->asset_system, &desc);
+    if (!pulse_asset_handle_is_valid(handle)) {
+        std::fprintf(stderr, "pulse_font: failed to build font chain asset\n");
+        return result;
     }
-    if (state->chains.size() >= kMaxChains) {
-        std::fprintf(stderr, "pulse_font: chain count limit %u reached\n", (unsigned)kMaxChains);
-        return PULSE_FONT_ID_NONE;
-    }
-    font_chain_slot slot{};
-    slot.fonts = std::move(slots);
-    slot.alive = true;
-    state->chains.push_back(std::move(slot));
-    return (uint32_t)state->chains.size();
+    result.index = handle.index;
+    result.generation = handle.generation;
+    return result;
 }
 
-void pulse_font_destroy_chain(PulseAppId app, uint32_t chain) {
+void pulse_font_destroy_chain(PulseAppId app, PulseFontChainHandle chain) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || chain == 0 || chain > state->chains.size()) {
+    if (!state || !state->asset_system || chain.index == 0 || chain.generation == 0) {
         return;
     }
-    font_chain_slot& slot = state->chains[chain - 1];
-    if (!slot.alive) {
-        return;
-    }
-    slot.alive = false;
-    slot.fonts.clear();
-    state->free_chains.push_back(chain - 1);
+    pulse_asset_system_release(state->asset_system, pulse_font_chain_to_handle(chain), nullptr);
 }
 
-PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, uint32_t chain, uint32_t codepoint) {
+PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint) {
     PulseFontHandle invalid{};
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state) {
         return invalid;
     }
-    const font_chain_slot* slot = pulse_font_internal::require_chain(state, chain);
+    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
     if (!slot) {
         return invalid;
     }
     return pulse_font_internal::font_handle_of(state, pulse_font_internal::resolve_in_chain(state, *slot, codepoint));
 }
 
-float pulse_font_advance(PulseAppId app, uint32_t chain, uint32_t codepoint, float size) {
+float pulse_font_advance(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state || size <= 0.0f) {
         return 0.0f;
     }
-    const font_chain_slot* slot = pulse_font_internal::require_chain(state, chain);
+    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
     if (!slot) {
         return 0.0f;
     }
@@ -447,12 +456,12 @@ float pulse_font_advance(PulseAppId app, uint32_t chain, uint32_t codepoint, flo
     return font_advance_raw(state->fonts[font - 1], codepoint, size);
 }
 
-float pulse_font_kerning(PulseAppId app, uint32_t chain, uint32_t first, uint32_t second, float size) {
+float pulse_font_kerning(PulseAppId app, PulseFontChainHandle chain, uint32_t first, uint32_t second, float size) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state || size <= 0.0f) {
         return 0.0f;
     }
-    const font_chain_slot* slot = pulse_font_internal::require_chain(state, chain);
+    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
     if (!slot) {
         return 0.0f;
     }
@@ -463,17 +472,17 @@ float pulse_font_kerning(PulseAppId app, uint32_t chain, uint32_t first, uint32_
     return font_kerning_raw(state->fonts[font - 1], first, second, size);
 }
 
-PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, uint32_t chain, float size) {
+PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, PulseFontChainHandle chain, float size) {
     PulseVerticalMetrics metrics{};
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state || size <= 0.0f) {
         return metrics;
     }
-    const font_chain_slot* slot = pulse_font_internal::require_chain(state, chain);
-    if (!slot || slot->fonts.empty()) {
+    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
+    if (!slot || slot->font_slots.empty()) {
         return metrics;
     }
-    const font_face& face = state->fonts[slot->fonts[0] - 1];
+    const font_face& face = state->fonts[slot->font_slots[0] - 1];
     const float scale = font_scale_for_size(face, size);
     if (face.kind == kFontKindBitmap) {
         metrics.ascent = (float)face.bitmap->base * scale;
@@ -493,13 +502,13 @@ PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, uint32_t chain,
     return metrics;
 }
 
-PulseGlyph pulse_font_glyph(PulseAppId app, uint32_t chain, uint32_t codepoint, float size) {
+PulseGlyph pulse_font_glyph(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size) {
     PulseGlyph glyph{};
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state || size <= 0.0f) {
         return glyph;
     }
-    const font_chain_slot* slot = pulse_font_internal::require_chain(state, chain);
+    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
     if (!slot) {
         return glyph;
     }
@@ -518,12 +527,12 @@ PulseGlyph pulse_font_glyph(PulseAppId app, uint32_t chain, uint32_t codepoint, 
     return pulse_font_internal::make_glyph(state, entry, size, tier);
 }
 
-void pulse_font_prewarm(PulseAppId app, uint32_t chain, const char* text, float size) {
+void pulse_font_prewarm(PulseAppId app, PulseFontChainHandle chain, const char* text, float size) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state || !text || size <= 0.0f) {
         return;
     }
-    const font_chain_slot* slot = pulse_font_internal::require_chain(state, chain);
+    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
     if (!slot) {
         return;
     }

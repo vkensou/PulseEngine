@@ -8,7 +8,7 @@ int main() {
     PulseAppId app = make_font_app("t-font-sdf", nullptr);
 
     const PulseFontHandle latin = register_latin(app);
-    const uint32_t chain = make_chain(app, &latin, 1);
+    const PulseFontChainHandle chain = make_chain(app, &latin, 1);
 
     const PulseGlyph box = pulse_font_glyph(app, chain, 0x1FFFF, 48.0f);
     assert(box.valid);

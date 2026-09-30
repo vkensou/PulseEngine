@@ -50,6 +50,7 @@ $ctags
 // ---- inline helpers for asset handle types ----
 
 PULSE_DEFINE_ASSET_CONVERSIONS(font, PULSE_TYPE_FONT, PulseFontHandle, PulseFontRequest)
+PULSE_DEFINE_ASSET_CONVERSIONS(font_chain, PULSE_TYPE_FONT_CHAIN, PulseFontChainHandle, PulseFontChainRequest)
 
 $c99decl
 

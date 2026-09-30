@@ -30,6 +30,8 @@ const_value.FontMaxCount { value = "64u" }
 --- Asset type id range 0x4000+ belongs to pulse_font (graphics 0x1000+, prefab 0x2000, datatable 0x3000)
 const_value.TypeFont { value = "UINT64_C(0x4000)" }
 
+const_value.TypeFontChain { value = "UINT64_C(0x4001)" }
+
 --- 字体资产凭证，index/generation 即 asset handle 坐标，{0,0} 表示无效
 struct.FontHandle
     .index "uint32_t"
@@ -38,6 +40,18 @@ struct.FontHandle
 
 --- 字体加载请求
 struct.FontRequest
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+--- 字体链资产凭证
+struct.FontChainHandle
+    .index "uint32_t"
+    .generation "uint32_t"
+    ()
+
+--- 字体链加载请求
+struct.FontChainRequest
     .index "uint32_t"
     .generation "uint32_t"
     ()
@@ -166,31 +180,62 @@ func.FontDefault
     .app "PulseAppId"
     ()
 
---- 按顺序尝试的字体链，排版层只认链；链尾自动追加默认字体（已在列表中则不重复追加）
+--- 按顺序尝试的字体链，排版层只认链；匿名运行时链，无序列化标识；链尾自动追加默认字体（已在列表中则不重复追加）；每次调用生成独立资产并各持一份引用
 func.FontCreateChain
-    "uint32_t"
+    "FontChainHandle"
     .app   "PulseAppId"
     .fonts "[]const FontHandle"
+    ()
+
+--- 发起异步字体链加载
+func.FontLoadChain
+    "FontChainRequest"
+    .app  "PulseAppId"
+    .path "cstring"
+    ()
+
+func.FontChainIsReady
+    "bool"
+    .app     "PulseAppId"
+    .request "FontChainRequest"
+    ()
+
+func.FontChainIsAlive
+    "bool"
+    .app     "PulseAppId"
+    .request "FontChainRequest"
+    ()
+
+func.FontChainGetError
+    "?cstring"
+    .app     "PulseAppId"
+    .request "FontChainRequest"
+    ()
+
+func.FontChainGetHandle
+    "FontChainHandle"
+    .app     "PulseAppId"
+    .request "FontChainRequest"
     ()
 
 func.FontDestroyChain
     "void"
     .app   "PulseAppId"
-    .chain "uint32_t"
+    .chain "FontChainHandle"
     ()
 
 --- 返回链上提供该 codepoint 的字体凭证，全缺返回无效 handle
 func.FontResolveCodepoint
     "FontHandle"
     .app       "PulseAppId"
-    .chain     "uint32_t"
+    .chain     "FontChainHandle"
     .codepoint "uint32_t"
     ()
 
 func.FontAdvance
     "float"
     .app       "PulseAppId"
-    .chain     "uint32_t"
+    .chain     "FontChainHandle"
     .codepoint "uint32_t"
     .size      "float"
     ()
@@ -198,7 +243,7 @@ func.FontAdvance
 func.FontKerning
     "float"
     .app   "PulseAppId"
-    .chain "uint32_t"
+    .chain "FontChainHandle"
     .first "uint32_t"
     .second "uint32_t"
     .size  "float"
@@ -207,7 +252,7 @@ func.FontKerning
 func.FontVerticalMetrics
     "VerticalMetrics"
     .app   "PulseAppId"
-    .chain "uint32_t"
+    .chain "FontChainHandle"
     .size  "float"
     ()
 
@@ -215,7 +260,7 @@ func.FontVerticalMetrics
 func.FontGlyph
     "Glyph"
     .app       "PulseAppId"
-    .chain     "uint32_t"
+    .chain     "FontChainHandle"
     .codepoint "uint32_t"
     .size      "float"
     ()
@@ -224,7 +269,7 @@ func.FontGlyph
 func.FontPrewarm
     "void"
     .app   "PulseAppId"
-    .chain "uint32_t"
+    .chain "FontChainHandle"
     .text  "cstring"
     .size  "float"
     ()

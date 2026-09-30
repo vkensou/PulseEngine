@@ -36,7 +36,7 @@ int main() {
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_get_handle(app, mem_request)), pulse_font_to_handle(bitmap)));
     assert(pulse_font_count(app) == 2);
 
-    const uint32_t chain = make_chain(app, &bitmap, 1);
+    const PulseFontChainHandle chain = make_chain(app, &bitmap, 1);
 
     const float adv_48 = pulse_font_advance(app, chain, 'A', 48.0f);
     const float adv_96 = pulse_font_advance(app, chain, 'A', 96.0f);
@@ -86,7 +86,7 @@ int main() {
 
     const PulseFontHandle def = pulse_font_default(app);
     assert(!pulse_asset_handle_equals(pulse_font_to_handle(def), pulse_font_to_handle(bitmap)));
-    const uint32_t han_chain = make_chain(app, &bitmap, 1);
+    const PulseFontChainHandle han_chain = make_chain(app, &bitmap, 1);
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, han_chain, 'A')), pulse_font_to_handle(bitmap)));
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, han_chain, 0x4E2D))));
     const PulseGlyph tofu = pulse_font_glyph(app, han_chain, 0x4E2D, 48.0f);
@@ -98,7 +98,7 @@ int main() {
     unload_font(app, bitmap);
     assert(pulse_font_count(app) == 1);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_default(app))));
-    const uint32_t after_chain = make_chain(app, &def, 1);
+    const PulseFontChainHandle after_chain = make_chain(app, &def, 1);
     assert(pulse_font_glyph(app, after_chain, 'x', 32.0f).valid);
     pulse_font_destroy_chain(app, after_chain);
 

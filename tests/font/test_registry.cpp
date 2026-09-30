@@ -1,6 +1,6 @@
 #include "test_common.h"
 
-static int kerned_pair_count(PulseAppId app, uint32_t chain, float size) {
+static int kerned_pair_count(PulseAppId app, PulseFontChainHandle chain, float size) {
     const char* pairs[] = { "AV", "To", "Wa", "Yo", "LT", "PA", "F,", "ry" };
     int count = 0;
     for (const char* pair : pairs) {
@@ -52,12 +52,12 @@ int main() {
 
     const PulseFontHandle latin_first[] = { latin, cjk };
     const PulseFontHandle cjk_first[] = { cjk, latin };
-    const uint32_t latin_chain = make_chain(app, latin_first, 2);
-    const uint32_t cjk_chain = make_chain(app, cjk_first, 2);
-    assert(latin_chain == 1);
-    assert(cjk_chain == 2);
+    const PulseFontChainHandle latin_chain = make_chain(app, latin_first, 2);
+    const PulseFontChainHandle cjk_chain = make_chain(app, cjk_first, 2);
+    assert(latin_chain.index != cjk_chain.index);
     const PulseFontHandle stale_chain_font[] = { latin, stale_font };
-    assert(pulse_font_create_chain(app, stale_chain_font, 2) == PULSE_FONT_ID_NONE);
+    assert(pulse_font_create_chain(app, stale_chain_font, 2).index == 0);
+    const PulseFontChainHandle bogus_chain{ 99, 1 };
 
     const uint32_t han = 0x4E2D;
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, latin_chain, 'A')), pulse_font_to_handle(latin)));
@@ -65,7 +65,7 @@ int main() {
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, latin_chain, han)), pulse_font_to_handle(cjk)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_chain, han)), pulse_font_to_handle(cjk)));
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, latin_chain, 0x1FFFF))));
-    assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, 99, 'A'))));
+    assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, bogus_chain, 'A'))));
 
     const float advance_48 = pulse_font_advance(app, latin_chain, 'A', 48.0f);
     const float advance_96 = pulse_font_advance(app, latin_chain, 'A', 96.0f);
@@ -76,14 +76,14 @@ int main() {
     assert(pulse_font_advance(app, latin_chain, han, 48.0f) > 0.0f);
     assert(fabsf(pulse_font_advance(app, latin_chain, 0x1FFFF, 48.0f) - 48.0f * 0.8f) < 1e-4f);
 
-    const uint32_t single_chain = make_chain(app, &latin, 1);
-    assert(single_chain == 3);
+    const PulseFontChainHandle single_chain = make_chain(app, &latin, 1);
+    assert(single_chain.index != latin_chain.index);
     assert(fabsf(pulse_font_advance(app, single_chain, 'A', 48.0f) - advance_48) < 1e-4f);
 
     assert(kerned_pair_count(app, latin_chain, 48.0f) > 0);
     assert(pulse_font_kerning(app, cjk_chain, (uint32_t)'A', (uint32_t)'V', 48.0f) <= 0.0f);
     assert(pulse_font_kerning(app, latin_chain, han, (uint32_t)'A', 48.0f) == 0.0f);
-    assert(pulse_font_kerning(app, 99, (uint32_t)'A', (uint32_t)'V', 48.0f) == 0.0f);
+    assert(pulse_font_kerning(app, bogus_chain, (uint32_t)'A', (uint32_t)'V', 48.0f) == 0.0f);
 
     const PulseVerticalMetrics metrics = pulse_font_vertical_metrics(app, latin_chain, 48.0f);
     assert(metrics.ascent > 0.0f);
@@ -93,23 +93,22 @@ int main() {
     assert(metrics.height > 48.0f * 0.8f && metrics.height < 48.0f * 2.0f);
     const PulseVerticalMetrics metrics_96 = pulse_font_vertical_metrics(app, latin_chain, 96.0f);
     assert(fabsf(metrics_96.ascent - metrics.ascent * 2.0f) < 1e-3f);
-    const PulseVerticalMetrics empty_metrics = pulse_font_vertical_metrics(app, 99, 48.0f);
+    const PulseVerticalMetrics empty_metrics = pulse_font_vertical_metrics(app, bogus_chain, 48.0f);
     assert(empty_metrics.height == 0.0f);
 
     pulse_font_destroy_chain(app, latin_chain);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, latin_chain, 'A'))));
-    const uint32_t reused_chain = make_chain(app, latin_first, 2);
-    assert(reused_chain == latin_chain);
+    const PulseFontChainHandle recreated_chain = make_chain(app, latin_first, 2);
+    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, recreated_chain, 'A')), pulse_font_to_handle(latin)));
 
+    pulse_font_destroy_chain(app, recreated_chain);
+    pulse_font_destroy_chain(app, single_chain);
+    pulse_font_destroy_chain(app, cjk_chain);
     unload_font(app, latin);
     assert(pulse_font_count(app) == 2);
     assert(pulse_font_family_name(app, latin) == nullptr);
     const PulseFontHandle latin_only[] = { latin };
-    assert(pulse_font_create_chain(app, latin_only, 1) == PULSE_FONT_ID_NONE);
-    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, reused_chain, 'A')), pulse_font_to_handle(cjk)));
-    pulse_font_destroy_chain(app, reused_chain);
-    pulse_font_destroy_chain(app, single_chain);
-    pulse_font_destroy_chain(app, cjk_chain);
+    assert(pulse_font_create_chain(app, latin_only, 1).index == 0);
     unload_font(app, cjk);
     assert(pulse_font_count(app) == 1);
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_get_handle(app, dup_request))));
@@ -117,19 +116,19 @@ int main() {
     const PulseFontHandle reloaded_latin = register_latin(app);
     const PulseFontHandle reloaded_cjk = register_cjk(app);
     assert(!pulse_asset_handle_equals(pulse_font_to_handle(reloaded_latin), pulse_font_to_handle(latin)));
-    const uint32_t rechain = make_chain(app, &reloaded_latin, 1);
+    const PulseFontChainHandle rechain = make_chain(app, &reloaded_latin, 1);
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, rechain, 'A')), pulse_font_to_handle(reloaded_latin)));
     assert(!pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, rechain, han))));
     pulse_font_destroy_chain(app, rechain);
 
-    const uint32_t cjk_only_chain = make_chain(app, &reloaded_cjk, 1);
+    const PulseFontChainHandle cjk_only_chain = make_chain(app, &reloaded_cjk, 1);
     for (uint32_t cp = ' '; cp <= '~'; ++cp) {
         assert(pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_only_chain, cp))));
     }
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, cjk_only_chain, han)), pulse_font_to_handle(reloaded_cjk)));
     pulse_font_destroy_chain(app, cjk_only_chain);
 
-    const uint32_t default_chain = make_chain(app, &default_font, 1);
+    const PulseFontChainHandle default_chain = make_chain(app, &default_font, 1);
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, 'A')), pulse_font_to_handle(default_font)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, 'z')), pulse_font_to_handle(default_font)));
     assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, default_chain, '0')), pulse_font_to_handle(default_font)));
