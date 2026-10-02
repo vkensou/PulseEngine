@@ -19,5 +19,9 @@ inline void pulse_text_render_register_reflection(ecs_world_t* world) {
         comp.member("text", &PulseText::text);
         comp.member("box_width", &PulseText::box_width);
         comp.member("box_height", &PulseText::box_height);
+        comp.member("scissor_x", &PulseText::scissor_x);
+        comp.member("scissor_y", &PulseText::scissor_y);
+        comp.member("scissor_width", &PulseText::scissor_width);
+        comp.member("scissor_height", &PulseText::scissor_height);
     }
 }

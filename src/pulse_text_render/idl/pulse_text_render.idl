@@ -21,12 +21,18 @@ const_value.TextRenderPluginDescVersion { value = "1u" }
 const_value.TextMaxChars { value = "256u" }
 
 --- 文字渲染组件；block 为 pulse_text 排版块 id，text 为内联 utf8
+--- scissor 为相对文字自身位置的裁剪矩形，与字形实例同处局部像素坐标（y 向下），
+--- width/height 均大于 0 时生效，渲染后自动重置为全屏
 component.Text
-    .block     "PulseTextBlockDesc"
-    .text      "[TextMaxChars] char"
-    .boxWidth  "float"
-    .boxHeight "float"
-    .revision  "uint32_t" { noreflex = true }
+    .block         "PulseTextBlockDesc"
+    .text          "[TextMaxChars] char"
+    .boxWidth      "float"
+    .boxHeight     "float"
+    .scissorX      "float"
+    .scissorY      "float"
+    .scissorWidth  "float"
+    .scissorHeight "float"
+    .revision      "uint32_t" { noreflex = true }
     ()
 
 func.AddTextRenderPlugin

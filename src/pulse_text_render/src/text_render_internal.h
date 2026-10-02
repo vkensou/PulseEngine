@@ -20,6 +20,7 @@ struct text_draw_data {
     uint32_t page;
     uint32_t payload_offset;
     uint32_t payload_count;
+    float scissor[4];
 };
 
 struct text_feature_userdata {
@@ -30,6 +31,9 @@ struct text_feature_userdata {
     PulseMeshHandle mesh;
     PulseSamplerHandle sampler;
     std::vector<uint32_t> used_pages;
+    HMM_Mat4 view_proj = {};
+    uint32_t frame_width = 0;
+    uint32_t frame_height = 0;
 };
 
 struct pulse_text_render_state {

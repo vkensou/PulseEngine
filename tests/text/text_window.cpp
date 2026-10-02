@@ -35,6 +35,7 @@ struct text_line_spec {
     float size;
     PulseTextColor color;
     const char* text;
+    float scissor[4];
 };
 
 struct text_line_box {
@@ -67,17 +68,17 @@ struct text_window_state {
 void clear_record_callback(PulseAppId app, PulseRenderGraphId graph, void* user_data);
 
 const text_line_spec kLineSpecs[] = {
-    { kChainMain, 24.0f, 70.0f, 64.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93" },
-    { kChainMain, 24.0f, 110.0f, 12.0f, { 0.6f, 0.9f, 1.0f, 1.0f }, "12px: Sphinx of black quartz, judge my vow. AV To Wa" },
-    { kChainMain, 24.0f, 142.0f, 18.0f, { 0.7f, 0.95f, 0.7f, 1.0f }, "18px: Sphinx of black quartz, judge my vow. AV To Wa" },
-    { kChainMain, 24.0f, 180.0f, 24.0f, { 1.0f, 0.85f, 0.4f, 1.0f }, "24px: Sphinx of black quartz, judge my vow. AV To Wa" },
-    { kChainMain, 24.0f, 228.0f, 36.0f, { 1.0f, 0.6f, 0.55f, 1.0f }, "36px: quartz AV Wa" },
-    { kChainMain, 24.0f, 286.0f, 48.0f, { 0.85f, 0.7f, 1.0f, 1.0f }, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97 card text" },
-    { kChainMain, 24.0f, 334.0f, 20.0f, { 0.9f, 0.9f, 0.9f, 1.0f }, "\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B +2 \xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC 30" },
-    { kChainMain, 24.0f, 388.0f, 48.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE7\xBC\xBA\xE5\xAD\x97\xEF\xBC\x9A\xEE\x80\x80 tofu" },
-    { kChainBitmap, 24.0f, 424.0f, 28.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Bitmap SDF: Proggy 0123" },
-    { kChainDefault, 330.0f, 424.0f, 16.0f, { 0.6f, 0.85f, 1.0f, 1.0f }, "default 16px: ABCabc 123" },
-    { kChainMain, 24.0f, 460.0f, 24.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text clipped" },
+    { kChainMain, 24.0f, 70.0f, 64.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Pulse Font \xE6\x96\x87\xE5\xAD\x97\xE6\xB8\xB2\xE6\x9F\x93", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 110.0f, 12.0f, { 0.6f, 0.9f, 1.0f, 1.0f }, "12px: Sphinx of black quartz, judge my vow. AV To Wa", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 142.0f, 18.0f, { 0.7f, 0.95f, 0.7f, 1.0f }, "18px: Sphinx of black quartz, judge my vow. AV To Wa", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 180.0f, 24.0f, { 1.0f, 0.85f, 0.4f, 1.0f }, "24px: Sphinx of black quartz, judge my vow. AV To Wa", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 228.0f, 36.0f, { 1.0f, 0.6f, 0.55f, 1.0f }, "36px: quartz AV Wa", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 286.0f, 48.0f, { 0.85f, 0.7f, 1.0f, 1.0f }, "\xE5\x8D\xA1\xE7\x89\x8C\xE6\x96\x87\xE5\xAD\x97 card text", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 334.0f, 20.0f, { 0.9f, 0.9f, 0.9f, 1.0f }, "\xE6\x94\xBB\xE5\x87\xBB\xE5\x8A\x9B +2 \xE7\x94\x9F\xE5\x91\xBD\xE5\x80\xBC 30", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 388.0f, 48.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE7\xBC\xBA\xE5\xAD\x97\xEF\xBC\x9A\xEE\x80\x80 tofu", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainBitmap, 24.0f, 424.0f, 28.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Bitmap SDF: Proggy 0123", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainDefault, 330.0f, 424.0f, 16.0f, { 0.6f, 0.85f, 1.0f, 1.0f }, "default 16px: ABCabc 123", { 0.0f, 0.0f, 0.0f, 0.0f } },
+    { kChainMain, 24.0f, 460.0f, 24.0f, { 0.5f, 1.0f, 0.6f, 1.0f }, "\xE8\xA2\xAB\xE8\xA3\x81\xE5\x89\xAA\xE7\x9A\x84\xE6\x96\x87\xE6\x9C\xAC clipped text clipped", { 0.0f, 0.0f, 160.0f, 48.0f } },
 };
 
 constexpr size_t kLineCount = sizeof(kLineSpecs) / sizeof(kLineSpecs[0]);
@@ -155,6 +156,10 @@ void build_text_boxes(PulseAppId app, text_window_state* state) {
             .block = desc,
             .box_width = 0,
             .box_height = 0,
+            .scissor_x = spec.scissor[0],
+            .scissor_y = spec.scissor[1],
+            .scissor_width = spec.scissor[2],
+            .scissor_height = spec.scissor[3],
         };
         strcpy(text.text, spec.text);
         ecs_set_ptr(world, box.entity, PulseText, &text);

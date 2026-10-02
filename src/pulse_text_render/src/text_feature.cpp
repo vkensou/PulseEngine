@@ -1,5 +1,6 @@
 #include "text_render_internal.h"
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -200,6 +201,10 @@ void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdat
                 draw_data.page = page;
                 draw_data.payload_offset = first;
                 draw_data.payload_count = count;
+                draw_data.scissor[0] = texts[i].scissor_x;
+                draw_data.scissor[1] = texts[i].scissor_y;
+                draw_data.scissor[2] = texts[i].scissor_width;
+                draw_data.scissor[3] = texts[i].scissor_height;
                 pulse_feature_extract_submit(ctx, &item, &draw_data);
 
                 first += count;
@@ -209,6 +214,45 @@ void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdat
     if (it.flags & EcsIterIsValid) {
         ecs_iter_fini(&it);
     }
+}
+
+int32_t text_cull(PulseAppId app, PulseFeatureCullContext* ctx, const PulseFeatureItem* item, const void* data, void* userdata) {
+    (void)app;
+    (void)item;
+    (void)data;
+    text_feature_userdata* ud = feature_of(userdata);
+    if (!ud) return 0;
+
+    PulseFeatureCullCamera camera = {};
+    if (pulse_feature_cull_get_camera(ctx, &camera)) {
+        ud->view_proj = HMM_MulM4(camera.proj_matrix, camera.view_matrix);
+        ud->frame_width = camera.width > 0 ? (uint32_t)camera.width : 0;
+        ud->frame_height = camera.height > 0 ? (uint32_t)camera.height : 0;
+    }
+    return 0;
+}
+
+bool resolve_scissor(const text_feature_userdata& ud, const HMM_Mat4& world, const float rect[4], uint32_t out[4]) {
+    if (ud.frame_width == 0 || ud.frame_height == 0) return false;
+    const HMM_Mat4 mvp = HMM_MulM4(ud.view_proj, world);
+    const HMM_Vec4 top_left = HMM_MulM4V4(mvp, HMM_V4(rect[0], -rect[1], 0.0f, 1.0f));
+    const HMM_Vec4 bottom_right = HMM_MulM4V4(mvp, HMM_V4(rect[0] + rect[2], -(rect[1] + rect[3]), 0.0f, 1.0f));
+    if (top_left.W == 0.0f || bottom_right.W == 0.0f) return false;
+    const float fb_width = (float)ud.frame_width;
+    const float fb_height = (float)ud.frame_height;
+    const float x0 = (top_left.X / top_left.W + 1.0f) * 0.5f * fb_width;
+    const float y0 = (1.0f - top_left.Y / top_left.W) * 0.5f * fb_height;
+    const float x1 = (bottom_right.X / bottom_right.W + 1.0f) * 0.5f * fb_width;
+    const float y1 = (1.0f - bottom_right.Y / bottom_right.W) * 0.5f * fb_height;
+    const float left = std::clamp(std::min(x0, x1), 0.0f, fb_width);
+    const float right = std::clamp(std::max(x0, x1), 0.0f, fb_width);
+    const float top = std::clamp(std::min(y0, y1), 0.0f, fb_height);
+    const float bottom = std::clamp(std::max(y0, y1), 0.0f, fb_height);
+    out[0] = (uint32_t)left;
+    out[1] = (uint32_t)top;
+    out[2] = (uint32_t)(right - left);
+    out[3] = (uint32_t)(bottom - top);
+    return out[2] > 0 && out[3] > 0;
 }
 
 void write_world_matrix(PulseAppId app, PulseShaderHandle shader, void* block, const HMM_Mat4& matrix) {
@@ -308,10 +352,21 @@ void text_draw(PulseAppId app, PulseRenderPassEncoder* encoder, PulseFeatureDraw
     if (!data) return;
     const PulseTextureHandle atlas = pulse_font_page_texture(app, data->page);
 
+    const bool has_scissor = data->scissor[2] > 0.0f && data->scissor[3] > 0.0f;
+    uint32_t rect[4] = {};
+    if (has_scissor) {
+        if (!resolve_scissor(*ud, item->world_matrix, data->scissor, rect)) return;
+        pulse_render_pass_encoder_set_scissor(encoder, rect[0], rect[1], rect[2], rect[3]);
+    }
+
     pulse_feature_draw_bind_ubo_columns(encoder, ctx);
     pulse_render_pass_encoder_set_global_texture(encoder, atlas, PULSE_SHADER_SET_FEATURE, 2);
     pulse_render_pass_encoder_set_global_sampler(encoder, ud->sampler, PULSE_SHADER_SET_FEATURE, 3);
     pulse_render_pass_encoder_draw_submesh_instanced(encoder, item->material, item->mesh, 0, 0, 6, 0, item->instance_count, 0);
+
+    if (has_scissor) {
+        pulse_render_pass_encoder_set_scissor(encoder, 0, 0, ud->frame_width, ud->frame_height);
+    }
 }
 
 void release_assets(text_feature_userdata& ud) {
@@ -386,6 +441,7 @@ void install_text_feature(PulseAppId app, ecs_world_t* world) {
     desc.name = kTextFeatureName;
     desc.data_size = sizeof(text_draw_data);
     desc.extract = text_extract;
+    desc.cull = text_cull;
     desc.prepare = text_prepare;
     desc.draw = text_draw;
     desc.record = text_record;
