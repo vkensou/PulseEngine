@@ -23,9 +23,9 @@ typedef "EPulseResult"
 typedef "EPulseAppAddPluginResult"
 typedef "PulseAppId"
 
---- From pulse_asset.h
-typedef "PulseAssetSystemId"
-typedef "PulseAssetRequest"
+--- From pulse_asset.h (defined by PULSE_DEFINE_ASSET_TYPE in pulse_datatable.h)
+typedef "PulseDataTableHandle"
+typedef "PulseDataTableRequest"
 
 --- From pulse_datalist.h
 typedef "PulseDatalist"
@@ -169,29 +169,14 @@ func.DataTableSystem.RegisterSchema { mut }
     ()
 
 func.DataTableSystem.Load { mut }
-    "PulseAssetRequest"
+    "PulseDataTableRequest"
     .schema         "cstring"
     .path           "cstring"
     ()
 
-func.DataTableSystem.IsReady
-    "bool"
-    .request        "PulseAssetRequest"
-    ()
-
-func.DataTableSystem.IsAlive
-    "bool"
-    .request        "PulseAssetRequest"
-    ()
-
-func.DataTableSystem.GetError
-    "?cstring"
-    .request        "PulseAssetRequest"
-    ()
-
 func.DataTableSystem.Get { mut }
     "?DataTableId"
-    .request        "PulseAssetRequest"
+    .request        "PulseDataTableRequest"
     ()
 
 func.DataTableSystem.GetByName

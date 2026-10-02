@@ -126,7 +126,7 @@ PULSE_ECS_RESOURCE
 struct SnakeAssets
 {
 	PulsePrefabRequest board, apple, snakeHead, snakeBody;
-	PulseAssetRequest config;
+	PulseDataTableRequest config;
 };
 
 // 数据表加载结果：表就绪后由 loadSnakeResourcesSystem 写入单例

@@ -37,6 +37,13 @@ $cflags
 
 $cids
 
+struct PulseFeatureExtractContext;
+struct PulseFeatureCullContext;
+struct PulseFeaturePrepareContext;
+struct PulseFeatureDrawContext;
+struct PulseFeatureRecordContext;
+struct PulseFeatureItem;
+
 $cfuncptrs
 
 $cstructs

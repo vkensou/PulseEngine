@@ -105,6 +105,9 @@ typedef enum EPulseDataTableError
 DEFINE_PULSE_OBJECT(PulseDataTableSystem)
 DEFINE_PULSE_OBJECT(PulseDataTable)
 
+// ---- asset type definitions ----
+PULSE_DEFINE_ASSET_TYPE(data_table, PULSE_TYPE_DATA_TABLE, PulseDataTableHandle, PulseDataTableRequest)
+
 // Forward declarations for types used by struct fields and function pointers
 struct PulseDataTableColumnDesc;
 typedef struct PulseDataTableColumnDesc PulseDataTableColumnDesc;
@@ -227,11 +230,8 @@ PULSE_DATATABLE_API EPulseAppAddPluginResult pulse_add_data_table_plugin(PulseAp
  *
  */
 PULSE_DATATABLE_API EPulseResult pulse_data_table_system_register_schema(PulseDataTableSystemId _this, const PulseDataTableSchemaDesc* desc, [[pulse::out]] const char** out_error);
-PULSE_DATATABLE_API PulseAssetRequest pulse_data_table_system_load(PulseDataTableSystemId _this, const char* schema, const char* path);
-PULSE_DATATABLE_API bool pulse_data_table_system_is_ready(Const_PulseDataTableSystemId _this, PulseAssetRequest request);
-PULSE_DATATABLE_API bool pulse_data_table_system_is_alive(Const_PulseDataTableSystemId _this, PulseAssetRequest request);
-[[pulse::optional]] PULSE_DATATABLE_API const char* pulse_data_table_system_get_error(Const_PulseDataTableSystemId _this, PulseAssetRequest request);
-[[pulse::optional]] PULSE_DATATABLE_API PulseDataTableId pulse_data_table_system_get(PulseDataTableSystemId _this, PulseAssetRequest request);
+PULSE_DATATABLE_API PulseDataTableRequest pulse_data_table_system_load(PulseDataTableSystemId _this, const char* schema, const char* path);
+[[pulse::optional]] PULSE_DATATABLE_API PulseDataTableId pulse_data_table_system_get(PulseDataTableSystemId _this, PulseDataTableRequest request);
 [[pulse::optional]] PULSE_DATATABLE_API PulseDataTableId pulse_data_table_system_get_by_name(Const_PulseDataTableSystemId _this, const char* schema);
 [[pulse::optional]] PULSE_DATATABLE_API const PulseDataTableSchemaDesc* pulse_data_table_system_get_schema(Const_PulseDataTableSystemId _this, const char* schema);
 [[pulse::optional]] PULSE_DATATABLE_API const char* pulse_data_table_get_name(PulseDataTableId table);

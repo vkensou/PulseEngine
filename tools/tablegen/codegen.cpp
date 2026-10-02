@@ -441,7 +441,7 @@ private:
             }
             const std::string row = row_type_name(schema);
             header_ << "struct " << table_type_name(schema) << "\n{\n";
-            header_ << "    static PulseAssetRequest Load(PulseAppId app, const char* path = nullptr);\n";
+            header_ << "    static PulseDataTableRequest Load(PulseAppId app, const char* path = nullptr);\n";
             header_ << "    static bool IsReady(PulseAppId app);\n";
             header_ << "    static const char* GetError(PulseAppId app);\n";
             header_ << "    static const " << row << "* Rows(PulseAppId app, uint32_t& out_count);\n";
@@ -866,10 +866,10 @@ private:
         source_ << "    return \"" << escape(schema.name) << ".datatable\";\n";
         source_ << "}\n\n";
 
-        source_ << "PulseAssetRequest " << table << "::Load(PulseAppId app, const char* path) {\n";
+        source_ << "PulseDataTableRequest " << table << "::Load(PulseAppId app, const char* path) {\n";
         source_ << "    PulseDataTableSystemId system = pulse_get_data_table_system(app);\n";
         source_ << "    if (!system) {\n";
-        source_ << "        return pulse_asset_request_make_invalid();\n";
+        source_ << "        return PulseDataTableRequest{};\n";
         source_ << "    }\n";
         source_ << "    if (path) {\n";
         source_ << "        " << path_slot << " = path;\n";
@@ -880,13 +880,11 @@ private:
         source_ << "}\n\n";
 
         source_ << "bool " << table << "::IsReady(PulseAppId app) {\n";
-        source_ << "    PulseDataTableSystemId system = pulse_get_data_table_system(app);\n";
-        source_ << "    return system && pulse_data_table_system_is_ready(system, Load(app, nullptr));\n";
+        source_ << "    return pulse_data_table_is_ready(app, Load(app, nullptr));\n";
         source_ << "}\n\n";
 
         source_ << "const char* " << table << "::GetError(PulseAppId app) {\n";
-        source_ << "    PulseDataTableSystemId system = pulse_get_data_table_system(app);\n";
-        source_ << "    return system ? pulse_data_table_system_get_error(system, Load(app, nullptr)) : nullptr;\n";
+        source_ << "    return pulse_data_table_get_error(app, Load(app, nullptr));\n";
         source_ << "}\n\n";
 
         source_ << "const " << row << "* " << table << "::Rows(PulseAppId app, uint32_t& out_count) {\n";
@@ -1263,16 +1261,16 @@ private:
         const std::string row = nested_type_name(schema);
         const bool string_key = schema.fields[static_cast<size_t>(schema.key_index)].type != "int";
 
-        das_ << "def " << prefix << "Load(app: PulseAppId; path: string = \"" << name << ".datatable\") : PulseAssetRequest {\n";
+        das_ << "def " << prefix << "Load(app: PulseAppId; path: string = \"" << name << ".datatable\") : PulseDataTableRequest {\n";
         das_ << "    PulseTablesRegisterSchemas(app)\n";
         das_ << "    return pulse_data_table_load(app, \"" << name << "\", path)\n";
         das_ << "}\n\n";
 
-        das_ << "def " << prefix << "IsReady(app: PulseAppId; request: PulseAssetRequest) : bool {\n";
+        das_ << "def " << prefix << "IsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {\n";
         das_ << "    return pulse_data_table_is_ready(app, request)\n";
         das_ << "}\n\n";
 
-        das_ << "def " << prefix << "GetError(app: PulseAppId; request: PulseAssetRequest) : string {\n";
+        das_ << "def " << prefix << "GetError(app: PulseAppId; request: PulseDataTableRequest) : string {\n";
         das_ << "    return pulse_data_table_get_error(app, request)\n";
         das_ << "}\n\n";
 

@@ -50,14 +50,6 @@ const PulseRenderer* pulse_get_renderer(PulseAppId app) {
     return ecs_singleton_get(world, PulseRenderer);
 }
 
-void pulse_set_per_draw_shader_properties(PulseAppId app, const char** per_draw_shader_properties, size_t per_draw_shader_properties_count) {
-    pulse_graphics_state* state = pulse_graphics_internal::state_from_app(app);
-    state->per_draw_shader_properties.clear();
-    for (size_t i = 0; i < per_draw_shader_properties_count; ++i) {
-        state->per_draw_shader_properties.emplace_back(per_draw_shader_properties[i]);
-    }
-}
-
 const PulseSurface* pulse_graphics_surface_get(PulseAppId app, ecs_entity_t entity) {
     ecs_world_t* world = pulse_app_world(app);
     if (!world || !entity || !ecs_is_alive(world, entity) ||

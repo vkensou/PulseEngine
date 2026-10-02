@@ -43,6 +43,17 @@ $cflags
 
 $cids
 
+// ---- asset type definitions ----
+
+PULSE_DEFINE_ASSET_TYPE(shader,          PULSE_TYPE_SHADER, PulseShaderHandle, PulseShaderRequest)
+PULSE_DEFINE_ASSET_TYPE(shader_library,  PULSE_TYPE_SHADER_LIBRARY, PulseShaderLibraryHandle, PulseShaderLibraryRequest)
+PULSE_DEFINE_ASSET_TYPE(compute_shader,  PULSE_TYPE_COMPUTE_SHADER, PulseComputeShaderHandle, PulseComputeShaderRequest)
+PULSE_DEFINE_ASSET_TYPE(graphics_buffer, PULSE_TYPE_GRAPHICS_BUFFER, PulseGraphicsBufferHandle, PulseGraphicsBufferRequest)
+PULSE_DEFINE_ASSET_TYPE(sampler,         PULSE_TYPE_SAMPLER, PulseSamplerHandle, PulseSamplerRequest)
+PULSE_DEFINE_ASSET_TYPE(texture,         PULSE_TYPE_TEXTURE, PulseTextureHandle, PulseTextureRequest)
+PULSE_DEFINE_ASSET_TYPE(mesh,            PULSE_TYPE_MESH, PulseMeshHandle, PulseMeshRequest)
+PULSE_DEFINE_ASSET_TYPE(material,        PULSE_TYPE_MATERIAL, PulseMaterialHandle, PulseMaterialRequest)
+
 typedef struct PulseRenderPassEncoder PulseRenderPassEncoder;
 typedef struct PulseUploadPassEncoder PulseUploadPassEncoder;
 
@@ -51,92 +62,6 @@ $cfuncptrs
 $cstructs
 
 $ccomponents
-
-// ---- inline helpers for asset handle types ----
-
-static inline PulseAssetSystemId pulse_get_graphics_asset_system(PulseAppId app) {
-    return pulse_get_asset_system(app);
-}
-
-// Shader
-static inline PulseAssetHandle pulse_shader_to_handle(PulseShaderHandle shader) {
-    PulseAssetHandle h = { PULSE_TYPE_SHADER, shader.index, shader.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_shader_request_to_asset_request(PulseShaderRequest shader) {
-    PulseAssetRequest r = { PULSE_TYPE_SHADER, shader.index, shader.generation };
-    return r;
-}
-
-// ShaderLibrary
-static inline PulseAssetHandle pulse_shader_library_to_handle(PulseShaderLibraryHandle lib) {
-    PulseAssetHandle h = { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_shader_library_request_to_asset_request(PulseShaderLibraryRequest lib) {
-    PulseAssetRequest r = { PULSE_TYPE_SHADER_LIBRARY, lib.index, lib.generation };
-    return r;
-}
-
-// ComputeShader
-static inline PulseAssetHandle pulse_compute_shader_to_handle(PulseComputeShaderHandle cs) {
-    PulseAssetHandle h = { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_compute_shader_request_to_asset_request(PulseComputeShaderRequest cs) {
-    PulseAssetRequest r = { PULSE_TYPE_COMPUTE_SHADER, cs.index, cs.generation };
-    return r;
-}
-
-// Buffer
-static inline PulseAssetHandle pulse_graphics_buffer_to_handle(PulseGraphicsBufferHandle buffer) {
-    PulseAssetHandle h = { PULSE_TYPE_GRAPHICS_BUFFER, buffer.index, buffer.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_graphics_buffer_request_to_asset_request(PulseGraphicsBufferRequest buffer) {
-    PulseAssetRequest r = { PULSE_TYPE_GRAPHICS_BUFFER, buffer.index, buffer.generation };
-    return r;
-}
-
-// Sampler
-static inline PulseAssetHandle pulse_sampler_to_handle(PulseSamplerHandle sampler) {
-    PulseAssetHandle h = { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_sampler_request_to_asset_request(PulseSamplerRequest sampler) {
-    PulseAssetRequest r = { PULSE_TYPE_SAMPLER, sampler.index, sampler.generation };
-    return r;
-}
-
-// Texture
-static inline PulseAssetHandle pulse_texture_to_handle(PulseTextureHandle texture) {
-    PulseAssetHandle h = { PULSE_TYPE_TEXTURE, texture.index, texture.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_texture_request_to_asset_request(PulseTextureRequest texture) {
-    PulseAssetRequest r = { PULSE_TYPE_TEXTURE, texture.index, texture.generation };
-    return r;
-}
-
-// Mesh
-static inline PulseAssetHandle pulse_mesh_to_handle(PulseMeshHandle mesh) {
-    PulseAssetHandle h = { PULSE_TYPE_MESH, mesh.index, mesh.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_mesh_request_to_asset_request(PulseMeshRequest mesh) {
-    PulseAssetRequest r = { PULSE_TYPE_MESH, mesh.index, mesh.generation };
-    return r;
-}
-
-// Material
-static inline PulseAssetHandle pulse_material_to_handle(PulseMaterialHandle material) {
-    PulseAssetHandle h = { PULSE_TYPE_MATERIAL, material.index, material.generation };
-    return h;
-}
-static inline PulseAssetRequest pulse_material_request_to_asset_request(PulseMaterialRequest material) {
-    PulseAssetRequest r = { PULSE_TYPE_MATERIAL, material.index, material.generation };
-    return r;
-}
 
 $c99decl
 

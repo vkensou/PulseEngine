@@ -31,6 +31,53 @@ extern "C" {
 
 $cconsts
 
+#define PULSE_DEFINE_ASSET_HANDLE_CONVERSION(name, type_enum, handle_type) \
+    static inline PulseAssetHandle pulse_##name##_to_handle(handle_type v) { \
+        PulseAssetHandle h = { type_enum, v.index, v.generation }; \
+        return h; \
+    }
+
+#define PULSE_DEFINE_ASSET_REQUEST_CONVERSION(name, type_enum, request_type) \
+    static inline PulseAssetRequest pulse_##name##_request_to_asset_request(request_type r) { \
+        PulseAssetRequest out = { type_enum, r.index, r.generation }; \
+        return out; \
+    }
+
+#define PULSE_DEFINE_ASSET_CONVERSIONS(name, type_enum, handle_type, request_type) \
+    PULSE_DEFINE_ASSET_HANDLE_CONVERSION(name, type_enum, handle_type) \
+    PULSE_DEFINE_ASSET_REQUEST_CONVERSION(name, type_enum, request_type)
+
+#define PULSE_DEFINE_ASSET_HANDLE_TYPE(handle_type, request_type) \
+    typedef struct { uint32_t index; uint32_t generation; } handle_type; \
+    typedef struct { uint32_t index; uint32_t generation; } request_type;
+
+#define PULSE_DEFINE_ASSET_GET_HANDLE(name, handle_type, request_type) \
+    static inline handle_type pulse_##name##_get_handle(PulseAppId app, request_type request) { \
+        PulseAssetHandle h = pulse_asset_system_get_handle(pulse_get_asset_system(app), pulse_##name##_request_to_asset_request(request)); \
+        handle_type out; \
+        if (!pulse_asset_handle_is_valid(h)) { out.index = 0; out.generation = 0; } \
+        else { out.index = h.index; out.generation = h.generation; } \
+        return out; \
+    }
+
+#define PULSE_DEFINE_ASSET_STATUS(name, request_type) \
+    static inline bool pulse_##name##_is_ready(PulseAppId app, request_type request) { \
+        return pulse_asset_system_is_ready(pulse_get_asset_system(app), pulse_##name##_request_to_asset_request(request)); \
+    } \
+    static inline bool pulse_##name##_is_alive(PulseAppId app, request_type request) { \
+        return pulse_asset_system_is_alive(pulse_get_asset_system(app), pulse_##name##_request_to_asset_request(request)); \
+    } \
+    static inline const char* pulse_##name##_get_error(PulseAppId app, request_type request) { \
+        return pulse_asset_system_get_error(pulse_get_asset_system(app), pulse_##name##_request_to_asset_request(request)); \
+    }
+
+#define PULSE_DEFINE_ASSET_TYPE(name, type_enum, handle_type, request_type) \
+    typedef struct { uint32_t index; uint32_t generation; } handle_type; \
+    typedef struct { uint32_t index; uint32_t generation; } request_type; \
+    PULSE_DEFINE_ASSET_CONVERSIONS(name, type_enum, handle_type, request_type) \
+    PULSE_DEFINE_ASSET_GET_HANDLE(name, handle_type, request_type) \
+    PULSE_DEFINE_ASSET_STATUS(name, request_type)
+
 typedef uint32_t EPulseFlags;
 typedef uint64_t EPulseFlags64;
 

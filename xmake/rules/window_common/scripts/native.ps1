@@ -1,4 +1,4 @@
-﻿# Single-purpose PowerShell file: declare the Win32 interop used by the window
+# Single-purpose PowerShell file: declare the Win32 interop used by the window
 # test scripts. It is dot-sourced only by scripts that need native calls.
 
 $ErrorActionPreference = 'Stop'
@@ -23,5 +23,15 @@ public static class WindowTestNative {
     public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
     [DllImport("user32.dll")]
     public static extern bool PostMessageW(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
 }
 '@

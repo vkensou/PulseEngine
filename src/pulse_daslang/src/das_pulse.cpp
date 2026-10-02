@@ -184,25 +184,23 @@ static char* das_data_table_register_schema(const PulseAppHandle& app, const Pul
 	return context->allocateString("", 0, at);
 }
 
-static PulseAssetRequest das_data_table_load(const PulseAppHandle& app, const char* schema, const char* path)
+static PulseDataTableRequest das_data_table_load(const PulseAppHandle& app, const char* schema, const char* path)
 {
 	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
 	if (!system) {
-		return pulse_asset_request_make_invalid();
+		return PulseDataTableRequest{};
 	}
 	return pulse_data_table_system_load(system, schema, path);
 }
 
-static bool das_data_table_is_ready(const PulseAppHandle& app, const PulseAssetRequest& request)
+static bool das_data_table_is_ready(const PulseAppHandle& app, const PulseDataTableRequest& request)
 {
-	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
-	return system && pulse_data_table_system_is_ready(system, request);
+	return pulse_data_table_is_ready(app.app, request);
 }
 
-static char* das_data_table_get_error(const PulseAppHandle& app, const PulseAssetRequest& request, das::Context* context, das::LineInfoArg* at)
+static char* das_data_table_get_error(const PulseAppHandle& app, const PulseDataTableRequest& request, das::Context* context, das::LineInfoArg* at)
 {
-	PulseDataTableSystemId system = pulse_get_data_table_system(app.app);
-	const char* error = system ? pulse_data_table_system_get_error(system, request) : nullptr;
+	const char* error = pulse_data_table_get_error(app.app, request);
 	if (!error) {
 		return context->allocateString("", 0, at);
 	}
@@ -432,6 +430,17 @@ struct PulsePrefabHandleAnnotation final : das::ManagedStructureAnnotation<Pulse
 	}
 };
 
+MAKE_TYPE_FACTORY(PulseDataTableRequest, PulseDataTableRequest);
+struct PulseDataTableRequestAnnotation final : das::ManagedStructureAnnotation<PulseDataTableRequest>
+{
+	PulseDataTableRequestAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseDataTableRequest", ml, "PulseDataTableRequest")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
 MAKE_TYPE_FACTORY(PulseAssetRequest, PulseAssetRequest);
 struct PulseAssetRequestAnnotation final : das::ManagedStructureAnnotation<PulseAssetRequest>
 {
@@ -600,6 +609,7 @@ DAS_PULSE_VALUE_CAST(PulseMaterialHandle);
 DAS_PULSE_VALUE_CAST(PulsePrefabRequest);
 DAS_PULSE_VALUE_CAST(PulsePrefabHandle);
 DAS_PULSE_VALUE_CAST(PulseAssetRequest);
+DAS_PULSE_VALUE_CAST(PulseDataTableRequest);
 
 // ============================================================
 // pulse module
@@ -635,6 +645,7 @@ namespace das
 		addAnnotation(new PulseMaterialHandleAnnotation(lib));
 		addAnnotation(new PulsePrefabRequestAnnotation(lib));
 		addAnnotation(new PulsePrefabHandleAnnotation(lib));
+		addAnnotation(new PulseDataTableRequestAnnotation(lib));
 		addAnnotation(new PulseAssetRequestAnnotation(lib));
 		addAnnotation(new PulseMaterialCreateDescAnnotation(lib));
 		addEnumeration(new EnumerationEPulseDataTableColumnType());

@@ -37,6 +37,9 @@ $cenums
 
 $cids
 
+// ---- asset type definitions ----
+PULSE_DEFINE_ASSET_TYPE(data_table, PULSE_TYPE_DATA_TABLE, PulseDataTableHandle, PulseDataTableRequest)
+
 // Forward declarations for types used by struct fields and function pointers
 struct PulseDataTableColumnDesc;
 typedef struct PulseDataTableColumnDesc PulseDataTableColumnDesc;

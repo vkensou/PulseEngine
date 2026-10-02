@@ -958,22 +958,6 @@ PulsePrefabRequest pulse_load_prefab(PulseAppId app, const char* filepath) {
     return result;
 }
 
-PulsePrefabHandle pulse_prefab_get_handle(PulseAppId app, PulsePrefabRequest request) {
-    if (!pulse_prefab_is_ready(app, request)) {
-        return PulsePrefabHandle{};
-    }
-    PulseAssetHandle handle = pulse_asset_system_get_handle(pulse_get_asset_system(app), pulse_prefab_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(handle) ? PulsePrefabHandle{} : PulsePrefabHandle{ handle.index, handle.generation };
-}
-
-bool pulse_prefab_is_ready(PulseAppId app, PulsePrefabRequest request) {
-    return pulse_asset_system_is_ready(pulse_get_asset_system(app), pulse_prefab_request_to_asset_request(request));
-}
-
-bool pulse_prefab_is_alive(PulseAppId app, PulsePrefabRequest request) {
-    return pulse_asset_system_is_alive(pulse_get_asset_system(app), pulse_prefab_request_to_asset_request(request));
-}
-
 ecs_entity_t pulse_prefab_get_root(PulseAppId app, PulsePrefabHandle prefab) {
     void* ptr = nullptr;
     if (!pulse_asset_system_borrow(pulse_get_asset_system(app), pulse_prefab_to_handle(prefab), &ptr, nullptr)) {

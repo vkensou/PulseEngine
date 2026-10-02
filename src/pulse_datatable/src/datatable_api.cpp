@@ -87,8 +87,8 @@ EPulseResult pulse_data_table_system_register_schema(PulseDataTableSystemId _thi
     return registry->register_schema(desc, out_error);
 }
 
-PulseAssetRequest pulse_data_table_system_load(PulseDataTableSystemId _this, const char* schema, const char* path) {
-    PulseAssetRequest invalid = pulse_asset_request_make_invalid();
+PulseDataTableRequest pulse_data_table_system_load(PulseDataTableSystemId _this, const char* schema, const char* path) {
+    PulseDataTableRequest invalid{};
     Registry* registry = to_registry(_this);
     if (!registry || !schema || !schema[0] || !path || !path[0]) {
         return invalid;
@@ -101,31 +101,24 @@ PulseAssetRequest pulse_data_table_system_load(PulseDataTableSystemId _this, con
     load_desc.version = PULSE_ASSET_LOAD_DESC_VERSION;
     load_desc.type_id = PULSE_TYPE_DATA_TABLE;
     load_desc.path = path;
-    return pulse_asset_system_load(registry->asset_system(), &load_desc);
+    PulseAssetRequest request = pulse_asset_system_load(registry->asset_system(), &load_desc);
+    PulseDataTableRequest result{};
+    result.index = request.index;
+    result.generation = request.generation;
+    return result;
 }
 
-bool pulse_data_table_system_is_ready(Const_PulseDataTableSystemId _this, PulseAssetRequest request) {
-    Registry* registry = to_registry(const_cast<PulseDataTableSystemId>(_this));
-    return registry ? pulse_asset_system_is_ready(registry->asset_system(), request) : false;
-}
-
-bool pulse_data_table_system_is_alive(Const_PulseDataTableSystemId _this, PulseAssetRequest request) {
-    Registry* registry = to_registry(const_cast<PulseDataTableSystemId>(_this));
-    return registry ? pulse_asset_system_is_alive(registry->asset_system(), request) : false;
-}
-
-const char* pulse_data_table_system_get_error(Const_PulseDataTableSystemId _this, PulseAssetRequest request) {
-    Registry* registry = to_registry(const_cast<PulseDataTableSystemId>(_this));
-    return registry ? pulse_asset_system_get_error(registry->asset_system(), request) : nullptr;
-}
-
-PulseDataTableId pulse_data_table_system_get(PulseDataTableSystemId _this, PulseAssetRequest request) {
+PulseDataTableId pulse_data_table_system_get(PulseDataTableSystemId _this, PulseDataTableRequest request) {
     Registry* registry = to_registry(_this);
-    if (!registry || !pulse_asset_system_is_ready(registry->asset_system(), request)) {
+    if (!registry) {
+        return nullptr;
+    }
+    PulseAssetRequest asset_request{ PULSE_TYPE_DATA_TABLE, request.index, request.generation };
+    if (!pulse_asset_system_is_ready(registry->asset_system(), asset_request)) {
         return nullptr;
     }
     void* ptr = nullptr;
-    PulseAssetHandle handle = pulse_asset_system_get_handle(registry->asset_system(), request);
+    PulseAssetHandle handle = pulse_asset_system_get_handle(registry->asset_system(), asset_request);
     if (!pulse_asset_system_borrow(registry->asset_system(), handle, &ptr, nullptr)) {
         return nullptr;
     }

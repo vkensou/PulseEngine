@@ -276,6 +276,14 @@ int main(void) {
     assert(renderable_count == 2);
     ecs_query_fini(renderable_query);
 
+    // ---- Verify the extract/build system chain ----
+    assert(ecs_lookup(world, "PulseRendererBeginExtract") != 0);
+    assert(ecs_lookup(world, "PulseRendererExtractCameras") != 0);
+    assert(ecs_lookup(world, "PulseRendererExtractFeatures") != 0);
+    assert(ecs_lookup(world, "PulseRendererPacketsSwap") != 0);
+    assert(ecs_lookup(world, "PulseRendererBuildViews") != 0);
+    assert(ecs_lookup(world, "PulseRendererSortAndPack") == 0);
+
     // ---- Cleanup ----
     pulse_destroy_app(app);
 

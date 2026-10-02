@@ -21,9 +21,10 @@ lua54 generate.lua ..\..\src\pulse_window\idl\pulse_window.idl
 
 ## 生成逻辑
 
-1. 从模块 IDL 中找出插件描述结构体 `struct.XxxPluginDesc` 与配套函数
+1. 核心包（根 `xmake.lua` 中 `set_group("core")` 的 target，如 `pulse_vfs`）直接跳过，不参与动态加载、不得有 `package_register.cpp`。
+2. 从模块 IDL 中找出插件描述结构体 `struct.XxxPluginDesc` 与配套函数
    `func.AddXxxPlugin`、`func.XxxPluginDescDefault`。
-2. **有 desc 的模块**（pulse_window / pulse_asset / pulse_graphics /
+3. **有 desc 的模块**（pulse_window / pulse_asset / pulse_graphics /
    pulse_imgui / pulse_daslang）：
    - 用 `pulse_xxx_plugin_desc_default()` 得到默认 desc；
    - 若传入 `config`，按字段类型从 `PulseConfig` 读取：
@@ -34,9 +35,9 @@ lua54 generate.lua ..\..\src\pulse_window\idl\pulse_window.idl
    - 跳过 `struct_size` / `version`、指针、数组、函数指针等字段；
    - 调用 `pulse_add_xxx_plugin(app, &desc)`，并把
      `EPulseAppAddPluginResult` 完整映射到 `EPulseResult`。
-3. **无 desc 的模块**（pulse_input / pulse_transform / pulse_renderer）：
+4. **无 desc 的模块**（pulse_input / pulse_transform / pulse_renderer / pulse_text_render）：
    `config` 必须为 NULL，直接调用 `pulse_add_xxx_plugin(app)`。
-4. 没有插件 Add 函数的模块（pulse_app / pulse_config /
+5. 没有插件 Add 函数的模块（pulse_app / pulse_config /
    pulse_package_loader）自动跳过。
 
 ## 验证

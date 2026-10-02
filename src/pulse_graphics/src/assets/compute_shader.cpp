@@ -22,25 +22,3 @@ void register_compute_shader_type(PulseAssetSystemId asset_system, CGPUDeviceId 
 }
 
 } // namespace pulse_graphics_internal
-
-using namespace pulse_graphics_internal;
-
-extern "C" {
-
-PulseComputeShaderHandle pulse_compute_shader_get_handle(PulseAppId app, PulseComputeShaderRequest request) {
-    PulseAssetHandle h = pulse_asset_system_get_handle(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_compute_shader_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(h) ? PulseComputeShaderHandle{} : PulseComputeShaderHandle{h.index, h.generation};
-}
-
-bool pulse_compute_shader_is_ready(PulseAppId app, PulseComputeShaderRequest request) {
-    return pulse_asset_system_is_ready(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_compute_shader_request_to_asset_request(request));
-}
-
-bool pulse_compute_shader_is_alive(PulseAppId app, PulseComputeShaderRequest request) {
-    return pulse_asset_system_is_alive(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_compute_shader_request_to_asset_request(request));
-}
-
-} // extern "C"

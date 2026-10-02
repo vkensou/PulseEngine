@@ -248,13 +248,11 @@ EPulseResult imgui_render_init(PulseAppId app, pulse_imgui_plugin_state* state) 
         .cull_mode = CGPU_CULL_MODE_NONE,
     };
 
-    // 声明一个 NON_MATERIAL 属性使 set 0 成为 renderer_managed，
-    // encoder 才会用 set_global_texture/set_global_sampler 构建并绑定 dset。
+    // set 0 是 encoder 全局集，encoder 用 set_global_texture/set_global_sampler 构建并绑定 dset。
     PulseShaderProperty global_property = {
         .name = "imgui_global",
         .type = PULSE_SHADER_PROPERTY_TYPE_TEXTURE,
-        .role = PULSE_SHADER_PROPERTY_ROLE_NON_MATERIAL,
-        .set = 0,
+        .set = PULSE_SHADER_SET_GLOBAL,
         .binding = 0,
         .offset = 0,
         .size = 0,

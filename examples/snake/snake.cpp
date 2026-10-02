@@ -309,7 +309,8 @@ void loadSnakeResourcesSystem(PulseAppId app, pulse::res<SnakeAssets> assets, pu
 		}
 	}
 
-	if (pulse_asset_system_get_state(assetSystem, as.config) == PULSE_ASSET_STATE_FAILED)
+	PulseAssetRequest config_request = pulse_data_table_request_to_asset_request(as.config);
+	if (pulse_asset_system_get_state(assetSystem, config_request) == PULSE_ASSET_STATE_FAILED)
 	{
 		printf("Snake config load failed: %s\n", pulse_tables::PulseSnakeConfigRowTable::GetError(app));
 		state.to(SnakeGameState::LoadFailed);

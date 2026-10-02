@@ -30,7 +30,7 @@ const PulseShaderProperty* get_material_shader_property(PulseMaterialData* _this
     if (!_this->shader.ptr) return nullptr;
 
     const auto* prop = pulse_find_shader_property(_this->shader.ptr, name);
-    if (!prop || prop->role != PULSE_SHADER_PROPERTY_ROLE_MATERIAL || (EPulseShaderPropertyType)prop->type != type) return nullptr;
+    if (!prop || prop->set != PULSE_SHADER_SET_MATERIAL || (EPulseShaderPropertyType)prop->type != type) return nullptr;
     return prop;
 }
 
@@ -78,32 +78,9 @@ void pulse_material_set_sampler(PulseMaterialData* _this, const char* name, Puls
     HGEGraphics::material_mark_dset_binding_dirty(_this, prop->set);
 }
 
-const uint8_t* pulse_material_get_ubo_column(PulseMaterialData* _this, uint32_t index)
-{
-    if (!_this) return nullptr;
-    if (index >= _this->uboColumns.size) return nullptr;
-    return _this->uboColumns.data[index].cpu_data;
-}
-
 } // namespace pulse_graphics_internal
 
 extern "C" {
-
-PulseMaterialHandle pulse_material_get_handle(PulseAppId app, PulseMaterialRequest request) {
-    PulseAssetHandle h = pulse_asset_system_get_handle(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_material_request_to_asset_request(request));
-    return !pulse_asset_handle_is_valid(h) ? PulseMaterialHandle{} : PulseMaterialHandle{h.index, h.generation};
-}
-
-bool pulse_material_is_ready(PulseAppId app, PulseMaterialRequest request) {
-    return pulse_asset_system_is_ready(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_material_request_to_asset_request(request));
-}
-
-bool pulse_material_is_alive(PulseAppId app, PulseMaterialRequest request) {
-    return pulse_asset_system_is_alive(
-        pulse_graphics_internal::asset_system_from_app(app), pulse_material_request_to_asset_request(request));
-}
 
 PulseShaderHandle pulse_material_get_shader(PulseAppId app, PulseMaterialHandle self)
 {
@@ -143,14 +120,6 @@ void pulse_material_set_property_sampler(PulseAppId app, PulseMaterialHandle sel
     PulseSamplerData* smp = pulse_graphics_internal::internal_borrow_sampler(as, sampler);
     if (!smp) return;
     pulse_graphics_internal::pulse_material_set_sampler(mat, name, smp);
-}
-
-const uint8_t* pulse_material_get_ubo_column(PulseAppId app, PulseMaterialHandle self, uint32_t index)
-{
-    PulseAssetSystemId as = pulse_graphics_internal::asset_system_from_app(app);
-    PulseMaterialData* mat = pulse_graphics_internal::internal_borrow_material(as, self);
-    if (!mat) return nullptr;
-    return pulse_graphics_internal::pulse_material_get_ubo_column(mat, index);
 }
 
 } // extern "C"

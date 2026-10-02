@@ -40,16 +40,16 @@ def PulseTablesRegisterSchemas(app: PulseAppId) {
     pulse_tables_registered = ok
 }
 
-def PulseSnakeConfigLoad(app: PulseAppId; path: string = "snake_config.datatable") : PulseAssetRequest {
+def PulseSnakeConfigLoad(app: PulseAppId; path: string = "snake_config.datatable") : PulseDataTableRequest {
     PulseTablesRegisterSchemas(app)
     return pulse_data_table_load(app, "snake_config", path)
 }
 
-def PulseSnakeConfigIsReady(app: PulseAppId; request: PulseAssetRequest) : bool {
+def PulseSnakeConfigIsReady(app: PulseAppId; request: PulseDataTableRequest) : bool {
     return pulse_data_table_is_ready(app, request)
 }
 
-def PulseSnakeConfigGetError(app: PulseAppId; request: PulseAssetRequest) : string {
+def PulseSnakeConfigGetError(app: PulseAppId; request: PulseDataTableRequest) : string {
     return pulse_data_table_get_error(app, request)
 }
 

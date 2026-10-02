@@ -1,0 +1,9 @@
+{
+  "name": "pulse_text",
+  "version": "1.0.0",
+  "library": "pulse_text",
+  "entry": "pulse_package_register",
+  "dependencies": [
+    "pulse_font"
+  ]
+}

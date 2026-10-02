@@ -26,7 +26,6 @@ properties : [
     {
         name : "vpMatrix"
         type : "mat4"
-        role : "non_material"
         set : 0
         binding : 0
         offset : 0
@@ -35,7 +34,6 @@ properties : [
     {
         name : "albedo"
         type : "float4"
-        role : "material"
         set : 1
         binding : 0
         offset : 0
@@ -44,7 +42,6 @@ properties : [
     {
         name : "wMatrix"
         type : "mat4"
-        role : "non_material"
         set : 2
         binding : 0
         offset : 0
