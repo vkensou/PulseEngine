@@ -75,7 +75,7 @@ struct SnakePrefabs {
 
 struct SnakeAssets {
     board, apple, snakeHead, snakeBody : PulsePrefabRequest
-    config : PulseAssetRequest
+    config : PulseDataTableRequest
 }
 
 struct SnakeConfig {

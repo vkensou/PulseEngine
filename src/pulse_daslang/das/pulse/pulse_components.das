@@ -54,6 +54,9 @@ struct PulseCamera {
     fov: float
     near_plane: float
     far_plane: float
+    orthographic_size: float
+    orthographic: bool
+    clear_color: uint
 }
 
 // ECS Component

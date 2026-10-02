@@ -25,7 +25,7 @@ struct <game>Prefabs {
 
 struct <game>Assets {
     rect : PulsePrefabRequest
-    config : PulseAssetRequest
+    config : PulseDataTableRequest
 }
 
 struct <game>Config {

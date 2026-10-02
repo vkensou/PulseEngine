@@ -5,7 +5,6 @@
   "entry": "pulse_package_register",
   "dependencies": [
     "pulse_asset",
-    "pulse_datalist",
     "pulse_graphics"
   ]
 }
