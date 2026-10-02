@@ -237,12 +237,11 @@ float max_line_width(const std::vector<text_line>& lines) {
     return width;
 }
 
-PulseTextLayout* make_layout(std::vector<PulseGlyphInstance>& instances, float width, float height, uint32_t line_count, bool out_of_box) {
+PulseTextLayout* make_layout(std::vector<PulseGlyphInstance>& instances, float width, float height, uint32_t line_count) {
     auto* layout = new PulseTextLayout();
     layout->width = width;
     layout->height = height;
     layout->line_count = line_count;
-    layout->out_of_box = out_of_box;
     if (instances.empty()) {
         layout->p_instances = nullptr;
         layout->instances_count = 0;
@@ -280,14 +279,13 @@ PulseTextLayout* text_layout(PulseAppId app, const PulseTextBlockDesc* desc, con
     break_lines(runs, box_width, lines);
     std::vector<PulseGlyphInstance> instances;
     if (lines.empty()) {
-        return make_layout(instances, 0.0f, 0.0f, 0, false);
+        return make_layout(instances, 0.0f, 0.0f, 0);
     }
     const PulseVerticalMetrics metrics = pulse_font_vertical_metrics(app, desc->chain, desc->size);
     const float line_advance = line_advance_for(desc, metrics);
     const float total_height = line_advance * (float)lines.size();
-    const bool out_of_box = box_height > 0.0f && line_advance > 0.0f && total_height > box_height + kEpsilon;
     uint32_t visible_lines = (uint32_t)lines.size();
-    if (out_of_box) {
+    if (box_height > 0.0f && line_advance > 0.0f && total_height > box_height + kEpsilon) {
         visible_lines = (uint32_t)std::floor(box_height / line_advance + 1e-4f);
     }
     const float content_height = line_advance * (float)visible_lines;
@@ -340,7 +338,7 @@ PulseTextLayout* text_layout(PulseAppId app, const PulseTextBlockDesc* desc, con
     for (uint32_t k = 0; k < visible_lines; ++k) {
         width = std::max(width, lines[k].width);
     }
-    return make_layout(instances, width, content_height, visible_lines, out_of_box);
+    return make_layout(instances, width, content_height, visible_lines);
 }
 
 }

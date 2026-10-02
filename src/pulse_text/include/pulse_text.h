@@ -97,7 +97,7 @@ typedef struct PulseTextBlockDesc
 } PulseTextBlockDesc;
 
 /**
- * 排版结果；instances 矩形相对盒子原点、y 轴向下
+ * 排版结果；instances 矩形相对盒子原点、y 轴向下；box_height 装不下的行直接丢弃，不做溢出标记
  *
  */
 typedef struct PulseTextLayout
@@ -106,7 +106,6 @@ typedef struct PulseTextLayout
     float                width;
     float                height;
     uint32_t             line_count;
-    bool                 out_of_box;
 
 } PulseTextLayout;
 

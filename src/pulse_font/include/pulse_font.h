@@ -100,16 +100,6 @@ typedef struct PulseGlyph
 } PulseGlyph;
 
 /**
- * 图集页 CPU 像素只读视图，R8，长度 = plugin desc 的 atlas_width × atlas_height
- *
- */
-typedef struct PulseFontPagePixels
-{
-    Pulse_Blob(pixels);
-
-} PulseFontPagePixels;
-
-/**
  * 排版结果里的一条 glyph 实例，坐标相对盒子原点、y 轴向下，page 为所属图集页
  *
  */
@@ -210,25 +200,15 @@ PULSE_FONT_API PulseGlyph pulse_font_glyph(PulseAppId app, PulseFontChainHandle 
 PULSE_FONT_API uint32_t pulse_font_page_count(PulseAppId app);
 
 /**
- * 图集页 CPU 像素，借用插件内存不拷贝，页不存在返回空视图
+ * 图集失效代数：页淘汰或字体卸载使已分发字形的图集位置作废时加一；纯新增光栅化不加。缓存了 glyph UV 的消费方（排版结果）发现代数变化即需整体重排
  *
  * @param[in] app
- * @param[in] page
  *
  */
-PULSE_FONT_API PulseFontPagePixels pulse_font_page_pixels(PulseAppId app, uint32_t page);
+PULSE_FONT_API uint64_t pulse_font_atlas_generation(PulseAppId app);
 
 /**
- * 页内容版本号，页创建与该页每次像素写入（光栅化、淘汰重置）各加一
- *
- * @param[in] app
- * @param[in] page
- *
- */
-PULSE_FONT_API uint64_t pulse_font_page_version(PulseAppId app, uint32_t page);
-
-/**
- * 取图集页的 GPU 纹理凭证与 CPU 像素、版本号同属图集跨包契约；首次调用惰性创建该页纹理，纹理未就绪返回无效凭证，调用方每帧重试
+ * 取图集页的 GPU 纹理凭证；page 必须小于 pulse_font_page_count，越界返回无效凭证；渲染器不存在（headless）时返回无效凭证；页存在时首次调用即同步创建纹理对象并返回稳定句柄，句柄在插件生命周期内不变，像素内容由插件延迟到渲染记录阶段上传（允许晚一帧）；创建失败视为致命错误，不会以无效凭证表达
  *
  * @param[in] app
  * @param[in] page

@@ -115,10 +115,7 @@ struct atlas_page {
 };
 
 struct font_page_gpu {
-    PulseTextureRequest request{};
     PulseTextureHandle handle{};
-    bool requested = false;
-    bool ready = false;
     uint64_t last_uploaded_version = 0;
 };
 
@@ -138,6 +135,7 @@ struct pulse_font_plugin_state {
     uint32_t table_used = 0;
     uint32_t table_occupied = 0;
     std::vector<atlas_page> pages;
+    uint64_t atlas_generation = 0;
     std::vector<float> edt_distance;
     std::vector<float> edt_outside;
     std::vector<float> edt_source;
@@ -184,7 +182,7 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
 void atlas_purge_font(pulse_font_plugin_state* state, PulseAssetHandle font);
 void atlas_shutdown(pulse_font_plugin_state* state);
 
-void render_ensure_page(pulse_font_plugin_state* state, uint32_t page);
+PulseTextureHandle render_ensure_page(pulse_font_plugin_state* state, uint32_t page);
 EPulseResult render_init(pulse_font_plugin_state* state);
 void render_shutdown(pulse_font_plugin_state* state);
 

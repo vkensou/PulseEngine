@@ -52,24 +52,10 @@ int main() {
     const PulseGlyph glyph = pulse_font_glyph(app, chain, 'A', 48.0f);
     assert(glyph.valid);
     assert(pulse_font_page_count(app) == 1);
-    assert(pulse_font_page_version(app, 0) == 2);
     assert(fabsf(glyph.x1 - glyph.x0 - 64.0f) < 1e-4f);
     assert(glyph.y0 < 0.0f);
-    const uint32_t origin_x = slot_origin_x(glyph, 2048);
-    const uint32_t origin_y = slot_origin_y(glyph, 2048);
-    const uint8_t* pixels = static_cast<const uint8_t*>(pulse_font_page_pixels(app, glyph.page).p_pixels);
-    assert(pixels != nullptr);
-    uint32_t covered = 0;
-    for (uint32_t y = 0; y < 64; ++y) {
-        for (uint32_t x = 0; x < 64; ++x) {
-            if (pixels[(size_t)(origin_y + y) * 2048 + origin_x + x] > 128) {
-                ++covered;
-            }
-        }
-    }
-    assert(covered > 32);
-    assert(pixels[(size_t)origin_y * 2048 + origin_x] < 128);
-    assert(pixels[(size_t)(origin_y + 63) * 2048 + origin_x + 63] < 128);
+    assert(slot_origin_x(glyph, 2048) == 0);
+    assert(slot_origin_y(glyph, 2048) == 0);
 
     const PulseGlyph glyph_small = pulse_font_glyph(app, chain, 'A', 24.0f);
     assert(glyph_small.valid);
@@ -80,7 +66,6 @@ int main() {
     assert(fabsf((glyph_96.x1 - glyph_96.x0) - 112.0f) < 1e-3f);
     assert(glyph_96.page != glyph.page);
     assert(pulse_font_page_count(app) == 2);
-    assert(pulse_font_page_version(app, glyph_96.page) == 2);
 
     const PulseFontHandle def = pulse_font_default(app);
     assert(!pulse_asset_handle_equals(pulse_font_to_handle(def), pulse_font_to_handle(bitmap)));
@@ -91,7 +76,10 @@ int main() {
 
     pulse_font_destroy_chain(app, chain);
     pulse_font_destroy_chain(app, han_chain);
+    const uint64_t generation_before_unload = pulse_font_atlas_generation(app);
     unload_font(app, bitmap);
+    assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
+    assert(pulse_font_atlas_generation(app) == generation_before_unload + 1);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(pulse_font_default(app))));
     const PulseFontChainHandle after_chain = make_chain(app, &def, 1);
     assert(pulse_font_glyph(app, after_chain, 'x', 32.0f).valid);

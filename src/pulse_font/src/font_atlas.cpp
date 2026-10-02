@@ -384,6 +384,7 @@ uint32_t page_evict_lru(pulse_font_plugin_state* state, uint32_t tier) {
     }
     reset_page_slots(state, page, tier);
     page.last_used = ++state->tick;
+    ++state->atlas_generation;
     return victim;
 }
 
@@ -484,6 +485,7 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
 }
 
 void atlas_purge_font(pulse_font_plugin_state* state, PulseAssetHandle font) {
+    bool purged = false;
     for (uint32_t i = 0; i < state->entries.size(); ++i) {
         glyph_entry& entry = state->entries[i];
         if (!entry.occupied || !pulse_asset_handle_equals(entry.key.font, font)) {
@@ -496,6 +498,10 @@ void atlas_purge_font(pulse_font_plugin_state* state, PulseAssetHandle font) {
             page.free_slots.push_back(entry.slot);
         }
         free_entry(state, i);
+        purged = true;
+    }
+    if (purged) {
+        ++state->atlas_generation;
     }
 }
 

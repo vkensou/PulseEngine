@@ -45,7 +45,7 @@ int main() {
     const float ascent = pulse_font_vertical_metrics(app, chain, kSize).ascent;
     const PulseTextBlockDesc desc_bottom = align_desc(chain, PULSE_TEXT_ALIGN_H_LEFT, PULSE_TEXT_ALIGN_V_BOTTOM, 0.0f);
     PulseTextLayout* bottomed = pulse_text_layout(app, &desc_bottom, "ab", box_w, la * 2.0f);
-    assert(bottomed->line_count == 1 && !bottomed->out_of_box);
+    assert(bottomed->line_count == 1);
     assert(fabsf(bottomed->p_instances[0].y - (la * 2.0f - la + ascent + glyph_a.y0)) < 1e-3f);
     pulse_text_layout_free(app, bottomed);
 
@@ -60,19 +60,16 @@ int main() {
     assert(fabsf(scaled.height - la * 3.0f) < 1e-3f);
     const float la15 = line_advance(app, chain, kSize, 1.5f);
     PulseTextLayout* scaled_layout = pulse_text_layout(app, &desc_top, "a\nb\nc", 0.0f, la15 * 2.5f);
-    assert(scaled_layout->out_of_box);
     assert(scaled_layout->line_count == 2);
     assert(fabsf(scaled_layout->height - la15 * 2.0f) < 1e-3f);
     const PulseTextBlockDesc desc_plain = align_desc(chain, PULSE_TEXT_ALIGN_H_LEFT, PULSE_TEXT_ALIGN_V_TOP, 1.5f);
     pulse_text_layout_free(app, scaled_layout);
     PulseTextLayout* exact_fit = pulse_text_layout(app, &desc_plain, "a\nb\nc", 0.0f, la15 * 3.0f);
-    assert(!exact_fit->out_of_box);
     assert(exact_fit->line_count == 3);
     pulse_text_layout_free(app, exact_fit);
 
     const PulseTextBlockDesc desc_one = align_desc(chain, PULSE_TEXT_ALIGN_H_LEFT, PULSE_TEXT_ALIGN_V_TOP, 0.0f);
     PulseTextLayout* clipped = pulse_text_layout(app, &desc_one, "a\nb\nc", 0.0f, la * 1.5f);
-    assert(clipped->out_of_box);
     assert(clipped->line_count == 1);
     const PulseTextMeasure unclipped = pulse_text_measure(app, &desc_one, "a\nb\nc", 0.0f);
     assert(unclipped.line_count == 3);

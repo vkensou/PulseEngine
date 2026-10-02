@@ -28,7 +28,6 @@ int main() {
     PulseTextLayout* layout = pulse_text_layout(app, &desc, "Hello world", box_w, 0.0f);
     assert(layout->line_count == 2);
     assert(layout->instances_count == 10);
-    assert(!layout->out_of_box);
     assert(fabsf(layout->width - wrapped.width) < 1e-3f);
     const PulseGlyph first_w = pulse_font_glyph(app, chain, 'w', kSize);
     assert(fabsf(layout->p_instances[5].x - first_w.x0) < 1e-3f);

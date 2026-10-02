@@ -1,8 +1,23 @@
 #include "test_common.h"
 
-static const uint8_t kExpectedRow[64] = { 0, 16, 32, 48, 64, 80, 96, 112, 143, 159, 143, 112, 96, 80, 64, 48, 32, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 32, 48, 64, 80, 96, 112, 143, 159, 143, 112, 96, 80, 64, 48, 32, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static const uint32_t kAtlas = 2048;
+static const uint32_t kPadding = 8;
 
-static const uint8_t kExpectedColumn[64] = { 0, 16, 32, 48, 64, 80, 96, 112, 143, 159, 143, 112, 96, 80, 64, 48, 32, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 32, 48, 64, 80, 96, 112, 143, 159, 143, 112, 96, 80, 64, 48, 32, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static uint32_t slot_size(uint32_t tier_base) {
+    return tier_base + kPadding * 2;
+}
+
+static void assert_slot_uv(const PulseGlyph& glyph, uint32_t tier_base) {
+    const uint32_t slot = slot_size(tier_base);
+    assert(fabsf(glyph.u1 - glyph.u0 - (float)(slot - 1) / (float)kAtlas) < 1e-6f);
+    assert(fabsf(glyph.v1 - glyph.v0 - (float)(slot - 1) / (float)kAtlas) < 1e-6f);
+    assert(slot_origin_x(glyph, kAtlas) % slot == 0);
+    assert(slot_origin_y(glyph, kAtlas) % slot == 0);
+}
+
+static bool same_slot(const PulseGlyph& a, const PulseGlyph& b) {
+    return a.page == b.page && slot_origin_x(a, kAtlas) == slot_origin_x(b, kAtlas) && slot_origin_y(a, kAtlas) == slot_origin_y(b, kAtlas);
+}
 
 int main() {
     PulseAppId app = make_font_app("t-font-sdf", nullptr);
@@ -17,38 +32,38 @@ int main() {
     assert(fabsf(box.y0 - (-41.6f)) < 1e-4f);
     assert(fabsf(box.x1 - 60.8f) < 1e-4f);
     assert(fabsf(box.y1 - 22.4f) < 1e-4f);
+    assert(fabsf(box.x1 - box.x0 - (float)slot_size(48)) < 1e-4f);
+    assert(fabsf(box.y1 - box.y0 - (float)slot_size(48)) < 1e-4f);
+    assert(fabsf(box.advance - 48.0f * 0.8f) < 1e-4f);
+    assert_slot_uv(box, 48);
+    assert(slot_origin_x(box, kAtlas) == 0);
+    assert(slot_origin_y(box, kAtlas) == 0);
 
-    const uint32_t origin_x = slot_origin_x(box, 2048);
-    const uint32_t origin_y = slot_origin_y(box, 2048);
-    assert(origin_x == 0);
-    assert(origin_y == 0);
+    const PulseGlyph latin_a = pulse_font_glyph(app, chain, 'A', 48.0f);
+    assert(latin_a.valid);
+    assert(latin_a.page == 0);
+    assert_slot_uv(latin_a, 48);
+    assert(!same_slot(latin_a, box));
+    assert(slot_origin_x(latin_a, kAtlas) == slot_size(48));
+    assert(slot_origin_y(latin_a, kAtlas) == 0);
 
-    const PulseFontPagePixels page_view = pulse_font_page_pixels(app, box.page);
-    assert(page_view.pixels_size == 2048u * 2048u);
-    const uint8_t* pixels = static_cast<const uint8_t*>(page_view.p_pixels);
-    for (uint32_t i = 0; i < 64; ++i) {
-        const uint8_t row = pixels[(size_t)(origin_y + 22) * 2048 + origin_x + i];
-        const uint8_t column = pixels[(size_t)(origin_y + i) * 2048 + origin_x + 22];
-        if (row != kExpectedRow[i] || column != kExpectedColumn[i]) {
-            printf("sdf mismatch at %u: row=%u expected=%u column=%u expected=%u\n", i, (unsigned)row, (unsigned)kExpectedRow[i], (unsigned)column, (unsigned)kExpectedColumn[i]);
-        }
-        assert(row == kExpectedRow[i]);
-        assert(column == kExpectedColumn[i]);
-    }
+    const PulseGlyph box_again = pulse_font_glyph(app, chain, 0x1FFFF, 48.0f);
+    assert(box_again.valid);
+    assert(same_slot(box_again, box));
 
-    for (uint32_t i = 11; i < 18; ++i) {
-        const int32_t outer = pixels[(size_t)(origin_y + 22) * 2048 + origin_x + i];
-        const int32_t inner = pixels[(size_t)(origin_y + 22) * 2048 + origin_x + i + 1];
-        assert(outer - inner == 16);
-    }
+    const PulseGlyph box_96 = pulse_font_glyph(app, chain, 0x1FFFF, 96.0f);
+    assert(box_96.valid);
+    assert(box_96.page == 1);
+    assert(fabsf(box_96.x0 - 1.6f) < 1e-4f);
+    assert(fabsf(box_96.y0 - (-75.2f)) < 1e-4f);
+    assert(fabsf(box_96.x1 - 113.6f) < 1e-4f);
+    assert(fabsf(box_96.y1 - 36.8f) < 1e-4f);
+    assert(fabsf(box_96.advance - 96.0f * 0.8f) < 1e-4f);
+    assert_slot_uv(box_96, 96);
+    assert(slot_origin_x(box_96, kAtlas) == 0);
+    assert(slot_origin_y(box_96, kAtlas) == 0);
 
-    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 10] > 128);
-    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 11] < 128);
-    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 35] > 128);
-    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 37] < 128);
-    assert(pixels[(size_t)(origin_y + 9) * 2048 + origin_x + 22] > 128);
-    assert(pixels[(size_t)(origin_y + 11) * 2048 + origin_x + 22] < 128);
-
+    pulse_font_destroy_chain(app, chain);
     pulse_destroy_app(app);
     printf("font sdf tests passed\n");
     return 0;

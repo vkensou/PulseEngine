@@ -52,13 +52,12 @@ struct.TextBlockDesc
     .lineHeight "float"
     ()
 
---- 排版结果；instances 矩形相对盒子原点、y 轴向下
+--- 排版结果；instances 矩形相对盒子原点、y 轴向下；box_height 装不下的行直接丢弃，不做溢出标记
 struct.TextLayout
     .instances  "[]const PulseGlyphInstance"
     .width      "float"
     .height     "float"
     .lineCount  "uint32_t"
-    .outOfBox   "bool"
     ()
 
 --- 排版尺寸结果

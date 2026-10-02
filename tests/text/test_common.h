@@ -15,7 +15,15 @@
 #include "pulse_text.h"
 #include "pulse_vfs.h"
 
-static PulseAppId make_text_app(const char* name) {
+static PulseFontPluginDesc font_desc_for(uint32_t atlas, uint32_t max_pages) {
+    PulseFontPluginDesc desc = pulse_font_plugin_desc_default();
+    desc.atlas_width = atlas;
+    desc.atlas_height = atlas;
+    desc.max_atlas_count = max_pages;
+    return desc;
+}
+
+static PulseAppId make_text_app(const char* name, const PulseFontPluginDesc* font_desc) {
     PulseAppDesc app_desc = {
         .name = name,
     };
@@ -26,10 +34,14 @@ static PulseAppId make_text_app(const char* name) {
     assert(pulse_vfs_mount("tests/font/data", "/", false));
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
-    assert(pulse_add_font_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_font_plugin(app, font_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_text_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
     return app;
+}
+
+static PulseAppId make_text_app(const char* name) {
+    return make_text_app(name, nullptr);
 }
 
 static std::vector<uint8_t> read_test_file(const char* path) {

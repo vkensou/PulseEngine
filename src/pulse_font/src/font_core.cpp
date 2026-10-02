@@ -458,24 +458,9 @@ uint32_t pulse_font_page_count(PulseAppId app) {
     return state ? (uint32_t)state->pages.size() : 0;
 }
 
-PulseFontPagePixels pulse_font_page_pixels(PulseAppId app, uint32_t page) {
-    PulseFontPagePixels view{};
+uint64_t pulse_font_atlas_generation(PulseAppId app) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || page >= state->pages.size()) {
-        return view;
-    }
-    const std::vector<uint8_t>& pixels = state->pages[page].pixels;
-    view.p_pixels = pixels.data();
-    view.pixels_size = pixels.size();
-    return view;
-}
-
-uint64_t pulse_font_page_version(PulseAppId app, uint32_t page) {
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || page >= state->pages.size()) {
-        return 0;
-    }
-    return state->pages[page].version;
+    return state ? state->atlas_generation : 0;
 }
 
 }

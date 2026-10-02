@@ -4,6 +4,10 @@ static bool same_rect(const PulseGlyph& a, const PulseGlyph& b) {
     return a.page == b.page && a.x0 == b.x0 && a.y0 == b.y0 && a.x1 == b.x1 && a.y1 == b.y1 && a.u0 == b.u0 && a.v0 == b.v0 && a.u1 == b.u1 && a.v1 == b.v1;
 }
 
+static bool same_slot(const PulseGlyph& a, const PulseGlyph& b) {
+    return a.page == b.page && a.u0 == b.u0 && a.v0 == b.v0;
+}
+
 static void rasterize(PulseAppId app, PulseFontChainHandle chain, const char* text, float size) {
     for (const char* cursor = text; *cursor; ++cursor) {
         const PulseGlyph glyph = pulse_font_glyph(app, chain, (uint8_t)*cursor, size);
@@ -33,58 +37,47 @@ int main() {
     const PulseGlyph glyph_48_again = pulse_font_glyph(app, chain, 'A', 48.0f);
     assert(same_rect(glyph_48, glyph_48_again));
     assert(pulse_font_page_count(app) == 1);
-    assert(pulse_font_page_version(app, 0) == 2);
 
     const PulseGlyph glyph_24 = pulse_font_glyph(app, chain, 'A', 24.0f);
     assert(glyph_24.valid);
+    assert(same_slot(glyph_24, glyph_48));
     assert(fabsf((glyph_24.x1 - glyph_24.x0) * 2.0f - (glyph_48.x1 - glyph_48.x0)) < 0.01f);
-    assert(pulse_font_page_version(app, 0) == 2);
 
     const PulseGlyph glyph_96 = pulse_font_glyph(app, chain, 'A', 96.0f);
     assert(glyph_96.valid);
     assert(fabsf(glyph_96.advance - glyph_48.advance * 2.0f) < 1e-3f);
     assert((glyph_96.x1 - glyph_96.x0) > (glyph_48.x1 - glyph_48.x0));
     assert(pulse_font_page_count(app) == 2);
-    assert(pulse_font_page_version(app, 1) == 2);
+    assert(glyph_96.page == 1);
 
     const PulseGlyph space = pulse_font_glyph(app, chain, ' ', 48.0f);
     assert(!space.valid);
     assert(space.advance > 0.0f);
-    assert(pulse_font_page_version(app, 0) == 2);
 
     const PulseGlyph missing = pulse_font_glyph(app, chain, 0x1FFFF, 48.0f);
     assert(missing.valid);
     assert(missing.page == 0);
     assert(fabsf(missing.advance - 48.0f * 0.8f) < 1e-4f);
-    assert(pulse_font_page_version(app, 0) == 3);
+    assert(!same_slot(missing, glyph_48));
 
     rasterize(app, chain, "BCDEF", 48.0f);
-    assert(pulse_font_page_version(app, 0) == 8);
     const PulseGlyph b = pulse_font_glyph(app, chain, 'B', 48.0f);
     assert(b.valid);
-    assert(pulse_font_page_version(app, 0) == 8);
+    assert(!same_slot(b, glyph_48));
+    assert(same_rect(b, pulse_font_glyph(app, chain, 'B', 48.0f)));
 
     const uint32_t cjk_text[] = { 0x4E2D, 0x6587, 0x5361, 0x7247 };
     for (uint32_t codepoint : cjk_text) {
-        assert(pulse_font_glyph(app, chain, codepoint, 48.0f).valid);
+        const PulseGlyph glyph = pulse_font_glyph(app, chain, codepoint, 48.0f);
+        assert(glyph.valid);
+        assert(!same_slot(glyph, glyph_48));
     }
-    assert(pulse_font_page_version(app, 0) == 12);
     assert(pulse_font_page_count(app) == 2);
 
     assert(pulse_font_page_count(app) == 2);
-    assert(pulse_font_page_version(app, 9) == 0);
-    const PulseFontPagePixels missing_view = pulse_font_page_pixels(app, 9);
-    assert(missing_view.p_pixels == nullptr);
-    assert(missing_view.pixels_size == 0);
-    const PulseFontPagePixels page0_view = pulse_font_page_pixels(app, 0);
-    assert(page0_view.pixels_size == 2048u * 2048u);
-    const uint64_t page0_version = pulse_font_page_version(app, 0);
-    assert(page0_version > 0);
-    const uint64_t page1_version = pulse_font_page_version(app, 1);
-    assert(page1_version > 0);
     rasterize(app, chain, "G", 48.0f);
-    assert(pulse_font_page_version(app, 0) == page0_version + 1);
-    assert(pulse_font_page_version(app, 1) == page1_version);
+    assert(same_rect(glyph_48, pulse_font_glyph(app, chain, 'A', 48.0f)));
+    assert(pulse_font_atlas_generation(app) == 0);
 
     pulse_destroy_app(app);
 
@@ -99,19 +92,38 @@ int main() {
     for (uint32_t c = 'a'; c <= 'z'; ++c) {
         codepoints.push_back(c);
     }
-    for (uint32_t codepoint : codepoints) {
-        const PulseGlyph glyph = pulse_font_glyph(small_app, small_chain, codepoint, 48.0f);
+    const uint32_t slot_count = (256 / (48 + 8 * 2)) * (256 / (48 + 8 * 2));
+    assert(slot_count == 16);
+    const PulseGlyph first = pulse_font_glyph(small_app, small_chain, codepoints[0], 48.0f);
+    assert(first.valid);
+    assert(first.page == 0);
+    for (uint32_t i = 0; i < slot_count; ++i) {
+        const PulseGlyph glyph = pulse_font_glyph(small_app, small_chain, codepoints[i], 48.0f);
         assert(glyph.valid);
         assert(glyph.page == 0);
+        assert(pulse_font_atlas_generation(small_app) == 0);
+    }
+    for (uint32_t i = slot_count; i < codepoints.size(); ++i) {
+        const PulseGlyph glyph = pulse_font_glyph(small_app, small_chain, codepoints[i], 48.0f);
+        assert(glyph.valid);
+        assert(glyph.page == 0);
+        assert(pulse_font_atlas_generation(small_app) == i / slot_count);
     }
     assert(pulse_font_page_count(small_app) == 1);
     assert(codepoints.size() == 52);
-    assert(pulse_font_page_pixels(small_app, 9).p_pixels == nullptr);
-    const uint64_t small_version = pulse_font_page_version(small_app, 0);
-    assert(small_version == 1 + 52 + 3);
-    const PulseGlyph rerun = pulse_font_glyph(small_app, small_chain, 'A', 48.0f);
+    assert(pulse_font_atlas_generation(small_app) == 3);
+
+    const uint64_t generation = pulse_font_atlas_generation(small_app);
+    const PulseGlyph resident = pulse_font_glyph(small_app, small_chain, codepoints.back(), 48.0f);
+    assert(resident.valid);
+    assert(same_rect(resident, pulse_font_glyph(small_app, small_chain, codepoints.back(), 48.0f)));
+    assert(pulse_font_atlas_generation(small_app) == generation);
+
+    const PulseGlyph rerun = pulse_font_glyph(small_app, small_chain, codepoints[0], 48.0f);
     assert(rerun.valid);
-    assert(pulse_font_page_version(small_app, 0) == small_version + 1);
+    assert(!same_slot(rerun, first));
+    assert(pulse_font_atlas_generation(small_app) == generation);
+
     pulse_destroy_app(small_app);
 
     printf("font atlas tests passed\n");

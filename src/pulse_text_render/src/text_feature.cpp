@@ -16,6 +16,7 @@ ECS_COMPONENT_DECLARE(TextLayout);
 
 struct TextLayout {
     PulseTextLayout* layout;
+    uint64_t atlas_generation;
 };
 
 struct TextGlyph {
@@ -35,23 +36,29 @@ text_feature_userdata* feature_of(void* userdata) {
     return static_cast<text_feature_userdata*>(userdata);
 }
 
+void relayout(PulseAppId app, ecs_world_t* world, ecs_entity_t entity, const PulseText& text) {
+    TextLayout* layout = ecs_get_mut(world, entity, TextLayout);
+    if (!layout) {
+        return;
+    }
+    if (layout->layout) {
+        pulse_text_layout_free(app, layout->layout);
+    }
+    layout->layout = nullptr;
+    layout->atlas_generation = pulse_font_atlas_generation(app);
+    if (strlen(text.text) > 0) {
+        layout->layout = pulse_text_layout(app, &text.block, text.text, text.box_width, text.box_height);
+    }
+}
+
 void on_text_set(ecs_iter_t* it)
 {
     PulseAppId app = pulse_get_app_from_world(it->world);
     PulseText* texts = ecs_field(it, PulseText, 0);
     for (int32_t i = 0; i < it->count; ++i) {
         ecs_entity_t entity = it->entities[i];
-        PulseText& text = texts[i];
-
         if (ecs_has_id(it->world, entity, ecs_id(TextLayout))) {
-            TextLayout* layout = ecs_get_mut(it->world, entity, TextLayout);
-            if (layout->layout) {
-                pulse_text_layout_free(app, layout->layout);
-            }
-            layout->layout = nullptr;
-            if (strlen(text.text) > 0) {
-                layout->layout = pulse_text_layout(app, &text.block, text.text, text.box_width, text.box_height);
-            }
+            relayout(app, it->world, entity, texts[i]);
         }
     }
 }
@@ -158,6 +165,7 @@ void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdat
     ecs_world_t* world = pulse_app_world(app);
     if (!world) return;
 
+    const uint64_t atlas_generation = pulse_font_atlas_generation(app);
     ecs_iter_t it = ecs_query_iter(world, ud->query);
     while (ecs_query_next(&it)) {
         PulseText* texts = ecs_field(&it, PulseText, 0);
@@ -165,6 +173,9 @@ void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdat
         TextLayout* layouts = ecs_field(&it, TextLayout, 2);
         for (int i = 0; i < it.count; ++i) {
             if (texts[i].text[0] == '\0') continue;
+            if (layouts[i].atlas_generation != atlas_generation) {
+                relayout(app, world, it.entities[i], texts[i]);
+            }
             if (!layouts[i].layout) continue;
 
             const PulseTextLayout& layout = *layouts[i].layout;
@@ -281,7 +292,6 @@ void text_record(PulseAppId app, PulseRenderGraphId graph, PulseRenderPassBuilde
 
     for (uint32_t page : ud->used_pages) {
         const PulseTextureHandle handle = pulse_font_page_texture(app, page);
-        if (!pulse_asset_handle_is_valid(pulse_texture_to_handle(handle))) continue;
         PulseRGTextureHandle texture = pulse_render_graph_import_texture(graph, handle);
         if (!pulse_rgtexture_handle_is_valid(texture)) continue;
         pulse_render_pass_builder_sample(pass, texture);
@@ -297,7 +307,6 @@ void text_draw(PulseAppId app, PulseRenderPassEncoder* encoder, PulseFeatureDraw
     const text_draw_data* data = static_cast<const text_draw_data*>(pulse_feature_draw_item_data(ctx));
     if (!data) return;
     const PulseTextureHandle atlas = pulse_font_page_texture(app, data->page);
-    if (!pulse_asset_handle_is_valid(pulse_texture_to_handle(atlas))) return;
 
     pulse_feature_draw_bind_ubo_columns(encoder, ctx);
     pulse_render_pass_encoder_set_global_texture(encoder, atlas, PULSE_SHADER_SET_FEATURE, 2);
@@ -329,6 +338,7 @@ void text_destroy(void* userdata) {
 
 ECS_CTOR(TextLayout, ptr, {
     ptr->layout = nullptr;
+    ptr->atlas_generation = 0;
     })
 
 void install_text_feature(PulseAppId app, ecs_world_t* world) {

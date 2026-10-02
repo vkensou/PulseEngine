@@ -207,7 +207,6 @@ void prepare_fonts(PulseAppId app, text_window_state* state) {
     build_text_boxes(app, state);
 
     assert(pulse_font_page_count(app) >= 1);
-    assert(pulse_font_page_version(app, 0) > 1);
 
     const PulseGlyph missing = pulse_font_glyph(app, state->chain, 0x1FFFF, 48.0f);
     assert(missing.valid);
