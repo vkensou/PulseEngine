@@ -100,20 +100,6 @@ typedef struct PulseGlyph
 } PulseGlyph;
 
 /**
- * 图集运行状态
- *
- */
-typedef struct PulseAtlasStats
-{
-    uint32_t             page_count;
-    uint32_t             glyph_count;
-    uint32_t             slot_count;
-    uint64_t             eviction_count;
-    uint64_t             rasterize_count;
-
-} PulseAtlasStats;
-
-/**
  * 图集页 CPU 像素只读视图，R8，长度 = plugin desc 的 atlas_width × atlas_height
  *
  */
@@ -173,9 +159,6 @@ PULSE_FONT_API PulseFontRequest pulse_font_load(PulseAppId app, const char* path
  *
  */
 PULSE_FONT_API PulseFontRequest pulse_font_load_from_memory(PulseAppId app, const char* name, Pulse_Blob_Param(memory), uint32_t face_index);
-PULSE_FONT_API uint32_t pulse_font_count(PulseAppId app);
-[[pulse::optional]] PULSE_FONT_API const char* pulse_font_family_name(PulseAppId app, PulseFontHandle font);
-PULSE_FONT_API PulseFontHandle pulse_font_find_family(PulseAppId app, const char* family);
 
 /**
  * 内置默认 bitmap 字体凭证，asset 系统缺失或未构建成功时返回无效 handle
@@ -203,16 +186,6 @@ PULSE_FONT_API PulseFontChainHandle pulse_font_create_chain(PulseAppId app, Puls
  */
 PULSE_FONT_API PulseFontChainRequest pulse_font_load_chain(PulseAppId app, const char* path);
 PULSE_FONT_API void pulse_font_destroy_chain(PulseAppId app, PulseFontChainHandle chain);
-
-/**
- * 返回链上提供该 codepoint 的字体凭证，全缺返回无效 handle
- *
- * @param[in] app
- * @param[in] chain
- * @param[in] codepoint
- *
- */
-PULSE_FONT_API PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint);
 PULSE_FONT_API float pulse_font_advance(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size);
 PULSE_FONT_API float pulse_font_kerning(PulseAppId app, PulseFontChainHandle chain, uint32_t first, uint32_t second, float size);
 PULSE_FONT_API PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, PulseFontChainHandle chain, float size);
@@ -227,29 +200,6 @@ PULSE_FONT_API PulseVerticalMetrics pulse_font_vertical_metrics(PulseAppId app, 
  *
  */
 PULSE_FONT_API PulseGlyph pulse_font_glyph(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size);
-
-/**
- * 批量光栅化一段 UTF-8 文本用到的字符
- *
- * @param[in] app
- * @param[in] chain
- * @param[in] text
- * @param[in] size
- *
- */
-PULSE_FONT_API void pulse_font_prewarm(PulseAppId app, PulseFontChainHandle chain, const char* text, float size);
-PULSE_FONT_API PulseAtlasStats pulse_font_atlas_stats(PulseAppId app);
-
-/**
- * 调试用：读取图集页单个像素
- *
- * @param[in] app
- * @param[in] page
- * @param[in] x
- * @param[in] y
- *
- */
-PULSE_FONT_API uint8_t pulse_font_atlas_sample(PulseAppId app, uint32_t page, uint32_t x, uint32_t y);
 
 /**
  * 当前图集页数

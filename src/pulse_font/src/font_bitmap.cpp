@@ -191,7 +191,6 @@ bool bitmap_font_parse(const uint8_t* fnt, size_t fnt_size, bitmap_font_parse_re
                 *out_error = "bitmap font: info line misses face";
                 return false;
             }
-            data.family = *face;
             continue;
         }
         if (line_keyword(line, "common")) {

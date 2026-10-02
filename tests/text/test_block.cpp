@@ -73,7 +73,7 @@ int main() {
 
     const ecs_entity_t holder = ecs_new(world);
     const PulseFontChainHandle file_chain = load_chain_ready(app, "chain_latin.fontchain");
-    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, file_chain, 'A')), pulse_font_to_handle(latin)));
+    assert(fabsf(pulse_font_advance(app, file_chain, 'A', 48.0f) - pulse_font_advance(app, chain, 'A', 48.0f)) < 1e-5f);
 
     {
         void* stored = ecs_ensure_id(world, holder, desc_type, sizeof(PulseTextBlockDesc));

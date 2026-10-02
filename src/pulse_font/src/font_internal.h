@@ -36,7 +36,6 @@ struct bitmap_kerning {
 };
 
 struct bitmap_font_data {
-    std::string family;
     uint32_t line_height = 0;
     int32_t base = 0;
     uint32_t scale_width = 0;
@@ -68,7 +67,6 @@ struct font_asset_impl {
     std::vector<uint8_t> bytes;
     stbtt_fontinfo info{};
     std::unique_ptr<bitmap_font_data> bitmap;
-    std::string family;
 };
 
 struct PulseFontAssetData {
@@ -133,7 +131,6 @@ struct pulse_font_plugin_state {
     PulseAppId app = nullptr;
     PulseAssetSystemId asset_system = nullptr;
     PulseFontPluginDesc desc{};
-    std::vector<PulseAssetHandle> loaded_fonts;
     PulseAssetHandle default_font{};
     std::vector<glyph_entry> entries;
     std::vector<uint32_t> free_entries;
@@ -151,8 +148,6 @@ struct pulse_font_plugin_state {
     std::vector<uint8_t> raster_mask;
     std::vector<uint8_t> slot_pixels;
     uint64_t tick = 0;
-    uint64_t eviction_count = 0;
-    uint64_t rasterize_count = 0;
     font_render_state render;
 };
 

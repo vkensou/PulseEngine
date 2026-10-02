@@ -6,77 +6,12 @@ namespace pulse_font_internal {
 
 namespace {
 
-constexpr uint32_t kNameIdFamily = 1;
-
-void encode_utf16be(const uint8_t* src, uint32_t length, std::string& out) {
-    for (uint32_t i = 0; i + 1 < length; i += 2) {
-        uint32_t code = ((uint32_t)src[i] << 8) | src[i + 1];
-        if (code >= 0xD800 && code <= 0xDBFF && i + 3 < length) {
-            const uint32_t low = ((uint32_t)src[i + 2] << 8) | src[i + 3];
-            if (low >= 0xDC00 && low <= 0xDFFF) {
-                code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
-                i += 2;
-            }
-        }
-        if (code < 0x80) {
-            out.push_back((char)code);
-        } else if (code < 0x800) {
-            out.push_back((char)(0xC0 | (code >> 6)));
-            out.push_back((char)(0x80 | (code & 0x3F)));
-        } else if (code < 0x10000) {
-            out.push_back((char)(0xE0 | (code >> 12)));
-            out.push_back((char)(0x80 | ((code >> 6) & 0x3F)));
-            out.push_back((char)(0x80 | (code & 0x3F)));
-        } else {
-            out.push_back((char)(0xF0 | (code >> 18)));
-            out.push_back((char)(0x80 | ((code >> 12) & 0x3F)));
-            out.push_back((char)(0x80 | ((code >> 6) & 0x3F)));
-            out.push_back((char)(0x80 | (code & 0x3F)));
-        }
-    }
-}
-
-std::string read_family_name(const stbtt_fontinfo& info) {
-    int length = 0;
-    const char* raw = stbtt_GetFontNameString(&info, &length, 1, 0, 0, kNameIdFamily);
-    if (raw && length > 0) {
-        return std::string(raw, (size_t)length);
-    }
-    raw = stbtt_GetFontNameString(&info, &length, 3, 1, 0x409, kNameIdFamily);
-    if (raw && length > 0) {
-        std::string name;
-        encode_utf16be(reinterpret_cast<const uint8_t*>(raw), (uint32_t)length, name);
-        return name;
-    }
-    raw = stbtt_GetFontNameString(&info, &length, 3, 1, 0, kNameIdFamily);
-    if (raw && length > 0) {
-        std::string name;
-        encode_utf16be(reinterpret_cast<const uint8_t*>(raw), (uint32_t)length, name);
-        return name;
-    }
-    return std::string();
-}
-
-void font_track_loaded(pulse_font_plugin_state* state, PulseAssetHandle handle) {
-    for (size_t i = 0; i < state->loaded_fonts.size(); ++i) {
-        if (pulse_asset_handle_equals(state->loaded_fonts[i], handle)) {
-            return;
-        }
-    }
-    state->loaded_fonts.push_back(handle);
-}
-
 bool step_font_common(void* state, const PulseAssetLoadTask* ctx, font_asset_impl* impl) {
     (void)state;
     auto* data = static_cast<PulseFontAssetData*>(ctx->out_asset);
     data->impl = impl;
     data->self = { ctx->request.type_id, ctx->request.index, ctx->request.generation };
-    pulse_font_plugin_state* plugin_state = state_from_app(ctx->app);
-    if (!plugin_state) {
-        return false;
-    }
-    font_track_loaded(plugin_state, data->self);
-    return true;
+    return state_from_app(ctx->app) != nullptr;
 }
 
 void destroy_font_asset(void* ptr, void* user_data) {
@@ -86,12 +21,6 @@ void destroy_font_asset(void* ptr, void* user_data) {
     pulse_font_plugin_state* state = state_from_app(static_cast<PulseAppId>(user_data));
     if (!state) {
         return;
-    }
-    for (size_t i = 0; i < state->loaded_fonts.size(); ++i) {
-        if (pulse_asset_handle_equals(state->loaded_fonts[i], data->self)) {
-            state->loaded_fonts.erase(state->loaded_fonts.begin() + (ptrdiff_t)i);
-            break;
-        }
     }
     if (pulse_asset_handle_equals(state->default_font, data->self)) {
         state->default_font = PulseAssetHandle{};
@@ -112,7 +41,6 @@ font_asset_impl* build_bitmap_impl(const uint8_t* fnt, size_t fnt_size, const ui
     auto* impl = new font_asset_impl();
     impl->kind = kFontKindBitmap;
     impl->bitmap = std::make_unique<bitmap_font_data>(std::move(parsed.data));
-    impl->family = impl->bitmap->family;
     return impl;
 }
 
@@ -142,7 +70,6 @@ EPulseAssetLoaderStatus step_font_loader(void* state, const PulseAssetLoadTask* 
         *out_error = "font loader: failed to initialize font face";
         return PULSE_ASSET_LOADER_STATUS_FAILED;
     }
-    impl->family = read_family_name(impl->info);
     step_font_common(state, ctx, impl);
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }
@@ -172,7 +99,6 @@ EPulseAssetLoaderStatus step_font_bitmap_loader(void* state, const PulseAssetLoa
     auto* impl = new font_asset_impl();
     impl->kind = kFontKindBitmap;
     impl->bitmap = std::make_unique<bitmap_font_data>(std::move(parsed.data));
-    impl->family = impl->bitmap->family;
     step_font_common(state, ctx, impl);
     return PULSE_ASSET_LOADER_STATUS_DONE;
 }

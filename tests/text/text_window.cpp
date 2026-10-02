@@ -194,7 +194,6 @@ void prepare_fonts(PulseAppId app, text_window_state* state) {
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(state->proggy_font)));
     const PulseFontHandle default_font = pulse_font_default(app);
     assert(pulse_asset_handle_is_valid(pulse_font_to_handle(default_font)));
-    assert(pulse_font_count(app) == 4);
     const PulseFontHandle fonts[] = { state->latin_font, state->cjk_font };
     state->chain = pulse_font_create_chain(app, fonts, 2);
     state->bitmap_chain = pulse_font_create_chain(app, &state->proggy_font, 1);
@@ -202,17 +201,13 @@ void prepare_fonts(PulseAppId app, text_window_state* state) {
     assert(state->chain.index != 0);
     assert(state->bitmap_chain.index != 0);
     assert(state->default_chain.index != 0);
-    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 0x4E2D)), pulse_font_to_handle(state->cjk_font)));
-    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->chain, 'A')), pulse_font_to_handle(state->latin_font)));
-    assert(pulse_asset_handle_equals(pulse_font_to_handle(pulse_font_resolve_codepoint(app, state->default_chain, 'A')), pulse_font_to_handle(default_font)));
+    assert(fabsf(pulse_font_advance(app, state->chain, 0x4E2D, 48.0f) - 48.0f * 0.8f) > 1e-3f);
 
     create_camera(app, state);
     build_text_boxes(app, state);
 
-    const PulseAtlasStats stats = pulse_font_atlas_stats(app);
-    assert(stats.rasterize_count > 0);
-    assert(stats.glyph_count > 0);
-    assert(stats.page_count >= 1);
+    assert(pulse_font_page_count(app) >= 1);
+    assert(pulse_font_page_version(app, 0) > 1);
 
     const PulseGlyph missing = pulse_font_glyph(app, state->chain, 0x1FFFF, 48.0f);
     assert(missing.valid);

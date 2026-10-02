@@ -64,15 +64,6 @@ struct.Glyph
     .advance "float"
     ()
 
---- 图集运行状态
-struct.AtlasStats
-    .pageCount     "uint32_t"
-    .glyphCount    "uint32_t"
-    .slotCount     "uint32_t"
-    .evictionCount "uint64_t"
-    .rasterizeCount "uint64_t"
-    ()
-
 --- 图集页 CPU 像素只读视图，R8，长度 = plugin desc 的 atlas_width × atlas_height
 struct.FontPagePixels
     .pixels "[]const anyopaque"
@@ -105,23 +96,6 @@ func.FontLoadFromMemory
     .faceIndex "uint32_t"
     ()
 
-func.FontCount
-    "uint32_t"
-    .app "PulseAppId"
-    ()
-
-func.FontFamilyName
-    "?cstring"
-    .app  "PulseAppId"
-    .font "PulseFontHandle"
-    ()
-
-func.FontFindFamily
-    "PulseFontHandle"
-    .app    "PulseAppId"
-    .family "cstring"
-    ()
-
 --- 内置默认 bitmap 字体凭证，asset 系统缺失或未构建成功时返回无效 handle
 func.FontDefault
     "PulseFontHandle"
@@ -146,14 +120,6 @@ func.FontDestroyChain
     "void"
     .app   "PulseAppId"
     .chain "PulseFontChainHandle"
-    ()
-
---- 返回链上提供该 codepoint 的字体凭证，全缺返回无效 handle
-func.FontResolveCodepoint
-    "PulseFontHandle"
-    .app       "PulseAppId"
-    .chain     "PulseFontChainHandle"
-    .codepoint "uint32_t"
     ()
 
 func.FontAdvance
@@ -187,29 +153,6 @@ func.FontGlyph
     .chain     "PulseFontChainHandle"
     .codepoint "uint32_t"
     .size      "float"
-    ()
-
---- 批量光栅化一段 UTF-8 文本用到的字符
-func.FontPrewarm
-    "void"
-    .app   "PulseAppId"
-    .chain "PulseFontChainHandle"
-    .text  "cstring"
-    .size  "float"
-    ()
-
-func.FontAtlasStats
-    "AtlasStats"
-    .app "PulseAppId"
-    ()
-
---- 调试用：读取图集页单个像素
-func.FontAtlasSample
-    "uint8_t"
-    .app  "PulseAppId"
-    .page "uint32_t"
-    .x    "uint32_t"
-    .y    "uint32_t"
     ()
 
 --- 当前图集页数

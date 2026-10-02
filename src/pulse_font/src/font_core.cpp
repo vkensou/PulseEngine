@@ -78,34 +78,6 @@ PulseAssetHandle resolve_in_chain(pulse_font_plugin_state* state, const font_cha
     return PulseAssetHandle{};
 }
 
-void decode_utf8(const char* text, std::vector<uint32_t>& out) {
-    out.clear();
-    if (!text) {
-        return;
-    }
-    const uint8_t* cursor = reinterpret_cast<const uint8_t*>(text);
-    while (*cursor) {
-        uint32_t code = *cursor;
-        uint32_t extra = 0;
-        if (code >= 0xF0) {
-            code &= 0x07;
-            extra = 3;
-        } else if (code >= 0xE0) {
-            code &= 0x0F;
-            extra = 2;
-        } else if (code >= 0xC0) {
-            code &= 0x1F;
-            extra = 1;
-        }
-        ++cursor;
-        for (uint32_t i = 0; i < extra && (*cursor & 0xC0) == 0x80; ++i) {
-            code = (code << 6) | (*cursor & 0x3F);
-            ++cursor;
-        }
-        out.push_back(code);
-    }
-}
-
 PulseGlyph make_glyph(pulse_font_plugin_state* state, const glyph_entry* entry, float size, uint32_t tier) {
     PulseGlyph glyph{};
     if (!entry) {
@@ -331,32 +303,6 @@ EPulseAppAddPluginResult pulse_add_font_plugin(PulseAppId app, const PulseFontPl
     return result;
 }
 
-uint32_t pulse_font_count(PulseAppId app) {
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    return state ? (uint32_t)state->loaded_fonts.size() : 0;
-}
-
-const char* pulse_font_family_name(PulseAppId app, PulseFontHandle font) {
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    const font_asset_impl* face = pulse_font_internal::font_face_borrow(state, pulse_font_to_handle(font));
-    return face ? face->family.c_str() : nullptr;
-}
-
-PulseFontHandle pulse_font_find_family(PulseAppId app, const char* family) {
-    PulseFontHandle invalid{};
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || !family) {
-        return invalid;
-    }
-    for (const PulseAssetHandle& asset : state->loaded_fonts) {
-        const font_asset_impl* face = pulse_font_internal::font_face_borrow(state, asset);
-        if (face && face->family == family) {
-            return PulseFontHandle{ asset.index, asset.generation };
-        }
-    }
-    return invalid;
-}
-
 PulseFontHandle pulse_font_default(PulseAppId app) {
     pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
     if (!state) {
@@ -413,20 +359,6 @@ void pulse_font_destroy_chain(PulseAppId app, PulseFontChainHandle chain) {
         return;
     }
     pulse_asset_system_release(state->asset_system, pulse_font_chain_to_handle(chain), nullptr);
-}
-
-PulseFontHandle pulse_font_resolve_codepoint(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint) {
-    PulseFontHandle invalid{};
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state) {
-        return invalid;
-    }
-    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
-    if (!slot) {
-        return invalid;
-    }
-    const PulseAssetHandle font = pulse_font_internal::resolve_in_chain(state, *slot, codepoint);
-    return PulseFontHandle{ font.index, font.generation };
 }
 
 float pulse_font_advance(PulseAppId app, PulseFontChainHandle chain, uint32_t codepoint, float size) {
@@ -519,57 +451,6 @@ PulseGlyph pulse_font_glyph(PulseAppId app, PulseFontChainHandle chain, uint32_t
     key.tier = tier;
     const glyph_entry* entry = atlas_acquire_glyph(state, key);
     return pulse_font_internal::make_glyph(state, entry, size, tier);
-}
-
-void pulse_font_prewarm(PulseAppId app, PulseFontChainHandle chain, const char* text, float size) {
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || !text || size <= 0.0f) {
-        return;
-    }
-    const font_chain_data* slot = pulse_font_internal::require_chain(state, chain);
-    if (!slot) {
-        return;
-    }
-    std::vector<uint32_t> codepoints;
-    pulse_font_internal::decode_utf8(text, codepoints);
-    for (uint32_t codepoint : codepoints) {
-        if (codepoint == '\n' || codepoint == '\r' || codepoint == '\t') {
-            continue;
-        }
-        pulse_font_glyph(app, chain, codepoint, size);
-    }
-}
-
-PulseAtlasStats pulse_font_atlas_stats(PulseAppId app) {
-    PulseAtlasStats stats{};
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state) {
-        return stats;
-    }
-    for (const glyph_entry& entry : state->entries) {
-        if (entry.occupied && entry.page != kInvalidIndex) {
-            ++stats.glyph_count;
-        }
-    }
-    for (const atlas_page& page : state->pages) {
-        stats.slot_count += page.grid_x * page.grid_y;
-    }
-    stats.page_count = (uint32_t)state->pages.size();
-    stats.eviction_count = state->eviction_count;
-    stats.rasterize_count = state->rasterize_count;
-    return stats;
-}
-
-uint8_t pulse_font_atlas_sample(PulseAppId app, uint32_t page, uint32_t x, uint32_t y) {
-    pulse_font_plugin_state* state = pulse_font_internal::require_state(app);
-    if (!state || page >= state->pages.size()) {
-        return 0;
-    }
-    const atlas_page& target = state->pages[page];
-    if (x >= state->desc.atlas_width || y >= state->desc.atlas_height) {
-        return 0;
-    }
-    return target.pixels[(size_t)y * state->desc.atlas_width + x];
 }
 
 uint32_t pulse_font_page_count(PulseAppId app) {

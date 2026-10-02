@@ -23,9 +23,12 @@ int main() {
     assert(origin_x == 0);
     assert(origin_y == 0);
 
+    const PulseFontPagePixels page_view = pulse_font_page_pixels(app, box.page);
+    assert(page_view.pixels_size == 2048u * 2048u);
+    const uint8_t* pixels = static_cast<const uint8_t*>(page_view.p_pixels);
     for (uint32_t i = 0; i < 64; ++i) {
-        const uint8_t row = pulse_font_atlas_sample(app, box.page, origin_x + i, origin_y + 22);
-        const uint8_t column = pulse_font_atlas_sample(app, box.page, origin_x + 22, origin_y + i);
+        const uint8_t row = pixels[(size_t)(origin_y + 22) * 2048 + origin_x + i];
+        const uint8_t column = pixels[(size_t)(origin_y + i) * 2048 + origin_x + 22];
         if (row != kExpectedRow[i] || column != kExpectedColumn[i]) {
             printf("sdf mismatch at %u: row=%u expected=%u column=%u expected=%u\n", i, (unsigned)row, (unsigned)kExpectedRow[i], (unsigned)column, (unsigned)kExpectedColumn[i]);
         }
@@ -34,17 +37,17 @@ int main() {
     }
 
     for (uint32_t i = 11; i < 18; ++i) {
-        const int32_t outer = pulse_font_atlas_sample(app, box.page, origin_x + i, origin_y + 22);
-        const int32_t inner = pulse_font_atlas_sample(app, box.page, origin_x + i + 1, origin_y + 22);
+        const int32_t outer = pixels[(size_t)(origin_y + 22) * 2048 + origin_x + i];
+        const int32_t inner = pixels[(size_t)(origin_y + 22) * 2048 + origin_x + i + 1];
         assert(outer - inner == 16);
     }
 
-    assert(pulse_font_atlas_sample(app, box.page, origin_x + 10, origin_y + 22) > 128);
-    assert(pulse_font_atlas_sample(app, box.page, origin_x + 11, origin_y + 22) < 128);
-    assert(pulse_font_atlas_sample(app, box.page, origin_x + 35, origin_y + 22) > 128);
-    assert(pulse_font_atlas_sample(app, box.page, origin_x + 37, origin_y + 22) < 128);
-    assert(pulse_font_atlas_sample(app, box.page, origin_x + 22, origin_y + 9) > 128);
-    assert(pulse_font_atlas_sample(app, box.page, origin_x + 22, origin_y + 11) < 128);
+    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 10] > 128);
+    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 11] < 128);
+    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 35] > 128);
+    assert(pixels[(size_t)(origin_y + 22) * 2048 + origin_x + 37] < 128);
+    assert(pixels[(size_t)(origin_y + 9) * 2048 + origin_x + 22] > 128);
+    assert(pixels[(size_t)(origin_y + 11) * 2048 + origin_x + 22] < 128);
 
     pulse_destroy_app(app);
     printf("font sdf tests passed\n");

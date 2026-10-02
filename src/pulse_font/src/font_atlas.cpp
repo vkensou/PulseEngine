@@ -384,7 +384,6 @@ uint32_t page_evict_lru(pulse_font_plugin_state* state, uint32_t tier) {
     }
     reset_page_slots(state, page, tier);
     page.last_used = ++state->tick;
-    ++state->eviction_count;
     return victim;
 }
 
@@ -471,7 +470,6 @@ const glyph_entry* atlas_acquire_glyph(pulse_font_plugin_state* state, const gly
     const uint32_t slot_y = (slot_index / page.grid_x) * slot_size;
     page.slot_entries[slot_index] = entry_index;
     page.last_used = state->tick;
-    ++state->rasterize_count;
     std::vector<uint8_t>& slot_pixels = state->slot_pixels;
     slot_pixels.assign((size_t)slot_size * slot_size, 0);
     rasterize_glyph_bitmap(state, entry, slot_pixels.data(), slot_size, padding);
