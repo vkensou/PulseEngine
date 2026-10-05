@@ -10,6 +10,7 @@ module pulse_components public
 // resolves to the same flecs component id and reinterprets the storage.
 require pulse public
 require pulse/flecs_boost public
+require strings
 
 // ECS Res
 struct PulseTimer {
@@ -64,4 +65,33 @@ struct PulseRenderable {
     mesh: PulseMeshHandle
     material: PulseMaterialHandle
     sorting_order: int
+}
+
+struct PulseText {
+    desc: PulseTextBlockDesc
+    text: uint8[256]
+    box_width: float
+    box_height: float
+    scissor_x: float
+    scissor_y: float
+    scissor_width: float
+    scissor_height: float
+    sorting_order: int
+    revision: uint
+}
+
+def pulse_text_set_text(var text: PulseText, content: string) {
+    let total = length(content)
+    var count = total > 255 ? 255 : total
+    peek_data(content) $(bytes) {
+        if (count < total) {
+            while (count > 0 && (uint(bytes[count]) & 0xC0u) == 0x80u) {
+                count -= 1
+            }
+        }
+        for (i in 0..count) {
+            text.text[i] = bytes[i]
+        }
+    }
+    text.text[count] = 0u8
 }
