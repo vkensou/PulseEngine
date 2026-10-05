@@ -16,6 +16,7 @@ namespace pulse_renderer_internal {
 
 enum EPulseSortFlag : uint32_t {
     PULSE_SORT_NONE = 0,
+    PULSE_SORT_ORDER = 1u << 6,
     PULSE_SORT_SHADER = 1u << 0,
     PULSE_SORT_MATERIAL = 1u << 1,
     PULSE_SORT_MESH = 1u << 2,
@@ -24,7 +25,7 @@ enum EPulseSortFlag : uint32_t {
     PULSE_SORT_SUBMISSION_ORDER = 1u << 5,
 };
 
-constexpr uint32_t kDefaultListSortFlags = PULSE_SORT_SHADER | PULSE_SORT_MATERIAL | PULSE_SORT_MESH | PULSE_SORT_SUBMISSION_ORDER;
+constexpr uint32_t kDefaultListSortFlags = PULSE_SORT_ORDER | PULSE_SORT_SHADER | PULSE_SORT_MATERIAL | PULSE_SORT_MESH | PULSE_SORT_SUBMISSION_ORDER;
 
 constexpr const char* kPropertyNameVPMatrix = "vpMatrix";
 constexpr const char* kPropertyNameModelMatrix = "wMatrix";
@@ -76,6 +77,7 @@ struct StagingItem {
     HMM_Mat4 world_matrix;
     uint32_t instance_count;
     uint32_t data_slot;
+    int32_t sort_order;
 };
 
 struct FeatureStaging {

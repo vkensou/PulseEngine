@@ -49,6 +49,7 @@ component.Light
 component.Renderable
     .mesh     "PulseMeshHandle"
     .material "PulseMaterialHandle"
+    .sortingOrder "int32_t"
     ()
 
 --- 跨包渲染 feature 契约：feature 包在插件 build 期调 pulse_add_render_feature 注册；
@@ -73,6 +74,7 @@ struct.FeatureItem
     .shader        "PulseShaderHandle"
     .worldMatrix   "HMM_Mat4"
     .instanceCount "uint32_t"
+    .sortingOrder  "int32_t"
     ()
 
 struct.FeatureCullCamera

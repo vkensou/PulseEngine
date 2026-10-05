@@ -86,6 +86,7 @@ typedef struct PulseFeatureItem
     PulseShaderHandle    shader;
     HMM_Mat4             world_matrix;
     uint32_t             instance_count;
+    int32_t              sorting_order;
 
 } PulseFeatureItem;
 
@@ -155,6 +156,7 @@ typedef struct PulseRenderable
 {
     PulseMeshHandle      mesh;
     PulseMaterialHandle  material;
+    int32_t              sorting_order;
 
 } PulseRenderable;
 PULSE_RENDERER_API extern ECS_COMPONENT_DECLARE(PulseRenderable);

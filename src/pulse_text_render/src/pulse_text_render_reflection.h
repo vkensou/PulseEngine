@@ -23,5 +23,6 @@ inline void pulse_text_render_register_reflection(ecs_world_t* world) {
         comp.member("scissor_y", &PulseText::scissor_y);
         comp.member("scissor_width", &PulseText::scissor_width);
         comp.member("scissor_height", &PulseText::scissor_height);
+        comp.member("sorting_order", &PulseText::sorting_order);
     }
 }

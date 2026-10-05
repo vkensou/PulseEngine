@@ -10,6 +10,7 @@ PulseFeatureItem to_public_feature_item(const StagingItem& staging) {
     item.shader = staging.shader;
     item.world_matrix = staging.world_matrix;
     item.instance_count = staging.instance_count;
+    item.sorting_order = staging.sort_order;
     return item;
 }
 
@@ -69,6 +70,7 @@ void pulse_feature_extract_submit(PulseFeatureExtractContext* ctx, const PulseFe
     copy.shader = item->shader;
     copy.world_matrix = item->world_matrix;
     copy.instance_count = item->instance_count;
+    copy.sort_order = item->sorting_order;
     FeatureStaging& staging = state->write_packet().staging[feature_id];
     if (data_size) {
         copy.data_slot = (uint32_t)(staging.data_arena.size() / data_size);

@@ -122,6 +122,9 @@ static float compute_view_depth(const HMM_Mat4& view_matrix, const HMM_Mat4& wor
 static bool compare_items(const FrameRenderPacket& snapshot, const DrawItem& a, const DrawItem& b, uint32_t flags) {
     const StagingItem& sa = snapshot.staging[a.feature_id].items[a.staging_index];
     const StagingItem& sb = snapshot.staging[b.feature_id].items[b.staging_index];
+    if (flags & PULSE_SORT_ORDER) {
+        if (sa.sort_order != sb.sort_order) return sa.sort_order < sb.sort_order;
+    }
     if (flags & PULSE_SORT_SHADER) {
         if (sa.shader.index != sb.shader.index) return sa.shader.index < sb.shader.index;
     }

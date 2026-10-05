@@ -196,6 +196,7 @@ void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdat
                 item.shader = ud->shader;
                 item.world_matrix = world_matrix;
                 item.instance_count = count;
+                item.sorting_order = texts[i].sorting_order;
 
                 text_draw_data draw_data = {};
                 draw_data.page = page;

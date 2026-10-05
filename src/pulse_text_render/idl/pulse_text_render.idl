@@ -3,6 +3,7 @@ version(1)
 typedef "bool"
 typedef "char"
 typedef "float"
+typedef "int32_t"
 typedef "uint32_t"
 typedef "void"
 typedef "cstring"
@@ -32,6 +33,7 @@ component.Text
     .scissorY      "float"
     .scissorWidth  "float"
     .scissorHeight "float"
+    .sortingOrder  "int32_t"
     .revision      "uint32_t" { noreflex = true }
     ()
 

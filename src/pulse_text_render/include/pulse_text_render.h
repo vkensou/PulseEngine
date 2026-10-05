@@ -67,6 +67,7 @@ typedef struct PulseText
     float                scissor_y;
     float                scissor_width;
     float                scissor_height;
+    int32_t              sorting_order;
     uint32_t             revision;
 
 } PulseText;

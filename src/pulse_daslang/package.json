@@ -8,7 +8,9 @@
     "pulse_math",
     "pulse_asset",
     "pulse_prefab",
-    "pulse_datatable"
+    "pulse_datatable",
+    "pulse_font",
+    "pulse_text"
   ],
   "paths": [
     "das"

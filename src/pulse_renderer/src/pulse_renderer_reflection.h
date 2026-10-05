@@ -33,5 +33,6 @@ inline void pulse_renderer_register_reflection(ecs_world_t* world) {
         ecs_id(PulseRenderable) = comp.id();
         comp.member("mesh", &PulseRenderable::mesh);
         comp.member("material", &PulseRenderable::material);
+        comp.member("sorting_order", &PulseRenderable::sorting_order);
     }
 }

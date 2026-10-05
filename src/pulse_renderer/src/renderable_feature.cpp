@@ -26,6 +26,7 @@ static void renderable_feature_extract(PulseAppId app, PulseFeatureExtractContex
             item.material = renderables[i].material;
             item.shader = pulse_material_get_shader(app, renderables[i].material);
             item.world_matrix = world_transforms[i].value;
+            item.sorting_order = renderables[i].sorting_order;
             pulse_feature_extract_submit(ctx, &item, nullptr);
         }
     }

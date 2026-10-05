@@ -16,9 +16,11 @@
 #include "pulse_app.h"
 #include "pulse_asset.h"
 #include "pulse_datatable.h"
+#include "pulse_font.h"
 #include "pulse_graphics.h"
 #include "pulse_math.h"
 #include "pulse_prefab.h"
+#include "pulse_text.h"
 
 // ============================================================
 // Opaque handle wrappers
@@ -234,6 +236,72 @@ static void* das_data_table_find_row(const PulseAppHandle& app, const char* sche
 static void* das_data_table_find_row_int(const PulseAppHandle& app, const char* schema, int64_t key)
 {
 	return const_cast<void*>(pulse_data_table_find_row_int(das_data_table_table(app, schema), key));
+}
+
+static PulseAssetRequest das_font_request_to_asset_request(const PulseFontRequest& font)
+{
+	return pulse_font_request_to_asset_request(font);
+}
+
+static PulseFontRequest das_font_load(const PulseAppHandle& app, const char* filepath, uint32_t face_index)
+{
+	return pulse_font_load(app.app, filepath, face_index);
+}
+
+static bool das_font_is_ready(const PulseAppHandle& app, const PulseFontRequest& request)
+{
+	return pulse_font_is_ready(app.app, request);
+}
+
+static const char* das_font_get_error(const PulseAppHandle& app, const PulseFontRequest& request)
+{
+	return pulse_font_get_error(app.app, request);
+}
+
+static PulseFontHandle das_font_get_handle(const PulseAppHandle& app, const PulseFontRequest& request)
+{
+	return pulse_font_get_handle(app.app, request);
+}
+
+static PulseFontHandle das_font_default(const PulseAppHandle& app)
+{
+	return pulse_font_default(app.app);
+}
+
+static PulseFontChainRequest das_font_load_chain(const PulseAppHandle& app, const char* filepath)
+{
+	return pulse_font_load_chain(app.app, filepath);
+}
+
+static PulseAssetRequest das_font_chain_request_to_asset_request(const PulseFontChainRequest& chain)
+{
+	return pulse_font_chain_request_to_asset_request(chain);
+}
+
+static bool das_font_chain_is_ready(const PulseAppHandle& app, const PulseFontChainRequest& request)
+{
+	return pulse_font_chain_is_ready(app.app, request);
+}
+
+static PulseFontChainHandle das_font_chain_get_handle(const PulseAppHandle& app, const PulseFontChainRequest& request)
+{
+	return pulse_font_chain_get_handle(app.app, request);
+}
+
+static PulseFontChainHandle das_font_create_chain(const PulseAppHandle& app, void* fonts, int32_t count)
+{
+	const PulseFontHandle* handles = static_cast<const PulseFontHandle*>(fonts);
+	return pulse_font_create_chain(app.app, handles, count > 0 ? (size_t)count : 0);
+}
+
+static PulseVerticalMetrics das_font_vertical_metrics(const PulseAppHandle& app, const PulseFontChainHandle& chain, float size)
+{
+	return pulse_font_vertical_metrics(app.app, chain, size);
+}
+
+static PulseTextMeasure das_text_measure(const PulseAppHandle& app, const PulseTextBlockDesc& desc, const char* text, float box_width)
+{
+	return pulse_text_measure(app.app, &desc, text, box_width);
 }
 
 static void das_text(const char* txt)
@@ -463,6 +531,103 @@ struct PulseMaterialCreateDescAnnotation final : das::ManagedStructureAnnotation
 	}
 };
 
+MAKE_TYPE_FACTORY(PulseFontRequest, PulseFontRequest);
+struct PulseFontRequestAnnotation final : das::ManagedStructureAnnotation<PulseFontRequest>
+{
+	PulseFontRequestAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseFontRequest", ml, "PulseFontRequest")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseFontHandle, PulseFontHandle);
+struct PulseFontHandleAnnotation final : das::ManagedStructureAnnotation<PulseFontHandle>
+{
+	PulseFontHandleAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseFontHandle", ml, "PulseFontHandle")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseFontChainRequest, PulseFontChainRequest);
+struct PulseFontChainRequestAnnotation final : das::ManagedStructureAnnotation<PulseFontChainRequest>
+{
+	PulseFontChainRequestAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseFontChainRequest", ml, "PulseFontChainRequest")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseFontChainHandle, PulseFontChainHandle);
+struct PulseFontChainHandleAnnotation final : das::ManagedStructureAnnotation<PulseFontChainHandle>
+{
+	PulseFontChainHandleAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseFontChainHandle", ml, "PulseFontChainHandle")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseTextColor, PulseTextColor);
+struct PulseTextColorAnnotation final : das::ManagedStructureAnnotation<PulseTextColor>
+{
+	PulseTextColorAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseTextColor", ml, "PulseTextColor")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(r)>("r");
+		addField<DAS_BIND_MANAGED_FIELD(g)>("g");
+		addField<DAS_BIND_MANAGED_FIELD(b)>("b");
+		addField<DAS_BIND_MANAGED_FIELD(a)>("a");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseTextBlockDesc, PulseTextBlockDesc);
+struct PulseTextBlockDescAnnotation final : das::ManagedStructureAnnotation<PulseTextBlockDesc>
+{
+	PulseTextBlockDescAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseTextBlockDesc", ml, "PulseTextBlockDesc")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(chain)>("chain");
+		addField<DAS_BIND_MANAGED_FIELD(size)>("size");
+		addField<DAS_BIND_MANAGED_FIELD(color)>("color");
+		addField<DAS_BIND_MANAGED_FIELD(align_h)>("align_h");
+		addField<DAS_BIND_MANAGED_FIELD(align_v)>("align_v");
+		addField<DAS_BIND_MANAGED_FIELD(line_height)>("line_height");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseTextMeasure, PulseTextMeasure);
+struct PulseTextMeasureAnnotation final : das::ManagedStructureAnnotation<PulseTextMeasure>
+{
+	PulseTextMeasureAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseTextMeasure", ml, "PulseTextMeasure")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(width)>("width");
+		addField<DAS_BIND_MANAGED_FIELD(height)>("height");
+		addField<DAS_BIND_MANAGED_FIELD(line_count)>("line_count");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulseVerticalMetrics, PulseVerticalMetrics);
+struct PulseVerticalMetricsAnnotation final : das::ManagedStructureAnnotation<PulseVerticalMetrics>
+{
+	PulseVerticalMetricsAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulseVerticalMetrics", ml, "PulseVerticalMetrics")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(ascent)>("ascent");
+		addField<DAS_BIND_MANAGED_FIELD(descent)>("descent");
+		addField<DAS_BIND_MANAGED_FIELD(line_gap)>("line_gap");
+		addField<DAS_BIND_MANAGED_FIELD(height)>("height");
+	}
+};
+
 // ============================================================
 // Data table descriptor annotations (das builds schemas for
 // pulse_data_table_system_register_schema; struct_size, version
@@ -565,6 +730,20 @@ DAS_BASE_BIND_ENUM(EPulseAssetState, EPulseAssetState,
 
 DAS_BIND_ENUM_CAST(EPulseAssetState);
 
+DAS_BASE_BIND_ENUM(EPulseTextAlignH, EPulseTextAlignH,
+	PULSE_TEXT_ALIGN_H_LEFT,
+	PULSE_TEXT_ALIGN_H_CENTER,
+	PULSE_TEXT_ALIGN_H_RIGHT);
+
+DAS_BIND_ENUM_CAST(EPulseTextAlignH);
+
+DAS_BASE_BIND_ENUM(EPulseTextAlignV, EPulseTextAlignV,
+	PULSE_TEXT_ALIGN_V_TOP,
+	PULSE_TEXT_ALIGN_V_MIDDLE,
+	PULSE_TEXT_ALIGN_V_BOTTOM);
+
+DAS_BIND_ENUM_CAST(EPulseTextAlignV);
+
 namespace das
 {
 	template <>
@@ -610,6 +789,13 @@ DAS_PULSE_VALUE_CAST(PulsePrefabRequest);
 DAS_PULSE_VALUE_CAST(PulsePrefabHandle);
 DAS_PULSE_VALUE_CAST(PulseAssetRequest);
 DAS_PULSE_VALUE_CAST(PulseDataTableRequest);
+DAS_PULSE_VALUE_CAST(PulseFontRequest);
+DAS_PULSE_VALUE_CAST(PulseFontHandle);
+DAS_PULSE_VALUE_CAST(PulseFontChainRequest);
+DAS_PULSE_VALUE_CAST(PulseFontChainHandle);
+DAS_PULSE_VALUE_CAST(PulseTextColor);
+DAS_PULSE_VALUE_CAST(PulseTextMeasure);
+DAS_PULSE_VALUE_CAST(PulseVerticalMetrics);
 
 // ============================================================
 // pulse module
@@ -648,6 +834,16 @@ namespace das
 		addAnnotation(new PulseDataTableRequestAnnotation(lib));
 		addAnnotation(new PulseAssetRequestAnnotation(lib));
 		addAnnotation(new PulseMaterialCreateDescAnnotation(lib));
+		addAnnotation(new PulseFontRequestAnnotation(lib));
+		addAnnotation(new PulseFontHandleAnnotation(lib));
+		addAnnotation(new PulseFontChainRequestAnnotation(lib));
+		addAnnotation(new PulseFontChainHandleAnnotation(lib));
+		addEnumeration(new EnumerationEPulseTextAlignH());
+		addEnumeration(new EnumerationEPulseTextAlignV());
+		addAnnotation(new PulseTextColorAnnotation(lib));
+		addAnnotation(new PulseTextBlockDescAnnotation(lib));
+		addAnnotation(new PulseTextMeasureAnnotation(lib));
+		addAnnotation(new PulseVerticalMetricsAnnotation(lib));
 		addEnumeration(new EnumerationEPulseDataTableColumnType());
 		addAnnotation(new PulseDataTableColumnDescAnnotation(lib));
 		addAnnotation(new PulseDataTableStructDescAnnotation(lib));
@@ -694,6 +890,21 @@ namespace das
 		addExtern<DAS_BIND_FUN(das_data_table_row_at)>(*this, lib, "pulse_data_table_row_at", SideEffects::modifyExternal, "pulse_data_table_row_at")->args({ "app", "schema", "index" });
 		addExtern<DAS_BIND_FUN(das_data_table_find_row)>(*this, lib, "pulse_data_table_find_row", SideEffects::modifyExternal, "pulse_data_table_find_row")->args({ "app", "schema", "key" });
 		addExtern<DAS_BIND_FUN(das_data_table_find_row_int)>(*this, lib, "pulse_data_table_find_row_int", SideEffects::modifyExternal, "pulse_data_table_find_row_int")->args({ "app", "schema", "key" });
+
+		addExtern<DAS_BIND_FUN(das_font_request_to_asset_request), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_request_to_asset_request", SideEffects::none, "pulse_font_request_to_asset_request")->args({ "request" });
+		addExtern<DAS_BIND_FUN(das_font_chain_request_to_asset_request), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_chain_request_to_asset_request", SideEffects::none, "pulse_font_chain_request_to_asset_request")->args({ "request" });
+
+		addExtern<DAS_BIND_FUN(das_font_load), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_load", SideEffects::worstDefault, "pulse_font_load")->args({ "app", "filepath", "face_index" });
+		addExtern<DAS_BIND_FUN(das_font_is_ready)>(*this, lib, "pulse_font_is_ready", SideEffects::modifyExternal, "pulse_font_is_ready")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_font_get_error)>(*this, lib, "pulse_font_get_error", SideEffects::modifyExternal, "pulse_font_get_error")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_font_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_get_handle", SideEffects::modifyExternal, "pulse_font_get_handle")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_font_default), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_default", SideEffects::modifyExternal, "pulse_font_default")->args({ "app" });
+		addExtern<DAS_BIND_FUN(das_font_load_chain), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_load_chain", SideEffects::worstDefault, "pulse_font_load_chain")->args({ "app", "filepath" });
+		addExtern<DAS_BIND_FUN(das_font_chain_is_ready)>(*this, lib, "pulse_font_chain_is_ready", SideEffects::modifyExternal, "pulse_font_chain_is_ready")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_font_chain_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_chain_get_handle", SideEffects::modifyExternal, "pulse_font_chain_get_handle")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_font_create_chain), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_create_chain", SideEffects::worstDefault, "pulse_font_create_chain")->args({ "app", "fonts", "count" });
+		addExtern<DAS_BIND_FUN(das_font_vertical_metrics), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_font_vertical_metrics", SideEffects::modifyExternal, "pulse_font_vertical_metrics")->args({ "app", "chain", "size" });
+		addExtern<DAS_BIND_FUN(das_text_measure), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_text_measure", SideEffects::modifyExternal, "pulse_text_measure")->args({ "app", "desc", "text", "box_width" });
 
 		addExtern<DAS_BIND_FUN(das_text)>(*this, lib, "Text", SideEffects::worstDefault, "Text")->args({ "txt" });
 		addExtern<DAS_BIND_FUN(das_button)>(*this, lib, "Button", SideEffects::worstDefault, "Button")->args({ "label" });

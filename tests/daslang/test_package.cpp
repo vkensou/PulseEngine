@@ -30,8 +30,13 @@ int main(void)
     assert(loader != nullptr);
 
     PulsePackageListEntry entries[] = {
+        { "pulse_input", nullptr },
+        { "pulse_window", nullptr },
         { "pulse_asset", nullptr },
         { "pulse_math", nullptr },
+        { "pulse_graphics", nullptr },
+        { "pulse_font", nullptr },
+        { "pulse_text", nullptr },
         { "pulse_prefab", nullptr },
         { "pulse_datatable", nullptr },
         { "pulse_daslang", nullptr },

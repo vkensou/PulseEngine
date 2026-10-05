@@ -63,4 +63,5 @@ struct PulseCamera {
 struct PulseRenderable {
     mesh: PulseMeshHandle
     material: PulseMaterialHandle
+    sorting_order: int
 }
