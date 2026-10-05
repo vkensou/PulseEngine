@@ -18,6 +18,7 @@ void register_components(ecs_world_t* world) {
         comp.member("align_h", &PulseTextBlockDesc::align_h);
         comp.member("align_v", &PulseTextBlockDesc::align_v);
         comp.member("line_height", &PulseTextBlockDesc::line_height);
+        comp.member("auto_size", &PulseTextBlockDesc::auto_size);
     }
 }
 

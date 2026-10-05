@@ -600,6 +600,7 @@ struct PulseTextBlockDescAnnotation final : das::ManagedStructureAnnotation<Puls
 		addField<DAS_BIND_MANAGED_FIELD(align_h)>("align_h");
 		addField<DAS_BIND_MANAGED_FIELD(align_v)>("align_v");
 		addField<DAS_BIND_MANAGED_FIELD(line_height)>("line_height");
+		addField<DAS_BIND_MANAGED_FIELD(auto_size)>("auto_size");
 	}
 };
 

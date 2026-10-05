@@ -43,6 +43,36 @@ int main() {
     pulse_text_layout_free(app, natural_centered);
 
     const float ascent = pulse_font_vertical_metrics(app, chain, kSize).ascent;
+    PulseTextBlockDesc desc_auto = align_desc(chain, PULSE_TEXT_ALIGN_H_CENTER, PULSE_TEXT_ALIGN_V_MIDDLE, 0.0f);
+    desc_auto.auto_size = true;
+    PulseTextLayout* auto_centered = pulse_text_layout(app, &desc_auto, "ab", box_w, la * 4.0f);
+    assert(auto_centered->line_count == 1);
+    assert(fabsf(auto_centered->width - w_ab) < 1e-3f);
+    assert(fabsf(auto_centered->height - la) < 1e-3f);
+    assert(fabsf(auto_centered->p_instances[0].x - (-w_ab * 0.5f + glyph_a.x0)) < 1e-3f);
+    assert(fabsf(auto_centered->p_instances[0].y - (-la * 0.5f + ascent + glyph_a.y0)) < 1e-3f);
+    pulse_text_layout_free(app, auto_centered);
+
+    PulseTextLayout* auto_ignored_box = pulse_text_layout(app, &desc_auto, "ab", 1.0f, 1.0f);
+    assert(auto_ignored_box->line_count == 1);
+    pulse_text_layout_free(app, auto_ignored_box);
+
+    PulseTextBlockDesc desc_auto_right = align_desc(chain, PULSE_TEXT_ALIGN_H_RIGHT, PULSE_TEXT_ALIGN_V_BOTTOM, 0.0f);
+    desc_auto_right.auto_size = true;
+    PulseTextLayout* auto_right = pulse_text_layout(app, &desc_auto_right, "ab", 0.0f, 0.0f);
+    assert(fabsf(auto_right->p_instances[0].x - (-w_ab + glyph_a.x0)) < 1e-3f);
+    assert(fabsf(auto_right->p_instances[0].y - (-la + ascent + glyph_a.y0)) < 1e-3f);
+    pulse_text_layout_free(app, auto_right);
+
+    const PulseTextMeasure auto_measure = pulse_text_measure(app, &desc_auto, "ab cd", 1.0f);
+    assert(auto_measure.line_count == 1);
+
+    PulseTextLayout* auto_multiline = pulse_text_layout(app, &desc_auto, "ab\ncd", 0.0f, 0.0f);
+    assert(auto_multiline->line_count == 2);
+    assert(fabsf(auto_multiline->p_instances[0].x - (-w_ab * 0.5f + glyph_a.x0)) < 1e-3f);
+    assert(fabsf(auto_multiline->p_instances[2].x - (-w_cd * 0.5f + glyph_c.x0)) < 1e-3f);
+    pulse_text_layout_free(app, auto_multiline);
+
     const PulseTextBlockDesc desc_bottom = align_desc(chain, PULSE_TEXT_ALIGN_H_LEFT, PULSE_TEXT_ALIGN_V_BOTTOM, 0.0f);
     PulseTextLayout* bottomed = pulse_text_layout(app, &desc_bottom, "ab", box_w, la * 2.0f);
     assert(bottomed->line_count == 1);

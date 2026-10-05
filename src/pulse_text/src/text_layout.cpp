@@ -261,7 +261,7 @@ PulseTextMeasure text_measure(PulseAppId app, const PulseTextBlockDesc* desc, co
     text_runs runs{};
     build_runs(app, desc, text, runs);
     std::vector<text_line> lines;
-    break_lines(runs, box_width, lines);
+    break_lines(runs, desc->auto_size ? 0.0f : box_width, lines);
     if (lines.empty()) {
         return out;
     }
@@ -273,10 +273,11 @@ PulseTextMeasure text_measure(PulseAppId app, const PulseTextBlockDesc* desc, co
 }
 
 PulseTextLayout* text_layout(PulseAppId app, const PulseTextBlockDesc* desc, const char* text, float box_width, float box_height) {
+    const bool auto_size = desc->auto_size;
     text_runs runs{};
     build_runs(app, desc, text, runs);
     std::vector<text_line> lines;
-    break_lines(runs, box_width, lines);
+    break_lines(runs, auto_size ? 0.0f : box_width, lines);
     std::vector<PulseGlyphInstance> instances;
     if (lines.empty()) {
         return make_layout(instances, 0.0f, 0.0f, 0);
@@ -285,19 +286,34 @@ PulseTextLayout* text_layout(PulseAppId app, const PulseTextBlockDesc* desc, con
     const float line_advance = line_advance_for(desc, metrics);
     const float total_height = line_advance * (float)lines.size();
     uint32_t visible_lines = (uint32_t)lines.size();
-    if (box_height > 0.0f && line_advance > 0.0f && total_height > box_height + kEpsilon) {
+    if (!auto_size && box_height > 0.0f && line_advance > 0.0f && total_height > box_height + kEpsilon) {
         visible_lines = (uint32_t)std::floor(box_height / line_advance + 1e-4f);
     }
     const float content_height = line_advance * (float)visible_lines;
     float y_top = 0.0f;
-    if (box_height > 0.0f) {
+    if (auto_size) {
+        if (desc->align_v == PULSE_TEXT_ALIGN_V_MIDDLE) {
+            y_top = -content_height * 0.5f;
+        } else if (desc->align_v == PULSE_TEXT_ALIGN_V_BOTTOM) {
+            y_top = -content_height;
+        }
+    } else if (box_height > 0.0f) {
         if (desc->align_v == PULSE_TEXT_ALIGN_V_MIDDLE) {
             y_top = (box_height - content_height) * 0.5f;
         } else if (desc->align_v == PULSE_TEXT_ALIGN_V_BOTTOM) {
             y_top = box_height - content_height;
         }
     }
-    const float effective_width = box_width > 0.0f ? box_width : max_line_width(lines);
+    const float content_width = max_line_width(lines);
+    const float effective_width = (!auto_size && box_width > 0.0f) ? box_width : content_width;
+    float anchor_x = 0.0f;
+    if (auto_size) {
+        if (desc->align_h == PULSE_TEXT_ALIGN_H_CENTER) {
+            anchor_x = -content_width * 0.5f;
+        } else if (desc->align_h == PULSE_TEXT_ALIGN_H_RIGHT) {
+            anchor_x = -content_width;
+        }
+    }
     for (uint32_t k = 0; k < visible_lines; ++k) {
         const text_line& line = lines[k];
         float x_off = 0.0f;
@@ -306,6 +322,7 @@ PulseTextLayout* text_layout(PulseAppId app, const PulseTextBlockDesc* desc, con
         } else if (desc->align_h == PULSE_TEXT_ALIGN_H_RIGHT) {
             x_off = effective_width - line.width;
         }
+        x_off += anchor_x;
         const float baseline = y_top + metrics.ascent + (float)k * line_advance;
         float pen = 0.0f;
         const uint32_t end = line.first + line.count;

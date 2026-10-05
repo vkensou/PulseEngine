@@ -24,6 +24,7 @@ int main() {
     assert(ecs_struct_get_member(world, desc_type, "align_h") != nullptr);
     assert(ecs_struct_get_member(world, desc_type, "align_v") != nullptr);
     assert(ecs_struct_get_member(world, desc_type, "line_height") != nullptr);
+    assert(ecs_struct_get_member(world, desc_type, "auto_size") != nullptr);
     const ecs_entity_t color_type = ecs_lookup(world, "PulseTextColor");
     assert(color_type != 0);
     assert(ecs_struct_get_member(world, color_type, "r") != nullptr);

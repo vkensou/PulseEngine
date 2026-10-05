@@ -83,6 +83,7 @@ typedef struct PulseTextColor
 
 /**
  * 排版参数；按值传入排版接口，chain 为字体链资产凭证，lineHeight 为行高系数（<=0 用字体自然行高），color 为默认文字颜色
+ * autoSize 为真时忽略 box 尺寸：不换行不裁剪，按内容自动计算宽高，align 表示布局原点相对内容盒的位置（CENTER/MIDDLE 即以原点为文字中心）
  *
  */
 typedef struct PulseTextBlockDesc
@@ -93,6 +94,7 @@ typedef struct PulseTextBlockDesc
     EPulseTextAlignH     align_h;
     EPulseTextAlignV     align_v;
     float                line_height;
+    bool                 auto_size;
 
 } PulseTextBlockDesc;
 
@@ -129,7 +131,7 @@ typedef struct PulseTextMeasure
 PULSE_TEXT_API EPulseAppAddPluginResult pulse_add_text_plugin(PulseAppId app);
 
 /**
- * 在 boxWidth × boxHeight 的盒子里排版 utf8 文本，产出 glyph 实例流；boxWidth <= 0 不按宽度断行，boxHeight <= 0 不按高度截断；结果归调用方所有，用完调 pulse_text_layout_free 释放
+ * 在 boxWidth × boxHeight 的盒子里排版 utf8 文本，产出 glyph 实例流；boxWidth <= 0 不按宽度断行，boxHeight <= 0 不按高度截断；desc.autoSize 为真时 box 尺寸被忽略，按内容自动计算并按 align 锚定原点；结果归调用方所有，用完调 pulse_text_layout_free 释放
  *
  * @param[in] app
  * @param[in] desc
