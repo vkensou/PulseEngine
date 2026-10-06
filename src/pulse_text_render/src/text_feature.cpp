@@ -174,7 +174,7 @@ void text_extract(PulseAppId app, PulseFeatureExtractContext* ctx, void* userdat
         TextLayout* layouts = ecs_field(&it, TextLayout, 2);
         for (int i = 0; i < it.count; ++i) {
             if (texts[i].text[0] == '\0') continue;
-            if (layouts[i].atlas_generation != atlas_generation) {
+            if (!layouts[i].layout || layouts[i].atlas_generation != atlas_generation) {
                 relayout(app, world, it.entities[i], texts[i]);
             }
             if (!layouts[i].layout) continue;
@@ -397,6 +397,11 @@ ECS_CTOR(TextLayout, ptr, {
     ptr->atlas_generation = 0;
     })
 
+ECS_COPY(TextLayout, dst, src, {
+    dst->layout = nullptr;
+    dst->atlas_generation = 0;
+    })
+
 void install_text_feature(PulseAppId app, ecs_world_t* world) {
     if (!app || !world) return;
 
@@ -417,6 +422,7 @@ void install_text_feature(PulseAppId app, ecs_world_t* world) {
     ecs_id(TextLayout) = flecs::_::type<TextLayout>::id(world);
     ecs_type_hooks_t text_layout_hooks = {
         .ctor = ecs_ctor(TextLayout),
+        .copy = ecs_copy(TextLayout),
     };
     ecs_set_hooks_id(world, ecs_id(TextLayout), &text_layout_hooks);
     ecs_add_pair(world, ecs_id(PulseText), EcsWith, ecs_id(TextLayout));

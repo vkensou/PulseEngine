@@ -1,0 +1,93 @@
+name : "TextCard"
+components : {
+    PulseLocalTransform : {
+        translation : {
+            X : 0.0
+            Y : 0.0
+            Z : 0.0
+        }
+        rotation : {
+            X : 0.0
+            Y : 0.0
+            Z : 0.0
+            W : 1.0
+        }
+        scale : {
+            X : 1.0
+            Y : 1.0
+            Z : 1.0
+        }
+    }
+}
+children : [
+    {
+        name : "Title"
+        components : {
+            PulseLocalTransform : {
+                translation : {
+                    X : 160.0
+                    Y : 64.0
+                    Z : 0.0
+                }
+                rotation : {
+                    X : 0.0
+                    Y : 0.0
+                    Z : 0.0
+                    W : 1.0
+                }
+                scale : {
+                    X : 1.0
+                    Y : 1.0
+                    Z : 1.0
+                }
+            }
+            PulseText : {
+                block : {
+                    chain : "chain_latin.fontchain"
+                    size : 55.0
+                    color : {
+                        r : 0.0
+                        g : 0.0
+                        b : 0.0
+                        a : 1.0
+                    }
+                    align_h : "PULSE_TEXT_ALIGN_H_CENTER"
+                    align_v : "PULSE_TEXT_ALIGN_V_MIDDLE"
+                    line_height : 0.0
+                    auto_size : true
+                }
+                text : "精"
+                sorting_order : 1000
+            }
+        }
+    },
+    {
+        name : "Footer"
+        components : {
+            PulseText : {
+                block : {
+                    chain : "chain_latin.fontchain"
+                    size : 25.0
+                    color : {
+                        r : 0.25
+                        g : 0.5
+                        b : 0.75
+                        a : 0.5
+                    }
+                    align_h : "PULSE_TEXT_ALIGN_H_LEFT"
+                    align_v : "PULSE_TEXT_ALIGN_V_TOP"
+                    line_height : 1.25
+                    auto_size : false
+                }
+                text : "footer text"
+                box_width : 320.0
+                box_height : 40.0
+                scissor_x : 4.0
+                scissor_y : 5.0
+                scissor_width : 6.0
+                scissor_height : 7.0
+                sorting_order : 7
+            }
+        }
+    }
+]

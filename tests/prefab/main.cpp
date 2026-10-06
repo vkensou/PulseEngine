@@ -13,6 +13,9 @@
 #include "pulse_graphics.h"
 #include "pulse_renderer.h"
 #include "pulse_prefab.h"
+#include "pulse_font.h"
+#include "pulse_text.h"
+#include "pulse_text_render.h"
 
 struct TestNote {
     ecs_string_t value;
@@ -114,6 +117,7 @@ int main(void) {
     PulseAssetPluginDesc asset_desc = pulse_asset_plugin_desc_default();
     assert(pulse_vfs_mount("tests/prefab/data", "/", false));
     assert(pulse_vfs_mount("tests/graphics/data", "/", false));
+    assert(pulse_vfs_mount("tests/font/data", "/", false));
     assert(pulse_add_asset_plugin(app, &asset_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
 
     assert(pulse_add_math_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
@@ -123,6 +127,9 @@ int main(void) {
     assert(pulse_add_graphics_plugin(app, &graphic_desc) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_renderer_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_add_prefab_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_font_plugin(app, nullptr) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_text_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
+    assert(pulse_add_text_render_plugin(app) == PULSE_APP_ADD_PLUGIN_RESULT_OK);
     assert(pulse_app_prepare(app) == PULSE_APP_PREPARE_RESULT_OK);
 
     ecs_world_t* world = pulse_app_world(app);
@@ -515,6 +522,83 @@ int main(void) {
         assert(ecs_is_alive(world, defer_ctx.instance));
         assert(ecs_has_pair(world, defer_ctx.instance, EcsIsA, root));
         assert(ecs_lookup_child(world, defer_ctx.instance, "Body") != 0);
+    }
+
+    {
+        const ecs_entity_t desc_type = ecs_lookup(world, "PulseTextBlockDesc");
+        assert(desc_type != 0);
+        const ecs_member_t* align_h_member = ecs_struct_get_member(world, desc_type, "align_h");
+        assert(align_h_member != nullptr);
+        assert(ecs_lookup_child(world, align_h_member->type, "PULSE_TEXT_ALIGN_H_CENTER") != 0);
+        const ecs_member_t* align_v_member = ecs_struct_get_member(world, desc_type, "align_v");
+        assert(align_v_member != nullptr);
+        assert(ecs_lookup_child(world, align_v_member->type, "PULSE_TEXT_ALIGN_V_MIDDLE") != 0);
+
+        PulsePrefabRequest request = pulse_load_prefab(app, "text.prefab");
+        assert(wait_prefab_ready(app, request));
+        PulsePrefabHandle handle = pulse_prefab_get_handle(app, request);
+        ecs_entity_t root = pulse_prefab_get_root(app, handle);
+        assert(strcmp(ecs_get_name(world, root), "TextCard") == 0);
+
+        PulseFontChainRequest chain_request = pulse_font_load_chain(app, "chain_latin.fontchain");
+        while (!pulse_font_chain_is_ready(app, chain_request) && pulse_font_chain_is_alive(app, chain_request)) {
+            update_once(app);
+        }
+        assert(pulse_font_chain_is_ready(app, chain_request));
+        const PulseFontChainHandle chain = pulse_font_chain_get_handle(app, chain_request);
+        assert(chain.index != 0 && chain.generation != 0);
+
+        ecs_entity_t title = ecs_lookup_child(world, root, "Title");
+        assert(title != 0);
+        const PulseText* title_text = ecs_get(world, title, PulseText);
+        assert(title_text != nullptr);
+        assert(strcmp(title_text->text, "精") == 0);
+        assert(title_text->block.chain.index == chain.index && title_text->block.chain.generation == chain.generation);
+        assert(title_text->block.size == 55.0f);
+        assert(title_text->block.align_h == PULSE_TEXT_ALIGN_H_CENTER);
+        assert(title_text->block.align_v == PULSE_TEXT_ALIGN_V_MIDDLE);
+        assert(title_text->block.line_height == 0.0f);
+        assert(title_text->block.auto_size == true);
+        assert(title_text->block.color.r == 0.0f && title_text->block.color.a == 1.0f);
+        assert(title_text->box_width == 0.0f && title_text->box_height == 0.0f);
+        assert(title_text->scissor_x == 0.0f && title_text->scissor_width == 0.0f);
+        assert(title_text->sorting_order == 1000);
+
+        ecs_entity_t footer = ecs_lookup_child(world, root, "Footer");
+        assert(footer != 0);
+        const PulseText* footer_text = ecs_get(world, footer, PulseText);
+        assert(footer_text != nullptr);
+        assert(strcmp(footer_text->text, "footer text") == 0);
+        assert(footer_text->block.chain.index == chain.index && footer_text->block.chain.generation == chain.generation);
+        assert(footer_text->block.size == 25.0f);
+        assert(footer_text->block.align_h == PULSE_TEXT_ALIGN_H_LEFT);
+        assert(footer_text->block.align_v == PULSE_TEXT_ALIGN_V_TOP);
+        assert(footer_text->block.line_height == 1.25f);
+        assert(footer_text->block.auto_size == false);
+        assert(footer_text->block.color.r == 0.25f && footer_text->block.color.g == 0.5f && footer_text->block.color.b == 0.75f && footer_text->block.color.a == 0.5f);
+        assert(footer_text->box_width == 320.0f && footer_text->box_height == 40.0f);
+        assert(footer_text->scissor_x == 4.0f && footer_text->scissor_y == 5.0f);
+        assert(footer_text->scissor_width == 6.0f && footer_text->scissor_height == 7.0f);
+        assert(footer_text->sorting_order == 7);
+
+        {
+            char* json = ecs_entity_to_json(world, title, nullptr);
+            assert(json != nullptr);
+            assert(strstr(json, "\"text\":\"精\"") != nullptr);
+            assert(strstr(json, "\"chain\":\"chain_latin.fontchain\"") != nullptr);
+            ecs_os_free(json);
+        }
+
+        ecs_entity_t instance = pulse_prefab_instantiate(app, handle);
+        assert(instance != 0);
+        ecs_entity_t instance_title = ecs_lookup_child(world, instance, "Title");
+        assert(instance_title != 0);
+        const PulseText* instance_title_text = ecs_get(world, instance_title, PulseText);
+        assert(instance_title_text != nullptr);
+        assert(strcmp(instance_title_text->text, "精") == 0);
+        assert(instance_title_text->block.chain.index == chain.index && instance_title_text->block.chain.generation == chain.generation);
+        assert(instance_title_text->block.align_h == PULSE_TEXT_ALIGN_H_CENTER);
+        assert(ecs_lookup_child(world, instance, "Footer") != 0);
     }
 
     pulse_app_teardown(app);

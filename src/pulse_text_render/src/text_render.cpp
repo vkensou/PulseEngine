@@ -2,11 +2,56 @@
 
 #include "pulse_text_render_reflection.h"
 
+#include <cstddef>
+#include <cstring>
+
 ECS_COMPONENT_DECLARE(PulseText);
 
 namespace pulse_text_render_internal {
 
 constexpr const char* kPluginName = "pulse_text_render";
+
+namespace {
+
+int serialize_text_content(const ecs_serializer_t* ser, const void* src) {
+    char buffer[PULSE_TEXT_MAX_CHARS + 1];
+    memcpy(buffer, src, PULSE_TEXT_MAX_CHARS);
+    buffer[PULSE_TEXT_MAX_CHARS] = '\0';
+    const char* value = buffer;
+    return ser->value(ecs_id(ecs_string_t), &value);
+}
+
+void assign_text_content(void* dst, ecs_world_t*, const char* value) {
+    char* out = static_cast<char*>(dst);
+    size_t count = value ? strlen(value) : 0;
+    if (count > (size_t)PULSE_TEXT_MAX_CHARS - 1) count = (size_t)PULSE_TEXT_MAX_CHARS - 1;
+    while (count > 0 && (static_cast<unsigned char>(value[count]) & 0xC0u) == 0x80u) --count;
+    if (count > 0) memcpy(out, value, count);
+    out[count] = '\0';
+}
+
+void register_text_content_reflection(ecs_world_t* world) {
+    ecs_entity_desc_t type_desc = {};
+    type_desc.name = "PulseTextContent";
+    const ecs_entity_t content_type = ecs_entity_init(world, &type_desc);
+    EcsComponent component_info = {};
+    component_info.size = (ecs_size_t)PULSE_TEXT_MAX_CHARS;
+    component_info.alignment = 1;
+    ecs_set_id(world, content_type, ecs_id(EcsComponent), sizeof(EcsComponent), &component_info);
+    EcsOpaque opaque = {};
+    opaque.as_type = ecs_id(ecs_string_t);
+    opaque.serialize = serialize_text_content;
+    opaque.assign_string = assign_text_content;
+    ecs_set_id(world, content_type, ecs_id(EcsOpaque), sizeof(EcsOpaque), &opaque);
+    ecs_member_t member_desc = {};
+    member_desc.name = "text";
+    member_desc.type = content_type;
+    member_desc.offset = (int32_t)offsetof(PulseText, text);
+    member_desc.use_offset = true;
+    ecs_struct_add_member(world, ecs_id(PulseText), &member_desc);
+}
+
+}
 
 EPulsePluginBuildResult text_render_plugin_build(PulseAppId app, void* ctx) {
     ecs_world_t* world = pulse_app_world(app);
@@ -16,6 +61,7 @@ EPulsePluginBuildResult text_render_plugin_build(PulseAppId app, void* ctx) {
     state->app = app;
 
     pulse_text_render_register_reflection(world);
+    register_text_content_reflection(world);
     install_text_feature(app, world);
 
     return PULSE_PLUGIN_BUILD_RESULT_OK;

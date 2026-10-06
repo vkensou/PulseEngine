@@ -52,7 +52,7 @@ extern "C" {
 
 
 /**
- * 文字渲染组件；block 为 pulse_text 排版块 id，text 为内联 utf8
+ * 文字渲染组件；block 为 pulse_text 排版块 id，text 为内联 utf8（meta/预制数据里按 utf8 字符串读写）
  * scissor 为相对文字自身位置的裁剪矩形，与字形实例同处局部像素坐标（y 向下），
  * width/height 均大于 0 时生效，渲染后自动重置为全屏
  *

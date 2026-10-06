@@ -16,7 +16,6 @@ inline void pulse_text_render_register_reflection(ecs_world_t* world) {
         flecs::component<PulseText> comp(world, "PulseText");
         ecs_id(PulseText) = comp.id();
         comp.member("block", &PulseText::block);
-        comp.member("text", &PulseText::text);
         comp.member("box_width", &PulseText::box_width);
         comp.member("box_height", &PulseText::box_height);
         comp.member("scissor_x", &PulseText::scissor_x);
