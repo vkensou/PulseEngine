@@ -49,6 +49,11 @@ static void upload_record_callback(PulseAppId app, PulseRenderGraphId graph, voi
 
                 if (entry.generate_mipmap)
                     pulse_render_graph_add_generate_mipmap(graph, tex_rh, entry.source_mip_levels);
+
+                if (entry.sampleable) {
+                    auto finalize = pulse_render_graph_add_holdpass(graph, "tex sampleable");
+                    pulse_render_pass_builder_sample(&finalize, tex_rh);
+                }
             }
 
             done = true;
@@ -112,6 +117,7 @@ uint8_t* queue_staging_texture_full(
     PulseTextureData* texture,
     uint8_t source_mip_levels,
     bool generate_mipmap,
+    bool sampleable,
     uint64_t* out_size,
     bool* completed)
 {
@@ -126,7 +132,8 @@ uint8_t* queue_staging_texture_full(
         ptr, totalSize,
         completed,
         source_mip_levels,
-        generate_mipmap
+        generate_mipmap,
+        sampleable
     });
 
     if (out_size) *out_size = totalSize;

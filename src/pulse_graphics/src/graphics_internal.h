@@ -62,6 +62,7 @@ struct UploadEntry {
     bool* completed = nullptr;
     uint8_t source_mip_levels = 1;
     bool generate_mipmap = false;
+    bool sampleable = false;
 };
 
 struct pulse_graphics_state {
@@ -289,6 +290,7 @@ uint8_t* queue_staging_texture_full(
     PulseTextureData* texture,
     uint8_t source_mip_levels,
     bool generate_mipmap,
+    bool sampleable,
     uint64_t* out_size,
     bool* completed);
 

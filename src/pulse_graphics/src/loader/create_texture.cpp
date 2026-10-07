@@ -77,7 +77,7 @@ EPulseAssetLoaderStatus step_texture_create(
 			}
 
 			PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
-			auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, create_desc->generate_mipmaps, nullptr, &s->upload_completed);
+			auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, create_desc->generate_mipmaps, true, nullptr, &s->upload_completed);
 			memcpy(staging, create_desc->p_pixel_data, create_desc->pixel_data_size);
 
 			s->upload_requested = true;

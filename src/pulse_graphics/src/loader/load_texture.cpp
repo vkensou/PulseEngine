@@ -55,7 +55,7 @@ EPulseAssetLoaderStatus step_texture_stb(
         auto* gstate = state_from_app(ctx->app);
         if (gstate) {
             PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
-            auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, (mipLevels > 1), nullptr, &s->upload_completed);
+            auto* staging = queue_staging_texture_full(gstate, handle, texture, 1, (mipLevels > 1), true, nullptr, &s->upload_completed);
             memcpy(staging, pixels, w * h * 4);
         } else {
             stbi_image_free(pixels);
@@ -469,7 +469,7 @@ EPulseAssetLoaderStatus step_texture_ktx(
     uint64_t totalSize = 0;
     PulseTextureHandle handle = { ctx->request.index, ctx->request.generation };
     auto* staging = queue_staging_texture_full(gstate, handle, texture,
-        static_cast<uint8_t>(sourceLevels), generate_mipmaps, &totalSize, &s->upload_completed);
+        static_cast<uint8_t>(sourceLevels), generate_mipmaps, true, &totalSize, &s->upload_completed);
 
     const uint8_t* ktxData = static_cast<const uint8_t*>(ktxTexture_GetData(ktx));
     uint64_t written = 0;
