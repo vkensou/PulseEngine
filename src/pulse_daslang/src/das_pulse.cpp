@@ -155,6 +155,41 @@ static ecs_entity_t das_prefab_instantiate(const PulseAppHandle& app, const Puls
 	return pulse_prefab_instantiate(app.app, prefab);
 }
 
+static PulseAssetRequest das_prefab_script_request_to_asset_request(const PulsePrefabScriptRequest& script)
+{
+	return pulse_prefab_script_request_to_asset_request(script);
+}
+
+static PulsePrefabScriptRequest das_load_prefab_script(const PulseAppHandle& app, const char* filepath)
+{
+	return pulse_load_prefab_script(app.app, filepath);
+}
+
+static bool das_prefab_script_is_ready(const PulseAppHandle& app, const PulsePrefabScriptRequest& request)
+{
+	return pulse_prefab_script_is_ready(app.app, request);
+}
+
+static PulsePrefabScriptHandle das_prefab_script_get_handle(const PulseAppHandle& app, const PulsePrefabScriptRequest& request)
+{
+	return pulse_prefab_script_get_handle(app.app, request);
+}
+
+static ecs_entity_t das_prefab_script_get_entity(const PulseAppHandle& app, const PulsePrefabScriptHandle& script, const char* name)
+{
+	return pulse_prefab_script_get_entity(app.app, script, name);
+}
+
+static ecs_entity_t das_prefab_script_instantiate(const PulseAppHandle& app, ecs_entity_t prefab, ecs_entity_t entity, const das::TArray<char*>& names, const das::TArray<char*>& values)
+{
+	return pulse_prefab_script_instantiate(app.app, prefab, entity, reinterpret_cast<const char**>(names.data), names.size, reinterpret_cast<const char**>(values.data), values.size);
+}
+
+static const char* das_prefab_last_error(void)
+{
+	return pulse_prefab_last_error();
+}
+
 static void das_material_set_property_float4(const PulseAppHandle& app, const PulseMaterialHandle& material, const char* name, const HMM_Vec4& value)
 {
 	pulse_material_set_property_float4(app.app, material, name, value);
@@ -498,6 +533,28 @@ struct PulsePrefabHandleAnnotation final : das::ManagedStructureAnnotation<Pulse
 	}
 };
 
+MAKE_TYPE_FACTORY(PulsePrefabScriptRequest, PulsePrefabScriptRequest);
+struct PulsePrefabScriptRequestAnnotation final : das::ManagedStructureAnnotation<PulsePrefabScriptRequest>
+{
+	PulsePrefabScriptRequestAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulsePrefabScriptRequest", ml, "PulsePrefabScriptRequest")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
+MAKE_TYPE_FACTORY(PulsePrefabScriptHandle, PulsePrefabScriptHandle);
+struct PulsePrefabScriptHandleAnnotation final : das::ManagedStructureAnnotation<PulsePrefabScriptHandle>
+{
+	PulsePrefabScriptHandleAnnotation(das::ModuleLibrary& ml)
+		: ManagedStructureAnnotation("PulsePrefabScriptHandle", ml, "PulsePrefabScriptHandle")
+	{
+		addField<DAS_BIND_MANAGED_FIELD(index)>("index");
+		addField<DAS_BIND_MANAGED_FIELD(generation)>("generation");
+	}
+};
+
 MAKE_TYPE_FACTORY(PulseDataTableRequest, PulseDataTableRequest);
 struct PulseDataTableRequestAnnotation final : das::ManagedStructureAnnotation<PulseDataTableRequest>
 {
@@ -788,6 +845,8 @@ DAS_PULSE_VALUE_CAST(PulseMeshHandle);
 DAS_PULSE_VALUE_CAST(PulseMaterialHandle);
 DAS_PULSE_VALUE_CAST(PulsePrefabRequest);
 DAS_PULSE_VALUE_CAST(PulsePrefabHandle);
+DAS_PULSE_VALUE_CAST(PulsePrefabScriptRequest);
+DAS_PULSE_VALUE_CAST(PulsePrefabScriptHandle);
 DAS_PULSE_VALUE_CAST(PulseAssetRequest);
 DAS_PULSE_VALUE_CAST(PulseDataTableRequest);
 DAS_PULSE_VALUE_CAST(PulseFontRequest);
@@ -832,6 +891,8 @@ namespace das
 		addAnnotation(new PulseMaterialHandleAnnotation(lib));
 		addAnnotation(new PulsePrefabRequestAnnotation(lib));
 		addAnnotation(new PulsePrefabHandleAnnotation(lib));
+		addAnnotation(new PulsePrefabScriptRequestAnnotation(lib));
+		addAnnotation(new PulsePrefabScriptHandleAnnotation(lib));
 		addAnnotation(new PulseDataTableRequestAnnotation(lib));
 		addAnnotation(new PulseAssetRequestAnnotation(lib));
 		addAnnotation(new PulseMaterialCreateDescAnnotation(lib));
@@ -882,6 +943,13 @@ namespace das
 		addExtern<DAS_BIND_FUN(das_prefab_is_ready)>(*this, lib, "pulse_prefab_is_ready", SideEffects::modifyExternal, "pulse_prefab_is_ready")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_prefab_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_prefab_get_handle", SideEffects::modifyExternal, "pulse_prefab_get_handle")->args({ "app", "request" });
 		addExtern<DAS_BIND_FUN(das_prefab_instantiate)>(*this, lib, "pulse_prefab_instantiate", SideEffects::worstDefault, "pulse_prefab_instantiate")->args({ "app", "prefab" });
+		addExtern<DAS_BIND_FUN(das_prefab_script_request_to_asset_request), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_prefab_script_request_to_asset_request", SideEffects::none, "pulse_prefab_script_request_to_asset_request")->args({ "request" });
+		addExtern<DAS_BIND_FUN(das_load_prefab_script), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_load_prefab_script", SideEffects::worstDefault, "pulse_load_prefab_script")->args({ "app", "path" });
+		addExtern<DAS_BIND_FUN(das_prefab_script_is_ready)>(*this, lib, "pulse_prefab_script_is_ready", SideEffects::modifyExternal, "pulse_prefab_script_is_ready")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_prefab_script_get_handle), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_prefab_script_get_handle", SideEffects::modifyExternal, "pulse_prefab_script_get_handle")->args({ "app", "request" });
+		addExtern<DAS_BIND_FUN(das_prefab_script_get_entity)>(*this, lib, "pulse_prefab_script_get_entity", SideEffects::modifyExternal, "pulse_prefab_script_get_entity")->args({ "app", "script", "name" });
+		addExtern<DAS_BIND_FUN(das_prefab_script_instantiate)>(*this, lib, "pulse_prefab_script_instantiate", SideEffects::worstDefault, "pulse_prefab_script_instantiate")->args({ "app", "prefab", "entity", "names", "values" });
+		addExtern<DAS_BIND_FUN(das_prefab_last_error)>(*this, lib, "pulse_prefab_last_error", SideEffects::modifyExternal, "pulse_prefab_last_error");
 
 		addExtern<DAS_BIND_FUN(das_data_table_register_schema)>(*this, lib, "pulse_data_table_register_schema", SideEffects::modifyExternal, "pulse_data_table_register_schema")->args({ "app", "desc", "context", "at" });
 		addExtern<DAS_BIND_FUN(das_data_table_load), SimNode_ExtFuncCallAndCopyOrMove>(*this, lib, "pulse_data_table_load", SideEffects::worstDefault, "pulse_data_table_load")->args({ "app", "schema", "path" });

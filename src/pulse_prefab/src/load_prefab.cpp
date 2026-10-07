@@ -41,19 +41,6 @@ struct prefab_apply_ctx {
     prefab_reference_set* references = nullptr;
 };
 
-PulseAssetRequest request_file_load(PulseAssetSystemId asset_system, uint64_t type_id, const char* path) {
-    PulseAssetLoadDesc desc{};
-    desc.struct_size = sizeof(PulseAssetLoadDesc);
-    desc.version = PULSE_ASSET_LOAD_DESC_VERSION;
-    desc.type_id = type_id;
-    desc.path = path;
-    return pulse_asset_system_load(asset_system, &desc);
-}
-
-bool asset_state_is_pending(EPulseAssetState state) {
-    return state == PULSE_ASSET_STATE_WAITING_LOAD || state == PULSE_ASSET_STATE_LOADING || state == PULSE_ASSET_STATE_WAITING_DEPENDENCIES || state == PULSE_ASSET_STATE_PROCESSING;
-}
-
 bool node_is_container(const PulseDatalist* node) {
     EPulseDatalistType type = pulse_datalist_get_type(node, nullptr);
     return type == PULSE_DATALIST_TYPE_LIST || type == PULSE_DATALIST_TYPE_MAP || type == PULSE_DATALIST_TYPE_MIXED;

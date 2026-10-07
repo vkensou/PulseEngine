@@ -17,16 +17,24 @@ typedef "ecs_entity_t" { cname = "ecs_entity_t" }
 --- From pulse_asset.h (PULSE_DEFINE_ASSET_TYPE)
 typedef "PulsePrefabHandle"
 typedef "PulsePrefabRequest"
+typedef "PulsePrefabScriptHandle"
+typedef "PulsePrefabScriptRequest"
 
 const_value.PrefabPluginDescVersion { value = "1u" }
 
 --- Asset type id range 0x2000+ belongs to pulse_prefab (graphics uses 0x1000+)
 const_value.TypePrefab { value = "UINT64_C(0x2000)" }
+const_value.TypePrefabScript { value = "UINT64_C(0x2001)" }
 
 struct.PrefabData
     .root "ecs_entity_t"
     .entities "?*ecs_entity_t" { owner = true }
     .entityCount "uint32_t"
+    ()
+
+--- Entities created by evaluating a .flecs script, owned by the asset and deleted on unload
+struct.PrefabScriptData
+    .script "ecs_entity_t"
     ()
 
 func.AddPrefabPlugin
@@ -50,4 +58,31 @@ func.PrefabInstantiate
     "ecs_entity_t"
     .app    "PulseAppId"
     .prefab "PulsePrefabHandle"
+    ()
+
+func.LoadPrefabScript
+    "PulsePrefabScriptRequest"
+    .app      "PulseAppId"
+    .filepath "cstring"
+    ()
+
+func.PrefabScriptGetEntity
+    "ecs_entity_t"
+    .app    "PulseAppId"
+    .script "PulsePrefabScriptHandle"
+    .name   "cstring"
+    ()
+
+--- Instantiates a flecs script template or prefab. Templates get the given props assigned (values parsed per member type: number, bool, enum constant name, asset path; asset paths must be loaded already, the call requests the load and fails otherwise), prefabs are instantiated with IsA and take no props. entity 0 creates a new entity, otherwise the props are set on the existing entity and the template rebuilds. Returns 0 on failure, see pulse_prefab_last_error
+func.PrefabScriptInstantiate
+    "ecs_entity_t"
+    .app     "PulseAppId"
+    .prefab  "ecs_entity_t"
+    .entity  "ecs_entity_t"
+    .names   "[]const cstring"
+    .values  "[]const cstring"
+    ()
+
+func.PrefabLastError
+    "cstring"
     ()

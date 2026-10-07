@@ -329,6 +329,9 @@ char* ecs_script_ast_to_str(
     ecs_script_t *script,
     bool colors);
 
+typedef void (*prefab_script_reference_fn)(void* ctx, uint64_t type_id, const char* path);
+
+FLECS_API void prefab_script_collect_references(ecs_world_t *world, const ecs_script_t *script, prefab_script_reference_fn on_reference, void *ctx);
 
 /* Managed scripts (script associated with entity that outlives the function) */
 

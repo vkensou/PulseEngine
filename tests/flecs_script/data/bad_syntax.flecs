@@ -1,0 +1,5 @@
+template Broken {
+    Frame {
+        PulseRenderable: {mesh: "Quad.obj"
+    }
+}

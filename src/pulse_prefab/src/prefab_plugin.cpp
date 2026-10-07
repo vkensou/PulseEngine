@@ -13,6 +13,8 @@ EPulsePluginBuildResult prefab_plugin_build(PulseAppId app, void* ctx) {
 
     register_prefab_type(asset_system, app);
     register_prefab_load_loader(asset_system);
+    register_prefab_script_type(asset_system, app);
+    register_prefab_script_loader(asset_system);
     return PULSE_PLUGIN_BUILD_RESULT_OK;
 }
 
@@ -24,6 +26,7 @@ EPulsePluginBuildResult prefab_plugin_post_build(PulseAppId app, void* ctx) {
 
 void prefab_plugin_shutdown(PulseAppId app, void* ctx) {
     (void)ctx;
+    pulse_asset_system_force_unload_assets(pulse_get_asset_system(app), PULSE_TYPE_PREFAB_SCRIPT);
     pulse_asset_system_force_unload_assets(pulse_get_asset_system(app), PULSE_TYPE_PREFAB);
 }
 

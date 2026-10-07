@@ -46,6 +46,7 @@ $ccomponents
 // ---- asset type definitions ----
 
 PULSE_DEFINE_ASSET_TYPE(prefab, PULSE_TYPE_PREFAB, PulsePrefabHandle, PulsePrefabRequest)
+PULSE_DEFINE_ASSET_TYPE(prefab_script, PULSE_TYPE_PREFAB_SCRIPT, PulsePrefabScriptHandle, PulsePrefabScriptRequest)
 
 $c99decl
 

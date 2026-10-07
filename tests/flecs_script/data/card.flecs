@@ -1,0 +1,30 @@
+template Card {
+    prop title: "精"
+    prop footer: ""
+    prop title_align = EPulseTextAlignH: PULSE_TEXT_ALIGN_H_LEFT
+    prop frame_width = f32: 318
+    prop face = PulseMaterialHandle: ""
+    Frame {
+        PulseLocalTransform: {translation: {X: 0, Y: 0, Z: 0}, rotation: {X: 0, Y: 0, Z: 0, W: 1}, scale: {X: $frame_width, Y: 320, Z: 1}}
+        PulseRenderable: {mesh: "Quad.obj", material: "quad.material", sorting_order: 1}
+    }
+    Face {
+        PulseLocalTransform: {translation: {X: 0.5, Y: -0.5, Z: 0}, rotation: {X: 0, Y: 0, Z: 0, W: 1}, scale: {X: 277, Y: 277, Z: 1}}
+        PulseRenderable: {mesh: "Quad.obj", material: $face, sorting_order: 2}
+    }
+    Title {
+        PulseLocalTransform: {translation: {X: 1, Y: 96, Z: 0}, rotation: {X: 0, Y: 0, Z: 0, W: 1}, scale: {X: 1, Y: 1, Z: 1}}
+        PulseText: {block: {chain: "chain_latin.fontchain", size: 55, color: {r: 0, g: 0, b: 0, a: 1}, align_h: $title_align, align_v: PULSE_TEXT_ALIGN_V_MIDDLE, line_height: 0, auto_size: true}, text: $title, sorting_order: 1000}
+    }
+    if $footer != "" {
+        Footer {
+            PulseLocalTransform: {translation: {X: -0.5, Y: -113.5, Z: 0}, rotation: {X: 0, Y: 0, Z: 0, W: 1}, scale: {X: 1, Y: 1, Z: 1}}
+            PulseText: {block: {chain: "chain_latin.fontchain", size: 25, color: {r: 0.25, g: 0.5, b: 0.75, a: 0.5}, align_h: PULSE_TEXT_ALIGN_H_CENTER, align_v: PULSE_TEXT_ALIGN_V_TOP, line_height: 1.25, auto_size: false}, text: $footer, sorting_order: 7}
+        }
+    }
+}
+
+prefab Marker {
+    PulseLocalTransform: {translation: {X: 5, Y: 6, Z: 7}, rotation: {X: 0, Y: 0, Z: 0, W: 1}, scale: {X: 1, Y: 1, Z: 1}}
+    PulseRenderable: {mesh: "Quad.obj", material: "quad.material", sorting_order: 3}
+}

@@ -1,0 +1,5 @@
+template Broken {
+    Body {
+        NoSuchComponent: {value: 1}
+    }
+}
