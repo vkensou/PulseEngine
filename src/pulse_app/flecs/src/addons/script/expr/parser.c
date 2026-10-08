@@ -225,6 +225,7 @@ const char* flecs_script_parse_initializer(
                     if ((char)lookahead_token.kind != until) {
                         Error("expected '%c'", until);
                     }
+                    if (until == '\n') { while (pos[0] != '\n') { pos ++; } }
                     EndOfRule;
                 }
 
