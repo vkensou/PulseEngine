@@ -1,0 +1,7 @@
+shader : "color.shader"
+properties : [ 
+    {
+        name : "albedoSampler"
+        type : "sampler"
+        value : "linear_repeat.sampler"
+    } ]

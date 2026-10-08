@@ -328,6 +328,7 @@ void register_shader_library_create_loader(PulseAssetSystemId asset_system, CGPU
 
 void register_sampler_type(PulseAssetSystemId asset_system, CGPUDeviceId device);
 void register_sampler_create_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
+void register_sampler_load_loader(PulseAssetSystemId asset_system, CGPUDeviceId device);
 
 void register_asset_reflection(ecs_world_t* world);
 

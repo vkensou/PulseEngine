@@ -523,6 +523,7 @@ get_handle/is_ready/is_alive/get_error 不用手写——`PULSE_DEFINE_ASSET_TYP
 | 多 loader 按扩展名分派 | `src/pulse_graphics/src/loader/load_texture.cpp`（stb + ktx 两个 loader） |
 | 异步多帧加载（PENDING） | `load_texture.cpp` 的 `step_texture_stb` / `step_texture_ktx` |
 | settings 字节拷贝 | `load_texture.cpp`（`PulseTextureLoadDesc`） |
+| 无 settings 的同步 datalist 文件 loader | `src/pulse_graphics/src/loader/load_sampler.cpp` |
 | settings 深拷贝（size_fn + copy_fn） | `src/pulse_graphics/src/loader/create_texture.cpp` |
 | builder loader / build_sync | `create_texture.cpp`、`create_sampler.cpp`、`create_buffer.cpp` |
 | 动态依赖（WAIT_DEPENDENCIES + add_dependency） | `src/pulse_graphics/src/loader/load_material.cpp` |

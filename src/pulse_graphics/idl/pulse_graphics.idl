@@ -415,6 +415,12 @@ func.CreateSampler
     .desc "*const SamplerCreateDesc"
     ()
 
+func.LoadSampler
+    "PulseSamplerRequest"
+    .app      "PulseAppId"
+    .filepath "cstring"
+    ()
+
 --- Texture
 func.CreateTexture
     "PulseTextureRequest"

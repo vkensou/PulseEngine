@@ -68,17 +68,22 @@ static void update_once(PulseAppId app) {
     assert(pulse_app_update(app) == PULSE_APP_UPDATE_RESULT_OK);
 }
 
-static bool wait_prefab_ready(PulseAppId app, PulsePrefabRequest request) {
+template <typename Request, typename ReadyFn, typename AliveFn>
+static bool wait_asset_ready(PulseAppId app, Request request, ReadyFn ready, AliveFn alive) {
     for (int frame = 0; frame < 600; ++frame) {
-        if (pulse_prefab_is_ready(app, request)) {
+        if (ready(app, request)) {
             return true;
         }
-        if (!pulse_prefab_is_alive(app, request)) {
+        if (!alive(app, request)) {
             return false;
         }
         update_once(app);
     }
     return false;
+}
+
+static bool wait_prefab_ready(PulseAppId app, PulsePrefabRequest request) {
+    return wait_asset_ready(app, request, pulse_prefab_is_ready, pulse_prefab_is_alive);
 }
 
 template <typename T>
@@ -221,6 +226,15 @@ int main(void) {
     PulseMaterialHandle material_handle = pulse_material_get_handle(app, material_request);
     assert(quad_renderable->mesh.index == mesh_handle.index && quad_renderable->mesh.generation == mesh_handle.generation);
     assert(quad_renderable->material.index == material_handle.index && quad_renderable->material.generation == material_handle.generation);
+
+    PulseSamplerRequest sampler_request = pulse_load_sampler(app, "linear_repeat.sampler");
+    assert(pulse_asset_request_is_valid(pulse_sampler_request_to_asset_request(sampler_request)));
+    assert(wait_asset_ready(app, sampler_request, pulse_sampler_is_ready, pulse_sampler_is_alive));
+    assert(pulse_sampler_get_handle(app, sampler_request).index != 0);
+
+    PulseMaterialRequest sampler_material_request = pulse_load_material(app, "sampler.material");
+    assert(pulse_asset_request_is_valid(pulse_material_request_to_asset_request(sampler_material_request)));
+    assert(wait_asset_ready(app, sampler_material_request, pulse_material_is_ready, pulse_material_is_alive));
 
     {
         char* json = ecs_entity_to_json(world, quad_root, nullptr);

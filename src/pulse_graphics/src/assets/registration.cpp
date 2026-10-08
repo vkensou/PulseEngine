@@ -29,6 +29,7 @@ void register_graphics_asset_types_and_loaders(PulseAssetSystemId asset_system, 
     register_mesh_create_loader(asset_system, device);
     register_mesh_load_loader(asset_system, device);
     register_sampler_create_loader(asset_system, device);
+    register_sampler_load_loader(asset_system, device);
 }
 
 } // namespace pulse_graphics_internal

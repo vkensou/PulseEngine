@@ -1,6 +1,6 @@
 # datalist 格式
 
-datalist 来源于 [datalist](https://github.com/cloudwu/datalist)。是 PulseEngine 的文本数据结构格式,实现在 `src/pulse_datalist`。本质上是简化版的yaml。`.prefab`、`.material`、`.shader` 等资产都基于它。
+datalist 来源于 [datalist](https://github.com/cloudwu/datalist)。是 PulseEngine 的文本数据结构格式,实现在 `src/pulse_datalist`。本质上是简化版的yaml。`.prefab`、`.material`、`.shader`、`.sampler` 等资产都基于它。
 
 ---
 

@@ -493,6 +493,7 @@ PULSE_GRAPHICS_API PulseGraphicsBufferRequest pulse_create_graphics_buffer(Pulse
  *
  */
 PULSE_GRAPHICS_API PulseSamplerHandle pulse_create_sampler(PulseAppId app, const PulseSamplerCreateDesc* desc);
+PULSE_GRAPHICS_API PulseSamplerRequest pulse_load_sampler(PulseAppId app, const char* filepath);
 
 /**
  * Texture

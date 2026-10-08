@@ -14,6 +14,7 @@ struct MaterialPropEntry {
     EPulseShaderPropertyType type;
     const char* texture_path;
     bool texture_mipmaps;
+    const char* sampler_path;
 };
 
 static size_t material_prop_component_count(EPulseShaderPropertyType type) {
@@ -52,8 +53,14 @@ static bool parse_material_properties(PulseDatalist* dl, std::vector<MaterialPro
                 return false;
             }
             entry.texture_mipmaps = pulse_datalist_get_bool(p, "mipmaps", false);
+        } else if (entry.type == PULSE_SHADER_PROPERTY_TYPE_SAMPLER) {
+            entry.sampler_path = pulse_datalist_get_string(p, "value", nullptr);
+            if (!entry.sampler_path) {
+                *out_error = "material file loader: sampler property needs a 'value' path";
+                return false;
+            }
         } else {
-            *out_error = "material file loader: unsupported property type (float4, mat4, texture only)";
+            *out_error = "material file loader: unsupported property type (float4, mat4, texture, sampler only)";
             return false;
         }
         props.push_back(entry);
@@ -95,17 +102,26 @@ static EPulseAssetLoaderStatus step_material_from_file(
         }
 
         for (const MaterialPropEntry& entry : props) {
-            if (entry.type != PULSE_SHADER_PROPERTY_TYPE_TEXTURE)
-                continue;
-            PulseTextureLoadDesc tex_desc = { entry.texture_path, entry.texture_mipmaps };
-            PulseTextureRequest tex_req = pulse_load_texture(ctx->app, &tex_desc);
-            auto tex_asset_request = pulse_texture_request_to_asset_request(tex_req);
-            if (!pulse_asset_request_is_valid(tex_asset_request)) {
-                pulse_datalist_release(dl);
-                *out_error = "material file loader: failed to request texture";
-                return PULSE_ASSET_LOADER_STATUS_FAILED;
+            if (entry.type == PULSE_SHADER_PROPERTY_TYPE_TEXTURE) {
+                PulseTextureLoadDesc tex_desc = { entry.texture_path, entry.texture_mipmaps };
+                PulseTextureRequest tex_req = pulse_load_texture(ctx->app, &tex_desc);
+                auto tex_asset_request = pulse_texture_request_to_asset_request(tex_req);
+                if (!pulse_asset_request_is_valid(tex_asset_request)) {
+                    pulse_datalist_release(dl);
+                    *out_error = "material file loader: failed to request texture";
+                    return PULSE_ASSET_LOADER_STATUS_FAILED;
+                }
+                pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_asset_system_to_asset_dep_ref_from_request(ctx->asset_system, tex_asset_request), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
+            } else if (entry.type == PULSE_SHADER_PROPERTY_TYPE_SAMPLER) {
+                PulseSamplerRequest smp_req = pulse_load_sampler(ctx->app, entry.sampler_path);
+                auto smp_asset_request = pulse_sampler_request_to_asset_request(smp_req);
+                if (!pulse_asset_request_is_valid(smp_asset_request)) {
+                    pulse_datalist_release(dl);
+                    *out_error = "material file loader: failed to request sampler";
+                    return PULSE_ASSET_LOADER_STATUS_FAILED;
+                }
+                pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_asset_system_to_asset_dep_ref_from_request(ctx->asset_system, smp_asset_request), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
             }
-            pulse_asset_load_task_add_dependency(ctx->dependency_hint, pulse_asset_system_to_asset_dep_ref_from_request(ctx->asset_system, tex_asset_request), PULSE_LOAD_DEPENDENCY_REQUIREMENT_REQUIRED);
         }
 
         pulse_datalist_release(dl);
@@ -171,6 +187,16 @@ static EPulseAssetLoaderStatus step_material_from_file(
                 return PULSE_ASSET_LOADER_STATUS_FAILED;
             }
             pulse_material_set_texture(mat, entry.name, tex_data);
+        } else if (entry.type == PULSE_SHADER_PROPERTY_TYPE_SAMPLER) {
+            PulseSamplerRequest smp_req = pulse_load_sampler(ctx->app, entry.sampler_path);
+            PulseSamplerHandle smp_handle = pulse_sampler_get_handle(ctx->app, smp_req);
+            PulseSamplerData* smp_data = internal_borrow_sampler(ctx->asset_system, smp_handle);
+            if (!smp_data) {
+                pulse_datalist_release(dl);
+                *out_error = "material file loader: sampler not available";
+                return PULSE_ASSET_LOADER_STATUS_FAILED;
+            }
+            pulse_material_set_sampler(mat, entry.name, smp_data);
         }
     }
 
